@@ -1,0 +1,24 @@
+services:
+  gitlab:
+    image: gitlab/gitlab-ce:latest
+    container_name: review-system-gitlab
+    hostname: gitlab.local
+    restart: unless-stopped
+    shm_size: "256m"
+    environment:
+      GITLAB_ROOT_EMAIL: ${LOCAL_GITLAB_ROOT_EMAIL:-root@example.com}
+      GITLAB_ROOT_PASSWORD: ${LOCAL_GITLAB_ROOT_PASSWORD:-review-system-root}
+      GITLAB_OMNIBUS_CONFIG: |
+        external_url '${LOCAL_GITLAB_EXTERNAL_URL:-http://127.0.0.1:18929}'
+        gitlab_rails['gitlab_shell_ssh_port'] = ${LOCAL_GITLAB_SSH_PORT:-12224}
+        nginx['listen_port'] = 80
+        puma['worker_processes'] = 0
+        sidekiq['max_concurrency'] = 5
+    ports:
+      - "${LOCAL_GITLAB_HTTP_PORT:-18929}:80"
+      - "${LOCAL_GITLAB_HTTPS_PORT:-19443}:443"
+      - "${LOCAL_GITLAB_SSH_PORT:-12224}:22"
+    volumes:
+      - ./gitlab/config:/etc/gitlab
+      - ./gitlab/logs:/var/log/gitlab
+      - ./gitlab/data:/var/opt/gitlab
