@@ -1,0 +1,11 @@
+diff --git a/portable.cpp b/portable.cpp
+index 3333333..4444444 100644
+--- a/portable.cpp
++++ b/portable.cpp
+@@ -1,4 +1,5 @@
+-#include <idl.h>
++#include <stdio.h>
+ void log_value()
+ {
++    printf("%d\n", 7);
+ }

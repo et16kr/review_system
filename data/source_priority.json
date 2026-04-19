@@ -1,0 +1,10 @@
+{
+  "authority_scores": {
+    "altibase": 1.0,
+    "cpp_core": 0.68
+  },
+  "default_conflict_policy": {
+    "altibase": "authoritative",
+    "cpp_core": "compatible"
+  }
+}

@@ -1,0 +1,10 @@
+.venv/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+*.pyc
+.codex
+review_system.egg-info/
+data/*.html
+!data/cpp_core_guidelines.html
+data/chroma/

@@ -1,0 +1,16 @@
+diff --git a/src/rp/rps/rpsSmExecutor.cpp b/src/rp/rps/rpsSmExecutor.cpp
+index 9999999..aaaaaaa 100644
+--- a/src/rp/rps/rpsSmExecutor.cpp
++++ b/src/rp/rps/rpsSmExecutor.cpp
+@@ -150,4 +150,16 @@ IDE_RC rpsSmExecutor::initialize()
++    IDE_TEST_RAISE(iduMemMgr::malloc(IDU_MEM_RP_RPS,
++                                     sMaxRowSize,
++                                     (void **)&mRealRow,
++                                     IDU_MEM_IMMEDIATE)
++                   != IDE_SUCCESS, ERR_MEMORY_ALLOC_REAL_ROW);
++
++    if(mRealRow != NULL)
++    {
++        (void)iduMemMgr::free(mRealRow);
++        mRealRow = NULL;
++    }

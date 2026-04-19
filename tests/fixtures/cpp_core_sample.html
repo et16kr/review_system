@@ -1,0 +1,15 @@
+<html>
+  <body>
+    <h1>R: Resource management</h1>
+    <h3>R.10: Avoid malloc() and free()</h3>
+    <h5>Reason</h5>
+    <p>malloc() and free() do not support construction and destruction.</p>
+    <h5>Enforcement</h5>
+    <p>Flag explicit use of malloc and free.</p>
+    <h3>R.11: Avoid calling new and delete explicitly</h3>
+    <p>Prefer RAII and smart pointers over naked new/delete.</p>
+    <h1>CP: Concurrency</h1>
+    <h3>CP.20: Use RAII, never plain lock()/unlock()</h3>
+    <p>Use lock guards instead of manual locking.</p>
+  </body>
+</html>
