@@ -13,10 +13,19 @@ class ChromaGuidelineStore:
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
         self.embedder = HashingEmbedder()
+        self.client = self._build_client()
+
+    def _build_client(self) -> Any:
+        settings = self.settings
         if settings.chroma_host:
-            self.client = chromadb.HttpClient(host=settings.chroma_host, port=settings.chroma_port)
-        else:
-            self.client = chromadb.PersistentClient(path=str(settings.chroma_path))
+            try:
+                return chromadb.HttpClient(
+                    host=settings.chroma_host,
+                    port=settings.chroma_port,
+                )
+            except Exception:
+                pass
+        return chromadb.PersistentClient(path=str(settings.chroma_path))
 
     def rebuild(
         self,

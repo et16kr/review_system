@@ -12,3 +12,4 @@ data/*.html
 data/chroma/
 review-engine/data/chroma/
 review-platform/storage/
+ops/.env
