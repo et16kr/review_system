@@ -69,6 +69,8 @@ def local_root_password() -> str:
 
 
 def ensure_root_user() -> None:
+    root_email = json.dumps(local_root_email())
+    root_password = json.dumps(local_root_password())
     ruby = rf"""
 org = Organizations::Organization.first
 raise 'default organization not found' unless org
@@ -76,10 +78,10 @@ user = User.find_by_username('root')
 if user.nil?
   params = {{
     username: 'root',
-    email: '{local_root_email()}',
+    email: {root_email},
     name: 'Administrator',
-    password: '{local_root_password()}',
-    password_confirmation: '{local_root_password()}',
+    password: {root_password},
+    password_confirmation: {root_password},
     organization_id: org.id,
     admin: true,
     skip_confirmation: true
@@ -88,7 +90,14 @@ if user.nil?
   raise result.message unless result.success?
   user = result.payload[:user]
 end
-puts [user.id, user.username, user.namespace_id].join(':')
+user.email = {root_email}
+user.name = 'Administrator'
+user.password = {root_password}
+user.password_confirmation = {root_password}
+user.admin = true
+user.confirm if user.respond_to?(:confirm) && !user.confirmed?
+user.save!
+puts [user.id, user.username, user.namespace_id, user.admin, user.confirmed?].join(':')
 """
     run_in_gitlab_container(ruby)
 
