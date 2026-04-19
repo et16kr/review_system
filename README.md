@@ -170,3 +170,6 @@ cd review-platform && uv run --extra dev uvicorn app.api.main:app --reload --por
 
 통합 compose와 외부 GitLab 연동 예시는 `ops/docker-compose.yml`과
 [docs/OPERATIONS_RUNBOOK.md](/home/et16/work/review_system/docs/OPERATIONS_RUNBOOK.md:1)에 정리해 두었습니다.
+
+`altidev4`의 `tde_first -> tde_base`를 GitLab MR로 먼저 올리는 절차는
+[docs/GITLAB_TDE_REVIEW_SETUP.md](/home/et16/work/review_system/docs/GITLAB_TDE_REVIEW_SETUP.md:1)에 따로 정리해 두었습니다.

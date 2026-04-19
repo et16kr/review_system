@@ -6,6 +6,8 @@
 
 - `docker-compose.yml`
 - `.env.example`
+- `scripts/create_gitlab_merge_request.py`
+- `scripts/create_altidev4_tde_review.sh`
 
 초기 실행:
 
@@ -13,3 +15,11 @@
 cd ops
 docker compose up --build
 ```
+
+GitLab에 실제 Merge Request를 먼저 만들 때:
+
+```bash
+bash /home/et16/work/review_system/ops/scripts/create_altidev4_tde_review.sh --dry-run
+```
+
+상세 절차는 [GITLAB_TDE_REVIEW_SETUP.md](/home/et16/work/review_system/docs/GITLAB_TDE_REVIEW_SETUP.md:1)에 정리했다.
