@@ -24,7 +24,10 @@ class OpenAIReviewCommentProvider(ReviewCommentProvider):
     def __init__(self) -> None:
         settings = get_settings()
         self.model = settings.openai_model
-        self.client = OpenAI()
+        self.client = OpenAI(
+            max_retries=settings.openai_max_retries,
+            timeout=settings.openai_timeout_seconds,
+        )
 
     def build_draft(
         self,

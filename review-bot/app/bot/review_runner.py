@@ -144,7 +144,7 @@ class ReviewRunner:
                 session.query(ReviewRun)
                 .filter(ReviewRun.pr_id == pr_id)
                 .order_by(ReviewRun.id.desc())
-                .one_or_none()
+                .first()
             )
             if last_run is None:
                 raise HTTPException(
@@ -211,7 +211,7 @@ class ReviewRunner:
             session.query(ReviewRun)
             .filter(ReviewRun.pr_id == pr_id)
             .order_by(ReviewRun.id.desc())
-            .one_or_none()
+            .first()
         )
         published_batch_count = (
             session.query(func.max(FindingPublication.batch_no))

@@ -16,6 +16,8 @@ class Settings:
     provider_name: str
     fallback_provider_name: str
     openai_model: str
+    openai_timeout_seconds: float
+    openai_max_retries: int
     redis_url: str
     queue_name: str
 
@@ -32,6 +34,8 @@ def get_settings() -> Settings:
         provider_name=os.getenv("BOT_PROVIDER", "stub"),
         fallback_provider_name=os.getenv("BOT_FALLBACK_PROVIDER", "stub"),
         openai_model=os.getenv("BOT_OPENAI_MODEL", "gpt-5.2"),
+        openai_timeout_seconds=float(os.getenv("BOT_OPENAI_TIMEOUT_SECONDS", "10")),
+        openai_max_retries=int(os.getenv("BOT_OPENAI_MAX_RETRIES", "0")),
         redis_url=os.getenv("BOT_REDIS_URL", "redis://127.0.0.1:6379/0"),
         queue_name=os.getenv("BOT_QUEUE_NAME", "review-bot"),
     )

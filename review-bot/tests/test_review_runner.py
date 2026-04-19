@@ -194,12 +194,17 @@ def test_review_runner_persists_already_published_findings_on_partial_failure() 
 
 def test_fallback_provider_uses_stub_when_primary_raises() -> None:
     class ExplodingProvider(ReviewCommentProvider):
+        def __init__(self) -> None:
+            self.calls = 0
+
         def build_draft(self, **kwargs):
             del kwargs
+            self.calls += 1
             raise RuntimeError("provider failure")
 
+    exploding = ExplodingProvider()
     provider = FallbackReviewCommentProvider(
-        primary=ExplodingProvider(),
+        primary=exploding,
         fallback=StubReviewCommentProvider(),
     )
     draft = provider.build_draft(
@@ -210,6 +215,37 @@ def test_fallback_provider_uses_stub_when_primary_raises() -> None:
     )
     assert "src/a.cpp" in draft.summary
     assert draft.should_publish is True
+
+    second = provider.build_draft(
+        file_path="src/b.cpp",
+        rule_no="ALTI-COF-001",
+        title="continue usage",
+        summary="continue detected",
+    )
+    assert "src/b.cpp" in second.summary
+    assert exploding.calls == 1
+
+
+def test_build_state_uses_latest_review_run() -> None:
+    _reset_db()
+
+    runner = ReviewRunner()
+    runner.platform_client = FakePlatformClient()
+    runner.engine_client = FakeEngineClient()
+
+    session = SessionLocal()
+    try:
+        runner.run_review(session, pr_id=404, trigger="first")
+        runner.run_review(session, pr_id=404, trigger="second")
+
+        state = runner.build_state(session, 404)
+
+        assert state["pr_id"] == 404
+        assert state["last_review_run_id"] is not None
+        assert state["last_status"] == "success"
+        assert state["last_head_sha"] == "abc123"
+    finally:
+        session.close()
 
 
 def _result(rule_no: str, score: float) -> dict[str, object]:
