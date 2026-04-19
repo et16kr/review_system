@@ -1,0 +1,14 @@
+diff --git a/loop.cpp b/loop.cpp
+index 5555555..6666666 100644
+--- a/loop.cpp
++++ b/loop.cpp
+@@ -2,5 +2,8 @@
+ void loop()
+ {
+-    for (; condition(); )
++    for (int i = 0; i < 10; ++i)
+     {
++        if (skip()) { continue; }
++        work(i);
+     }
+ }

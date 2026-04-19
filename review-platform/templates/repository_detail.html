@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="grid two-col">
+  <section class="section-stack">
+    <article class="card">
+      <h2>{{ repository.name }}</h2>
+      <p class="muted">{{ repository.description or "설명 없음" }}</p>
+      <ul class="meta">
+        <li><strong>기본 브랜치</strong> {{ repository.default_branch }}</li>
+        <li><strong>저장소 경로</strong> <code>{{ repository.storage_path }}</code></li>
+        <li><strong>clone</strong> <code>{{ repository.clone_url }}</code></li>
+      </ul>
+    </article>
+    <article class="card">
+      <h2>Pull Requests</h2>
+      <div class="list">
+        {% for pr in pull_requests %}
+        <article class="card" style="padding: 16px;">
+          <h3 style="margin-bottom: 6px;"><a href="/pull-requests/{{ pr.id }}">#{{ pr.id }} {{ pr.title }}</a></h3>
+          <p class="muted">{{ pr.description or "설명 없음" }}</p>
+          <ul class="meta">
+            <li><strong>{{ pr.base_branch }}</strong> ← {{ pr.head_branch }}</li>
+            <li><strong>상태</strong> {{ pr.status }}</li>
+            <li><strong>작성자</strong> {{ pr.created_by or "anonymous" }}</li>
+          </ul>
+        </article>
+        {% else %}
+        <p class="empty">아직 PR이 없습니다.</p>
+        {% endfor %}
+      </div>
+    </article>
+  </section>
+  <aside class="card">
+    <h2>PR 생성</h2>
+    <form method="post" action="/repos/{{ repository.id }}/pull-requests">
+      <label>제목 <input name="title" placeholder="Memory safety cleanup" required /></label>
+      <label>설명 <textarea name="description" rows="4"></textarea></label>
+      <label>Base 브랜치 <input name="base_branch" value="{{ repository.default_branch }}" required /></label>
+      <label>Head 브랜치 <input name="head_branch" placeholder="feature/my-branch" required /></label>
+      <label>작성자 <input name="created_by" value="anonymous" /></label>
+      <button type="submit">PR 만들기</button>
+    </form>
+    <p class="muted" style="margin-top: 12px;">
+      로컬에서 먼저 <code>git clone {{ repository.clone_url }}</code> 후 브랜치를 push한 다음 PR을 생성하면 됩니다.
+    </p>
+  </aside>
+</div>
+{% endblock %}

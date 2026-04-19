@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="section-stack">
+  <section class="card">
+    <h2>#{{ pull_request.id }} {{ pull_request.title }}</h2>
+    <p class="muted">{{ pull_request.description or "설명 없음" }}</p>
+    <ul class="meta">
+      <li><strong>저장소</strong> <a href="/repos/{{ repository.id }}">{{ repository.name }}</a></li>
+      <li><strong>브랜치</strong> {{ pull_request.base_branch }} ← {{ pull_request.head_branch }}</li>
+      <li><strong>상태</strong> {{ pull_request.status }}</li>
+      <li><strong>작성자</strong> {{ pull_request.created_by or "anonymous" }}</li>
+    </ul>
+  </section>
+
+  <div class="grid two-col">
+    <section class="section-stack">
+      <article class="card">
+        <h3>변경 파일</h3>
+        <div class="list">
+          {% for file in diff.files %}
+          <article class="diff-file">
+            <div>
+              <span class="pill">{{ file.status }}</span>
+              <strong>{{ file.path }}</strong>
+              <span class="muted">+{{ file.additions }} / -{{ file.deletions }}</span>
+            </div>
+            <pre>{{ file.patch }}</pre>
+          </article>
+          {% else %}
+          <p class="empty">변경 파일이 없습니다.</p>
+          {% endfor %}
+        </div>
+      </article>
+    </section>
+
+    <aside class="section-stack">
+      <article class="card">
+        <h3>봇 상태</h3>
+        {% if bot_state %}
+        <ul class="meta">
+          <li><strong>최근 Run</strong> {{ bot_state.last_review_run_id or "-" }}</li>
+          <li><strong>게시 배치</strong> {{ bot_state.published_batch_count }}</li>
+          <li><strong>미해결</strong> {{ bot_state.open_finding_count }}</li>
+          <li><strong>해결됨</strong> {{ bot_state.resolved_finding_count }}</li>
+        </ul>
+        {% else %}
+        <p class="empty">review-bot 상태를 아직 읽지 못했습니다.</p>
+        {% endif %}
+        <div class="actions" style="margin-top: 16px;">
+          <form method="post" action="/pull-requests/{{ pull_request.id }}/bot/review">
+            <button type="submit">봇 리뷰 실행</button>
+          </form>
+          <form method="post" action="/pull-requests/{{ pull_request.id }}/bot/next-batch">
+            <button class="secondary" type="submit">다음 5개 게시</button>
+          </form>
+        </div>
+      </article>
+
+      <article class="card">
+        <h3>상태 기록</h3>
+        {% for status in statuses %}
+        <div class="comment">
+          <div><strong>{{ status.context }}</strong> · <span class="{% if status.state == 'success' %}ok{% elif status.state == 'failed' %}warn{% endif %}">{{ status.state }}</span></div>
+          <div>{{ status.description }}</div>
+        </div>
+        {% else %}
+        <p class="empty">상태 기록이 없습니다.</p>
+        {% endfor %}
+      </article>
+
+      <article class="card">
+        <h3>댓글</h3>
+        {% for comment in comments %}
+        <div class="comment">
+          <div><strong>{{ comment.author_type }}</strong> · {{ comment.comment_type }}</div>
+          {% if comment.file_path %}
+          <div class="muted">{{ comment.file_path }}{% if comment.line_no %}:{{ comment.line_no }}{% endif %}</div>
+          {% endif %}
+          <div>{{ comment.body }}</div>
+        </div>
+        {% else %}
+        <p class="empty">댓글이 없습니다.</p>
+        {% endfor %}
+      </article>
+    </aside>
+  </div>
+</div>
+{% endblock %}

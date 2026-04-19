@@ -1,0 +1,146 @@
+{
+  "explicit_rule_overrides": [
+    {
+      "rule_no": "NL.1",
+      "overridden_by": ["ALTI-COM-002", "ALTI-COM-003"],
+      "reason": "Internal file and function comment requirements override the external minimalist comment guidance."
+    },
+    {
+      "rule_no": "NL.2",
+      "overridden_by": ["ALTI-COM-002", "ALTI-COM-003"],
+      "reason": "Internal comment requirements define when comments are mandatory."
+    },
+    {
+      "rule_no": "NL.4",
+      "overridden_by": ["ALTI-FOR-005", "ALTI-FOR-007", "ALTI-FOR-011"],
+      "reason": "Internal indentation, brace, and spacing rules are authoritative."
+    },
+    {
+      "rule_no": "NL.5",
+      "overridden_by": ["ALTI-NAE-001", "ALTI-NAE-003", "ALTI-NAE-004"],
+      "reason": "Altibase naming conventions intentionally encode module and type prefixes."
+    },
+    {
+      "rule_no": "NL.8",
+      "overridden_by": ["ALTI-NAE-001", "ALTI-NAE-002", "ALTI-NAE-003", "ALTI-NAE-004"],
+      "reason": "Internal naming style is authoritative."
+    },
+    {
+      "rule_no": "NL.10",
+      "overridden_by": ["ALTI-NAE-009", "ALTI-NAE-010"],
+      "reason": "Altibase forbids underscores in variable and user-defined type names, which conflicts with underscore_style guidance."
+    },
+    {
+      "rule_no": "NL.15",
+      "overridden_by": ["ALTI-FOR-010", "ALTI-FOR-011", "ALTI-FOR-019"],
+      "reason": "Internal spacing rules are more specific and authoritative."
+    },
+    {
+      "rule_no": "SF.1",
+      "overridden_by": ["ALTI-PRE-004", "ALTI-PRE-002"],
+      "reason": "Internal include and header wrapper rules override external source-file guidance."
+    },
+    {
+      "rule_no": "SF.7",
+      "overridden_by": ["ALTI-PRE-004"],
+      "reason": "Internal wrapper-based include policy overrides direct standard header guidance."
+    },
+    {
+      "rule_no": "SF.12",
+      "overridden_by": ["ALTI-PRE-002", "ALTI-PRE-004"],
+      "reason": "Internal include syntax and wrapper-header rules override quoted-vs-angle include guidance."
+    },
+    {
+      "rule_no": "NL.16",
+      "overridden_by": ["ALTI-FOR-007", "ALTI-FOR-008"],
+      "reason": "Internal brace and formatting rules take precedence."
+    },
+    {
+      "rule_no": "NL.17",
+      "overridden_by": ["ALTI-FOR-011"],
+      "reason": "Internal spacing policy takes precedence."
+    },
+    {
+      "rule_no": "NL.18",
+      "overridden_by": ["ALTI-FOR-015"],
+      "reason": "Internal statement-per-line policy takes precedence."
+    },
+    {
+      "rule_no": "NL.25",
+      "overridden_by": ["ALTI-DCL-003"],
+      "reason": "Internal convention requires explicit void for functions that take no arguments."
+    },
+    {
+      "rule_no": "ES.6",
+      "overridden_by": ["ALTI-COF-006"],
+      "reason": "Altibase forbids declaring variables in the for-statement initializer."
+    },
+    {
+      "rule_no": "ES.9",
+      "overridden_by": ["ALTI-NAE-011", "ALTI-PRE-003"],
+      "reason": "Internal enum and macro naming rules authorize uppercase identifiers in specific cases."
+    },
+    {
+      "rule_no": "ES.30",
+      "overridden_by": ["ALTI-PRE-003", "ALTI-ERR-003", "ALTI-ERR-004", "ALTI-ERR-005", "ALTI-ERR-006"],
+      "reason": "Altibase relies on approved macro systems and treats their usage as part of the internal convention."
+    },
+    {
+      "rule_no": "ES.31",
+      "overridden_by": ["ALTI-PRE-003", "ALTI-ERR-003", "ALTI-ERR-004", "ALTI-ERR-005", "ALTI-ERR-006"],
+      "reason": "Internal macro-based infrastructure overrides the external no-macro recommendation."
+    },
+    {
+      "rule_no": "ES.47",
+      "overridden_by": ["ALTI-MEM-007"],
+      "reason": "Internal convention explicitly requires NULL after free()."
+    },
+    {
+      "rule_no": "ES.71",
+      "overridden_by": ["ALTI-COF-006"],
+      "reason": "Altibase for-loop restrictions override the preference for range-for when it would violate the local convention."
+    },
+    {
+      "rule_no": "ES.74",
+      "overridden_by": ["ALTI-COF-006"],
+      "reason": "Altibase forbids declarations in the for initializer."
+    },
+    {
+      "rule_no": "NR.2",
+      "overridden_by": ["ALTI-DCL-007"],
+      "reason": "Altibase prefers a single exit point near the end of a function."
+    }
+  ],
+  "keyword_overrides": [
+    {
+      "match_any": ["naming", "identifier naming", "comment style", "source file", "header file"],
+      "overridden_by": ["ALTI-NAE-001", "ALTI-COM-001", "ALTI-PRE-004"],
+      "reason": "Internal naming, comment, and include rules are authoritative."
+    },
+    {
+      "match_any": ["brace", "layout", "whitespace", "formatting"],
+      "overridden_by": ["ALTI-FOR-007", "ALTI-FOR-011", "ALTI-FOR-015"],
+      "reason": "Internal formatting rules are authoritative."
+    },
+    {
+      "match_any": ["typedef", "portable", "header", "system-specific"],
+      "overridden_by": ["ALTI-TYC-001", "ALTI-PRE-004", "ALTI-PCM-002"],
+      "reason": "Internal portability and type-system rules are authoritative."
+    },
+    {
+      "match_any": ["underscore_style", "naming style", "identifier style"],
+      "overridden_by": ["ALTI-NAE-001", "ALTI-NAE-009", "ALTI-NAE-010"],
+      "reason": "Internal identifier conventions override general naming-style guidance."
+    },
+    {
+      "match_any": ["macro", "preprocessor"],
+      "overridden_by": ["ALTI-PRE-003", "ALTI-ERR-003", "ALTI-ERR-004", "ALTI-ERR-005", "ALTI-ERR-006"],
+      "reason": "Internal macro conventions override external anti-macro guidance."
+    },
+    {
+      "match_any": ["for-statement initializer", "loop variable in initializer", "range- for"],
+      "overridden_by": ["ALTI-COF-006"],
+      "reason": "Internal loop-variable placement rules are authoritative."
+    }
+  ]
+}

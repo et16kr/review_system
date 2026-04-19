@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <title>{{ page_title }} · Review Platform</title>
+    <style>
+      :root {
+        --bg: #f5f1e8;
+        --card: #fffaf0;
+        --line: #d8ccb6;
+        --ink: #1e2b28;
+        --subtle: #61706c;
+        --accent: #a64928;
+        --accent-soft: #f3d8c8;
+        --ok: #2c6e49;
+        --warn: #925e00;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: "Iowan Old Style", "Palatino Linotype", serif;
+        color: var(--ink);
+        background:
+          radial-gradient(circle at top left, #f7e9d7 0, transparent 28%),
+          linear-gradient(180deg, #f3efe4 0%, var(--bg) 100%);
+      }
+      a { color: var(--accent); text-decoration: none; }
+      a:hover { text-decoration: underline; }
+      .shell { max-width: 1200px; margin: 0 auto; padding: 28px 20px 40px; }
+      .hero { display: flex; justify-content: space-between; gap: 16px; align-items: end; margin-bottom: 24px; }
+      .hero h1 { margin: 0; font-size: 2.1rem; }
+      .hero p { margin: 6px 0 0; color: var(--subtle); }
+      .grid { display: grid; gap: 20px; }
+      .two-col { grid-template-columns: minmax(0, 2fr) minmax(320px, 1fr); align-items: start; }
+      .card {
+        background: rgba(255, 250, 240, 0.96);
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        padding: 20px;
+        box-shadow: 0 16px 40px rgba(81, 62, 35, 0.08);
+      }
+      .card h2, .card h3 { margin-top: 0; }
+      .muted { color: var(--subtle); }
+      .list { display: grid; gap: 14px; }
+      .pill {
+        display: inline-block;
+        padding: 4px 10px;
+        border-radius: 999px;
+        background: var(--accent-soft);
+        color: var(--accent);
+        font-size: 0.88rem;
+      }
+      .ok { color: var(--ok); }
+      .warn { color: var(--warn); }
+      form { display: grid; gap: 10px; }
+      input, textarea {
+        width: 100%;
+        padding: 10px 12px;
+        border-radius: 12px;
+        border: 1px solid var(--line);
+        background: #fffdf8;
+        font: inherit;
+      }
+      button {
+        appearance: none;
+        border: 0;
+        border-radius: 999px;
+        padding: 11px 18px;
+        background: var(--accent);
+        color: white;
+        font: inherit;
+        cursor: pointer;
+      }
+      button.secondary {
+        background: #324c47;
+      }
+      pre {
+        margin: 0;
+        padding: 14px;
+        border-radius: 14px;
+        background: #1c2424;
+        color: #eef7f3;
+        overflow-x: auto;
+        font-family: "SFMono-Regular", Consolas, monospace;
+        font-size: 0.88rem;
+        line-height: 1.45;
+      }
+      .meta { display: flex; flex-wrap: wrap; gap: 10px; margin: 0; padding: 0; list-style: none; color: var(--subtle); }
+      .meta strong { color: var(--ink); }
+      .section-stack { display: grid; gap: 16px; }
+      .comment { padding: 12px 0; border-top: 1px solid var(--line); }
+      .comment:first-child { border-top: 0; padding-top: 0; }
+      .diff-file { display: grid; gap: 10px; }
+      .actions { display: flex; gap: 10px; flex-wrap: wrap; }
+      .empty { color: var(--subtle); font-style: italic; }
+    </style>
+  </head>
+  <body>
+    <div class="shell">
+      <header class="hero">
+        <div>
+          <h1><a href="/">Review Platform</a></h1>
+          <p>사내 PR 리뷰 시스템 MVP</p>
+        </div>
+      </header>
+      {% block content %}{% endblock %}
+    </div>
+  </body>
+</html>

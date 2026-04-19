@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="grid two-col">
+  <section class="card">
+    <h2>저장소</h2>
+    <div class="list">
+      {% for repository in repositories %}
+      <article class="card" style="padding: 16px;">
+        <h3 style="margin-bottom: 6px;"><a href="/repos/{{ repository.id }}">{{ repository.name }}</a></h3>
+        <p class="muted">{{ repository.description or "설명 없음" }}</p>
+        <ul class="meta">
+          <li><strong>기본 브랜치</strong> {{ repository.default_branch }}</li>
+          <li><strong>clone</strong> <code>{{ repository.clone_url }}</code></li>
+        </ul>
+      </article>
+      {% else %}
+      <p class="empty">아직 생성된 저장소가 없습니다.</p>
+      {% endfor %}
+    </div>
+  </section>
+  <aside class="card">
+    <h2>저장소 생성</h2>
+    <form method="post" action="/repos">
+      <label>이름 <input name="name" placeholder="sample-repo" required /></label>
+      <label>설명 <textarea name="description" rows="3" placeholder="내부 리뷰 실험용 저장소"></textarea></label>
+      <label>기본 브랜치 <input name="default_branch" value="main" required /></label>
+      <button type="submit">저장소 만들기</button>
+    </form>
+  </aside>
+</div>
+{% endblock %}

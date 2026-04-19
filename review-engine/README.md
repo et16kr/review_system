@@ -3,22 +3,12 @@
 Altibase 사내 코딩 컨벤션과 호환 가능한 C++ Core Guidelines를 함께 사용하는
 사내 우선 C++ 가이드라인 검색 MVP입니다.
 
-현재 워크스페이스는 다음 구조로 확장 중입니다.
-
-- `review-engine/`: 현재 엔진의 분리 대상 서비스
-- `review-platform/`: bare Git 기반 PR 리뷰 플랫폼
-- `review-bot/`: 자동 리뷰 오케스트레이터
-- `ops/`: compose 및 배포 자산
-- `docs/`: 분리 구조와 API 계약 문서
-
-기존 루트 코드도 아직 유지하고 있지만, 이후 구현은 위 분리 구조를 기준으로 진행합니다.
-
 ## 주요 기능
 
 - `CODING_CONVENTION.md`를 규칙 레코드로 파싱합니다.
 - 공식 C++ Core Guidelines를 가져와 규칙 레코드로 파싱합니다.
 - 사내 정책에 의해 덮어쓰이거나 충돌하는 외부 규칙을 제외합니다.
-- active/reference/excluded 규칙셋을 분리해 ChromaDB 컬렉션으로 저장합니다.
+- 활성 규칙을 결정론적 로컬 임베딩 기반으로 ChromaDB에 저장합니다.
 - CLI와 FastAPI 서비스로 C++ 코드 또는 diff를 리뷰합니다.
 
 ## 설치
@@ -38,8 +28,6 @@ uv run python -m app.cli.ingest_guidelines
 - `data/altibase_coding_convention_rules.json`
 - `data/cpp_core_guidelines_rules.json`
 - `data/active_guideline_records.json`
-- `data/reference_guideline_records.json`
-- `data/excluded_guideline_records.json`
 - `data/chroma/`
 
 ## CLI 사용법
@@ -139,29 +127,6 @@ uv run python -m app.cli.scan_codebase \
 
 ## Docker
 
-기존 루트 `docker-compose.yml`은 엔진 단독 실행용입니다.
-
 ```bash
 docker compose up --build
 ```
-
-## 새 workspace 서비스
-
-분리 구조 기준으로는 아래 디렉터리들이 준비되어 있습니다.
-
-- `review-engine/`
-- `review-platform/`
-- `review-bot/`
-- `ops/`
-
-개별 개발 서버 예시:
-
-```bash
-cd review-engine && uv run --extra dev uvicorn app.api.main:app --reload --port 18082
-cd review-platform && uv run --extra dev uvicorn app.api.main:app --reload --port 18080
-cd review-bot && uv run --extra dev uvicorn app.api.main:app --reload --port 18081
-```
-
-분리된 workspace 기준 통합 compose 초안은 `ops/docker-compose.yml`에 있습니다.
-
-운영 실행 순서와 OpenAI fallback 정책은 [docs/OPERATIONS_RUNBOOK.md](/home/et16/work/review_system/docs/OPERATIONS_RUNBOOK.md:1)에 정리해 두었습니다.

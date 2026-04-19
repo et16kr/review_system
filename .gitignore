@@ -5,6 +5,10 @@ __pycache__/
 *.pyc
 .codex
 review_system.egg-info/
+*.egg-info/
+*.db
 data/*.html
 !data/cpp_core_guidelines.html
 data/chroma/
+review-engine/data/chroma/
+review-platform/storage/

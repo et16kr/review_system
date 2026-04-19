@@ -1,0 +1,163 @@
+{
+  "section_profiles": {
+    "ALTI-MEM": {
+      "category": "memory",
+      "reviewability": "auto_review",
+      "false_positive_risk": "low",
+      "trigger_patterns": ["raw_new", "malloc_free", "manual_delete", "ownership_ambiguity"],
+      "fix_guidance": "RAII, owner wrapper, and explicit ownership patterns should replace manual allocation and release.",
+      "review_rank_default": 0.98
+    },
+    "ALTI-ERR": {
+      "category": "error_handling",
+      "reviewability": "auto_review",
+      "false_positive_risk": "low",
+      "trigger_patterns": ["ide_rc_flow", "ide_test_raise", "error_code_flow"],
+      "fix_guidance": "Align error propagation with internal IDE/IDU error macros and wrapper patterns.",
+      "review_rank_default": 0.94
+    },
+    "ALTI-PCM": {
+      "category": "wrapper_usage",
+      "reviewability": "auto_review",
+      "false_positive_risk": "low",
+      "trigger_patterns": ["direct_system_call", "manual_lock_unlock"],
+      "fix_guidance": "Prefer approved Altibase wrapper APIs instead of direct libc or OS calls.",
+      "review_rank_default": 0.93
+    },
+    "ALTI-PRE": {
+      "category": "portability",
+      "reviewability": "auto_review",
+      "false_positive_risk": "low",
+      "trigger_patterns": ["direct_system_header", "include_portability"],
+      "fix_guidance": "Use approved portability headers and wrapper include rules.",
+      "review_rank_default": 0.92
+    },
+    "ALTI-TYC": {
+      "category": "type_usage",
+      "reviewability": "auto_review",
+      "false_positive_risk": "medium",
+      "trigger_patterns": ["primitive_type_usage", "typedef_usage"],
+      "fix_guidance": "Prefer Altibase-defined portable types and aliases where required by the convention.",
+      "review_rank_default": 0.88
+    },
+    "ALTI-COF": {
+      "category": "control_flow",
+      "reviewability": "auto_review",
+      "false_positive_risk": "medium",
+      "trigger_patterns": ["continue_usage", "switch_without_default", "for_initializer_declaration"],
+      "fix_guidance": "Rewrite control flow to the internal preferred style and make exceptional paths explicit.",
+      "review_rank_default": 0.9
+    },
+    "ALTI-COM": {
+      "category": "comment_usage",
+      "reviewability": "auto_review",
+      "false_positive_risk": "medium",
+      "trigger_patterns": ["line_comment", "commented_out_code"],
+      "fix_guidance": "Keep comments in the required block-comment format and remove dead commented code.",
+      "review_rank_default": 0.83
+    },
+    "ALTI-DCL": {
+      "category": "format_usage",
+      "reviewability": "auto_review",
+      "false_positive_risk": "medium",
+      "trigger_patterns": ["primitive_format_specifier", "printf_usage"],
+      "fix_guidance": "Use approved format macros or wrappers to avoid portability issues.",
+      "review_rank_default": 0.87
+    },
+    "Rule-R": {
+      "category": "control_flow",
+      "reviewability": "auto_review",
+      "false_positive_risk": "medium",
+      "trigger_patterns": ["ide_rc_flow", "ide_test_raise"],
+      "fix_guidance": "Follow the internal Rule-R guidance for RC flow and cleanup sequencing.",
+      "review_rank_default": 0.86
+    },
+    "R": {
+      "category": "memory",
+      "reviewability": "manual_only",
+      "false_positive_risk": "medium",
+      "trigger_patterns": ["raw_new", "malloc_free", "manual_delete", "ownership_ambiguity"],
+      "fix_guidance": "Prefer RAII and explicit ownership models from the C++ Core Guidelines.",
+      "review_rank_default": 0.84
+    },
+    "E": {
+      "category": "error_handling",
+      "reviewability": "manual_only",
+      "false_positive_risk": "medium",
+      "trigger_patterns": ["error_code_flow", "ide_rc_flow"],
+      "fix_guidance": "Use clearer error signaling and keep success/error paths explicit.",
+      "review_rank_default": 0.8
+    },
+    "ES": {
+      "category": "control_flow",
+      "reviewability": "manual_only",
+      "false_positive_risk": "medium",
+      "trigger_patterns": ["continue_usage", "switch_without_default", "primitive_type_usage"],
+      "fix_guidance": "Use the simpler and safer expression/control-flow form suggested by the guideline.",
+      "review_rank_default": 0.78
+    },
+    "CP": {
+      "category": "control_flow",
+      "reviewability": "manual_only",
+      "false_positive_risk": "medium",
+      "trigger_patterns": ["manual_lock_unlock"],
+      "fix_guidance": "Prefer scoped locking and safer concurrency primitives.",
+      "review_rank_default": 0.8
+    },
+    "SF": {
+      "category": "portability",
+      "reviewability": "manual_only",
+      "false_positive_risk": "medium",
+      "trigger_patterns": ["direct_system_header", "include_portability"],
+      "fix_guidance": "Keep source-file boundaries and includes portable and explicit.",
+      "review_rank_default": 0.76
+    }
+  },
+  "external_auto_review_sections": ["R", "E", "ES", "CP", "SF"],
+  "external_reference_sections": ["A", "C", "CPL", "Con", "Enum", "F", "FAQ", "GSL", "I", "In", "NL", "NR", "P", "Per", "SL", "T"],
+  "rule_overrides": {
+    "ALTI-MEM-007": {
+      "review_rank_default": 0.99
+    },
+    "ALTI-MEM-006": {
+      "review_rank_default": 0.96
+    },
+    "ALTI-PCM-002": {
+      "review_rank_default": 0.95
+    },
+    "Rule-R1": {
+      "review_rank_default": 0.9
+    },
+    "Rule-R2": {
+      "review_rank_default": 0.78
+    },
+    "Rule-R3": {
+      "review_rank_default": 0.76
+    },
+    "ALTI-ERR-001": {
+      "review_rank_default": 0.77
+    },
+    "ALTI-ERR-002": {
+      "review_rank_default": 0.77
+    }
+  },
+  "active_keywords": [
+    "memory",
+    "malloc",
+    "free",
+    "delete",
+    "ownership",
+    "error",
+    "exception",
+    "portability",
+    "wrapper",
+    "header",
+    "include",
+    "switch",
+    "continue",
+    "printf",
+    "format",
+    "lock",
+    "unlock"
+  ]
+}

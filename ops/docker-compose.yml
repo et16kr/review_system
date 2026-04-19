@@ -1,0 +1,111 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-review}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-review}
+      POSTGRES_DB: ${POSTGRES_DB:-review}
+    ports:
+      - "15432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "16379:6379"
+
+  chroma:
+    image: chromadb/chroma:0.5.5
+    environment:
+      IS_PERSISTENT: "TRUE"
+      PERSIST_DIRECTORY: /chroma/chroma
+    ports:
+      - "18083:8000"
+    volumes:
+      - chroma-data:/chroma/chroma
+
+  review-engine:
+    build:
+      context: ../review-engine
+    environment:
+      REVIEW_ENGINE_CHROMA_HOST: chroma
+      REVIEW_ENGINE_CHROMA_PORT: 8000
+    ports:
+      - "18082:8000"
+    depends_on:
+      - chroma
+    volumes:
+      - ../review-engine/data:/app/data
+
+  review-platform:
+    build:
+      context: ../review-platform
+    environment:
+      PLATFORM_DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-review}:${POSTGRES_PASSWORD:-review}@postgres:5432/${POSTGRES_DB:-review}
+      PLATFORM_STORAGE_ROOT: /app/storage/repos
+      PLATFORM_BOT_BASE_URL: http://review-bot-api:18081
+      PLATFORM_PUBLIC_BASE_URL: http://127.0.0.1:18080
+    depends_on:
+      - postgres
+    ports:
+      - "18080:18080"
+    volumes:
+      - ../review-platform/storage:/app/storage
+
+  review-bot-api:
+    build:
+      context: ../review-bot
+    environment:
+      BOT_DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-review}:${POSTGRES_PASSWORD:-review}@postgres:5432/${POSTGRES_DB:-review}
+      BOT_REDIS_URL: redis://redis:6379/0
+      PLATFORM_BASE_URL: http://review-platform:18080
+      ENGINE_BASE_URL: http://review-engine:8000
+      BOT_BATCH_SIZE: 5
+      BOT_PROVIDER: ${BOT_PROVIDER:-stub}
+      BOT_FALLBACK_PROVIDER: ${BOT_FALLBACK_PROVIDER:-stub}
+      BOT_OPENAI_MODEL: ${BOT_OPENAI_MODEL:-gpt-5.2}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+    depends_on:
+      - postgres
+      - redis
+      - review-engine
+      - review-platform
+    ports:
+      - "18081:18081"
+    command: ["uv", "run", "uvicorn", "app.api.main:app", "--host", "0.0.0.0", "--port", "18081"]
+
+  review-bot-worker:
+    build:
+      context: ../review-bot
+    environment:
+      BOT_DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-review}:${POSTGRES_PASSWORD:-review}@postgres:5432/${POSTGRES_DB:-review}
+      BOT_REDIS_URL: redis://redis:6379/0
+      PLATFORM_BASE_URL: http://review-platform:18080
+      ENGINE_BASE_URL: http://review-engine:8000
+      BOT_BATCH_SIZE: 5
+      BOT_PROVIDER: ${BOT_PROVIDER:-stub}
+      BOT_FALLBACK_PROVIDER: ${BOT_FALLBACK_PROVIDER:-stub}
+      BOT_OPENAI_MODEL: ${BOT_OPENAI_MODEL:-gpt-5.2}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+    depends_on:
+      - postgres
+      - redis
+      - review-engine
+      - review-platform
+    command: ["uv", "run", "bot-worker"]
+
+  nginx:
+    image: nginx:1.27-alpine
+    depends_on:
+      - review-platform
+      - review-engine
+      - review-bot-api
+    ports:
+      - "18084:80"
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+
+volumes:
+  postgres-data:
+  chroma-data:
