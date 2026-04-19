@@ -13,6 +13,19 @@ cp .env.example .env
 docker compose up --build
 ```
 
+권장 `.env` 기본값:
+
+```bash
+HOST_UID=1000
+HOST_GID=1000
+PLATFORM_CLONE_BASE_URL=/home/et16/work/review_system/review-platform/storage/repos
+```
+
+- `HOST_UID`, `HOST_GID`를 지정하면 `review-platform`, `review-engine`이 호스트 사용자 권한으로
+  bare repo와 data 산출물을 생성한다.
+- `PLATFORM_CLONE_BASE_URL`을 지정하면 UI에 표시되는 clone 경로가 컨테이너 내부 경로(`/app/...`)가
+  아니라 호스트에서 바로 사용할 수 있는 경로로 나온다.
+
 기본 포트:
 
 - `review-platform`: `http://127.0.0.1:18080`
@@ -91,6 +104,12 @@ git push origin feature/memory-fix
 ```
 
 그 뒤 웹에서 PR을 생성하고 `봇 리뷰 실행` 버튼을 누르면 된다.
+
+참고:
+
+- Docker Compose로 띄운 경우 bare repo의 실제 호스트 경로는 보통
+  `/home/.../review-platform/storage/repos/<repo>.git` 형태다.
+- `PLATFORM_CLONE_BASE_URL`을 설정하지 않으면 UI에 컨테이너 내부 경로가 표시될 수 있다.
 
 ## 5. 작업 큐와 worker
 

@@ -28,7 +28,10 @@ services:
   review-engine:
     build:
       context: ../review-engine
+    user: "${HOST_UID:-1000}:${HOST_GID:-1000}"
     environment:
+      HOME: /tmp
+      UV_CACHE_DIR: /tmp/.uv-cache
       REVIEW_ENGINE_CHROMA_HOST: chroma
       REVIEW_ENGINE_CHROMA_PORT: 8000
     ports:
@@ -41,11 +44,15 @@ services:
   review-platform:
     build:
       context: ../review-platform
+    user: "${HOST_UID:-1000}:${HOST_GID:-1000}"
     environment:
+      HOME: /tmp
+      UV_CACHE_DIR: /tmp/.uv-cache
       PLATFORM_DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-review}:${POSTGRES_PASSWORD:-review}@postgres:5432/${POSTGRES_DB:-review}
       PLATFORM_STORAGE_ROOT: /app/storage/repos
       PLATFORM_BOT_BASE_URL: http://review-bot-api:18081
       PLATFORM_PUBLIC_BASE_URL: http://127.0.0.1:18080
+      PLATFORM_CLONE_BASE_URL: ${PLATFORM_CLONE_BASE_URL:-}
     depends_on:
       - postgres
     ports:
@@ -73,7 +80,7 @@ services:
       - review-platform
     ports:
       - "18081:18081"
-    command: ["uv", "run", "uvicorn", "app.api.main:app", "--host", "0.0.0.0", "--port", "18081"]
+    command: ["uvicorn", "app.api.main:app", "--host", "0.0.0.0", "--port", "18081"]
 
   review-bot-worker:
     build:
@@ -93,7 +100,7 @@ services:
       - redis
       - review-engine
       - review-platform
-    command: ["uv", "run", "bot-worker"]
+    command: ["bot-worker"]
 
   nginx:
     image: nginx:1.27-alpine

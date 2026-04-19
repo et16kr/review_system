@@ -18,4 +18,4 @@ ENV PATH="/app/.venv/bin:${PATH}"
 
 EXPOSE 18080
 
-CMD ["uv", "run", "uvicorn", "app.api.main:app", "--host", "0.0.0.0", "--port", "18080"]
+CMD ["uvicorn", "app.api.main:app", "--host", "0.0.0.0", "--port", "18080"]
