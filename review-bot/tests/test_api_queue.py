@@ -68,6 +68,7 @@ def test_gitlab_merge_request_webhook_enqueues_job() -> None:
         "object_attributes": {
             "iid": 91,
             "action": "update",
+            "oldrev": "abc123",
         },
     }
     with patch("app.api.main.queue", fake_queue):
@@ -115,6 +116,29 @@ def test_gitlab_merge_request_webhook_ignores_unsupported_action() -> None:
     assert body["accepted"] is False
     assert body["status"] == "ignored"
     assert body["ignored_reason"] == "unsupported_merge_request_action"
+
+
+def test_gitlab_merge_request_webhook_ignores_update_without_new_commits() -> None:
+    _reset_db()
+    payload = {
+        "object_kind": "merge_request",
+        "object_attributes": {
+            "iid": 94,
+            "action": "update",
+        },
+    }
+    with TestClient(app) as client:
+        response = client.post(
+            "/webhooks/gitlab/merge-request",
+            json=payload,
+            headers={"X-Gitlab-Event": "Merge Request Hook"},
+        )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["accepted"] is False
+    assert body["status"] == "ignored"
+    assert body["ignored_reason"] == "merge_request_update_without_new_commits"
 
 
 def test_gitlab_merge_request_webhook_rejects_invalid_secret() -> None:

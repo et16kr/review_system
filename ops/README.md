@@ -29,3 +29,9 @@ bash /home/et16/work/review_system/ops/scripts/create_altidev4_tde_review.sh --d
 ```bash
 python3 /home/et16/work/review_system/ops/scripts/bootstrap_local_gitlab_tde_review.py
 ```
+
+로컬 GitLab MR에 bot까지 붙이려면:
+
+```bash
+python3 /home/et16/work/review_system/ops/scripts/attach_local_gitlab_bot.py
+```

@@ -10,7 +10,6 @@ import time
 from pathlib import Path
 from urllib import error, parse, request
 
-
 ROOT = Path("/home/et16/work/review_system")
 OPS_DIR = ROOT / "ops"
 LOCAL_GITLAB_COMPOSE = OPS_DIR / "gitlab-local-compose.yml"
@@ -35,7 +34,15 @@ def ensure_directories() -> None:
 
 def compose(args: list[str], *, capture: bool = False) -> str:
     return run(
-        ["docker", "compose", "-f", str(LOCAL_GITLAB_COMPOSE), "--env-file", str(OPS_DIR / ".env"), *args],
+        [
+            "docker",
+            "compose",
+            "-f",
+            str(LOCAL_GITLAB_COMPOSE),
+            "--env-file",
+            str(OPS_DIR / ".env"),
+            *args,
+        ],
         cwd=ROOT,
         capture=capture,
     )
@@ -50,7 +57,7 @@ def wait_for_gitlab(base_url: str, timeout_seconds: int = 1800) -> None:
                 if response.status == 200:
                     return
                 last_error = f"unexpected status {response.status}"
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             last_error = str(exc)
         time.sleep(10)
     raise RuntimeError(f"GitLab did not become ready in time: {last_error}")
@@ -125,7 +132,12 @@ puts token_value
     return value
 
 
-def create_project_via_api(base_url: str, token: str, namespace_path: str, project_name: str) -> dict:
+def create_project_via_api(
+    base_url: str,
+    token: str,
+    namespace_path: str,
+    project_name: str,
+) -> dict:
     namespace_id = find_namespace_id(base_url, token, namespace_path)
     existing = get_project(base_url, token, f"{namespace_path}/{project_name}")
     if existing is not None:
@@ -144,9 +156,10 @@ def create_project_via_api(base_url: str, token: str, namespace_path: str, proje
 
 
 def find_namespace_id(base_url: str, token: str, namespace_path: str) -> int:
+    search_term = parse.quote(namespace_path.rsplit("/", 1)[-1])
     payload = api_json(
         "GET",
-        f"{base_url.rstrip('/')}/api/v4/namespaces?search={parse.quote(namespace_path.rsplit('/', 1)[-1])}&per_page=100",
+        f"{base_url.rstrip('/')}/api/v4/namespaces?search={search_term}&per_page=100",
         token,
     )
     for item in payload:
@@ -187,9 +200,15 @@ def ensure_remote(repo_http_url: str, token: str) -> None:
     authenticated = repo_http_url.replace("http://", f"http://root:{token}@", 1)
     existing = run(["git", "-C", str(ALTIDEV4_PATH), "remote"], cwd=ROOT, capture=True).splitlines()
     if "gitlab-local" in existing:
-        run(["git", "-C", str(ALTIDEV4_PATH), "remote", "set-url", "gitlab-local", authenticated], cwd=ROOT)
+        run(
+            ["git", "-C", str(ALTIDEV4_PATH), "remote", "set-url", "gitlab-local", authenticated],
+            cwd=ROOT,
+        )
     else:
-        run(["git", "-C", str(ALTIDEV4_PATH), "remote", "add", "gitlab-local", authenticated], cwd=ROOT)
+        run(
+            ["git", "-C", str(ALTIDEV4_PATH), "remote", "add", "gitlab-local", authenticated],
+            cwd=ROOT,
+        )
 
 
 def push_tde_branches() -> None:
@@ -236,7 +255,9 @@ def create_merge_request(base_url: str, token: str, project_id: int) -> dict:
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Bootstrap local GitLab and create the TDE merge request.")
+    parser = argparse.ArgumentParser(
+        description="Bootstrap local GitLab and create the TDE merge request."
+    )
     parser.add_argument("--skip-start", action="store_true", help="Do not start GitLab compose.")
     parser.add_argument("--skip-push", action="store_true", help="Do not push branches to GitLab.")
     parser.add_argument("--namespace", default="root", help="GitLab namespace path")

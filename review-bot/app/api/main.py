@@ -151,6 +151,15 @@ async def gitlab_merge_request_webhook(
             ignored_reason="unsupported_merge_request_action",
         )
 
+    if action == "update" and not attrs.get("oldrev"):
+        return WebhookAcceptedResponse(
+            accepted=False,
+            event="gitlab_merge_request",
+            action=action,
+            status="ignored",
+            ignored_reason="merge_request_update_without_new_commits",
+        )
+
     review_run = runner.create_review_run(
         session,
         int(review_request_id),

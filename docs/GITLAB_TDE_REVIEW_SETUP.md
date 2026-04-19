@@ -98,6 +98,36 @@ python3 /home/et16/work/review_system/ops/scripts/bootstrap_local_gitlab_tde_rev
 - `LOCAL_GITLAB_ROOT_EMAIL`
 - `LOCAL_GITLAB_ROOT_PASSWORD`
 
+## 로컬 GitLab에 bot 붙이기
+
+Merge Request가 만들어진 뒤에는 아래 스크립트로 로컬 GitLab과 `review-bot`을 연결할 수 있다.
+
+```bash
+python3 /home/et16/work/review_system/ops/scripts/attach_local_gitlab_bot.py
+```
+
+이 스크립트는 아래를 자동으로 수행한다.
+
+1. root personal access token 재발급
+2. `ops/.env`를 GitLab adapter 기준으로 갱신
+3. `review-bot-api`, `review-bot-worker` 재빌드 및 재기동
+4. 로컬 네트워크 webhook 허용 설정
+5. 기존 bot 댓글 정리 및 bot 상태 초기화
+6. `root/altidev4` 프로젝트에 Merge Request webhook 등록
+7. 현재 MR에 초기 리뷰 1회 실행
+
+기본값은 아래 MR을 대상으로 한다.
+
+- 프로젝트: `root/altidev4`
+- MR iid: `1`
+
+실행 후 봇 댓글은 아래 Merge Request 화면에서 바로 확인한다.
+
+- `http://127.0.0.1:18929/root/altidev4/-/merge_requests/1`
+
+자동 재리뷰는 GitLab Merge Request `update` 이벤트 중에서도
+실제 새 커밋이 들어온 경우에만 반응하도록 맞춰 둔다.
+
 ## 실제로 수행되는 일
 
 스크립트는 아래 순서로 동작한다.

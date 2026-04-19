@@ -19,6 +19,7 @@ class GitLabReviewSystemAdapter(ReviewSystemAdapter):
         self.base_url = base_url.rstrip("/")
         self.token = token
         self.project_id = project_id
+        self._mr_cache: dict[int, dict[str, Any]] = {}
 
     def get_pull_request_diff(self, review_request_id: int) -> dict[str, Any]:
         project = self._project_ref()
@@ -34,16 +35,30 @@ class GitLabReviewSystemAdapter(ReviewSystemAdapter):
         payload = response.json()
         diff_refs = payload.get("diff_refs") or {}
         files: list[dict[str, Any]] = []
+        file_map: dict[str, dict[str, Any]] = {}
         for change in payload.get("changes", []):
+            path = change.get("new_path") or change.get("old_path") or ""
+            file_meta = {
+                "new_path": change.get("new_path"),
+                "old_path": change.get("old_path"),
+                "renamed_file": bool(change.get("renamed_file")),
+                "new_file": bool(change.get("new_file")),
+                "deleted_file": bool(change.get("deleted_file")),
+            }
+            file_map[path] = file_meta
             files.append(
                 {
-                    "path": change.get("new_path") or change.get("old_path") or "",
+                    "path": path,
                     "status": self._change_status(change),
                     "additions": 0,
                     "deletions": 0,
                     "patch": change.get("diff") or "",
                 }
             )
+        self._mr_cache[review_request_id] = {
+            "diff_refs": diff_refs,
+            "file_map": file_map,
+        }
         return {
             "pull_request": {
                 "id": review_request_id,
@@ -65,22 +80,23 @@ class GitLabReviewSystemAdapter(ReviewSystemAdapter):
     ) -> dict[str, Any]:
         del comment_type, author_type
         project = self._project_ref()
-        rendered = body
-        if file_path:
-            rendered = f"{body}\n\n_Path_: `{file_path}`"
-        if line_no is not None:
-            rendered = f"{rendered}\n_Line_: `{line_no}`"
-        response = httpx.post(
-            (
-                f"{self.base_url}/api/v4/projects/{quote(project, safe='')}"
-                f"/merge_requests/{review_request_id}/notes"
-            ),
-            headers=self._headers(),
-            data={"body": rendered},
-            timeout=30.0,
+        if file_path and line_no is not None:
+            inline = self._post_inline_discussion(
+                project,
+                review_request_id,
+                body=body,
+                file_path=file_path,
+                line_no=line_no,
+            )
+            if inline is not None:
+                return inline
+        return self._post_note(
+            project,
+            review_request_id,
+            body=body,
+            file_path=file_path,
+            line_no=line_no,
         )
-        response.raise_for_status()
-        return response.json()
 
     def post_status(
         self,
@@ -106,6 +122,92 @@ class GitLabReviewSystemAdapter(ReviewSystemAdapter):
         raise ValueError(
             "GITLAB_PROJECT_ID is required for the GitLab adapter in the current MVP."
         )
+
+    def _post_inline_discussion(
+        self,
+        project: str,
+        review_request_id: int,
+        *,
+        body: str,
+        file_path: str,
+        line_no: int,
+    ) -> dict[str, Any] | None:
+        cache = self._mr_cache.get(review_request_id) or {}
+        diff_refs = cache.get("diff_refs") or {}
+        file_map = cache.get("file_map") or {}
+        file_meta = file_map.get(file_path)
+        if not file_meta:
+            return None
+
+        new_path = file_meta.get("new_path") or file_path
+        old_path = file_meta.get("old_path") or new_path
+        has_required_refs = (
+            diff_refs.get("base_sha")
+            and diff_refs.get("head_sha")
+            and diff_refs.get("start_sha")
+        )
+        if not has_required_refs:
+            return None
+
+        data = {
+            "body": body,
+            "position[position_type]": "text",
+            "position[base_sha]": diff_refs["base_sha"],
+            "position[start_sha]": diff_refs["start_sha"],
+            "position[head_sha]": diff_refs["head_sha"],
+            "position[new_path]": new_path,
+            "position[old_path]": old_path,
+            "position[new_line]": str(line_no),
+        }
+        try:
+            response = httpx.post(
+                (
+                    f"{self.base_url}/api/v4/projects/{quote(project, safe='')}"
+                    f"/merge_requests/{review_request_id}/discussions"
+                ),
+                headers=self._headers(),
+                data=data,
+                timeout=30.0,
+            )
+            response.raise_for_status()
+            payload = response.json()
+            notes = payload.get("notes") or []
+            if notes:
+                first = notes[0]
+                return {
+                    "id": first.get("id"),
+                    "discussion_id": payload.get("id"),
+                    "kind": "discussion",
+                }
+            return {"id": payload.get("id"), "kind": "discussion"}
+        except httpx.HTTPStatusError:
+            return None
+
+    def _post_note(
+        self,
+        project: str,
+        review_request_id: int,
+        *,
+        body: str,
+        file_path: str | None,
+        line_no: int | None,
+    ) -> dict[str, Any]:
+        rendered = body
+        if file_path:
+            rendered = f"{body}\n\n_Path_: `{file_path}`"
+        if line_no is not None:
+            rendered = f"{rendered}\n_Line_: `{line_no}`"
+        response = httpx.post(
+            (
+                f"{self.base_url}/api/v4/projects/{quote(project, safe='')}"
+                f"/merge_requests/{review_request_id}/notes"
+            ),
+            headers=self._headers(),
+            data={"body": rendered},
+            timeout=30.0,
+        )
+        response.raise_for_status()
+        return response.json()
 
     def _change_status(self, change: dict[str, Any]) -> str:
         if change.get("new_file"):
