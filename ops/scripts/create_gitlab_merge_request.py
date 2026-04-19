@@ -307,6 +307,11 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Print the planned actions without calling GitLab",
     )
+    parser.add_argument(
+        "--print-description-only",
+        action="store_true",
+        help="Print only the generated merge request description and exit",
+    )
     return parser.parse_args()
 
 
@@ -327,6 +332,10 @@ def main() -> int:
         description = Path(args.description_file).read_text(encoding="utf-8")
     else:
         description = build_default_description(repo_path, args.source_branch, args.target_branch)
+
+    if args.print_description_only:
+        print(description)
+        return 0
 
     if args.dry_run:
         print("== GitLab Merge Request Dry Run ==")

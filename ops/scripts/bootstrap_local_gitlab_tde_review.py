@@ -60,6 +60,39 @@ def run_in_gitlab_container(script: str) -> str:
     return compose(["exec", "-T", "gitlab", "gitlab-rails", "runner", script], capture=True)
 
 
+def local_root_email() -> str:
+    return os.getenv("LOCAL_GITLAB_ROOT_EMAIL", "root@example.com")
+
+
+def local_root_password() -> str:
+    return os.getenv("LOCAL_GITLAB_ROOT_PASSWORD", "Q7m$9Lp!2Vz#4Tx@8Hc")
+
+
+def ensure_root_user() -> None:
+    ruby = rf"""
+org = Organizations::Organization.first
+raise 'default organization not found' unless org
+user = User.find_by_username('root')
+if user.nil?
+  params = {{
+    username: 'root',
+    email: '{local_root_email()}',
+    name: 'Administrator',
+    password: '{local_root_password()}',
+    password_confirmation: '{local_root_password()}',
+    organization_id: org.id,
+    admin: true,
+    skip_confirmation: true
+  }}
+  result = Users::CreateService.new(nil, params).execute
+  raise result.message unless result.success?
+  user = result.payload[:user]
+end
+puts [user.id, user.username, user.namespace_id].join(':')
+"""
+    run_in_gitlab_container(ruby)
+
+
 def create_root_personal_access_token(token_name: str) -> str:
     ruby = rf"""
 require 'securerandom'
@@ -141,15 +174,6 @@ def api_json(method: str, url: str, token: str, payload: dict | None = None):
         raise RuntimeError(f"GitLab API {method} {url} failed: {exc.code} {detail}") from exc
 
 
-def configure_remote_and_push(repo_http_url: str, token: str) -> None:
-    authenticated = repo_http_url.replace(
-        "http://",
-        f"http://root:{token}@",
-        1,
-    )
-    run(["git", "-C", str(ALTIDEV4_PATH), "remote", "remove", "gitlab-local"], cwd=ROOT)
-
-
 def ensure_remote(repo_http_url: str, token: str) -> None:
     authenticated = repo_http_url.replace("http://", f"http://root:{token}@", 1)
     existing = run(["git", "-C", str(ALTIDEV4_PATH), "remote"], cwd=ROOT, capture=True).splitlines()
@@ -182,7 +206,7 @@ def create_merge_request(base_url: str, token: str, project_id: int) -> dict:
             "tde_first",
             "--target-branch",
             "tde_base",
-            "--dry-run",
+            "--print-description-only",
         ],
         cwd=ROOT,
         capture=True,
@@ -235,6 +259,7 @@ def main() -> int:
     if not args.skip_start:
         compose(["up", "-d"])
     wait_for_gitlab(base_url)
+    ensure_root_user()
     token = create_root_personal_access_token(args.token_name)
     project = create_project_via_api(base_url, token, args.namespace, args.project_name)
     if not args.skip_push:

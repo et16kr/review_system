@@ -70,6 +70,34 @@ export GITLAB_NAMESPACE_PATH=group-or-user
 bash /home/et16/work/review_system/ops/scripts/create_altidev4_tde_review.sh --create-project
 ```
 
+## 로컬 GitLab 부트스트랩
+
+GitLab 서버가 따로 없으면, 이 워크스페이스 안에서 로컬 GitLab을 바로 띄울 수 있다.
+
+```bash
+python3 /home/et16/work/review_system/ops/scripts/bootstrap_local_gitlab_tde_review.py
+```
+
+이 스크립트는 아래를 자동으로 수행한다.
+
+1. 로컬 GitLab 컨테이너 실행
+2. root 관리자 계정 보장
+3. root personal access token 생성
+4. `root/altidev4` 프로젝트 생성
+5. `tde_base`, `tde_first` 브랜치 push
+6. `tde_first -> tde_base` Merge Request 생성
+
+로컬 기본 접속 정보:
+
+- GitLab URL: `http://127.0.0.1:18929`
+- 프로젝트: `http://127.0.0.1:18929/root/altidev4`
+- MR: `http://127.0.0.1:18929/root/altidev4/-/merge_requests/1`
+
+로컬 root 로그인 정보는 `ops/.env`의 아래 값을 사용한다.
+
+- `LOCAL_GITLAB_ROOT_EMAIL`
+- `LOCAL_GITLAB_ROOT_PASSWORD`
+
 ## 실제로 수행되는 일
 
 스크립트는 아래 순서로 동작한다.
