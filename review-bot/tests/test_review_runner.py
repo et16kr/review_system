@@ -5,7 +5,7 @@ from fastapi import HTTPException
 from app.bot.review_runner import ReviewRunner
 from app.db.models import FindingPublication, ReviewFinding
 from app.db.session import Base, SessionLocal, engine
-from app.providers.base import ReviewCommentProvider
+from app.providers.base import FindingDraft, ReviewCommentProvider
 from app.providers.fallback_provider import FallbackReviewCommentProvider
 from app.providers.stub_provider import StubReviewCommentProvider
 
@@ -102,7 +102,70 @@ class MultiHunkPlatformClient(FakePlatformClient):
         }
 
 
-def test_review_runner_publishes_top_five_findings() -> None:
+class ContinueOnlyPlatformClient(FakePlatformClient):
+    def get_pull_request_diff(self, pr_id: int) -> dict[str, object]:
+        return {
+            "pull_request": {"id": pr_id, "head_sha": "abc123"},
+            "files": [
+                {
+                    "path": "src/flow.cpp",
+                    "patch": "@@ -10,2 +10,3 @@\n+ if (skip) {\n+     continue;\n+ }\n",
+                }
+            ],
+        }
+
+
+class ContinueOnlyEngineClient:
+    def review_diff(self, diff: str, top_k: int = 8) -> dict[str, object]:
+        del diff, top_k
+        return {"results": [_result("ALTI-COF-001", 0.96)]}
+
+
+class HeaderOnlyPlatformClient(FakePlatformClient):
+    def get_pull_request_diff(self, pr_id: int) -> dict[str, object]:
+        return {
+            "pull_request": {"id": pr_id, "head_sha": "abc123"},
+            "files": [
+                {
+                    "path": "src/id/include/idsTde.h",
+                    "patch": (
+                        "@@ -0,0 +1,4 @@\n"
+                        "+class idsTde\n"
+                        "+{\n"
+                        "+public:\n"
+                        "+    static void createKeyStore();\n"
+                    ),
+                }
+            ],
+        }
+
+
+class AssertMismatchedEngineClient:
+    def review_diff(self, diff: str, top_k: int = 8) -> dict[str, object]:
+        del diff, top_k
+        return {
+            "results": [
+                {
+                    **_result("ALTI-PCM-002", 0.96),
+                    "title": "IDE_ASSERT usage should be avoided",
+                    "summary": "IDE_ASSERT detected in error path",
+                }
+            ]
+        }
+
+
+class InvalidLineProvider(ReviewCommentProvider):
+    def build_draft(self, **kwargs) -> FindingDraft:
+        del kwargs
+        return FindingDraft(
+            title="루프 흐름을 단순하게 정리해 주세요",
+            summary="continue가 실제로 사용된 줄에 코멘트가 붙어야 합니다.",
+            suggested_fix=None,
+            line_no=999,
+        )
+
+
+def test_review_runner_suppresses_semantically_duplicate_findings() -> None:
     _reset_db()
 
     runner = ReviewRunner()
@@ -119,14 +182,17 @@ def test_review_runner_publishes_top_five_findings() -> None:
         publication_count = (
             session.query(FindingPublication).filter(FindingPublication.pr_id == 101).count()
         )
-        assert finding_count == 6
-        assert publication_count == 5
-        assert len(fake_platform.comments) == 5
+        assert finding_count == 2
+        assert publication_count == 2
+        assert len(fake_platform.comments) == 2
+        assert "규칙:" not in fake_platform.comments[0]["body"]
+        assert "ALTI-" not in fake_platform.comments[0]["body"]
+        assert "권장 수정" in fake_platform.comments[0]["body"]
 
         state = runner.build_state(session, 101)
         assert state["last_status"] == "success"
         assert state["published_batch_count"] == 1
-        assert state["open_finding_count"] == 6
+        assert state["open_finding_count"] == 2
         assert state["resolved_finding_count"] == 0
     finally:
         session.close()
@@ -192,6 +258,62 @@ def test_review_runner_persists_already_published_findings_on_partial_failure() 
         session.close()
 
 
+def test_review_runner_targets_exact_changed_line_for_continue() -> None:
+    _reset_db()
+
+    runner = ReviewRunner()
+    fake_platform = ContinueOnlyPlatformClient()
+    runner.platform_client = fake_platform
+    runner.engine_client = ContinueOnlyEngineClient()
+    runner.provider = StubReviewCommentProvider()
+
+    session = SessionLocal()
+    try:
+        runner.run_review(session, pr_id=505, trigger="test-exact-line")
+        assert len(fake_platform.comments) == 1
+        assert fake_platform.comments[0]["line_no"] == 11
+        assert "continue" in str(fake_platform.comments[0]["body"])
+    finally:
+        session.close()
+
+
+def test_review_runner_falls_back_to_valid_changed_line_when_provider_returns_invalid_line(
+) -> None:
+    _reset_db()
+
+    runner = ReviewRunner()
+    fake_platform = ContinueOnlyPlatformClient()
+    runner.platform_client = fake_platform
+    runner.engine_client = ContinueOnlyEngineClient()
+    runner.provider = InvalidLineProvider()
+
+    session = SessionLocal()
+    try:
+        runner.run_review(session, pr_id=606, trigger="test-invalid-line")
+        assert len(fake_platform.comments) == 1
+        assert fake_platform.comments[0]["line_no"] == 11
+    finally:
+        session.close()
+
+
+def test_review_runner_skips_findings_without_a_matching_changed_line_signal() -> None:
+    _reset_db()
+
+    runner = ReviewRunner()
+    fake_platform = HeaderOnlyPlatformClient()
+    runner.platform_client = fake_platform
+    runner.engine_client = AssertMismatchedEngineClient()
+    runner.provider = StubReviewCommentProvider()
+
+    session = SessionLocal()
+    try:
+        runner.run_review(session, pr_id=707, trigger="test-weak-anchor")
+        assert fake_platform.comments == []
+        assert session.query(ReviewFinding).filter(ReviewFinding.pr_id == 707).count() == 0
+    finally:
+        session.close()
+
+
 def test_fallback_provider_uses_stub_when_primary_raises() -> None:
     class ExplodingProvider(ReviewCommentProvider):
         def __init__(self) -> None:
@@ -212,8 +334,10 @@ def test_fallback_provider_uses_stub_when_primary_raises() -> None:
         rule_no="ALTI-MEM-007",
         title="메모리 해제 규칙",
         summary="raw memory usage detected",
+        change_snippet="@@ -1 +1 @@\n+ char* p = (char*)malloc(10);\n+ free(p);\n",
     )
-    assert "src/a.cpp" in draft.summary
+    assert "malloc/free" in draft.summary
+    assert "```cpp" in (draft.suggested_fix or "")
     assert draft.should_publish is True
 
     second = provider.build_draft(
@@ -221,9 +345,27 @@ def test_fallback_provider_uses_stub_when_primary_raises() -> None:
         rule_no="ALTI-COF-001",
         title="continue usage",
         summary="continue detected",
+        change_snippet="@@ -1 +1 @@\n+ continue;\n",
     )
-    assert "src/b.cpp" in second.summary
+    assert "continue" in second.summary
     assert exploding.calls == 1
+
+
+def test_stub_provider_filters_out_raw_english_fix_guidance() -> None:
+    provider = StubReviewCommentProvider()
+
+    draft = provider.build_draft(
+        file_path="src/error.cpp",
+        rule_no="Rule-R1",
+        title="Rule-R1 title",
+        summary="exception cleanup flow",
+        category="error_handling",
+        fix_guidance="Follow the internal Rule-R guidance for RC flow and cleanup sequencing.",
+        change_snippet="@@ -1 +1 @@\n+ IDE_EXCEPTION_ERR(rc != IDE_SUCCESS, cleanup);\n",
+    )
+
+    assert "Rule-R" not in (draft.suggested_fix or "")
+    assert "guidance" not in (draft.suggested_fix or "").lower()
 
 
 def test_build_state_uses_latest_review_run() -> None:

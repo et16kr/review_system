@@ -7,6 +7,7 @@ import secrets
 import subprocess
 import sys
 import time
+from datetime import date, timedelta
 from pathlib import Path
 from urllib import error, parse, request
 
@@ -104,11 +105,59 @@ puts settings.allow_local_requests_from_web_hooks_and_services
     run_in_gitlab_container(ruby)
 
 
-def create_root_personal_access_token(token_name: str) -> str:
+def ensure_local_user(
+    *,
+    username: str,
+    email: str,
+    password: str,
+    name: str,
+    admin: bool,
+) -> dict[str, str | int | bool]:
+    ruby = f"""
+org = Organizations::Organization.first
+raise 'default organization not found' unless org
+user = User.find_by_username({username!r})
+if user.nil?
+  params = {{
+    username: {username!r},
+    email: {email!r},
+    name: {name!r},
+    password: {password!r},
+    password_confirmation: {password!r},
+    organization_id: org.id,
+    admin: {str(admin).lower()},
+    skip_confirmation: true
+  }}
+  result = Users::CreateService.new(nil, params).execute
+  raise result.message unless result.success?
+  user = result.payload[:user]
+end
+user.email = {email!r}
+user.name = {name!r}
+user.password = {password!r}
+user.password_confirmation = {password!r}
+user.admin = {str(admin).lower()}
+user.confirm if user.respond_to?(:confirm) && !user.confirmed?
+user.save!
+payload = {{
+  "id" => user.id,
+  "username" => user.username,
+  "admin" => user.admin,
+  "confirmed" => user.confirmed?
+}}
+puts(payload.to_json)
+"""
+    raw = run_in_gitlab_container(ruby).strip().splitlines()[-1].strip()
+    if not raw:
+        raise RuntimeError(f"Failed to ensure local GitLab user: {username}")
+    return json.loads(raw)
+
+
+def create_personal_access_token(username: str, token_name: str) -> str:
     ruby = f"""
 require 'securerandom'
-user = User.find_by_username('root')
-raise 'root user not found' unless user
+user = User.find_by_username({username!r})
+raise 'user not found' unless user
 existing = user.personal_access_tokens.active.find_by(name: {token_name!r})
 existing&.revoke!
 token_value = SecureRandom.hex(20)
@@ -125,6 +174,29 @@ puts token_value
     if not value:
         raise RuntimeError("Failed to create GitLab personal access token.")
     return value
+
+
+def create_user_personal_access_token(
+    *,
+    base_url: str,
+    admin_token: str,
+    user_id: int,
+    token_name: str,
+) -> str:
+    payload = api_json(
+        "POST",
+        f"{base_url.rstrip('/')}/api/v4/users/{user_id}/personal_access_tokens",
+        admin_token,
+        {
+            "name": token_name,
+            "expires_at": (date.today() + timedelta(days=30)).isoformat(),
+            "scopes": ["api", "read_api", "read_repository", "write_repository"],
+        },
+    )
+    token = (payload or {}).get("token")
+    if not token:
+        raise RuntimeError(f"Failed to create GitLab personal access token for user_id={user_id}")
+    return str(token)
 
 
 def api_json(method: str, url: str, token: str, payload: dict | None = None):
@@ -152,6 +224,42 @@ def get_project(base_url: str, token: str, project_ref: str) -> dict:
     if not payload:
         raise RuntimeError(f"Project not found: {project_ref}")
     return payload
+
+
+def ensure_project_member(
+    *,
+    base_url: str,
+    token: str,
+    project_ref: str,
+    user_id: int,
+    access_level: int,
+) -> dict:
+    encoded_project = parse.quote(project_ref, safe="")
+    member_url = (
+        f"{base_url.rstrip('/')}/api/v4/projects/{encoded_project}/members/{user_id}"
+    )
+    all_member_url = (
+        f"{base_url.rstrip('/')}/api/v4/projects/{encoded_project}/members/all/{user_id}"
+    )
+    try:
+        payload = api_json("GET", all_member_url, token)
+        if int(payload.get("access_level", 0)) == access_level:
+            return payload
+        return api_json(
+            "PUT",
+            member_url,
+            token,
+            {"access_level": access_level},
+        )
+    except RuntimeError as exc:
+        if "404" not in str(exc):
+            raise
+    return api_json(
+        "POST",
+        f"{base_url.rstrip('/')}/api/v4/projects/{encoded_project}/members",
+        token,
+        {"user_id": user_id, "access_level": access_level},
+    )
 
 
 def list_project_hooks(base_url: str, token: str, project_ref: str) -> list[dict]:
@@ -343,9 +451,9 @@ def delete_existing_bot_comments(base_url: str, token: str, project_ref: str, pr
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Attach the local GitLab MR to the review bot.")
-    parser.add_argument("--project-ref", default="root/altidev4")
+    parser.add_argument("--project-ref", default="root/altidev4-review")
     parser.add_argument("--mr-iid", type=int, default=1)
-    parser.add_argument("--token-name", default="review-system-bot")
+    parser.add_argument("--token-name", default="review-bot-runtime")
     parser.add_argument(
         "--skip-reset-bot-state",
         action="store_true",
@@ -366,10 +474,33 @@ def main() -> int:
         "LOCAL_GITLAB_BOT_WEBHOOK_URL",
         "http://review-bot-api:18081/webhooks/gitlab/merge-request",
     ).rstrip("/")
+    bot_username = env.get("LOCAL_GITLAB_BOT_USERNAME", "review-bot")
+    bot_email = env.get("LOCAL_GITLAB_BOT_EMAIL", "review-bot@example.local")
+    bot_password = env.get("LOCAL_GITLAB_BOT_PASSWORD", "B9Qv7!Lm2#Xa4Tc8Hp")
 
     ensure_gitlab_allows_local_webhooks()
-    token = create_root_personal_access_token(args.token_name)
-    project = get_project(gitlab_external_url, token, args.project_ref)
+    root_token = create_personal_access_token("root", "review-system-bootstrap-admin")
+    bot_user = ensure_local_user(
+        username=bot_username,
+        email=bot_email,
+        password=bot_password,
+        name="Review Bot",
+        admin=False,
+    )
+    project = get_project(gitlab_external_url, root_token, args.project_ref)
+    ensure_project_member(
+        base_url=gitlab_external_url,
+        token=root_token,
+        project_ref=args.project_ref,
+        user_id=int(bot_user["id"]),
+        access_level=30,
+    )
+    token = create_user_personal_access_token(
+        base_url=gitlab_external_url,
+        admin_token=root_token,
+        user_id=int(bot_user["id"]),
+        token_name=args.token_name,
+    )
     secret = secrets.token_hex(16)
 
     update_env(
@@ -380,6 +511,9 @@ def main() -> int:
             "GITLAB_PROJECT_ID": args.project_ref,
             "GITLAB_TOKEN": token,
             "GITLAB_WEBHOOK_SECRET": secret,
+            "LOCAL_GITLAB_BOT_USERNAME": bot_username,
+            "LOCAL_GITLAB_BOT_EMAIL": bot_email,
+            "LOCAL_GITLAB_BOT_PASSWORD": bot_password,
         },
     )
 
@@ -387,18 +521,18 @@ def main() -> int:
     wait_for_http_ok("http://127.0.0.1:18081/health")
     if not args.skip_reset_bot_state:
         reset_bot_state()
-    delete_existing_bot_comments(gitlab_external_url, token, args.project_ref, args.mr_iid)
+    delete_existing_bot_comments(gitlab_external_url, root_token, args.project_ref, args.mr_iid)
 
     hook = ensure_merge_request_webhook(
         base_url=gitlab_external_url,
-        token=token,
+        token=root_token,
         project_ref=args.project_ref,
         webhook_url=webhook_url,
         secret=secret,
     )
     accepted = trigger_initial_review(args.mr_iid)
     state = wait_for_review_completion(args.mr_iid)
-    note_count = count_gitlab_notes(gitlab_external_url, token, args.project_ref, args.mr_iid)
+    note_count = count_gitlab_notes(gitlab_external_url, root_token, args.project_ref, args.mr_iid)
 
     print(
         json.dumps(
@@ -412,6 +546,8 @@ def main() -> int:
                 "review_accept_response": accepted,
                 "review_state": state,
                 "gitlab_note_count": note_count,
+                "bot_username": bot_username,
+                "bot_user_id": bot_user["id"],
                 "token_name": args.token_name,
             },
             indent=2,

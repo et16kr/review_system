@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import re
+from dataclasses import dataclass
 from datetime import UTC, datetime
 
 from fastapi import HTTPException
@@ -11,11 +12,34 @@ from sqlalchemy.orm import Session
 from app.clients.engine_client import EngineClient
 from app.config import get_settings
 from app.db.models import FindingPublication, ReviewFinding, ReviewRun
+from app.providers.change_analysis import (
+    classify_issue,
+    extract_changed_excerpt,
+    requires_direct_signal,
+    select_candidate_line,
+)
 from app.providers.factory import build_review_comment_provider
 from app.review_systems.factory import build_review_system_adapter
 
 CPP_EXTENSIONS = {".c", ".cc", ".cpp", ".cxx", ".h", ".hh", ".hpp", ".hxx"}
-HUNK_RE = re.compile(r"@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@")
+HUNK_RE = re.compile(r"@@ -(?P<old>\d+)(?:,\d+)? \+(?P<new>\d+)(?:,\d+)? @@")
+
+
+@dataclass(frozen=True)
+class ChangedPatchLine:
+    marker: str
+    text: str
+    old_line_no: int | None = None
+    new_line_no: int | None = None
+
+
+@dataclass(frozen=True)
+class ReviewUnit:
+    patch: str
+    change_snippet: str
+    default_line_no: int | None
+    candidate_line_nos: tuple[int, ...]
+    changed_lines: tuple[ChangedPatchLine, ...]
 
 
 class ReviewRunner:
@@ -55,19 +79,50 @@ class ReviewRunner:
             diff_payload = self.platform_client.get_pull_request_diff(pr_id)
             review_run.head_sha = diff_payload["pull_request"]["head_sha"]
             seen_fingerprints: set[str] = set()
+            seen_human_keys: set[str] = set()
             publication_failures = 0
             for file_item in diff_payload["files"]:
                 if not self._is_cpp_path(file_item["path"]):
                     continue
-                for line_no, review_unit in self._iter_review_units(file_item["patch"]):
-                    review = self.engine_client.review_diff(review_unit, top_k=8)
+                for review_unit in self._iter_review_units(file_item["patch"]):
+                    review = self.engine_client.review_diff(review_unit.patch, top_k=8)
                     for result in review.get("results", [])[:3]:
+                        draft = self.provider.build_draft(
+                            file_path=file_item["path"],
+                            rule_no=result["rule_no"],
+                            title=result["title"],
+                            summary=result["summary"],
+                            rule_text=result.get("text"),
+                            fix_guidance=result.get("fix_guidance"),
+                            category=result.get("category"),
+                            change_snippet=review_unit.change_snippet,
+                            line_no=review_unit.default_line_no,
+                            candidate_line_nos=review_unit.candidate_line_nos,
+                        )
+                        target_line_no = self._resolve_target_line_no(
+                            requested_line_no=draft.line_no,
+                            review_unit=review_unit,
+                            result=result,
+                        )
+                        if self._requires_precise_anchor(
+                            review_unit=review_unit,
+                            result=result,
+                        ) and (target_line_no is None):
+                            continue
+                        human_key = self._human_key(
+                            file_path=file_item["path"],
+                            line_no=target_line_no,
+                            draft=draft,
+                        )
+                        if human_key in seen_human_keys:
+                            continue
+
                         issue_signature = self._issue_signature(result, review_unit)
                         fingerprint = self._fingerprint(
                             pr_id=pr_id,
                             file_path=file_item["path"],
-                            line_no=line_no,
-                            rule_no=result["rule_no"],
+                            line_no=target_line_no,
+                            human_key=human_key,
                             issue_signature=issue_signature,
                         )
                         seen_fingerprints.add(fingerprint)
@@ -85,17 +140,7 @@ class ReviewRunner:
                         if existing is not None:
                             continue
 
-                        draft = self.provider.build_draft(
-                            file_path=file_item["path"],
-                            rule_no=result["rule_no"],
-                            title=result["title"],
-                            summary=result["summary"],
-                            rule_text=result.get("text"),
-                            fix_guidance=result.get("fix_guidance"),
-                            category=result.get("category"),
-                            line_no=line_no,
-                        )
-                        target_line_no = draft.line_no if draft.line_no is not None else line_no
+                        seen_human_keys.add(human_key)
                         finding = ReviewFinding(
                             review_run_id=review_run.id,
                             pr_id=pr_id,
@@ -254,11 +299,16 @@ class ReviewRunner:
         lines = [
             f"[봇 리뷰] {finding.title}",
             "",
-            f"- 규칙: {finding.rule_no}",
-            f"- 설명: {finding.summary}",
+            finding.summary,
         ]
         if finding.suggested_fix:
-            lines.append(f"- 권장 방향: {finding.suggested_fix}")
+            lines.extend(
+                [
+                    "",
+                    "권장 수정",
+                    finding.suggested_fix,
+                ]
+            )
         return "\n".join(lines)
 
     def _resolve_missing_findings(
@@ -283,42 +333,141 @@ class ReviewRunner:
         match = HUNK_RE.search(patch)
         if match is None:
             return None
-        return int(match.group(1))
+        return int(match.group("new"))
 
-    def _iter_review_units(self, patch: str) -> list[tuple[int | None, str]]:
+    def _iter_review_units(self, patch: str) -> list[ReviewUnit]:
         lines = patch.splitlines()
-        units: list[tuple[int | None, str]] = []
+        units: list[ReviewUnit] = []
         current_header: str | None = None
         current_lines: list[str] = []
-        current_line_no: int | None = None
 
         for line in lines:
             if line.startswith("@@"):
                 if current_header is not None:
-                    units.append((current_line_no, "\n".join([current_header, *current_lines])))
+                    units.append(self._build_review_unit(current_header, current_lines))
                 current_header = line
                 current_lines = []
-                current_line_no = self._extract_line_no(line)
                 continue
             if current_header is not None:
                 current_lines.append(line)
 
         if current_header is not None:
-            units.append((current_line_no, "\n".join([current_header, *current_lines])))
+            units.append(self._build_review_unit(current_header, current_lines))
 
         if units:
             return units
-        return [(self._extract_line_no(patch), patch)]
-
-    def _issue_signature(self, result: dict[str, object], review_unit: str) -> str:
-        changed_lines = [
-            line[1:].strip()
-            for line in review_unit.splitlines()
-            if line.startswith(("+", "-")) and not line.startswith(("+++", "---"))
+        return [
+            ReviewUnit(
+                patch=patch,
+                change_snippet=patch,
+                default_line_no=self._extract_line_no(patch),
+                candidate_line_nos=(),
+                changed_lines=(),
+            )
         ]
-        signature_source = " ".join(changed_lines[:3]) or review_unit
+
+    def _build_review_unit(self, header: str, hunk_lines: list[str]) -> ReviewUnit:
+        match = HUNK_RE.match(header)
+        old_line_no = int(match.group("old")) if match else None
+        new_line_no = int(match.group("new")) if match else None
+        changed_lines: list[ChangedPatchLine] = []
+        candidate_line_nos: list[int] = []
+        numbered_lines: list[str] = [header]
+
+        for raw_line in hunk_lines:
+            if raw_line.startswith("\\"):
+                continue
+            if raw_line.startswith("+") and not raw_line.startswith("+++"):
+                changed_lines.append(
+                    ChangedPatchLine(marker="+", text=raw_line[1:], new_line_no=new_line_no)
+                )
+                if new_line_no is not None:
+                    candidate_line_nos.append(new_line_no)
+                    numbered_lines.append(f"L{new_line_no} | + {raw_line[1:]}")
+                    new_line_no += 1
+                continue
+            if raw_line.startswith("-") and not raw_line.startswith("---"):
+                changed_lines.append(
+                    ChangedPatchLine(marker="-", text=raw_line[1:], old_line_no=old_line_no)
+                )
+                if old_line_no is not None:
+                    numbered_lines.append(f"OLD{old_line_no} | - {raw_line[1:]}")
+                    old_line_no += 1
+                continue
+            if raw_line.startswith(" "):
+                if old_line_no is not None:
+                    old_line_no += 1
+                if new_line_no is not None:
+                    new_line_no += 1
+
+        normalized_candidates = tuple(dict.fromkeys(candidate_line_nos))
+        if normalized_candidates:
+            default_line_no = normalized_candidates[0]
+        else:
+            default_line_no = self._extract_line_no(header)
+        return ReviewUnit(
+            patch="\n".join([header, *hunk_lines]),
+            change_snippet="\n".join(numbered_lines),
+            default_line_no=default_line_no,
+            candidate_line_nos=normalized_candidates,
+            changed_lines=tuple(changed_lines),
+        )
+
+    def _issue_signature(self, result: dict[str, object], review_unit: ReviewUnit) -> str:
+        changed_lines = [
+            line.text.strip() for line in review_unit.changed_lines if line.text.strip()
+        ]
+        signature_source = " ".join(changed_lines[:3]) or review_unit.patch
         signature_source += f"|{result['rule_no']}|{result['title']}|{result['summary']}"
         return hashlib.sha1(signature_source.encode("utf-8")).hexdigest()[:12]
+
+    def _resolve_target_line_no(
+        self,
+        *,
+        requested_line_no: int | None,
+        review_unit: ReviewUnit,
+        result: dict[str, object],
+    ) -> int | None:
+        if (
+            requested_line_no is not None
+            and requested_line_no in review_unit.candidate_line_nos
+        ):
+            return requested_line_no
+
+        issue = classify_issue(
+            extract_changed_excerpt(review_unit.change_snippet),
+            result.get("category"),
+            str(result.get("title") or ""),
+            str(result.get("summary") or ""),
+        )
+        inferred_line = select_candidate_line(
+            change_snippet=review_unit.change_snippet,
+            candidate_line_nos=review_unit.candidate_line_nos,
+            issue=issue,
+        )
+        if inferred_line is not None:
+            return inferred_line
+        if requires_direct_signal(issue):
+            return None
+        if review_unit.default_line_no in review_unit.candidate_line_nos:
+            return review_unit.default_line_no
+        if review_unit.candidate_line_nos:
+            return review_unit.candidate_line_nos[0]
+        return requested_line_no or review_unit.default_line_no
+
+    def _requires_precise_anchor(
+        self,
+        *,
+        review_unit: ReviewUnit,
+        result: dict[str, object],
+    ) -> bool:
+        issue = classify_issue(
+            extract_changed_excerpt(review_unit.change_snippet),
+            result.get("category"),
+            str(result.get("title") or ""),
+            str(result.get("summary") or ""),
+        )
+        return requires_direct_signal(issue)
 
     def _fingerprint(
         self,
@@ -326,11 +475,24 @@ class ReviewRunner:
         pr_id: int,
         file_path: str,
         line_no: int | None,
-        rule_no: str,
+        human_key: str,
         issue_signature: str,
     ) -> str:
         normalized_line = line_no or 0
-        return f"pr{pr_id}:{file_path}:{normalized_line}:{rule_no}:{issue_signature}"
+        return f"pr{pr_id}:{file_path}:{normalized_line}:{human_key}:{issue_signature}"
+
+    def _human_key(
+        self,
+        *,
+        file_path: str,
+        line_no: int | None,
+        draft: object,
+    ) -> str:
+        normalized_line = line_no or 0
+        title = getattr(draft, "title", "")
+        summary = getattr(draft, "summary", "")
+        source = f"{file_path}|{normalized_line}|{title}|{summary}"
+        return hashlib.sha1(source.encode()).hexdigest()[:12]
 
     def _safe_post_status(self, pr_id: int, *, state: str, description: str) -> None:
         try:

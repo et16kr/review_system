@@ -26,6 +26,8 @@ class ReviewCommentProvider:
         rule_text: str | None = None,
         fix_guidance: str | None = None,
         category: str | None = None,
+        change_snippet: str | None = None,
         line_no: int | None = None,
+        candidate_line_nos: tuple[int, ...] = (),
     ) -> FindingDraft:
         raise NotImplementedError

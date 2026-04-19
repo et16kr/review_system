@@ -23,7 +23,9 @@ class FallbackReviewCommentProvider(ReviewCommentProvider):
         rule_text: str | None = None,
         fix_guidance: str | None = None,
         category: str | None = None,
+        change_snippet: str | None = None,
         line_no: int | None = None,
+        candidate_line_nos: tuple[int, ...] = (),
     ) -> FindingDraft:
         if self.primary_available:
             try:
@@ -35,7 +37,9 @@ class FallbackReviewCommentProvider(ReviewCommentProvider):
                     rule_text=rule_text,
                     fix_guidance=fix_guidance,
                     category=category,
+                    change_snippet=change_snippet,
                     line_no=line_no,
+                    candidate_line_nos=candidate_line_nos,
                 )
             except Exception:
                 self.primary_available = False
@@ -48,5 +52,7 @@ class FallbackReviewCommentProvider(ReviewCommentProvider):
             rule_text=rule_text,
             fix_guidance=fix_guidance,
             category=category,
+            change_snippet=change_snippet,
             line_no=line_no,
+            candidate_line_nos=candidate_line_nos,
         )

@@ -190,7 +190,8 @@ def api_json(method: str, url: str, token: str, payload: dict | None = None):
     req = request.Request(url, method=method, headers=headers, data=body)
     try:
         with request.urlopen(req, timeout=30) as response:
-            return json.loads(response.read().decode("utf-8"))
+            raw = response.read().decode("utf-8")
+            return json.loads(raw) if raw else None
     except error.HTTPError as exc:
         detail = exc.read().decode("utf-8", errors="replace")
         raise RuntimeError(f"GitLab API {method} {url} failed: {exc.code} {detail}") from exc
@@ -254,6 +255,29 @@ def create_merge_request(base_url: str, token: str, project_id: int) -> dict:
     )
 
 
+def delete_matching_merge_requests(base_url: str, token: str, project_id: int) -> list[int]:
+    merge_requests = api_json(
+        "GET",
+        (
+            f"{base_url.rstrip('/')}/api/v4/projects/{project_id}/merge_requests"
+            "?state=opened&source_branch=tde_first&target_branch=tde_base"
+        ),
+        token,
+    )
+    deleted_iids: list[int] = []
+    for merge_request in merge_requests or []:
+        api_json(
+            "DELETE",
+            (
+                f"{base_url.rstrip('/')}/api/v4/projects/{project_id}/merge_requests/"
+                f"{merge_request['iid']}"
+            ),
+            token,
+        )
+        deleted_iids.append(int(merge_request["iid"]))
+    return deleted_iids
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Bootstrap local GitLab and create the TDE merge request."
@@ -261,7 +285,16 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--skip-start", action="store_true", help="Do not start GitLab compose.")
     parser.add_argument("--skip-push", action="store_true", help="Do not push branches to GitLab.")
     parser.add_argument("--namespace", default="root", help="GitLab namespace path")
-    parser.add_argument("--project-name", default="altidev4", help="GitLab project name/path")
+    parser.add_argument(
+        "--project-name",
+        default="altidev4-review",
+        help="GitLab project name/path",
+    )
+    parser.add_argument(
+        "--recreate-mr",
+        action="store_true",
+        help="Delete existing open tde_first -> tde_base merge requests before creating a new one.",
+    )
     parser.add_argument(
         "--token-name",
         default="review-system-bootstrap",
@@ -295,6 +328,9 @@ def main() -> int:
     if not args.skip_push:
         ensure_remote(project["http_url_to_repo"], token)
         push_tde_branches()
+    deleted_mr_iids: list[int] = []
+    if args.recreate_mr:
+        deleted_mr_iids = delete_matching_merge_requests(base_url, token, int(project["id"]))
     mr = create_merge_request(base_url, token, int(project["id"]))
     result = {
         "gitlab_url": base_url,
@@ -302,6 +338,7 @@ def main() -> int:
         "project_web_url": project["web_url"],
         "merge_request_iid": mr["iid"],
         "merge_request_url": mr["web_url"],
+        "deleted_merge_requests": deleted_mr_iids,
         "username": "root",
         "password_source": "LOCAL_GITLAB_ROOT_PASSWORD in ops/.env",
         "token_name": args.token_name,

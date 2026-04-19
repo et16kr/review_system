@@ -105,3 +105,111 @@
 현재 self review 기준으로는, 새로 추가한 서비스들 중 가장 위험했던 부분은 `review-bot`의
 게시 일관성과 finding granularity였다. 이 부분은 코드와 테스트로 보완 완료했다.
 이후 남은 우선순위는 인증/권한, DB migration, 그리고 실제 내부망 배포 기준 운영 튜닝이다.
+
+## GitLab Bot Follow-up
+
+날짜: 2026-04-20
+
+대상 범위:
+
+- `review-bot/app/`
+- `ops/scripts/attach_local_gitlab_bot.py`
+- `ops/scripts/bootstrap_local_gitlab_tde_review.py`
+
+### 1. High
+
+대상:
+- [attach_local_gitlab_bot.py](/home/et16/work/review_system/ops/scripts/attach_local_gitlab_bot.py:451)
+
+문제:
+- GitLab MR 코멘트 작성 주체가 `root` 관리자 계정으로 남아 있었다.
+- 이 상태에서는 운영 권한 분리가 되지 않고, 리뷰 흔적도 서비스 계정이 아니라 관리자 활동처럼 보였다.
+
+영향:
+- 관리자 토큰이 런타임에 과도하게 노출될 수 있었다.
+- MR discussion author가 봇 전용 계정이 아니라 `root`로 표시됐다.
+
+수정:
+- `review-bot` 비관리자 계정을 생성/갱신하도록 attach 흐름을 바꿨다.
+- 프로젝트 권한은 `Developer`로 고정했고, 런타임 `GITLAB_TOKEN`은 `review-bot` PAT로 교체했다.
+- 실제 GitLab MR `!2`에서 discussion author가 `review-bot`으로 보이는 것까지 확인했다.
+
+상태:
+- 해결 완료
+
+### 2. High
+
+대상:
+- [review_runner.py](/home/et16/work/review_system/review-bot/app/bot/review_runner.py:317)
+- [change_analysis.py](/home/et16/work/review_system/review-bot/app/providers/change_analysis.py:1)
+
+문제:
+- 코멘트가 hunk 시작 줄에 붙거나, provider가 잘못된 줄 번호를 반환해도 그대로 게시될 가능성이 있었다.
+
+영향:
+- inline discussion이 실제 수정 위치와 어긋날 수 있었다.
+- 같은 hunk 안에서 코멘트 신뢰도가 떨어질 수 있었다.
+
+수정:
+- diff hunk를 changed line 후보 집합으로 다시 파싱하도록 변경했다.
+- provider는 후보 줄 번호 안에서만 `line_no`를 선택할 수 있게 했고, 잘못된 값이면 deterministic fallback이 실제 changed line으로 보정하도록 했다.
+- `continue` 예제와 invalid line 반환 예제를 테스트로 추가했다.
+
+상태:
+- 해결 완료
+
+### 3. Medium
+
+대상:
+- [stub_provider.py](/home/et16/work/review_system/review-bot/app/providers/stub_provider.py:21)
+- [ops/.env.example](/home/et16/work/review_system/ops/.env.example:27)
+
+문제:
+- stub 코멘트 본문에 표시하는 “문제로 보이는 코드” 힌트가 선택된 줄이 아니라 hunk 첫 줄을 가리킬 수 있었다.
+- 또한 `.env`의 bot 비밀번호 기본값에 `$`가 들어 있어 Docker Compose가 변수 치환 경고를 냈다.
+
+영향:
+- 코멘트는 inline으로 붙어도 본문 힌트가 다른 줄을 설명할 수 있었다.
+- 로컬 운영 스크립트 재실행 시 불필요한 compose 경고가 발생했다.
+
+수정:
+- stub provider가 선택된 `line_no` 주변 코드 한 줄을 우선 힌트로 쓰도록 바꿨다.
+- bot 비밀번호 기본값은 Compose-safe 문자열로 교체했다.
+- 실제 MR `!2`에서 코멘트 본문 힌트가 선택 줄과 맞아지는 것까지 확인했다.
+
+상태:
+- 해결 완료
+
+### 4. Medium
+
+대상:
+- [stub_provider.py](/home/et16/work/review_system/review-bot/app/providers/stub_provider.py:21)
+- [review_runner.py](/home/et16/work/review_system/review-bot/app/bot/review_runner.py:52)
+- [change_analysis.py](/home/et16/work/review_system/review-bot/app/providers/change_analysis.py:1)
+
+문제:
+- GitLab MR `!2`를 실제로 다시 달아 보니 두 가지가 남아 있었다.
+- 하나는 영어 `fix_guidance` 문장이 그대로 코멘트에 섞여 자연스러운 리뷰 톤을 깨는 문제였다.
+- 다른 하나는 changed line에 직접 신호가 없는 규칙형 finding이 파일 첫 줄 같은 어색한 위치에 anchor 될 수 있다는 점이었다.
+
+영향:
+- 코멘트가 기계적으로 보이거나 팀 내 자연스러운 리뷰 문체와 어긋날 수 있었다.
+- 실제 수정 위치가 아닌 곳에 discussion이 달려 신뢰도를 떨어뜨릴 수 있었다.
+
+수정:
+- 영어/원문 지침은 stub 코멘트에 그대로 노출하지 않도록 정리했다.
+- 직접 신호가 필요한 issue는 changed line에서 실제 토큰이 잡히는 경우에만 게시하고, 그렇지 않으면 생략하도록 보수적으로 바꿨다.
+- 같은 줄에 사실상 같은 메시지가 중복되는 경우를 막기 위해 human-readable message 기반 dedupe를 추가했다.
+- 관련 회귀 테스트를 추가해 `18 passed` 기준으로 고정했다.
+
+상태:
+- 해결 완료
+
+## 최신 결론
+
+현재 기준으로 GitLab 연동 경로의 핵심 위험 요소는 정리됐다.
+
+- MR은 기존 것 대신 새 `tde_first -> tde_base` `!2`만 남아 있다.
+- 첫 배치 코멘트 5개는 모두 `review-bot` 계정이 남겼다.
+- 코멘트는 `DiffNote`로 붙고, 규칙 ID 대신 자연스러운 설명과 수정 제안 중심으로 렌더링된다.
+- 실제 MR 재검수 기준으로 영어 안내 누출과 어색한 line 1 anchor는 제거됐다.
