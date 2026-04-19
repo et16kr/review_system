@@ -9,6 +9,12 @@
 - `review-bot/`
 - `ops/`
 
+참고:
+
+- 이 문서는 local harness 확장 단계의 self review 결과를 포함한다.
+- 현재 운영 기준에서는 `review-platform/`을 canonical UI가 아닌
+  로컬 데모/통합 테스트용 harness로 본다.
+
 ## 핵심 Findings
 
 ### 1. High

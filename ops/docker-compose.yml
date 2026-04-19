@@ -66,18 +66,24 @@ services:
     environment:
       BOT_DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-review}:${POSTGRES_PASSWORD:-review}@postgres:5432/${POSTGRES_DB:-review}
       BOT_REDIS_URL: redis://redis:6379/0
-      PLATFORM_BASE_URL: http://review-platform:18080
+      REVIEW_SYSTEM_ADAPTER: ${REVIEW_SYSTEM_ADAPTER:-local_platform}
+      REVIEW_SYSTEM_BASE_URL: ${REVIEW_SYSTEM_BASE_URL:-http://review-platform:18080}
+      PLATFORM_BASE_URL: ${REVIEW_SYSTEM_BASE_URL:-http://review-platform:18080}
       ENGINE_BASE_URL: http://review-engine:8000
       BOT_BATCH_SIZE: 5
       BOT_PROVIDER: ${BOT_PROVIDER:-stub}
       BOT_FALLBACK_PROVIDER: ${BOT_FALLBACK_PROVIDER:-stub}
       BOT_OPENAI_MODEL: ${BOT_OPENAI_MODEL:-gpt-5.2}
+      BOT_OPENAI_TIMEOUT_SECONDS: ${BOT_OPENAI_TIMEOUT_SECONDS:-10}
+      BOT_OPENAI_MAX_RETRIES: ${BOT_OPENAI_MAX_RETRIES:-0}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      GITLAB_TOKEN: ${GITLAB_TOKEN:-}
+      GITLAB_PROJECT_ID: ${GITLAB_PROJECT_ID:-}
+      GITLAB_WEBHOOK_SECRET: ${GITLAB_WEBHOOK_SECRET:-}
     depends_on:
       - postgres
       - redis
       - review-engine
-      - review-platform
     ports:
       - "18081:18081"
     command: ["uvicorn", "app.api.main:app", "--host", "0.0.0.0", "--port", "18081"]
@@ -88,18 +94,24 @@ services:
     environment:
       BOT_DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-review}:${POSTGRES_PASSWORD:-review}@postgres:5432/${POSTGRES_DB:-review}
       BOT_REDIS_URL: redis://redis:6379/0
-      PLATFORM_BASE_URL: http://review-platform:18080
+      REVIEW_SYSTEM_ADAPTER: ${REVIEW_SYSTEM_ADAPTER:-local_platform}
+      REVIEW_SYSTEM_BASE_URL: ${REVIEW_SYSTEM_BASE_URL:-http://review-platform:18080}
+      PLATFORM_BASE_URL: ${REVIEW_SYSTEM_BASE_URL:-http://review-platform:18080}
       ENGINE_BASE_URL: http://review-engine:8000
       BOT_BATCH_SIZE: 5
       BOT_PROVIDER: ${BOT_PROVIDER:-stub}
       BOT_FALLBACK_PROVIDER: ${BOT_FALLBACK_PROVIDER:-stub}
       BOT_OPENAI_MODEL: ${BOT_OPENAI_MODEL:-gpt-5.2}
+      BOT_OPENAI_TIMEOUT_SECONDS: ${BOT_OPENAI_TIMEOUT_SECONDS:-10}
+      BOT_OPENAI_MAX_RETRIES: ${BOT_OPENAI_MAX_RETRIES:-0}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      GITLAB_TOKEN: ${GITLAB_TOKEN:-}
+      GITLAB_PROJECT_ID: ${GITLAB_PROJECT_ID:-}
+      GITLAB_WEBHOOK_SECRET: ${GITLAB_WEBHOOK_SECRET:-}
     depends_on:
       - postgres
       - redis
       - review-engine
-      - review-platform
     command: ["bot-worker"]
 
   nginx:

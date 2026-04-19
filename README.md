@@ -1,17 +1,18 @@
 # 리뷰 시스템
 
 Altibase 사내 코딩 컨벤션과 호환 가능한 C++ Core Guidelines를 함께 사용하는
-사내 우선 C++ 가이드라인 검색 MVP입니다.
+사내 우선 C++ 리뷰 엔진과 리뷰 봇 워크스페이스입니다.
 
-현재 워크스페이스는 다음 구조로 확장 중입니다.
+운영 목표는 **별도 PR UI를 만드는 것**이 아니라,
+**기존 Git PR/MR 리뷰 시스템에 bot을 붙이는 것**입니다.
 
-- `review-engine/`: 현재 엔진의 분리 대상 서비스
-- `review-platform/`: bare Git 기반 PR 리뷰 플랫폼
-- `review-bot/`: 자동 리뷰 오케스트레이터
+현재 워크스페이스는 다음 역할로 나뉩니다.
+
+- `review-engine/`: Altibase 우선 규칙셋, 벡터DB, 검색 엔진
+- `review-bot/`: 기존 Git 리뷰 시스템 webhook/API에 붙는 자동 리뷰 봇
+- `review-platform/`: 로컬 데모와 통합 테스트용 bare Git 기반 harness
 - `ops/`: compose 및 배포 자산
 - `docs/`: 분리 구조와 API 계약 문서
-
-기존 루트 코드도 아직 유지하고 있지만, 이후 구현은 위 분리 구조를 기준으로 진행합니다.
 
 ## 주요 기능
 
@@ -145,23 +146,27 @@ uv run python -m app.cli.scan_codebase \
 docker compose up --build
 ```
 
-## 새 workspace 서비스
+## Workspace 서비스
 
-분리 구조 기준으로는 아래 디렉터리들이 준비되어 있습니다.
+운영 핵심은 아래 두 서비스입니다.
 
 - `review-engine/`
-- `review-platform/`
 - `review-bot/`
-- `ops/`
+
+`review-platform/`은 로컬 데모와 통합 테스트를 위한 harness입니다.
 
 개별 개발 서버 예시:
 
 ```bash
 cd review-engine && uv run --extra dev uvicorn app.api.main:app --reload --port 18082
-cd review-platform && uv run --extra dev uvicorn app.api.main:app --reload --port 18080
 cd review-bot && uv run --extra dev uvicorn app.api.main:app --reload --port 18081
 ```
 
-분리된 workspace 기준 통합 compose 초안은 `ops/docker-compose.yml`에 있습니다.
+로컬 harness까지 함께 확인하려면:
 
-운영 실행 순서와 OpenAI fallback 정책은 [docs/OPERATIONS_RUNBOOK.md](/home/et16/work/review_system/docs/OPERATIONS_RUNBOOK.md:1)에 정리해 두었습니다.
+```bash
+cd review-platform && uv run --extra dev uvicorn app.api.main:app --reload --port 18080
+```
+
+통합 compose와 외부 GitLab 연동 예시는 `ops/docker-compose.yml`과
+[docs/OPERATIONS_RUNBOOK.md](/home/et16/work/review_system/docs/OPERATIONS_RUNBOOK.md:1)에 정리해 두었습니다.

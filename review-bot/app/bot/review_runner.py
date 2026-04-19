@@ -9,10 +9,10 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.clients.engine_client import EngineClient
-from app.clients.platform_client import PlatformClient
 from app.config import get_settings
 from app.db.models import FindingPublication, ReviewFinding, ReviewRun
 from app.providers.factory import build_review_comment_provider
+from app.review_systems.factory import build_review_system_adapter
 
 CPP_EXTENSIONS = {".c", ".cc", ".cpp", ".cxx", ".h", ".hh", ".hpp", ".hxx"}
 HUNK_RE = re.compile(r"@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@")
@@ -21,7 +21,9 @@ HUNK_RE = re.compile(r"@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@")
 class ReviewRunner:
     def __init__(self) -> None:
         self.settings = get_settings()
-        self.platform_client = PlatformClient(self.settings.platform_base_url)
+        self.review_system = build_review_system_adapter()
+        # Backward-compatible alias used by existing tests and the local demo harness.
+        self.platform_client = self.review_system
         self.engine_client = EngineClient(self.settings.engine_base_url)
         self.provider = build_review_comment_provider()
 

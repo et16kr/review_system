@@ -2,6 +2,24 @@
 
 날짜: 2026-04-19
 
+## 아키텍처 정정 메모
+
+이 문서 중 `review-platform` 중심으로 보이는 항목은
+초기 local harness 확장 단계의 기록이다.
+
+현재 기준의 운영 아키텍처는 아래를 우선한다.
+
+- 운영 핵심: `review-engine`, `review-bot`
+- canonical UI: 기존 Git PR/MR 리뷰 시스템
+- `review-platform`: 로컬 데모와 통합 테스트용 harness
+
+최신 기준 문서는 아래를 우선한다.
+
+- `INTERNAL_PR_REVIEW_SYSTEM_EXECUTION_PLAN.md`
+- `docs/WORKSPACE_SPLIT_ARCHITECTURE.md`
+- `docs/API_CONTRACTS.md`
+- `docs/OPERATIONS_RUNBOOK.md`
+
 ## 목표
 
 `review_system.md`에 정의된 MVP를 다음 운영 원칙에 따라 구현한다.

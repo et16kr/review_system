@@ -20,6 +20,16 @@ class ReviewAcceptedResponse(BaseModel):
     queue_name: str | None = None
 
 
+class WebhookAcceptedResponse(BaseModel):
+    accepted: bool
+    event: str
+    action: str | None = None
+    review_run_id: int | None = None
+    status: str
+    queue_name: str | None = None
+    ignored_reason: str | None = None
+
+
 class BotStateResponse(BaseModel):
     pr_id: int
     last_review_run_id: int | None
