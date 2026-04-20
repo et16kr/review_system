@@ -1,8 +1,12 @@
 from __future__ import annotations
 
+import logging
+from datetime import UTC, datetime, timedelta
+
 from rq import Worker
 
 from review_bot.bot.review_runner import ReviewRunner
+from review_bot.db.models import DeadLetterRecord
 from review_bot.db.session import SessionLocal, init_db
 from review_bot.errors import ReviewBotError
 from review_bot.queueing import (
@@ -11,6 +15,9 @@ from review_bot.queueing import (
     get_redis_connection,
     get_sync_queue,
 )
+
+logger = logging.getLogger(__name__)
+DEAD_LETTER_TTL_DAYS = 14
 
 
 def execute_detect_job(review_run_id: str) -> None:
@@ -60,8 +67,21 @@ def execute_sync_job(review_run_id: str) -> None:
         runner = ReviewRunner()
         runner.execute_sync_phase(session, review_run_id)
         session.commit()
+        _cleanup_expired_dead_letters(session)
     finally:
         session.close()
+
+
+def _cleanup_expired_dead_letters(session) -> None:
+    cutoff = datetime.now(UTC) - timedelta(days=DEAD_LETTER_TTL_DAYS)
+    deleted = (
+        session.query(DeadLetterRecord)
+        .filter(DeadLetterRecord.created_at < cutoff)
+        .delete(synchronize_session=False)
+    )
+    if deleted:
+        session.commit()
+        logger.info("dead_letter_cleanup deleted=%d cutoff_days=%d", deleted, DEAD_LETTER_TTL_DAYS)
 
 
 def _mark_followup_enqueue_failure(review_run_id: str, *, stage: str, exc: Exception) -> None:

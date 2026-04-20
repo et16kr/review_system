@@ -26,8 +26,13 @@ class StubReviewCommentProvider(ReviewCommentProvider):
         change_snippet: str | None = None,
         line_no: int | None = None,
         candidate_line_nos: tuple[int, ...] = (),
+        file_context: str | None = None,
+        pr_title: str | None = None,
+        pr_source_branch: str | None = None,
+        pr_target_branch: str | None = None,
+        similar_code: list[dict] | None = None,
     ) -> FindingDraft:
-        del rule_no, rule_text
+        del rule_no, rule_text, file_context, pr_title, pr_source_branch, pr_target_branch, similar_code
 
         excerpt = extract_changed_excerpt(change_snippet or "")
         issue = classify_issue(excerpt, category, title, summary)

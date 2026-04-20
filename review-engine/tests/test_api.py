@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 from fastapi.testclient import TestClient
 
 from review_engine.api import main as api_main
@@ -25,3 +27,50 @@ def test_review_code_api_shape(monkeypatch, fixture_settings) -> None:
     assert set(payload) == {"query_text", "detected_patterns", "results"}
     assert isinstance(payload["results"], list)
     assert {"rule_no", "title", "score"} <= set(payload["results"][0])
+
+
+def test_codebase_index_rejects_root_outside_allowed_roots(tmp_path: Path) -> None:
+    client = TestClient(api_main.app)
+
+    response = client.post("/codebase/index", json={"root_path": str(tmp_path)})
+
+    assert response.status_code == 403
+    assert "allowed roots" in response.json()["detail"]
+
+
+def test_codebase_index_accepts_configured_allowed_root(monkeypatch, tmp_path: Path) -> None:
+    indexed_chunks: list[list[dict[str, object]]] = []
+
+    class FakeStore:
+        def clear(self) -> None:
+            return None
+
+        def upsert_chunks(self, chunks: list[dict[str, object]]) -> int:
+            indexed_chunks.append(chunks)
+            return len(chunks)
+
+    source_dir = tmp_path / "repo"
+    source_dir.mkdir()
+    (source_dir / "sample.cpp").write_text(
+        "void sampleFunction() {\n"
+        "    int counter = 0;\n"
+        "    counter += 1;\n"
+        "    counter += 2;\n"
+        "    if (counter > 0) {\n"
+        "        counter += 3;\n"
+        "    }\n"
+        "}\n",
+        encoding="utf-8",
+    )
+
+    monkeypatch.setenv("REVIEW_ENGINE_CODEBASE_ALLOWED_ROOTS", str(tmp_path))
+    monkeypatch.setattr(api_main, "_codebase_store", FakeStore())
+
+    client = TestClient(api_main.app)
+    response = client.post("/codebase/index", json={"root_path": str(source_dir)})
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["indexed_files"] == 1
+    assert payload["total_chunks"] >= 1
+    assert indexed_chunks

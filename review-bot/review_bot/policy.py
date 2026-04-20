@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from fnmatch import fnmatch
+from functools import lru_cache
 from pathlib import Path
 
 
@@ -15,6 +16,14 @@ class PathPolicy:
     promote_rules: frozenset[str] = frozenset()
 
 
+@lru_cache(maxsize=512)
+def _match_path_policies(
+    path_policies: tuple[PathPolicy, ...], file_path: str
+) -> tuple[PathPolicy, ...]:
+    """경로별 정책 매칭 결과를 캐싱한다 (O(n*m) → O(1) 반복 호출)."""
+    return tuple(p for p in path_policies if fnmatch(file_path, p.glob))
+
+
 @dataclass(frozen=True)
 class ReviewPolicy:
     path_policies: tuple[PathPolicy, ...] = ()
@@ -22,7 +31,7 @@ class ReviewPolicy:
     suppressed_rules: frozenset[str] = frozenset()
 
     def rules_for_path(self, file_path: str) -> tuple[PathPolicy, ...]:
-        return tuple(policy for policy in self.path_policies if fnmatch(file_path, policy.glob))
+        return _match_path_policies(self.path_policies, file_path)
 
 
 def load_review_policy(path: str | None) -> ReviewPolicy:

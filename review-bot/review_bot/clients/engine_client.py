@@ -1,11 +1,66 @@
 from __future__ import annotations
 
-from typing import Any
+import logging
 import time
+from enum import Enum
+from typing import Any
 
 import httpx
 
 from review_bot.errors import ReviewBotError
+
+logger = logging.getLogger(__name__)
+
+_CIRCUIT_FAILURE_THRESHOLD = 5   # 연속 실패 횟수
+_CIRCUIT_RECOVERY_TIMEOUT = 60   # 초 — OPEN 후 HALF_OPEN 진입까지 대기
+
+
+class _CircuitState(Enum):
+    CLOSED = "closed"
+    OPEN = "open"
+    HALF_OPEN = "half_open"
+
+
+class _CircuitBreaker:
+    def __init__(self) -> None:
+        self._state = _CircuitState.CLOSED
+        self._failures = 0
+        self._opened_at: float | None = None
+
+    def allow_request(self) -> bool:
+        if self._state == _CircuitState.CLOSED:
+            return True
+        if self._state == _CircuitState.OPEN:
+            if time.monotonic() - (self._opened_at or 0) >= _CIRCUIT_RECOVERY_TIMEOUT:
+                self._state = _CircuitState.HALF_OPEN
+                logger.info("circuit_breaker engine → HALF_OPEN")
+                return True
+            return False
+        # HALF_OPEN: 요청 하나 허용
+        return True
+
+    def record_success(self) -> None:
+        if self._state != _CircuitState.CLOSED:
+            logger.info("circuit_breaker engine → CLOSED")
+        self._state = _CircuitState.CLOSED
+        self._failures = 0
+        self._opened_at = None
+
+    def record_failure(self) -> None:
+        self._failures += 1
+        if self._state == _CircuitState.HALF_OPEN or self._failures >= _CIRCUIT_FAILURE_THRESHOLD:
+            self._state = _CircuitState.OPEN
+            self._opened_at = time.monotonic()
+            logger.warning(
+                "circuit_breaker engine → OPEN failures=%d", self._failures
+            )
+
+    @property
+    def state(self) -> str:
+        return self._state.value
+
+
+_engine_circuit = _CircuitBreaker()
 
 
 class EngineClient:
@@ -22,18 +77,38 @@ class EngineClient:
         self.max_retries = max_retries
         self.retry_backoff_seconds = retry_backoff_seconds
 
-    def review_diff(self, diff: str, top_k: int = 8) -> dict[str, Any]:
+    def review_diff(
+        self,
+        diff: str,
+        top_k: int = 8,
+        *,
+        file_path: str | None = None,
+        file_context: str | None = None,
+    ) -> dict[str, Any]:
+        payload: dict[str, Any] = {"diff": diff, "top_k": top_k}
+        if file_path:
+            payload["file_path"] = file_path
+        if file_context:
+            payload["file_context"] = file_context[:4000]
+        if not _engine_circuit.allow_request():
+            raise ReviewBotError(
+                "review-engine circuit breaker is OPEN — skipping request",
+                category="engine_circuit_open",
+                retryable=False,
+            )
+
         last_error: Exception | None = None
         for attempt in range(self.max_retries + 1):
             try:
                 response = httpx.post(
                     f"{self.base_url}/review/diff",
-                    json={"diff": diff, "top_k": top_k},
+                    json=payload,
                     timeout=self.timeout_seconds,
                 )
                 response.raise_for_status()
+                _engine_circuit.record_success()
                 return response.json()
-            except httpx.TimeoutException as exc:
+            except httpx.TimeoutException:
                 last_error = ReviewBotError(
                     "Timed out while calling review-engine /review/diff",
                     category="engine_timeout",
@@ -55,6 +130,20 @@ class EngineClient:
                 )
             if attempt >= self.max_retries:
                 assert last_error is not None
+                _engine_circuit.record_failure()
                 raise last_error
             time.sleep(self.retry_backoff_seconds * (attempt + 1))
         raise RuntimeError("unreachable")
+
+    def search_codebase(self, query: str, top_k: int = 3) -> list[dict[str, Any]]:
+        """유사 코드 패턴을 저장소 인덱스에서 검색한다."""
+        try:
+            response = httpx.post(
+                f"{self.base_url}/codebase/search",
+                json={"query": query, "top_k": top_k},
+                timeout=self.timeout_seconds,
+            )
+            response.raise_for_status()
+            return response.json().get("results", [])
+        except Exception:
+            return []

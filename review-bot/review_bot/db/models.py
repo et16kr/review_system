@@ -124,6 +124,8 @@ class FindingDecision(Base):
     title: Mapped[str | None] = mapped_column(String(300), nullable=True)
     summary: Mapped[str | None] = mapped_column(Text, nullable=True)
     suggested_fix: Mapped[str | None] = mapped_column(Text, nullable=True)
+    evidence_snippet: Mapped[str | None] = mapped_column(Text, nullable=True)
+    auto_fix_lines: Mapped[list[str]] = mapped_column(JSON, default=list)
     publication_error: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()

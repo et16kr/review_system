@@ -67,6 +67,74 @@ def test_create_review_run_endpoint_enqueues_detect_job_and_persists_run() -> No
         session.close()
 
 
+def test_create_review_run_endpoint_reuses_pending_run_without_reenqueue() -> None:
+    _reset_db()
+    fake_queue = FakeQueue(name="review-detect-test", job_id="job-234")
+
+    payload = {
+        "key": {
+            "review_system": "gitlab",
+            "project_ref": "root/altidev4-review",
+            "review_request_id": "78",
+        },
+        "trigger": "manual:test",
+        "mode": "manual",
+        "title": "TDE review",
+        "head_sha": "abc123",
+    }
+
+    with patch.object(api_main, "init_db", lambda: None):
+        with patch.object(api_main, "detect_queue", fake_queue):
+            with TestClient(api_main.app) as client:
+                first = client.post("/internal/review/runs", json=payload)
+                second = client.post("/internal/review/runs", json=payload)
+
+    assert first.status_code == 200
+    assert second.status_code == 200
+    assert first.json()["review_run_id"] == second.json()["review_run_id"]
+    assert first.json()["status"] == "queued"
+    assert second.json()["status"] == "queued"
+    assert len(fake_queue.calls) == 1
+
+
+def test_create_review_run_endpoint_returns_actual_status_for_reused_running_run() -> None:
+    _reset_db()
+    fake_queue = FakeQueue(name="review-detect-test", job_id="job-235")
+
+    payload = {
+        "key": {
+            "review_system": "gitlab",
+            "project_ref": "root/altidev4-review",
+            "review_request_id": "79",
+        },
+        "trigger": "manual:test",
+        "mode": "manual",
+        "title": "TDE review",
+        "head_sha": "abc123",
+    }
+
+    with patch.object(api_main, "init_db", lambda: None):
+        with patch.object(api_main, "detect_queue", fake_queue):
+            with TestClient(api_main.app) as client:
+                first = client.post("/internal/review/runs", json=payload)
+
+                session = SessionLocal()
+                try:
+                    run = session.query(ReviewRun).filter_by(id=first.json()["review_run_id"]).one()
+                    run.status = "running"
+                    session.commit()
+                finally:
+                    session.close()
+
+                second = client.post("/internal/review/runs", json=payload)
+
+    assert first.status_code == 200
+    assert second.status_code == 200
+    assert first.json()["review_run_id"] == second.json()["review_run_id"]
+    assert second.json()["status"] == "running"
+    assert len(fake_queue.calls) == 1
+
+
 def test_publish_endpoint_enqueues_publish_job() -> None:
     fake_queue = FakeQueue(name="review-publish-test", job_id="job-456")
 
@@ -135,6 +203,50 @@ def test_gitlab_note_webhook_creates_manual_run_for_bot_mention() -> None:
         assert run.job_id == "job-789"
     finally:
         session.close()
+
+
+def test_gitlab_note_webhook_reuses_pending_run_without_reenqueue() -> None:
+    _reset_db()
+    fake_queue = FakeQueue(name="review-detect-test", job_id="job-790")
+    payload = {
+        "object_kind": "note",
+        "user": {"username": "alice"},
+        "project": {"path_with_namespace": "group/project-a"},
+        "merge_request": {
+            "iid": 92,
+            "title": "MR title",
+            "source_branch": "feature",
+            "target_branch": "main",
+            "last_commit": {"id": "head123"},
+        },
+        "object_attributes": {
+            "id": 504,
+            "note": "@review-bot review 부탁드립니다.",
+            "noteable_type": "MergeRequest",
+            "system": False,
+        },
+    }
+
+    with patch.object(api_main, "init_db", lambda: None):
+        with patch.object(api_main, "detect_queue", fake_queue):
+            with TestClient(api_main.app) as client:
+                first = client.post(
+                    "/webhooks/gitlab/merge-request",
+                    json=payload,
+                    headers={"X-Gitlab-Event": "Note Hook"},
+                )
+                second = client.post(
+                    "/webhooks/gitlab/merge-request",
+                    json=payload,
+                    headers={"X-Gitlab-Event": "Note Hook"},
+                )
+
+    assert first.status_code == 200
+    assert second.status_code == 200
+    assert first.json()["review_run_id"] == second.json()["review_run_id"]
+    assert first.json()["status"] == "queued"
+    assert second.json()["status"] == "queued"
+    assert len(fake_queue.calls) == 1
 
 
 def test_gitlab_note_webhook_ignores_note_without_bot_mention() -> None:

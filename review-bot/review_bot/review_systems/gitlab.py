@@ -696,6 +696,21 @@ class GitLabReviewSystemAdapter(ReviewSystemAdapterV2):
         self._compare_cache[cache_key] = normalized
         return normalized
 
+    def fetch_file_content(
+        self,
+        key: ReviewRequestKey,
+        path: str,
+        ref: str,
+    ) -> str | None:
+        return self._fetch_repository_file_if_available(key, path, ref)
+
+    def post_general_note(self, key: ReviewRequestKey, body: str) -> dict[str, Any]:
+        payload = self._post(
+            self._api_path(key, f"/merge_requests/{key.review_request_id}/notes"),
+            data={"body": body},
+        )
+        return {"ok": True, "note_id": payload.get("id")}
+
     def _author_type(self, note: dict[str, Any]) -> str:
         if note.get("system"):
             return "system"

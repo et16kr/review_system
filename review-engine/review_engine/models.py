@@ -115,6 +115,8 @@ class ReviewCodeRequest(BaseModel):
 class ReviewDiffRequest(BaseModel):
     diff: str
     top_k: int = 10
+    file_path: str | None = None
+    file_context: str | None = None
 
 
 class IngestionSummary(BaseModel):

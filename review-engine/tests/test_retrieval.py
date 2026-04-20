@@ -71,3 +71,18 @@ def test_retrieval_keeps_ide_test_raise_guidance_out_of_auto_review(fixture_sett
     response = service.review_code(code, top_k=8)
 
     assert response.results == []
+
+
+def test_review_diff_file_context_does_not_change_detected_patterns_or_applicability(
+    fixture_settings,
+) -> None:
+    ingest_all_sources(fixture_settings)
+    service = GuidelineSearchService(fixture_settings)
+    diff = "@@ -1 +1 @@\n-int x = 0;\n+int x = 1;\n"
+    file_context = "IDE_RC rc;\nif (rc != IDE_SUCCESS) { return rc; }\n"
+
+    without_context = service.review_diff(diff, top_k=8)
+    with_context = service.review_diff(diff, top_k=8, file_context=file_context)
+
+    assert with_context.detected_patterns == without_context.detected_patterns
+    assert all(result.category != "error_handling" for result in with_context.results)

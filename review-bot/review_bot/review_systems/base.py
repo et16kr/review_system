@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Protocol
+from typing import Any, Protocol
 
 from review_bot.contracts import (
     CheckPublishRequest,
@@ -61,6 +61,21 @@ class ReviewSystemAdapterV2(Protocol):
         since: str | None = None,
     ) -> FeedbackPage:
         raise NotImplementedError
+
+    def fetch_file_content(
+        self,
+        key: ReviewRequestKey,
+        path: str,
+        ref: str,
+    ) -> str | None:
+        return None
+
+    def post_general_note(
+        self,
+        key: ReviewRequestKey,
+        body: str,
+    ) -> dict[str, Any]:
+        return {"ok": False, "reason": "not_supported"}
 
 
 ReviewSystemAdapter = ReviewSystemAdapterV2

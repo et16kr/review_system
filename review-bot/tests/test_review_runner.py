@@ -806,17 +806,79 @@ def test_review_runner_suppresses_user_facing_duplicate_comments_in_same_batch()
         session.close()
 
 
+def test_review_runner_ignores_provider_line_no_for_anchor_and_batch_dedupe() -> None:
+    _reset_db()
+
+    class OffsetLineProvider(ReviewCommentProvider):
+        def __init__(self) -> None:
+            self.returned_line_nos: dict[str, int] = {}
+
+        def build_draft(self, **kwargs) -> FindingDraft:
+            rule_no = kwargs["rule_no"]
+            provider_line_no = (kwargs.get("line_no") or 0) + (
+                100 if rule_no == "ALTI-COF-001" else 200
+            )
+            self.returned_line_nos[rule_no] = provider_line_no
+            return FindingDraft(
+                title="루프 흐름이 `continue`에 의존하고 있습니다",
+                summary="같은 사용자 메시지로 수렴하는 경우입니다.",
+                suggested_fix="조건 분기를 명시적으로 정리해 주세요.",
+                should_publish=True,
+                line_no=provider_line_no,
+            )
+
+    runner = ReviewRunner()
+    adapter = FakeAdapter()
+    key = runner._legacy_key(910)  # noqa: SLF001
+    adapter.set_diff(key, path="src/flow.cpp", patch=_continue_patch())
+    runner.platform_client = adapter
+    runner.engine_client = EngineStub(
+        [
+            _result("ALTI-COF-001", category="control_flow"),
+            _result("ALTI-COF-009", category="control_flow"),
+        ]
+    )
+    provider = OffsetLineProvider()
+    runner.provider = provider
+
+    session = SessionLocal()
+    try:
+        review_run = runner.run_review(session, pr_id=910, trigger="provider-line")
+        findings = (
+            session.query(FindingDecision)
+            .filter_by(review_run_id=review_run.id)
+            .order_by(FindingDecision.rule_no.asc())
+            .all()
+        )
+
+        assert review_run.status == "success"
+        assert len(adapter.upsert_requests) == 1
+        assert [finding.state for finding in findings] == ["published", "suppressed"]
+        assert findings[1].suppression_reason == "publish_batch_duplicate"
+        assert adapter.upsert_requests[0].anchor.start_line == findings[0].line_no
+        assert (
+            adapter.upsert_requests[0].anchor.start_line
+            != provider.returned_line_nos["ALTI-COF-001"]
+        )
+    finally:
+        session.close()
+
+
 @dataclass
 class EngineStub:
     results: list[dict[str, object]]
     detected_patterns: list[str] | None = None
 
-    def review_diff(self, diff: str, top_k: int = 8) -> dict[str, object]:
-        del diff, top_k
+    def review_diff(self, diff: str, top_k: int = 8, *, file_path: str | None = None, file_context: str | None = None) -> dict[str, object]:
+        del diff, top_k, file_path, file_context
         return {
             "detected_patterns": list(self.detected_patterns or []),
             "results": [dict(result) for result in self.results],
         }
+
+    def search_codebase(self, query: str, top_k: int = 3) -> list[dict]:
+        del query, top_k
+        return []
 
 
 @dataclass
@@ -827,14 +889,18 @@ class SequentialEngineStub:
     def __post_init__(self) -> None:
         self._index = 0
 
-    def review_diff(self, diff: str, top_k: int = 8) -> dict[str, object]:
-        del diff, top_k
+    def review_diff(self, diff: str, top_k: int = 8, *, file_path: str | None = None, file_context: str | None = None) -> dict[str, object]:
+        del diff, top_k, file_path, file_context
         response_index = min(self._index, len(self.responses) - 1)
         self._index += 1
         return {
             "detected_patterns": list(self.detected_patterns or []),
             "results": [dict(result) for result in self.responses[response_index]],
         }
+
+    def search_codebase(self, query: str, top_k: int = 3) -> list[dict]:
+        del query, top_k
+        return []
 
 
 class FixedProvider(ReviewCommentProvider):

@@ -33,6 +33,15 @@ from review_bot.db.models import (
     ThreadSyncState,
 )
 from review_bot.errors import ReviewBotError
+from review_bot.metrics import (
+    detect_phase_duration_seconds,
+    engine_call_duration_seconds,
+    findings_published_total,
+    findings_resolved_total,
+    findings_suppressed_total,
+    publish_phase_duration_seconds,
+    review_runs_total,
+)
 from review_bot.policy import ReviewPolicy, load_review_policy
 from review_bot.providers.change_analysis import (
     classify_issue,
@@ -47,6 +56,22 @@ from review_bot.review_systems.factory import build_review_system_adapter
 CPP_EXTENSIONS = {".c", ".cc", ".cpp", ".cxx", ".h", ".hh", ".hpp", ".hxx"}
 HUNK_RE = re.compile(r"@@ -(?P<old>\d+)(?:,\d+)? \+(?P<new>\d+)(?:,\d+)? @@")
 MAX_LINES_PER_REVIEW_UNIT = 80
+MAX_COMMENT_BODY = 3800  # GitLab 4000자 제한 여유
+FILE_CONTEXT_MAX_CHARS = 4000  # LLM 프롬프트에 포함할 파일 컨텍스트 최대 길이
+_FILE_CONTEXT_KEY = "_file_context"  # raw_engine_payload 내 파일 컨텍스트 저장 키
+_SIMILAR_CODE_KEY = "_similar_code"  # raw_engine_payload 내 유사 코드 저장 키
+
+
+def _compute_top_k(patch: str) -> int:
+    """패치 크기에 따라 동적으로 top_k를 계산한다."""
+    lines = patch.count("\n")
+    if lines < 20:
+        return 5
+    if lines < 50:
+        return 8
+    if lines < 100:
+        return 12
+    return 15
 logger = logging.getLogger(__name__)
 
 
@@ -128,6 +153,45 @@ class ReviewRunner:
         meta: ReviewRequestMeta | None = None,
     ) -> ReviewRun:
         review_request = self._ensure_review_request(session, key, meta=meta)
+        requested_base_sha = meta.base_sha if meta else review_request.latest_base_sha
+        requested_start_sha = meta.start_sha if meta else review_request.latest_start_sha
+        requested_head_sha = meta.head_sha if meta else review_request.latest_head_sha
+
+        # best-effort dedupe: 동일 target(mode + base/start/head sha)의 pending run만 재사용
+        pending_runs = (
+            session.query(ReviewRun)
+            .filter(
+                ReviewRun.review_request_pk == review_request.id,
+                ReviewRun.status.in_(["queued", "running"]),
+                ReviewRun.mode == mode,
+            )
+            .order_by(ReviewRun.created_at.desc())
+            .all()
+        )
+        existing = next(
+            (
+                candidate
+                for candidate in pending_runs
+                if (
+                    candidate.base_sha == requested_base_sha
+                    and candidate.start_sha == requested_start_sha
+                    and candidate.head_sha == requested_head_sha
+                )
+            ),
+            None,
+        )
+        if existing is not None:
+            logger.info(
+                "review_run_deduplicated review_run_id=%s trigger=%s mode=%s key=%s/%s/%s",
+                existing.id,
+                trigger,
+                mode,
+                key.review_system,
+                key.project_ref,
+                key.review_request_id,
+            )
+            return existing
+
         review_run = ReviewRun(
             review_request_pk=review_request.id,
             review_system=key.review_system,
@@ -136,9 +200,9 @@ class ReviewRunner:
             trigger=trigger,
             mode=mode,
             status="queued",
-            base_sha=meta.base_sha if meta else review_request.latest_base_sha,
-            start_sha=meta.start_sha if meta else review_request.latest_start_sha,
-            head_sha=meta.head_sha if meta else review_request.latest_head_sha,
+            base_sha=requested_base_sha,
+            start_sha=requested_start_sha,
+            head_sha=requested_head_sha,
         )
         session.add(review_run)
         session.commit()
@@ -198,14 +262,41 @@ class ReviewRunner:
             review_run.start_sha = meta.start_sha or review_run.start_sha
             review_run.head_sha = diff_payload.pull_request.get("head_sha") or meta.head_sha
 
+            # autoflush=False 환경에서 새 FeedbackEvent가 보이도록 명시적 flush
+            session.flush()
+            # N+1 방지: 피드백 신호와 규칙 가중치를 루프 전에 일괄 로드
+            feedback_cache = self._load_feedback_cache(session, review_request.id)
+            rule_weights = self._load_rule_effectiveness_weights(session)
+
             seen_human_keys: set[str] = set()
+            detect_t0 = __import__("time").monotonic()
             for file_item in diff_payload.files:
                 if not self._is_cpp_path(file_item.path):
                     continue
+                file_context = self._fetch_file_context(
+                    adapter, key, file_item.path, review_run.head_sha
+                )
                 for review_unit in self._iter_review_units(file_item.patch):
-                    review = self.engine_client.review_diff(review_unit.patch, top_k=8)
+                    top_k = _compute_top_k(review_unit.patch)
+                    t0 = __import__("time").monotonic()
+                    review = self.engine_client.review_diff(
+                        review_unit.patch,
+                        top_k=top_k,
+                        file_path=file_item.path,
+                        file_context=file_context,
+                    )
+                    engine_call_duration_seconds.observe(__import__("time").monotonic() - t0)
                     detected_patterns = [str(item) for item in review.get("detected_patterns", [])]
+                    # RAG: 유사 코드 패턴 검색 (codebase가 인덱싱된 경우에만 동작)
+                    similar_code = self.engine_client.search_codebase(
+                        review_unit.change_snippet[:500], top_k=2
+                    )
                     for result in review.get("results", [])[:3]:
+                        payload = dict(result)
+                        if file_context:
+                            payload[_FILE_CONTEXT_KEY] = file_context[:FILE_CONTEXT_MAX_CHARS]
+                        if similar_code:
+                            payload[_SIMILAR_CODE_KEY] = similar_code
                         evidence = FindingEvidence(
                             review_run_id=review_run.id,
                             review_request_pk=review_request.id,
@@ -215,7 +306,7 @@ class ReviewRunner:
                             candidate_line_nos=list(review_unit.candidate_line_nos),
                             matched_patterns=detected_patterns,
                             change_snippet=review_unit.change_snippet,
-                            raw_engine_payload=dict(result),
+                            raw_engine_payload=payload,
                         )
                         session.add(evidence)
                         session.flush()
@@ -228,10 +319,17 @@ class ReviewRunner:
                             review_unit=review_unit,
                             result=result,
                             seen_human_keys=seen_human_keys,
+                            feedback_cache=feedback_cache,
+                            rule_weights=rule_weights,
                         )
                         if decision is not None:
                             session.add(decision)
+                            if decision.state == "suppressed":
+                                findings_suppressed_total.labels(
+                                    reason=decision.suppression_reason or "unknown"
+                                ).inc()
 
+            detect_phase_duration_seconds.observe(__import__("time").monotonic() - detect_t0)
             session.commit()
             self._log_run_event(
                 "detect_completed",
@@ -305,6 +403,7 @@ class ReviewRunner:
             ) or 0
             batch_no = int(current_batch) + 1
             publication_failures = 0
+            successful_publications: list[PublicationCandidate] = []
             seen_publication_keys: set[tuple[str, int | None, str]] = set()
             noop_existing_candidates = [
                 candidate for candidate in candidates if candidate.priority_group == 3
@@ -406,6 +505,12 @@ class ReviewRunner:
                     session.add(publication)
                     decision.state = "published"
                     decision.publication_error = None
+                    findings_published_total.labels(
+                        severity=decision.severity or "medium",
+                        rule_family=decision.source_family or "unknown",
+                    ).inc()
+                    if result.action in {"created", "updated"}:
+                        successful_publications.append(candidate)
 
                     if existing_thread and existing_thread.anchor_signature != decision.anchor_signature:
                         existing_thread.sync_status = "stale"
@@ -516,6 +621,17 @@ class ReviewRunner:
                         line_no=decision.line_no,
                     )
             session.commit()
+
+            # PR 요약 생성 및 게시 (실제 created/updated 성공분만 반영)
+            if successful_publications:
+                self._post_pr_summary(
+                    adapter=adapter,
+                    key=key,
+                    review_run=review_run,
+                    published_candidates=successful_publications,
+                    batch_no=batch_no,
+                )
+
             self._safe_publish_check(
                 adapter,
                 key,
@@ -862,6 +978,8 @@ class ReviewRunner:
         review_unit: ReviewUnit,
         result: dict[str, object],
         seen_human_keys: set[str],
+        feedback_cache: tuple[dict, dict] | None = None,
+        rule_weights: dict[str, float] | None = None,
     ) -> FindingDecision | None:
         score_raw = float(result.get("score", 0.0))
         reviewability = str(result.get("reviewability") or "auto_review")
@@ -900,7 +1018,13 @@ class ReviewRunner:
             human_key=human_key,
             issue_signature=issue_signature,
         )
-        feedback_signal = self._feedback_signal(session, review_request.id, fingerprint)
+        feedback_signal = self._feedback_signal(
+            session, review_request.id, fingerprint, feedback_cache=feedback_cache
+        )
+        # 규칙 유효성 가중치 적용 (피드백 기반 학습)
+        rule_no_str = str(result.get("rule_no") or "")
+        if rule_weights and rule_no_str in rule_weights:
+            score_raw = score_raw * rule_weights[rule_no_str]
         (
             final_score,
             weak_anchor_penalty,
@@ -1100,6 +1224,7 @@ class ReviewRunner:
         )
         for decision in decisions:
             decision.state = "resolved"
+            findings_resolved_total.labels(rule_no=decision.rule_no or "unknown").inc()
 
     def _mark_fingerprint_reopened(
         self,
@@ -1184,34 +1309,135 @@ class ReviewRunner:
                 thread_state.sync_status = "open"
                 thread_state.resolution_reason = None
 
+    def _load_feedback_cache(
+        self, session: Session, review_request_pk: str
+    ) -> tuple[dict[str, list[str]], dict[str, list[Any]]]:
+        """PR 전체 피드백 데이터를 일괄 로드한다 (N+1 방지)."""
+        fp_to_threads: dict[str, list[str]] = {}
+        for fp, thread_ref in (
+            session.query(
+                ThreadSyncState.finding_fingerprint,
+                ThreadSyncState.adapter_thread_ref,
+            )
+            .filter(ThreadSyncState.review_request_pk == review_request_pk)
+            .all()
+        ):
+            fp_to_threads.setdefault(fp, []).append(thread_ref)
+
+        thread_to_events: dict[str, list[Any]] = {}
+        all_refs = [r for refs in fp_to_threads.values() for r in refs]
+        if all_refs:
+            for event in (
+                session.query(FeedbackEvent)
+                .filter(
+                    FeedbackEvent.review_request_pk == review_request_pk,
+                    FeedbackEvent.adapter_thread_ref.in_(all_refs),
+                )
+                .all()
+            ):
+                thread_to_events.setdefault(event.adapter_thread_ref, []).append(event)
+
+        return fp_to_threads, thread_to_events
+
+    def _load_rule_effectiveness_weights(self, session: Session) -> dict[str, float]:
+        """규칙별 인간 해소율을 기반으로 스코어 가중치를 계산한다.
+
+        human-resolve(개발자가 직접 resolve)만 긍정 신호로 사용한다.
+        auto-resolve(no_longer_eligible)는 retrieval 품질과 무관하므로 제외한다.
+        """
+        from sqlalchemy import case
+
+        # 개발자가 실제로 resolve한 thread fingerprint 집합
+        human_resolved_fps: set[str] = {
+            fp
+            for (fp,) in session.query(ThreadSyncState.finding_fingerprint)
+            .filter(
+                ThreadSyncState.sync_status == "resolved",
+                ThreadSyncState.resolution_reason == "remote_resolved",
+            )
+            .all()
+        }
+
+        rows = (
+            session.query(
+                FindingDecision.rule_no,
+                func.count(FindingDecision.id).label("total"),
+                func.sum(
+                    case((FindingDecision.state == "resolved", 1), else_=0)
+                ).label("resolved_all"),
+            )
+            .filter(FindingDecision.state.in_(["published", "resolved", "stale"]))
+            .group_by(FindingDecision.rule_no)
+            .all()
+        )
+        # fingerprint별로 human-resolved 여부를 판단하기 위해 추가 조회
+        human_resolved_by_rule: dict[str, int] = {}
+        if human_resolved_fps:
+            from sqlalchemy import func as _func
+            rule_human_rows = (
+                session.query(
+                    FindingDecision.rule_no,
+                    func.count(FindingDecision.id),
+                )
+                .filter(
+                    FindingDecision.state == "resolved",
+                    FindingDecision.fingerprint.in_(human_resolved_fps),
+                )
+                .group_by(FindingDecision.rule_no)
+                .all()
+            )
+            human_resolved_by_rule = {r: cnt for r, cnt in rule_human_rows}
+
+        weights: dict[str, float] = {}
+        for rule_no, total, _resolved_all in rows:
+            if total < 5:  # 데이터 부족 시 중립
+                continue
+            # human-resolve만 사용
+            human_res = human_resolved_by_rule.get(rule_no, 0)
+            resolve_rate = human_res / total
+            if resolve_rate >= 0.5:
+                weights[rule_no] = min(1.2, 0.9 + resolve_rate * 0.6)
+            else:
+                weights[rule_no] = max(0.8, 0.8 + resolve_rate * 0.4)
+        return weights
+
     def _feedback_signal(
         self,
         session: Session,
         review_request_pk: str,
         fingerprint: str,
+        *,
+        feedback_cache: tuple[dict, dict] | None = None,
     ) -> FeedbackSignal:
-        thread_refs = [
-            thread_ref
-            for (thread_ref,) in (
-                session.query(ThreadSyncState.adapter_thread_ref)
+        if feedback_cache is not None:
+            fp_to_threads, thread_to_events = feedback_cache
+            thread_refs = fp_to_threads.get(fingerprint, [])
+            events = [e for tr in thread_refs for e in thread_to_events.get(tr, [])]
+        else:
+            thread_refs = [
+                thread_ref
+                for (thread_ref,) in (
+                    session.query(ThreadSyncState.adapter_thread_ref)
+                    .filter(
+                        ThreadSyncState.review_request_pk == review_request_pk,
+                        ThreadSyncState.finding_fingerprint == fingerprint,
+                    )
+                    .all()
+                )
+            ]
+            if not thread_refs:
+                return FeedbackSignal()
+            events = (
+                session.query(FeedbackEvent)
                 .filter(
-                    ThreadSyncState.review_request_pk == review_request_pk,
-                    ThreadSyncState.finding_fingerprint == fingerprint,
+                    FeedbackEvent.review_request_pk == review_request_pk,
+                    FeedbackEvent.adapter_thread_ref.in_(thread_refs),
                 )
                 .all()
             )
-        ]
+
         if not thread_refs:
             return FeedbackSignal()
-
-        events = (
-            session.query(FeedbackEvent)
-            .filter(
-                FeedbackEvent.review_request_pk == review_request_pk,
-                FeedbackEvent.adapter_thread_ref.in_(thread_refs),
-            )
-            .all()
-        )
         resolved_count = 0
         unresolved_count = 0
         human_reply_count = 0
@@ -1441,29 +1667,101 @@ class ReviewRunner:
         return "low"
 
     def _render_comment(self, decision: FindingDecision) -> str:
-        lines = [
-            f"[봇 리뷰] {decision.title}",
-            "",
-            decision.summary or "",
-        ]
+        lines = [f"[봇 리뷰] {decision.title}", ""]
+
+        # 증거 인용: 실제 코드 근거를 먼저 표시
+        if decision.evidence_snippet:
+            lines += [f"> {decision.evidence_snippet}", ""]
+
+        lines.append(decision.summary or "")
+
         if decision.suggested_fix:
-            lines.extend(["", "권장 수정", decision.suggested_fix])
-        return "\n".join(lines)
+            lines.extend(["", "**권장 수정**", decision.suggested_fix])
+
+        # Auto-fix: GitLab suggestion 블록 (신뢰도 높은 경우)
+        if decision.auto_fix_lines:
+            suggestion_body = "\n".join(decision.auto_fix_lines)
+            lines.extend(["", "```suggestion", suggestion_body, "```"])
+
+        lines.extend(["", "---", "_이 코멘트는 자동 생성됩니다. 문제가 없다면 스레드를 Resolve 해주세요._"])
+        return self._truncate_comment("\n".join(lines))
 
     def _render_reminder_comment(self, decision: FindingDecision) -> str:
-        lines = [
-            f"[봇 리뷰] {decision.title}",
-            "",
-            "이전 리뷰에서 지적했던 내용이 이번 전체 재검토에서도 계속 확인되었습니다.",
-        ]
+        lines = [f"[봇 리뷰] {decision.title}", ""]
+        if decision.evidence_snippet:
+            lines += [f"> {decision.evidence_snippet}", ""]
+        lines.append("이전 리뷰에서 지적했던 내용이 이번 전체 재검토에서도 계속 확인되었습니다.")
         if decision.summary:
             lines.extend(["", decision.summary])
         if decision.suggested_fix:
-            lines.extend(["", "권장 수정", decision.suggested_fix])
-        return "\n".join(lines)
+            lines.extend(["", "**권장 수정**", decision.suggested_fix])
+        lines.extend(["", "---", "_이 코멘트는 자동 생성됩니다. 문제가 없다면 스레드를 Resolve 해주세요._"])
+        return self._truncate_comment("\n".join(lines))
+
+    def _truncate_comment(self, body: str) -> str:
+        if len(body) <= MAX_COMMENT_BODY:
+            return body
+        suffix = "\n\n...(내용이 잘렸습니다. 파일을 직접 확인하세요.)"
+        return body[: MAX_COMMENT_BODY - len(suffix)] + suffix
+
+    def _post_pr_summary(
+        self,
+        *,
+        adapter: Any,
+        key: ReviewRequestKey,
+        review_run: ReviewRun,
+        published_candidates: list[PublicationCandidate],
+        batch_no: int,
+    ) -> None:
+        """신규 게시된 finding을 요약해 MR 일반 노트로 게시한다."""
+        if not hasattr(adapter, "post_general_note"):
+            return
+        try:
+            by_severity: dict[str, list[str]] = {}
+            for cand in published_candidates:
+                sev = cand.decision.severity or "medium"
+                by_severity.setdefault(sev, []).append(
+                    f"- `{cand.decision.file_path}` — {cand.draft.title}"
+                )
+
+            severity_order = ["critical", "high", "medium", "low"]
+            lines = [f"## 🤖 자동 리뷰 결과 (배치 #{batch_no})", ""]
+            for sev in severity_order:
+                items = by_severity.get(sev, [])
+                if not items:
+                    continue
+                emoji = {"critical": "🔴", "high": "🟠", "medium": "🟡", "low": "🟢"}.get(sev, "⚪")
+                lines.append(f"### {emoji} {sev.upper()} ({len(items)}건)")
+                lines.extend(items)
+                lines.append("")
+            lines += [
+                "---",
+                f"총 **{len(published_candidates)}개** 항목이 게시되었습니다.",
+                "각 코멘트를 확인하고 수정 후 스레드를 **Resolve** 해주세요.",
+            ]
+            adapter.post_general_note(key, "\n".join(lines))
+        except Exception as exc:
+            logger.warning("pr_summary_failed error=%s", exc)
 
     def _is_cpp_path(self, path: str) -> bool:
         return any(path.endswith(ext) for ext in CPP_EXTENSIONS)
+
+    def _fetch_file_context(
+        self,
+        adapter: Any,
+        key: ReviewRequestKey,
+        path: str,
+        ref: str | None,
+    ) -> str | None:
+        if not ref:
+            return None
+        try:
+            content = adapter.fetch_file_content(key, path, ref)
+            if content:
+                return content[:FILE_CONTEXT_MAX_CHARS]
+        except Exception as exc:
+            logger.debug("fetch_file_context_skipped path=%s error=%s", path, exc)
+        return None
 
     def _extract_line_no(self, patch: str) -> int | None:
         match = HUNK_RE.search(patch)
@@ -1675,6 +1973,8 @@ class ReviewRunner:
     ) -> list[PublicationCandidate]:
         candidates: list[PublicationCandidate] = []
         for decision in decisions:
+            file_context = decision.evidence.raw_engine_payload.get(_FILE_CONTEXT_KEY)
+            similar_code = decision.evidence.raw_engine_payload.get(_SIMILAR_CODE_KEY)
             draft = self.provider.build_draft(
                 file_path=decision.file_path,
                 rule_no=decision.rule_no,
@@ -1686,6 +1986,11 @@ class ReviewRunner:
                 change_snippet=decision.evidence.change_snippet,
                 line_no=decision.line_no,
                 candidate_line_nos=tuple(decision.evidence.candidate_line_nos),
+                file_context=file_context,
+                pr_title=review_request.title,
+                pr_source_branch=review_request.source_branch,
+                pr_target_branch=review_request.target_branch,
+                similar_code=similar_code,
             )
             if not draft.should_publish:
                 decision.state = "suppressed"
@@ -1695,6 +2000,8 @@ class ReviewRunner:
             decision.title = draft.title
             decision.summary = draft.summary
             decision.suggested_fix = draft.suggested_fix
+            decision.evidence_snippet = draft.evidence_snippet
+            decision.auto_fix_lines = draft.auto_fix_lines or []
             base_body = self._render_comment(decision)
             base_body_hash = self._sha256(base_body)
             existing_thread = self._find_existing_thread(
@@ -1731,7 +2038,7 @@ class ReviewRunner:
                     existing_thread=existing_thread,
                     publication_key=(
                         decision.file_path,
-                        draft.line_no or decision.line_no,
+                        decision.line_no,
                         draft.title.strip(),
                     ),
                     priority_group=self._candidate_priority_group(
