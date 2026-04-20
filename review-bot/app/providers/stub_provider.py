@@ -67,19 +67,21 @@ def _build_issue_draft(
         return FindingDraft(
             title="메모리를 직접 할당하고 해제하고 있습니다",
             summary=(
-                "이 변경에서는 `malloc/free`로 버퍼 수명을 직접 관리하고 있습니다. "
+                "이 변경에서는 `malloc/free` 또는 그에 준하는 래퍼 호출로 "
+                "버퍼 수명을 직접 관리하고 있습니다. "
                 "이 방식은 분기 추가나 중간 반환이 생길 때 "
                 "해제 누락과 소유권 혼동으로 이어지기 쉽습니다."
                 f"{excerpt_hint}"
             ),
             suggested_fix=(
-                "버퍼 수명은 객체에 맡기고, 소유권이 필요한 경우에도 "
-                "직접 `free()`를 호출하는 형태는 피하세요.\n\n"
+                "버퍼 수명은 객체에 묶어 두고, 가능한 경우 `std::vector`, "
+                "전용 owner 구조체, 또는 프로젝트 표준 버퍼 래퍼로 바꿔 주세요. "
+                "해제가 꼭 필요하다면 cleanup 경로를 한 곳으로 모으는 편이 안전합니다.\n\n"
                 "예시:\n"
                 "```cpp\n"
-                "std::vector<char> buffer(required_size);\n"
-                "fill_buffer(buffer.data(), buffer.size());\n"
-                "use_buffer(buffer.data(), buffer.size());\n"
+                "std::vector<UChar> wrapped_keys(required_size);\n"
+                "fill_keys(wrapped_keys.data(), wrapped_keys.size());\n"
+                "use_keys(wrapped_keys.data(), wrapped_keys.size());\n"
                 "```"
             ),
             severity="high",
@@ -198,6 +200,7 @@ def _build_issue_draft(
             ),
             severity="medium",
             confidence=0.74,
+            should_publish=False,
         )
 
     if issue == "ide_exception_flow":
@@ -219,6 +222,7 @@ def _build_issue_draft(
             ),
             severity="medium",
             confidence=0.76,
+            should_publish=False,
         )
 
     if issue == "direct_libc_or_format":
@@ -269,6 +273,7 @@ def _build_issue_draft(
             ),
             severity="high",
             confidence=0.74,
+            should_publish=False,
         )
 
     if issue == "control_flow_generic":
@@ -283,6 +288,7 @@ def _build_issue_draft(
             or "분기 수를 줄이고, 예외 경로를 명시적으로 드러내 주세요.",
             severity="medium",
             confidence=0.7,
+            should_publish=False,
         )
 
     if issue == "error_handling_generic":
@@ -297,6 +303,7 @@ def _build_issue_draft(
             or "실패 검사와 반환 경로를 일관된 패턴으로 통일해 주세요.",
             severity="medium",
             confidence=0.71,
+            should_publish=False,
         )
 
     if issue == "wrapper_usage_generic":
@@ -311,6 +318,7 @@ def _build_issue_draft(
             or "프로젝트 표준 wrapper API가 있다면 그 경로로 바꿔 주세요.",
             severity="medium",
             confidence=0.72,
+            should_publish=False,
         )
 
     if issue == "format_usage_generic":
@@ -326,6 +334,7 @@ def _build_issue_draft(
             or "포맷 문자열은 프로젝트 표준 매크로나 wrapper로 통일해 주세요.",
             severity="medium",
             confidence=0.7,
+            should_publish=False,
         )
 
     return FindingDraft(
@@ -342,6 +351,7 @@ def _build_issue_draft(
         ),
         severity="medium",
         confidence=0.66,
+        should_publish=False,
     )
 
 

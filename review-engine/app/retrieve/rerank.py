@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from app.config import Settings, load_json_file
 from app.models import CandidateHit, QueryAnalysis
-from app.query.cpp_feature_extractor import PATTERN_RULE_HINTS
+from app.query.cpp_feature_extractor import PATTERN_RULE_HINTS, collect_hinted_rules
 from app.text_utils import tokenize
 
 
@@ -48,11 +48,7 @@ def _pattern_boost(candidate: CandidateHit, query_analysis: QueryAnalysis) -> fl
     if not query_analysis.patterns:
         return 0.0
 
-    hinted_rules = {
-        rule_no
-        for pattern in query_analysis.patterns
-        for rule_no in PATTERN_RULE_HINTS.get(pattern.name, [])
-    }
+    hinted_rules = collect_hinted_rules(query_analysis.patterns, direct_only=True)
     if candidate.record.rule_no in hinted_rules:
         return 1.0
 
@@ -82,8 +78,5 @@ def _exact_hint_match(candidate: CandidateHit, query_analysis: QueryAnalysis) ->
 
 
 def _hint_match_count(candidate: CandidateHit, query_analysis: QueryAnalysis) -> int:
-    return sum(
-        1
-        for pattern in query_analysis.patterns
-        if candidate.record.rule_no in PATTERN_RULE_HINTS.get(pattern.name, [])
-    )
+    hinted_rules = collect_hinted_rules(query_analysis.patterns, direct_only=True)
+    return 1 if candidate.record.rule_no in hinted_rules else 0

@@ -24,6 +24,7 @@ class Settings:
     gitlab_webhook_secret: str | None
     redis_url: str
     queue_name: str
+    minimum_publish_score: float
 
 
 @lru_cache(maxsize=1)
@@ -49,4 +50,5 @@ def get_settings() -> Settings:
         gitlab_webhook_secret=os.getenv("GITLAB_WEBHOOK_SECRET"),
         redis_url=os.getenv("BOT_REDIS_URL", "redis://127.0.0.1:6379/0"),
         queue_name=os.getenv("BOT_QUEUE_NAME", "review-bot"),
+        minimum_publish_score=float(os.getenv("BOT_MINIMUM_PUBLISH_SCORE", "0.65")),
     )

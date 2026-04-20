@@ -213,3 +213,120 @@
 - 첫 배치 코멘트 5개는 모두 `review-bot` 계정이 남겼다.
 - 코멘트는 `DiffNote`로 붙고, 규칙 ID 대신 자연스러운 설명과 수정 제안 중심으로 렌더링된다.
 - 실제 MR 재검수 기준으로 영어 안내 누출과 어색한 line 1 anchor는 제거됐다.
+
+## GitLab Bot Tuning Follow-up
+
+날짜: 2026-04-20
+
+대상 범위:
+
+- `review-engine/app/`
+- `review-engine/data/review_profiles.json`
+- `review-bot/app/`
+
+### 1. High
+
+대상:
+- [review_profiles.json](/home/et16/work/review_system/review-engine/data/review_profiles.json:11)
+- [search.py](/home/et16/work/review_system/review-engine/app/retrieve/search.py:31)
+- [applicability.py](/home/et16/work/review_system/review-engine/app/retrieve/applicability.py:1)
+
+문제:
+- 자동 리뷰 후보에 오류 처리 스타일 규칙이 너무 넓게 섞여 들어왔다.
+- 실제로는 선언부나 `IDE_TEST_RAISE` 같은 내부 패턴만 보여도 관련 규칙이 잡혔고,
+  bot이 이를 자연어 코멘트로 바꾸면서 “문제가 확인된 코드”처럼 보이게 만들었다.
+
+영향:
+- MR `!2`에 선언부/반환문/예외 처리 매크로만 보고 달리는 추상적인 코멘트가 생길 수 있었다.
+- 사용자가 “무엇이 실제 문제인지”를 이해하기 어려운 리뷰가 나왔다.
+
+수정:
+- `ALTI-ERR` 섹션은 `manual_only`로 내려 자동 게시 대상에서 제외했다.
+- 검색 결과는 pattern applicability 검증을 한 번 더 통과해야만 최종 후보가 되도록 유지했다.
+- 선언만 있는 `IDE_RC` 코드와 `IDE_TEST_RAISE` 예제는 자동 리뷰 결과가 비어야 한다는 테스트를 추가했다.
+
+상태:
+- 해결 완료
+
+### 2. High
+
+대상:
+- [change_analysis.py](/home/et16/work/review_system/review-bot/app/providers/change_analysis.py:1)
+- [stub_provider.py](/home/et16/work/review_system/review-bot/app/providers/stub_provider.py:1)
+
+문제:
+- bot의 issue 분류가 코드 excerpt보다 규칙 제목/요약에 끌려가면서,
+  실제 코드에 없는 문제를 있는 것처럼 확정할 수 있었다.
+- `idlOS::snprintf` 같은 래퍼 호출도 `printf(` 부분 문자열 때문에 직접 libc 호출처럼 오탐할 수 있었다.
+
+영향:
+- 래퍼를 이미 쓰는 코드에 wrapper 위반 코멘트가 붙을 수 있었다.
+- 오류 처리 스타일 지침이 generic natural-language 코멘트로 오해를 만들 수 있었다.
+
+수정:
+- issue 분류는 민감한 항목일수록 코드 excerpt의 직접 신호만 사용하도록 좁혔다.
+- `snprintf`/`printf` 계열은 네임스페이스/래퍼 호출을 직접 libc 호출로 보지 않도록 정규식을 바꿨다.
+- `ide_rc_flow`, `ide_exception_flow`는 stub 단계에서도 기본 비게시로 내려, stale 후보가 와도 외부 댓글로는 남지 않게 했다.
+
+상태:
+- 해결 완료
+
+### 3. High
+
+대상:
+- [gitlab.py](/home/et16/work/review_system/review-bot/app/review_systems/gitlab.py:1)
+- [review_runner.py](/home/et16/work/review_system/review-bot/app/bot/review_runner.py:1)
+
+문제:
+- GitLab `changes` API는 큰 신규 파일의 `diff`를 비워 보낼 수 있었다.
+- 이 경우 `idsTde.cpp` 같은 핵심 신규 파일이 통째로 리뷰 대상에서 빠졌다.
+
+영향:
+- 실제 문제 가능성이 높은 신규 구현 파일이 자동 리뷰에서 완전히 누락될 수 있었다.
+
+수정:
+- GitLab adapter에 empty diff fallback을 추가했다.
+- `diff`가 비어 있으면 base/head 파일 내용을 GitLab raw API로 가져와 로컬에서 unified diff를 재구성한다.
+- 추가로 huge added hunk는 여러 개의 작은 review unit으로 분할해, 파일 앞부분 한 군데만 보는 문제를 줄였다.
+- 관련 adapter 테스트와 review unit 분할 테스트를 추가했다.
+
+상태:
+- 해결 완료
+
+### 4. Medium
+
+대상:
+- [review_runner.py](/home/et16/work/review_system/review-bot/app/bot/review_runner.py:169)
+- [review_runner.py](/home/et16/work/review_system/review-bot/app/bot/review_runner.py:309)
+
+문제:
+- 배치 게시가 점수순 단순 상위 5개라서, 같은 파일의 같은 종류 지적이 한 배치에 반복될 수 있었다.
+
+영향:
+- 리뷰 첫 화면이 다양한 문제보다 같은 메모리 지적만 여러 개 반복되는 형태로 보일 수 있었다.
+
+수정:
+- 한 배치에서는 같은 파일의 같은 제목 코멘트를 반복 게시하지 않도록 selection을 다변화했다.
+- 같은 제목은 전체 배치에서 최대 두 번까지만 허용하도록 제한해, 메모리/흐름/분기 같은 다른 종류 지적이 함께 보이게 했다.
+- 회귀 테스트를 추가해 동일 file/title 반복이 억제되는 것을 고정했다.
+
+상태:
+- 해결 완료
+
+## 최종 점검 결과
+
+최종 MR:
+- `http://127.0.0.1:18929/root/altidev4-review/-/merge_requests/2`
+
+최종 점검 기준:
+- 코멘트 작성자는 모두 `review-bot`
+- 코멘트 타입은 모두 `DiffNote`
+- 선언부/반환문/예외 처리 매크로만 보고 달리는 추상 코멘트는 제거됨
+- 래퍼 호출 `idlOS::snprintf` 오탐은 제거됨
+- 큰 신규 파일도 리뷰 대상에 포함됨
+- 첫 배치는 메모리/`switch`/`continue`처럼 설명 가능한 항목으로 다양화됨
+
+남은 관찰:
+- 메모리 관련 코멘트는 아직도 heuristic 기반이라, 저수준 래퍼를 일부러 쓰는 영역에서는 사람이 한 번 더 판단하는 편이 좋다.
+- OpenAI provider 쿼터가 복구되면 같은 구조에서 자연어 품질을 더 끌어올릴 수 있지만,
+  현재 stub fallback 기준에서도 “무엇이 문제인지 / 어떻게 고칠지”는 충분히 읽히는 상태다.

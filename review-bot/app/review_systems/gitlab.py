@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import difflib
 from typing import Any
 from urllib.parse import quote
 
@@ -20,6 +21,7 @@ class GitLabReviewSystemAdapter(ReviewSystemAdapter):
         self.token = token
         self.project_id = project_id
         self._mr_cache: dict[int, dict[str, Any]] = {}
+        self._file_cache: dict[tuple[str, str], str] = {}
 
     def get_pull_request_diff(self, review_request_id: int) -> dict[str, Any]:
         project = self._project_ref()
@@ -52,7 +54,7 @@ class GitLabReviewSystemAdapter(ReviewSystemAdapter):
                     "status": self._change_status(change),
                     "additions": 0,
                     "deletions": 0,
-                    "patch": change.get("diff") or "",
+                    "patch": self._resolve_patch(project, change, diff_refs),
                 }
             )
         self._mr_cache[review_request_id] = {
@@ -90,6 +92,9 @@ class GitLabReviewSystemAdapter(ReviewSystemAdapter):
             )
             if inline is not None:
                 return inline
+            raise RuntimeError(
+                f"Unable to create inline discussion for {file_path}:{line_no}"
+            )
         return self._post_note(
             project,
             review_request_id,
@@ -217,3 +222,80 @@ class GitLabReviewSystemAdapter(ReviewSystemAdapter):
         if change.get("renamed_file"):
             return "renamed"
         return "modified"
+
+    def _resolve_patch(
+        self,
+        project: str,
+        change: dict[str, Any],
+        diff_refs: dict[str, str],
+    ) -> str:
+        patch = change.get("diff") or ""
+        if patch.strip():
+            return patch
+        return self._build_patch_from_repository(project, change, diff_refs)
+
+    def _build_patch_from_repository(
+        self,
+        project: str,
+        change: dict[str, Any],
+        diff_refs: dict[str, str],
+    ) -> str:
+        new_path = change.get("new_path") or change.get("old_path") or ""
+        old_path = change.get("old_path") or new_path
+        base_ref = diff_refs.get("base_sha") or diff_refs.get("start_sha")
+        head_ref = diff_refs.get("head_sha")
+        if not new_path or not head_ref:
+            return ""
+
+        if change.get("new_file"):
+            new_text = self._fetch_file_text(project, new_path, head_ref)
+            return self._build_unified_diff("", new_text, "/dev/null", new_path)
+
+        if change.get("deleted_file"):
+            if not base_ref:
+                return ""
+            old_text = self._fetch_file_text(project, old_path, base_ref)
+            return self._build_unified_diff(old_text, "", old_path, "/dev/null")
+
+        if not base_ref:
+            return ""
+        old_text = self._fetch_file_text(project, old_path, base_ref)
+        new_text = self._fetch_file_text(project, new_path, head_ref)
+        return self._build_unified_diff(old_text, new_text, old_path, new_path)
+
+    def _fetch_file_text(self, project: str, path: str, ref: str) -> str:
+        cache_key = (path, ref)
+        if cache_key in self._file_cache:
+            return self._file_cache[cache_key]
+
+        response = httpx.get(
+            (
+                f"{self.base_url}/api/v4/projects/{quote(project, safe='')}"
+                f"/repository/files/{quote(path, safe='')}/raw"
+            ),
+            headers=self._headers(),
+            params={"ref": ref},
+            timeout=30.0,
+        )
+        response.raise_for_status()
+        text = response.text
+        self._file_cache[cache_key] = text
+        return text
+
+    def _build_unified_diff(
+        self,
+        old_text: str,
+        new_text: str,
+        old_path: str,
+        new_path: str,
+    ) -> str:
+        diff_lines = list(
+            difflib.unified_diff(
+                old_text.splitlines(),
+                new_text.splitlines(),
+                fromfile=old_path,
+                tofile=new_path,
+                lineterm="",
+            )
+        )
+        return "\n".join(diff_lines)

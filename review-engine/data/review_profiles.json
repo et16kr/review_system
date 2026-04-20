@@ -10,11 +10,11 @@
     },
     "ALTI-ERR": {
       "category": "error_handling",
-      "reviewability": "auto_review",
-      "false_positive_risk": "low",
+      "reviewability": "manual_only",
+      "false_positive_risk": "high",
       "trigger_patterns": ["ide_rc_flow", "ide_test_raise", "error_code_flow"],
       "fix_guidance": "Align error propagation with internal IDE/IDU error macros and wrapper patterns.",
-      "review_rank_default": 0.94
+      "review_rank_default": 0.74
     },
     "ALTI-PCM": {
       "category": "wrapper_usage",
@@ -56,6 +56,14 @@
       "fix_guidance": "Keep comments in the required block-comment format and remove dead commented code.",
       "review_rank_default": 0.83
     },
+    "ALTI-NAE": {
+      "category": "naming",
+      "reviewability": "manual_only",
+      "false_positive_risk": "high",
+      "trigger_patterns": ["identifier_underscore"],
+      "fix_guidance": "Keep naming reviews as manual guidance unless the naming violation is explicit and unambiguous.",
+      "review_rank_default": 0.7
+    },
     "ALTI-DCL": {
       "category": "format_usage",
       "reviewability": "auto_review",
@@ -64,10 +72,42 @@
       "fix_guidance": "Use approved format macros or wrappers to avoid portability issues.",
       "review_rank_default": 0.87
     },
+    "ALTI-FOR": {
+      "category": "general",
+      "reviewability": "manual_only",
+      "false_positive_risk": "high",
+      "trigger_patterns": [],
+      "fix_guidance": "Formatting-only guidance should stay manual unless there is a direct parser-backed signal.",
+      "review_rank_default": 0.65
+    },
+    "ALTI-OPE": {
+      "category": "general",
+      "reviewability": "manual_only",
+      "false_positive_risk": "high",
+      "trigger_patterns": [],
+      "fix_guidance": "Operator-style guidance should stay manual unless there is a direct parser-backed signal.",
+      "review_rank_default": 0.65
+    },
+    "ALTI-CSV": {
+      "category": "general",
+      "reviewability": "manual_only",
+      "false_positive_risk": "high",
+      "trigger_patterns": [],
+      "fix_guidance": "Const/static/volatile style guidance should stay manual unless the violation is explicit.",
+      "review_rank_default": 0.65
+    },
+    "ALTI-POA": {
+      "category": "general",
+      "reviewability": "manual_only",
+      "false_positive_risk": "high",
+      "trigger_patterns": [],
+      "fix_guidance": "Pointer/array declaration style should stay manual unless the violation is explicit.",
+      "review_rank_default": 0.65
+    },
     "Rule-R": {
       "category": "control_flow",
-      "reviewability": "auto_review",
-      "false_positive_risk": "medium",
+      "reviewability": "manual_only",
+      "false_positive_risk": "high",
       "trigger_patterns": ["ide_rc_flow", "ide_test_raise"],
       "fix_guidance": "Follow the internal Rule-R guidance for RC flow and cleanup sequencing.",
       "review_rank_default": 0.86

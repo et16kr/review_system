@@ -1,7 +1,7 @@
 [
   {
     "input": "examples/altidev4/queue_perf_memory_and_rc.cpp",
-    "expected_rules": ["ALTI-MEM-007", "Rule-R1", "ALTI-PCM-002"]
+    "expected_rules": ["ALTI-MEM-007", "ALTI-PCM-002"]
   },
   {
     "input": "examples/altidev4/stackwalker_switch_and_free.cpp",
@@ -29,7 +29,7 @@
   },
   {
     "input": "examples/altidev4_diffs/queue_perf_memory_and_rc.diff",
-    "expected_rules": ["ALTI-MEM-007", "Rule-R1", "ALTI-PCM-002"]
+    "expected_rules": ["ALTI-MEM-007", "ALTI-PCM-002"]
   },
   {
     "input": "examples/altidev4_diffs/stackwalker_switch_and_free.diff",

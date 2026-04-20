@@ -12,7 +12,6 @@
     ],
     "expected_rules": [
       "ALTI-MEM-007",
-      "Rule-R1",
       "ALTI-PCM-002"
     ]
   },

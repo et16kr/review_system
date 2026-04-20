@@ -5,6 +5,10 @@ import re
 from app.models import QueryPattern
 from app.text_utils import clean_text
 
+IDE_RC_FLOW_SIGNAL_RE = re.compile(
+    r"\b(?:IDE_RC\s+\w+\s*=|return\s+(?:IDE_[A-Z_]+|\w+)\s*;|IDE_ASSERT|goto\s+\w+\s*;|cleanup\b)"
+)
+
 PATTERN_SPECS = [
     (
         "raw_new",
@@ -122,6 +126,22 @@ PATTERN_RULE_HINTS = {
     "ide_rc_flow": ["Rule-R1", "Rule-R2", "Rule-R3", "ALTI-ERR-001", "ALTI-ERR-002"],
 }
 
+DIRECT_HINT_PATTERNS = {
+    "raw_new",
+    "malloc_free",
+    "manual_delete",
+    "manual_lock_unlock",
+    "line_comment",
+    "primitive_types",
+    "direct_system_header",
+    "direct_system_call",
+    "continue_usage",
+    "switch_without_default",
+    "for_initializer_declaration",
+    "primitive_format_specifier",
+    "free_without_null_reset",
+}
+
 
 def extract_query_patterns(source_text: str) -> list[QueryPattern]:
     patterns: list[QueryPattern] = []
@@ -131,6 +151,7 @@ def extract_query_patterns(source_text: str) -> list[QueryPattern]:
     has_ide_rc = "IDE_RC" in source_text
     has_ide_test = "IDE_TEST" in source_text or "IDE_TEST_RAISE" in source_text
     has_ide_exception = "IDE_EXCEPTION" in source_text
+    has_ide_rc_flow_signal = IDE_RC_FLOW_SIGNAL_RE.search(source_text) is not None
 
     for name, regex, description, weight in PATTERN_SPECS:
         if name == "switch_without_default":
@@ -170,17 +191,27 @@ def extract_query_patterns(source_text: str) -> list[QueryPattern]:
                 )
             )
 
-    if has_ide_rc and not (has_ide_test or has_ide_exception):
+    if has_ide_rc and has_ide_rc_flow_signal and not (has_ide_test or has_ide_exception):
         patterns.append(
             QueryPattern(
                 name="ide_rc_flow",
                 description="IDE_RC return pattern detected without matching IDE_TEST "
                 "or IDE_EXCEPTION flow handling.",
                 weight=0.85,
+                evidence=_matching_lines(lines, IDE_RC_FLOW_SIGNAL_RE),
             )
         )
 
     return _deduplicate_patterns(patterns)
+
+
+def collect_hinted_rules(patterns: list[QueryPattern], *, direct_only: bool = False) -> set[str]:
+    hinted_rules: set[str] = set()
+    for pattern in patterns:
+        if direct_only and pattern.name not in DIRECT_HINT_PATTERNS:
+            continue
+        hinted_rules.update(PATTERN_RULE_HINTS.get(pattern.name, []))
+    return hinted_rules
 
 
 def _matching_lines(lines: list[str], regex: re.Pattern[str]) -> list[str]:

@@ -5,7 +5,8 @@ from app.ingest.build_records import ingest_all_sources
 from app.ingest.chroma_store import ChromaGuidelineStore
 from app.models import CandidateHit, IngestionSummary, ReviewResponse, ReviewResult
 from app.query.code_to_query import build_query_analysis
-from app.query.cpp_feature_extractor import PATTERN_RULE_HINTS
+from app.query.cpp_feature_extractor import collect_hinted_rules
+from app.retrieve.applicability import is_candidate_applicable
 from app.retrieve.rerank import rerank_candidates
 
 
@@ -30,7 +31,12 @@ class GuidelineSearchService:
         analysis = build_query_analysis(source_text, input_kind=input_kind)
         candidates = self.store.query(analysis.query_text, top_n=max(30, top_k * 3))
         candidates = self._augment_with_pattern_hints(candidates, analysis)
-        reranked = rerank_candidates(candidates, analysis, self.settings, top_k=top_k)
+        reranked = rerank_candidates(candidates, analysis, self.settings, top_k=max(30, top_k * 3))
+        validated = [
+            candidate
+            for candidate in reranked
+            if is_candidate_applicable(candidate, analysis)
+        ][:top_k]
         results = [
             ReviewResult(
                 rule_no=candidate.record.rule_no,
@@ -47,7 +53,7 @@ class GuidelineSearchService:
                 reviewability=candidate.record.reviewability,
                 fix_guidance=candidate.record.fix_guidance,
             )
-            for candidate in reranked
+            for candidate in validated
         ]
         return ReviewResponse(
             query_text=analysis.query_text,
@@ -58,11 +64,7 @@ class GuidelineSearchService:
     def _augment_with_pattern_hints(
         self, candidates: list[CandidateHit], analysis
     ) -> list[CandidateHit]:
-        hinted_rule_nos = {
-            rule_no
-            for pattern in analysis.patterns
-            for rule_no in PATTERN_RULE_HINTS.get(pattern.name, [])
-        }
+        hinted_rule_nos = collect_hinted_rules(analysis.patterns, direct_only=True)
         existing_by_rule = {candidate.record.rule_no: candidate for candidate in candidates}
         for rule_no in sorted(hinted_rule_nos):
             existing = existing_by_rule.get(rule_no)
