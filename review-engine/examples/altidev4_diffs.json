@@ -6,13 +6,20 @@
       "raw_new",
       "malloc_free",
       "manual_delete",
-      "direct_system_call",
-      "ide_rc_flow"
+      "direct_system_call"
     ],
     "expected_rules": [
       "ALTI-MEM-007",
       "ALTI-PCM-002"
     ]
+  },
+  {
+    "example_path": "examples/altidev4_diffs/ids_tde_rc_cleanup_flow.diff",
+    "source_path": "src/id/ids/idsTde.cpp",
+    "focus_patterns": [
+      "ide_rc_flow"
+    ],
+    "expected_rules": []
   },
   {
     "example_path": "examples/altidev4_diffs/stackwalker_switch_and_free.diff",

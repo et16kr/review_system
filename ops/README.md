@@ -8,6 +8,11 @@
 - `.env.example`
 - `scripts/create_gitlab_merge_request.py`
 - `scripts/create_altidev4_tde_review.sh`
+- `scripts/bootstrap_local_gitlab_tde_review.py`
+- `scripts/attach_local_gitlab_bot.py`
+- `scripts/replay_local_gitlab_tde_review.py`
+- `scripts/smoke_local_gitlab_tde_review.sh`
+- `review-bot-policy.example.json`
 
 초기 실행:
 
@@ -34,4 +39,16 @@ python3 /home/et16/work/review_system/ops/scripts/bootstrap_local_gitlab_tde_rev
 
 ```bash
 python3 /home/et16/work/review_system/ops/scripts/attach_local_gitlab_bot.py
+```
+
+로컬 GitLab MR과 bot 상태를 clean replay 가능한 baseline으로 다시 맞추려면:
+
+```bash
+python3 /home/et16/work/review_system/ops/scripts/replay_local_gitlab_tde_review.py
+```
+
+표준 smoke 시나리오를 한 번에 재생하고, 실패 시 non-zero exit code를 받으려면:
+
+```bash
+bash /home/et16/work/review_system/ops/scripts/smoke_local_gitlab_tde_review.sh
 ```

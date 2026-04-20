@@ -20,7 +20,7 @@ uv sync --extra dev
 ## 가이드라인 적재
 
 ```bash
-uv run python -m app.cli.ingest_guidelines
+uv run python -m review_engine.cli.ingest_guidelines
 ```
 
 이 명령은 다음 정규화 산출물을 생성합니다.
@@ -35,7 +35,7 @@ uv run python -m app.cli.ingest_guidelines
 C++ 소스 파일 리뷰:
 
 ```bash
-uv run python -m app.cli.review_cpp_code \
+uv run python -m review_engine.cli.review_cpp_code \
   --file examples/altidev4/queue_perf_memory_and_rc.cpp \
   --top-k 6
 ```
@@ -43,7 +43,7 @@ uv run python -m app.cli.review_cpp_code \
 diff 리뷰:
 
 ```bash
-uv run python -m app.cli.review_cpp_diff \
+uv run python -m review_engine.cli.review_cpp_diff \
   --diff examples/altidev4_diffs/queue_perf_memory_and_rc.diff \
   --top-k 6
 ```
@@ -51,14 +51,14 @@ uv run python -m app.cli.review_cpp_diff \
 단일 규칙 조회:
 
 ```bash
-uv run python -m app.cli.inspect_rule --rule ALTI-MEM-007
-uv run python -m app.cli.inspect_rule --rule R.11
+uv run python -m review_engine.cli.inspect_rule --rule ALTI-MEM-007
+uv run python -m review_engine.cli.inspect_rule --rule R.11
 ```
 
 번들된 예제 기대 결과 평가:
 
 ```bash
-uv run python -m app.cli.evaluate_examples --top-k 12
+uv run python -m review_engine.cli.evaluate_examples --top-k 12
 ```
 
 저장소 내부 실코드 excerpt 메타데이터 확인:
@@ -75,7 +75,7 @@ sed -n '1,200p' examples/altidev4_snippets.json
 API 서버 시작:
 
 ```bash
-uv run uvicorn app.api.main:app --reload
+uv run uvicorn review_engine.api.main:app --reload
 ```
 
 요청 예시:
@@ -104,7 +104,7 @@ uv run ruff check .
 명령을 사용할 수 있습니다.
 
 ```bash
-uv run python -m app.cli.scan_codebase \
+uv run python -m review_engine.cli.scan_codebase \
   --root /home/et16/work/altidev4 \
   --include-dir src \
   --include-dir tsrc \

@@ -5,6 +5,7 @@ description = "Automated PR review bot for the internal review platform."
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
+    "alembic>=1.13.3",
     "fastapi>=0.115.0",
     "httpx>=0.27.2",
     "openai>=1.51.0",
@@ -23,18 +24,18 @@ dev = [
 ]
 
 [project.scripts]
-bot-api = "app.main:main"
-bot-worker = "app.worker:main"
+bot-api = "review_bot.main:main"
+bot-worker = "review_bot.worker:main"
 
 [build-system]
 requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
-include = ["app*"]
+include = ["review_bot*"]
 
 [tool.setuptools.package-data]
-app = ["py.typed"]
+review_bot = ["py.typed"]
 
 [tool.ruff]
 line-length = 100

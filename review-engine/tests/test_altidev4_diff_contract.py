@@ -5,15 +5,23 @@ from pathlib import Path
 
 import pytest
 
-from app.query.code_to_query import build_query_analysis
+from review_engine.query.code_to_query import build_query_analysis
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+
+
+def _repo_path(relative_path: str) -> Path:
+    return PROJECT_ROOT / relative_path
 
 
 def _load_manifest() -> list[dict[str, object]]:
-    return json.loads(Path("examples/altidev4_diffs.json").read_text(encoding="utf-8"))
+    return json.loads(_repo_path("examples/altidev4_diffs.json").read_text(encoding="utf-8"))
 
 
 def _load_expected_examples() -> list[dict[str, object]]:
-    return json.loads(Path("examples/expected_retrieval_examples.json").read_text(encoding="utf-8"))
+    return json.loads(
+        _repo_path("examples/expected_retrieval_examples.json").read_text(encoding="utf-8")
+    )
 
 
 DIFF_CASES = _load_manifest()
@@ -23,10 +31,12 @@ def test_altidev4_diff_manifest_points_to_existing_non_empty_examples() -> None:
     manifest = _load_manifest()
 
     for item in manifest:
-        example_path = Path(str(item["example_path"]))
+        example_path = _repo_path(str(item["example_path"]))
         assert example_path.exists(), f"Missing diff file: {example_path}"
         assert example_path.stat().st_size > 0, f"Empty diff file: {example_path}"
-        assert not example_path.is_absolute(), f"Diff path must be repo-local: {example_path}"
+        assert not Path(str(item["example_path"])).is_absolute(), (
+            f"Diff path must be repo-local: {example_path}"
+        )
 
 
 @pytest.mark.parametrize(
@@ -40,7 +50,7 @@ def test_altidev4_diff_manifest_focus_patterns_are_detected(
     example_path: str,
     focus_patterns: tuple[str, ...],
 ) -> None:
-    payload = Path(example_path).read_text(encoding="utf-8")
+    payload = _repo_path(example_path).read_text(encoding="utf-8")
     analysis = build_query_analysis(payload, input_kind="diff")
     detected = {pattern.name for pattern in analysis.patterns}
 
@@ -60,7 +70,7 @@ def test_altidev4_diff_manifest_expected_rules_are_present_in_top6(
     example_path: str,
     expected_rules: tuple[str, ...],
 ) -> None:
-    payload = Path(example_path).read_text(encoding="utf-8")
+    payload = _repo_path(example_path).read_text(encoding="utf-8")
     response = real_search_service.review_diff(payload, top_k=6)
     returned_rules = {result.rule_no for result in response.results}
 

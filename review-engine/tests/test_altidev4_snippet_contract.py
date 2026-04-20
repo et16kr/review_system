@@ -5,16 +5,24 @@ from pathlib import Path
 
 import pytest
 
-from app.query.code_to_query import build_query_analysis
-from app.query.repository_scan import scan_repository
+from review_engine.query.code_to_query import build_query_analysis
+from review_engine.query.repository_scan import scan_repository
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+
+
+def _repo_path(relative_path: str) -> Path:
+    return PROJECT_ROOT / relative_path
 
 
 def _load_manifest() -> list[dict[str, object]]:
-    return json.loads(Path("examples/altidev4_snippets.json").read_text(encoding="utf-8"))
+    return json.loads(_repo_path("examples/altidev4_snippets.json").read_text(encoding="utf-8"))
 
 
 def _load_expected_examples() -> list[dict[str, object]]:
-    return json.loads(Path("examples/expected_retrieval_examples.json").read_text(encoding="utf-8"))
+    return json.loads(
+        _repo_path("examples/expected_retrieval_examples.json").read_text(encoding="utf-8")
+    )
 
 
 SNIPPET_CASES = _load_manifest()
@@ -31,7 +39,7 @@ def test_altidev4_manifest_focus_patterns_are_detected(
     example_path: str,
     focus_patterns: tuple[str, ...],
 ) -> None:
-    payload = Path(example_path).read_text(encoding="utf-8")
+    payload = _repo_path(example_path).read_text(encoding="utf-8")
     analysis = build_query_analysis(payload, input_kind="code")
     detected = {pattern.name for pattern in analysis.patterns}
 
@@ -51,7 +59,7 @@ def test_altidev4_manifest_expected_rules_are_present_in_top6(
     example_path: str,
     expected_rules: tuple[str, ...],
 ) -> None:
-    payload = Path(example_path).read_text(encoding="utf-8")
+    payload = _repo_path(example_path).read_text(encoding="utf-8")
     response = real_search_service.review_code(payload, top_k=6)
     returned_rules = {result.rule_no for result in response.results}
 
@@ -68,7 +76,7 @@ def test_altidev4_manifest_examples_are_registered_in_expected_examples_spec() -
 
 def test_repository_scan_reports_exact_repo_local_altidev4_files() -> None:
     report = scan_repository(
-        Path("examples"),
+        _repo_path("examples"),
         include_dirs=["altidev4"],
         ignore_patterns=["identifier_underscore", "ownership_ambiguity", "line_comment"],
     )

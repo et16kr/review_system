@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from app.ingest.build_records import build_guideline_records
-from app.ingest.chroma_store import ChromaGuidelineStore
-from app.models import GuidelineRecord, ParsedRule
+from review_engine.ingest.build_records import build_guideline_records
+from review_engine.ingest.chroma_store import ChromaGuidelineStore
+from review_engine.models import GuidelineRecord, ParsedRule
 
 
 def test_build_guideline_records_assigns_operational_metadata(fixture_settings) -> None:

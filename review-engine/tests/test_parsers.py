@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from app.parser.guidelines_parser import parse_cpp_core_guidelines
-from app.parser.internal_convention_parser import parse_internal_convention
+from review_engine.parser.guidelines_parser import parse_cpp_core_guidelines
+from review_engine.parser.internal_convention_parser import parse_internal_convention
 
 
 def test_parse_internal_convention_handles_wrapped_titles(fixture_root: Path) -> None:

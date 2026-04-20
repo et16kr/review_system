@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from app.ingest.build_records import build_guideline_records
-from app.ingest.conflict_resolver import resolve_conflicts
-from app.models import ParsedRule
+from review_engine.ingest.build_records import build_guideline_records
+from review_engine.ingest.conflict_resolver import resolve_conflicts
+from review_engine.models import ParsedRule
 
 
 def test_conflict_resolution_excludes_disabled_cpp_rule(fixture_settings) -> None:

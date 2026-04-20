@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from app.query.repository_scan import render_repo_scan_markdown, scan_repository
+from review_engine.query.repository_scan import render_repo_scan_markdown, scan_repository
 
 
 def test_repository_scan_finds_code_patterns(tmp_path: Path) -> None:

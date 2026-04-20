@@ -5,15 +5,20 @@
 
 현재 구현 범위:
 
-- PR 열림/업데이트 이벤트 수신
-- 플랫폼 diff 조회
+- GitLab MR note webhook 수신
+- 리뷰 요청 key 기반 run 생성
 - 엔진 diff 리뷰 호출
-- finding dedupe
-- 상위 5개 게시
-- 수동 다음 배치 게시
+- inline discussion 게시 및 sync
+- feedback 이벤트 수집
+- 기본 게시 batch cap `10`
+
+외부 GitLab 기준 트리거:
+
+- MR open/update로는 자동 리뷰하지 않음
+- MR 코멘트에 `@review-bot` mention이 있을 때만 리뷰 실행
 
 개발 서버 실행:
 
 ```bash
-uv run --project . uvicorn app.api.main:app --reload --port 18081
+uv run --project . uvicorn review_bot.api.main:app --reload --port 18081
 ```

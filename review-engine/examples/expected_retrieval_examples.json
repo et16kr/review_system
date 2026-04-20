@@ -32,6 +32,10 @@
     "expected_rules": ["ALTI-MEM-007", "ALTI-PCM-002"]
   },
   {
+    "input": "examples/altidev4_diffs/ids_tde_rc_cleanup_flow.diff",
+    "expected_rules": []
+  },
+  {
     "input": "examples/altidev4_diffs/stackwalker_switch_and_free.diff",
     "expected_rules": ["ALTI-COF-002", "ALTI-MEM-007", "ALTI-PCM-002"]
   },

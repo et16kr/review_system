@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from app.query.code_to_query import build_query_analysis
+from review_engine.query.code_to_query import build_query_analysis
 
 
 def test_query_analysis_detects_internal_and_cpp_patterns() -> None:

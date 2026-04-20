@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from fastapi.testclient import TestClient
 
-from app.api import main as api_main
-from app.ingest.build_records import ingest_all_sources
-from app.retrieve.search import GuidelineSearchService
+from review_engine.api import main as api_main
+from review_engine.ingest.build_records import ingest_all_sources
+from review_engine.retrieve.search import GuidelineSearchService
 
 
 def test_review_code_api_shape(monkeypatch, fixture_settings) -> None:

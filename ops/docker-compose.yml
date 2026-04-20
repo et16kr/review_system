@@ -70,15 +70,18 @@ services:
       REVIEW_SYSTEM_BASE_URL: ${REVIEW_SYSTEM_BASE_URL:-http://review-platform:18080}
       PLATFORM_BASE_URL: ${REVIEW_SYSTEM_BASE_URL:-http://review-platform:18080}
       ENGINE_BASE_URL: http://review-engine:8000
-      BOT_BATCH_SIZE: 5
+      BOT_BATCH_SIZE: 10
       BOT_PROVIDER: ${BOT_PROVIDER:-stub}
       BOT_FALLBACK_PROVIDER: ${BOT_FALLBACK_PROVIDER:-stub}
+      BOT_QUEUE_DETECT_NAME: ${BOT_QUEUE_DETECT_NAME:-review-detect}
+      BOT_QUEUE_PUBLISH_NAME: ${BOT_QUEUE_PUBLISH_NAME:-review-publish}
+      BOT_QUEUE_SYNC_NAME: ${BOT_QUEUE_SYNC_NAME:-review-sync}
+      BOT_AUTHOR_NAME: ${BOT_AUTHOR_NAME:-review-bot}
       BOT_OPENAI_MODEL: ${BOT_OPENAI_MODEL:-gpt-5.2}
       BOT_OPENAI_TIMEOUT_SECONDS: ${BOT_OPENAI_TIMEOUT_SECONDS:-10}
       BOT_OPENAI_MAX_RETRIES: ${BOT_OPENAI_MAX_RETRIES:-0}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       GITLAB_TOKEN: ${GITLAB_TOKEN:-}
-      GITLAB_PROJECT_ID: ${GITLAB_PROJECT_ID:-}
       GITLAB_WEBHOOK_SECRET: ${GITLAB_WEBHOOK_SECRET:-}
     depends_on:
       - postgres
@@ -86,7 +89,7 @@ services:
       - review-engine
     ports:
       - "18081:18081"
-    command: ["uvicorn", "app.api.main:app", "--host", "0.0.0.0", "--port", "18081"]
+    command: ["uvicorn", "review_bot.api.main:app", "--host", "0.0.0.0", "--port", "18081"]
 
   review-bot-worker:
     build:
@@ -98,15 +101,18 @@ services:
       REVIEW_SYSTEM_BASE_URL: ${REVIEW_SYSTEM_BASE_URL:-http://review-platform:18080}
       PLATFORM_BASE_URL: ${REVIEW_SYSTEM_BASE_URL:-http://review-platform:18080}
       ENGINE_BASE_URL: http://review-engine:8000
-      BOT_BATCH_SIZE: 5
+      BOT_BATCH_SIZE: 10
       BOT_PROVIDER: ${BOT_PROVIDER:-stub}
       BOT_FALLBACK_PROVIDER: ${BOT_FALLBACK_PROVIDER:-stub}
+      BOT_QUEUE_DETECT_NAME: ${BOT_QUEUE_DETECT_NAME:-review-detect}
+      BOT_QUEUE_PUBLISH_NAME: ${BOT_QUEUE_PUBLISH_NAME:-review-publish}
+      BOT_QUEUE_SYNC_NAME: ${BOT_QUEUE_SYNC_NAME:-review-sync}
+      BOT_AUTHOR_NAME: ${BOT_AUTHOR_NAME:-review-bot}
       BOT_OPENAI_MODEL: ${BOT_OPENAI_MODEL:-gpt-5.2}
       BOT_OPENAI_TIMEOUT_SECONDS: ${BOT_OPENAI_TIMEOUT_SECONDS:-10}
       BOT_OPENAI_MAX_RETRIES: ${BOT_OPENAI_MAX_RETRIES:-0}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       GITLAB_TOKEN: ${GITLAB_TOKEN:-}
-      GITLAB_PROJECT_ID: ${GITLAB_PROJECT_ID:-}
       GITLAB_WEBHOOK_SECRET: ${GITLAB_WEBHOOK_SECRET:-}
     depends_on:
       - postgres

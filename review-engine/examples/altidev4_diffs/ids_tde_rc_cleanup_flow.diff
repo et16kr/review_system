@@ -1,0 +1,15 @@
+diff --git a/src/id/ids/idsTde.cpp b/src/id/ids/idsTde.cpp
+index 1234567..89abcde 100644
+--- a/src/id/ids/idsTde.cpp
++++ b/src/id/ids/idsTde.cpp
+@@ -210,0 +210,10 @@ static IDE_RC idsTde::createKeyStore(const SChar * aKeyStorePath)
++    IDE_RC rc = IDE_SUCCESS;
++    if (loadKeyStore(aKeyStorePath) != IDE_SUCCESS)
++    {
++        rc = IDE_FAILURE;
++        goto cleanup;
++    }
++
++cleanup:
++    return rc;
++

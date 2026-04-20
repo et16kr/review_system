@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from app.ingest.build_records import ingest_all_sources
-from app.retrieve.search import GuidelineSearchService
+from review_engine.ingest.build_records import ingest_all_sources
+from review_engine.retrieve.search import GuidelineSearchService
 
 
 def test_retrieval_prefers_pattern_hint_rules(fixture_settings) -> None:

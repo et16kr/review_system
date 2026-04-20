@@ -3,14 +3,22 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+
+
+def _repo_path(relative_path: str) -> Path:
+    return PROJECT_ROOT / relative_path
+
 
 def test_expected_examples_are_present_in_results(real_search_service) -> None:
-    spec_path = Path("examples/expected_retrieval_examples.json")
+    spec_path = _repo_path("examples/expected_retrieval_examples.json")
     spec = json.loads(spec_path.read_text(encoding="utf-8"))
 
     for case in spec:
-        input_path = Path(case["input"])
-        assert not input_path.is_absolute(), f"{spec_path} must use repo-local inputs: {input_path}"
+        input_path = _repo_path(str(case["input"]))
+        assert not Path(str(case["input"])).is_absolute(), (
+            f"{spec_path} must use repo-local inputs: {input_path}"
+        )
         assert input_path.exists(), f"Missing expected example input: {input_path}"
         payload = input_path.read_text(encoding="utf-8")
         if input_path.suffix == ".diff":

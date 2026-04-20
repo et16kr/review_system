@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from fastapi.testclient import TestClient
 
-from app.api.main import app
+from review_bot.api.main import app
 
 
 def test_health() -> None:

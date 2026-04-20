@@ -271,7 +271,7 @@ def list_project_hooks(base_url: str, token: str, project_ref: str) -> list[dict
     return payload or []
 
 
-def ensure_merge_request_webhook(
+def ensure_review_request_webhook(
     *,
     base_url: str,
     token: str,
@@ -284,10 +284,10 @@ def ensure_merge_request_webhook(
         "url": webhook_url,
         "token": secret,
         "enable_ssl_verification": False,
-        "merge_requests_events": True,
+        "merge_requests_events": False,
         "push_events": False,
         "issues_events": False,
-        "note_events": False,
+        "note_events": True,
     }
     for hook in hooks:
         if hook.get("url") == webhook_url:
@@ -311,7 +311,8 @@ def ensure_merge_request_webhook(
 
 def reset_bot_state() -> None:
     truncate_sql = (
-        "TRUNCATE TABLE finding_publications, review_findings, review_runs "
+        "TRUNCATE TABLE dead_letter_records, feedback_events, thread_sync_states, publication_states, "
+        "finding_decisions, finding_evidences, review_runs, review_requests "
         "RESTART IDENTITY CASCADE;"
     )
     compose(
@@ -349,29 +350,43 @@ def wait_for_http_ok(url: str, timeout_seconds: int = 120) -> None:
     raise RuntimeError(f"Timed out waiting for {url}: {last_error}")
 
 
-def trigger_initial_review(pr_id: int) -> dict:
-    payload = json.dumps({"pr_id": pr_id, "trigger": "gitlab_bootstrap"}).encode("utf-8")
+def request_review_via_mention(
+    *,
+    base_url: str,
+    token: str,
+    project_ref: str,
+    pr_id: int,
+    bot_username: str,
+    body: str | None = None,
+) -> dict:
+    encoded_project = parse.quote(project_ref, safe="")
+    note_body = body or f"@{bot_username} review 부탁드립니다."
+    payload = json.dumps({"body": note_body}).encode("utf-8")
     req = request.Request(
-        "http://127.0.0.1:18081/internal/review/pr-opened",
+        f"{base_url.rstrip('/')}/api/v4/projects/{encoded_project}/merge_requests/{pr_id}/notes",
         method="POST",
-        headers={"Content-Type": "application/json"},
+        headers={"PRIVATE-TOKEN": token, "Content-Type": "application/json"},
         data=payload,
     )
     with request.urlopen(req, timeout=30) as response:
         return json.loads(response.read().decode("utf-8"))
 
 
-def get_bot_state(pr_id: int) -> dict:
-    state_url = f"http://127.0.0.1:18081/internal/review/state/{pr_id}"
+def get_bot_state(project_ref: str, pr_id: int) -> dict:
+    encoded_project_ref = parse.quote(project_ref, safe="")
+    state_url = (
+        "http://127.0.0.1:18081/internal/review/requests/"
+        f"gitlab/{encoded_project_ref}/{pr_id}"
+    )
     with request.urlopen(state_url, timeout=30) as response:
         return json.loads(response.read().decode("utf-8"))
 
 
-def wait_for_review_completion(pr_id: int, timeout_seconds: int = 300) -> dict:
+def wait_for_review_completion(project_ref: str, pr_id: int, timeout_seconds: int = 300) -> dict:
     deadline = time.time() + timeout_seconds
     last_state: dict | None = None
     while time.time() < deadline:
-        last_state = get_bot_state(pr_id)
+        last_state = get_bot_state(project_ref, pr_id)
         if last_state.get("last_status") in {"success", "partial", "failed"}:
             return last_state
         time.sleep(3)
@@ -455,6 +470,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--mr-iid", type=int, default=1)
     parser.add_argument("--token-name", default="review-bot-runtime")
     parser.add_argument(
+        "--trigger-initial-review",
+        action="store_true",
+        help="Post an @review-bot MR comment after attachment to request the first review.",
+    )
+    parser.add_argument(
         "--skip-reset-bot-state",
         action="store_true",
         help="Keep existing review-bot DB rows instead of truncating them.",
@@ -508,9 +528,9 @@ def main() -> int:
         {
             "REVIEW_SYSTEM_ADAPTER": "gitlab",
             "REVIEW_SYSTEM_BASE_URL": gitlab_internal_url,
-            "GITLAB_PROJECT_ID": args.project_ref,
             "GITLAB_TOKEN": token,
             "GITLAB_WEBHOOK_SECRET": secret,
+            "BOT_AUTHOR_NAME": bot_username,
             "LOCAL_GITLAB_BOT_USERNAME": bot_username,
             "LOCAL_GITLAB_BOT_EMAIL": bot_email,
             "LOCAL_GITLAB_BOT_PASSWORD": bot_password,
@@ -523,15 +543,24 @@ def main() -> int:
         reset_bot_state()
     delete_existing_bot_comments(gitlab_external_url, root_token, args.project_ref, args.mr_iid)
 
-    hook = ensure_merge_request_webhook(
+    hook = ensure_review_request_webhook(
         base_url=gitlab_external_url,
         token=root_token,
         project_ref=args.project_ref,
         webhook_url=webhook_url,
         secret=secret,
     )
-    accepted = trigger_initial_review(args.mr_iid)
-    state = wait_for_review_completion(args.mr_iid)
+    review_request_note = None
+    state = get_bot_state(args.project_ref, args.mr_iid)
+    if args.trigger_initial_review:
+        review_request_note = request_review_via_mention(
+            base_url=gitlab_external_url,
+            token=root_token,
+            project_ref=args.project_ref,
+            pr_id=args.mr_iid,
+            bot_username=bot_username,
+        )
+        state = wait_for_review_completion(args.project_ref, args.mr_iid)
     note_count = count_gitlab_notes(gitlab_external_url, root_token, args.project_ref, args.mr_iid)
 
     print(
@@ -543,7 +572,7 @@ def main() -> int:
                 "bot_adapter": "gitlab",
                 "webhook_url": webhook_url,
                 "hook_id": hook.get("id"),
-                "review_accept_response": accepted,
+                "review_request_note": review_request_note,
                 "review_state": state,
                 "gitlab_note_count": note_count,
                 "bot_username": bot_username,

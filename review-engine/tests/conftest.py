@@ -4,9 +4,9 @@ from pathlib import Path
 
 import pytest
 
-from app.config import Settings
-from app.ingest.build_records import ingest_all_sources
-from app.retrieve.search import GuidelineSearchService
+from review_engine.config import Settings
+from review_engine.ingest.build_records import ingest_all_sources
+from review_engine.retrieve.search import GuidelineSearchService
 
 
 @pytest.fixture

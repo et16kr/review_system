@@ -113,8 +113,8 @@ python3 /home/et16/work/review_system/ops/scripts/attach_local_gitlab_bot.py
 3. `review-bot-api`, `review-bot-worker` 재빌드 및 재기동
 4. 로컬 네트워크 webhook 허용 설정
 5. 기존 bot 댓글 정리 및 bot 상태 초기화
-6. `root/altidev4` 프로젝트에 Merge Request webhook 등록
-7. 현재 MR에 초기 리뷰 1회 실행
+6. `root/altidev4` 프로젝트에 Note webhook 등록
+7. 선택적으로 현재 MR에 `@review-bot` comment를 남겨 초기 리뷰 요청
 
 기본값은 아래 MR을 대상으로 한다.
 
@@ -125,8 +125,104 @@ python3 /home/et16/work/review_system/ops/scripts/attach_local_gitlab_bot.py
 
 - `http://127.0.0.1:18929/root/altidev4/-/merge_requests/1`
 
-자동 재리뷰는 GitLab Merge Request `update` 이벤트 중에서도
-실제 새 커밋이 들어온 경우에만 반응하도록 맞춰 둔다.
+현재 운영 기준의 재리뷰는 push 자동 트리거가 아니라,
+MR comment에 `@review-bot` mention이 들어왔을 때만 반응한다.
+
+## clean replay reset/reseed
+
+검증 중에 MR 상태나 bot discussion 이력이 섞였을 때는 아래 스크립트로
+baseline MR과 bot 상태를 다시 고정할 수 있다.
+
+```bash
+python3 /home/et16/work/review_system/ops/scripts/replay_local_gitlab_tde_review.py
+```
+
+이 스크립트는 기본적으로 아래를 수행한다.
+
+1. 로컬 GitLab 준비 확인
+2. `root/altidev4-review` 프로젝트 확보
+3. `tde_base`를 고정 ref로 force-push
+4. `tde_first`를 baseline ref로 force-push
+5. 기존 open MR 삭제 후 새 MR 생성
+6. bot 재부착 및 초기 `@review-bot` mention 요청
+
+내장된 baseline ref:
+
+- `tde_base`: `b5425ede8aabd45aa9edc09e7b33617aae66ce4c`
+- `tde_first`: `305df15e75a4c6430c075f84877e93955eb32749`
+
+fixture 의미:
+
+- `tde_base`
+  - 리뷰 기준선 역할을 하는 target snapshot
+- `tde_first`
+  - 초기 inline thread가 생성되어야 하는 baseline source snapshot
+
+## default incremental replay
+
+기본 검증용 incremental sequence까지 한 번에 재생하려면:
+
+```bash
+python3 /home/et16/work/review_system/ops/scripts/replay_local_gitlab_tde_review.py \
+  --replay-default-updates
+```
+
+내장된 update ref 순서:
+
+1. `2d144f954952d5556eb2d99ba1b1d8fcc01c6d78`
+2. `d75b6b8fe7d03ecd47bb46e8c4af596d9a14ed76`
+3. `d6665020440e83624e01af839f4f43dcb646a580`
+
+이 시퀀스는 각 update 뒤에 `@review-bot` mention 요청을 보내고,
+incremental-equivalent smoke 흐름 대신 manual full review / stale resolve / untouched thread 보호 같은
+현재 bot 동작을 반복 검증할 때 사용한다.
+
+update ref 의미:
+
+1. 첫 update
+   - incremental review가 baseline thread를 중복 생성하지 않는지 확인
+2. 두 번째 update
+   - touched scope가 바뀌어도 unrelated thread가 유지되는지 확인
+3. 세 번째 update
+   - feedback/sync 이후 stale resolve와 open thread count 변화를 확인
+
+## 표준 smoke 검증
+
+baseline 재생성, default incremental replay, human reply, resolve, sync까지 한 번에
+검증하고 싶으면 아래 wrapper를 사용한다.
+
+```bash
+bash /home/et16/work/review_system/ops/scripts/smoke_local_gitlab_tde_review.sh
+```
+
+이 명령은 내부적으로 아래를 고정 실행한다.
+
+- `--replay-default-updates`
+- `--reply-first-open-thread`
+- `--resolve-first-open-thread`
+- `--trigger-sync-after-thread-actions`
+- `--assert-default-smoke`
+
+추가로 JSON artifact를 남기고 싶으면:
+
+```bash
+bash /home/et16/work/review_system/ops/scripts/smoke_local_gitlab_tde_review.sh \
+  --json-output /tmp/review-bot-smoke.json
+```
+
+`--assert-default-smoke`는 아래 invariant를 자동 검증한다.
+
+- baseline review가 `success`로 끝나는지
+- baseline에서 최소 1개 이상의 open thread가 생기는지
+- 각 incremental replay가 해당 head SHA에서 `success`로 끝나는지
+- failed publication이 없는지
+- reply/resolve 후 sync에서 feedback count가 증가하는지
+- resolve 후 sync에서 open thread count가 감소하는지
+
+권장 운영 위치:
+
+- 기본 PR CI가 아니라, 수동 smoke 또는 pre-release smoke로 사용한다.
+- 이유는 local GitLab bootstrap과 bot rebuild 비용이 크기 때문이다.
 
 ## 실제로 수행되는 일
 
