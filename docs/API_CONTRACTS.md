@@ -286,9 +286,14 @@ Response 각 필드 의미:
 - `published` — 최신 의미 상태가 `published`인 distinct fingerprint 수
 - `resolved` — 최신 의미 상태가 `resolved`인 distinct fingerprint 수
 - `suppressed` — 최신 의미 상태가 `suppressed`인 distinct fingerprint 수
-- `human_resolved` — `ThreadSyncState.resolution_reason == remote_resolved`로 끝난 distinct fingerprint 수
+- `human_resolved` — `ThreadSyncState.resolution_reason ∈ {remote_resolved, remote_resolved_manual_only}`로 끝난 distinct fingerprint 수
 - `resolve_rate` — `resolved / (published + resolved)`
 - `human_resolve_rate` — `human_resolved / (published + resolved)`
+
+주의:
+
+- 이 endpoint는 rule-level effectiveness용이다.
+- Phase A 이후 canonical quality KPI는 `/internal/analytics/finding-outcomes`를 우선 사용한다.
 
 Response 예시:
 
@@ -308,6 +313,83 @@ Response 예시:
     }
   ],
   "total_rules": 1
+}
+```
+
+### `GET /internal/analytics/finding-outcomes`
+
+용도:
+
+- distinct fingerprint 기준으로 quality KPI와 lifecycle outcome을 집계한다.
+- `fix_confirmation_rate`, `fix_conversion_rate`, `human_resolve_rate`, `false_positive_feedback_rate`의 canonical source다.
+
+Query parameter:
+
+- `project_ref` optional
+- `source_family` optional
+- `window` optional: `14d | 28d`, 기본값 `28d`
+
+집계 단위:
+
+- row가 아니라 distinct `fingerprint`
+
+시점 정의:
+
+- `first_surfaced_at`
+  - `PublicationState.publish_state ∈ {created, updated, skipped}` 중 가장 이른 `published_at`
+- `first_fixed_at`
+  - `FindingLifecycleEvent(event_type="resolved", event_reason="fixed_in_followup_commit")`의 가장 이른 `event_at`
+- `reopened_distinct`
+  - 해당 window cohort 안에서 `FindingLifecycleEvent(event_type="reopened")`가 한 번 이상 있었던 distinct fingerprint 수
+
+Response 공통 필드:
+
+- `surfaced_distinct`
+- `resolved_distinct`
+- `fixed_distinct`
+- `manual_resolved_distinct`
+- `ignored_distinct`
+- `false_positive_distinct`
+- `reopened_distinct`
+
+`window=14d`일 때 canonical KPI:
+
+- `fix_confirmation_rate`
+  - latest resolved cohort 중 `fixed_in_followup_commit` 비율
+- `human_resolve_rate`
+  - surfaced cohort 중 `remote_resolved_manual_only` 기반 human resolve 비율
+- `false_positive_feedback_rate`
+  - surfaced cohort 중 latest human feedback command가 `false-positive`인 비율
+
+`window=28d`일 때 cohort KPI:
+
+- `surfaced_cohort_distinct`
+  - 지난 28일 안에 first surfaced 된 distinct fingerprint 수
+- `converted_cohort_distinct`
+  - 위 cohort 중 first surfaced 후 28일 이내 `fixed_in_followup_commit`으로 전환된 수
+- `fix_conversion_rate`
+  - `converted_cohort_distinct / surfaced_cohort_distinct`
+
+Response 예시:
+
+```json
+{
+  "window": "28d",
+  "project_ref": "group/project",
+  "source_family": "altibase",
+  "surfaced_distinct": 120,
+  "resolved_distinct": 70,
+  "fixed_distinct": 48,
+  "manual_resolved_distinct": 22,
+  "ignored_distinct": 15,
+  "false_positive_distinct": 9,
+  "reopened_distinct": 6,
+  "surfaced_cohort_distinct": 120,
+  "converted_cohort_distinct": 41,
+  "fix_confirmation_rate": 0.0,
+  "human_resolve_rate": 0.0,
+  "false_positive_feedback_rate": 0.0,
+  "fix_conversion_rate": 0.342
 }
 ```
 

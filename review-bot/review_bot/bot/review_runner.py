@@ -3,8 +3,9 @@ from __future__ import annotations
 import hashlib
 import logging
 import re
+import time
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any, Literal
 
 from fastapi import HTTPException
@@ -26,8 +27,9 @@ from review_bot.db.models import (
     FeedbackEvent,
     FindingDecision,
     FindingEvidence,
-    PublicationState,
     DeadLetterRecord,
+    FindingLifecycleEvent,
+    PublicationState,
     ReviewRequest,
     ReviewRun,
     ThreadSyncState,
@@ -36,11 +38,15 @@ from review_bot.errors import ReviewBotError
 from review_bot.metrics import (
     detect_phase_duration_seconds,
     engine_call_duration_seconds,
+    feedback_commands_total,
+    finding_resolution_events_total,
     findings_published_total,
     findings_resolved_total,
     findings_suppressed_total,
     publish_phase_duration_seconds,
     review_runs_total,
+    verify_attempts_total,
+    verify_dropped_total,
 )
 from review_bot.policy import ReviewPolicy, load_review_policy
 from review_bot.providers.change_analysis import (
@@ -49,7 +55,7 @@ from review_bot.providers.change_analysis import (
     requires_direct_signal,
     select_candidate_line,
 )
-from review_bot.providers.base import FindingDraft
+from review_bot.providers.base import FindingDraft, VerifyDraftResult
 from review_bot.providers.factory import build_review_comment_provider
 from review_bot.review_systems.factory import build_review_system_adapter
 from review_bot.review_systems.base import render_general_note_purpose_marker
@@ -63,6 +69,8 @@ _FILE_CONTEXT_KEY = "_file_context"  # raw_engine_payload 내 파일 컨텍스�
 _SIMILAR_CODE_KEY = "_similar_code"  # raw_engine_payload 내 유사 코드 저장 키
 _REPORTABLE_REVIEW_RUN_STATUSES = ("success", "partial", "failed")
 _IN_FLIGHT_REVIEW_RUN_STATUSES = ("queued", "running")
+_NOTE_MENTION_EXPECTED_HEAD_RETRIES = 5
+_NOTE_MENTION_EXPECTED_HEAD_SLEEP_SECONDS = 1.0
 _FULL_REPORT_SECTION_ORDER = (
     "published_inline",
     "already_open",
@@ -180,6 +188,7 @@ class BacklogEntry:
 @dataclass(frozen=True)
 class RuleEffectivenessFingerprintState:
     fingerprint: str
+    project_ref: str
     rule_no: str
     source_family: str
     state: str
@@ -317,11 +326,20 @@ class ReviewRunner:
         try:
             meta = adapter.fetch_review_request_meta(key)
             diff_payload = adapter.fetch_diff(key, mode=review_run.mode, base_sha=review_run.base_sha)
+            meta, diff_payload = self._refresh_detect_inputs_for_expected_head(
+                adapter=adapter,
+                key=key,
+                review_run=review_run,
+                meta=meta,
+                diff_payload=diff_payload,
+            )
             current_threads = {thread.thread_ref: thread for thread in adapter.list_threads(key)}
             self._apply_request_meta(review_request, meta, diff_payload)
             self._reconcile_thread_snapshots(
                 session,
-                review_request_pk=review_request.id,
+                review_request=review_request,
+                key=key,
+                adapter=adapter,
                 threads=current_threads,
                 head_sha=diff_payload.pull_request.get("head_sha") or meta.head_sha,
             )
@@ -444,6 +462,47 @@ class ReviewRunner:
             if isinstance(exc, HTTPException):
                 raise
             raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+    def _refresh_detect_inputs_for_expected_head(
+        self,
+        *,
+        adapter: Any,
+        key: ReviewRequestKey,
+        review_run: ReviewRun,
+        meta: ReviewRequestMeta,
+        diff_payload: DiffPayload,
+    ) -> tuple[ReviewRequestMeta, DiffPayload]:
+        expected_head_sha = review_run.head_sha
+        if review_run.trigger != "gitlab:note_mention" or not expected_head_sha:
+            return meta, diff_payload
+
+        observed_head_sha = diff_payload.pull_request.get("head_sha") or meta.head_sha
+        if not observed_head_sha or observed_head_sha == expected_head_sha:
+            return meta, diff_payload
+
+        refreshed_meta = meta
+        refreshed_diff = diff_payload
+        for _ in range(_NOTE_MENTION_EXPECTED_HEAD_RETRIES):
+            time.sleep(_NOTE_MENTION_EXPECTED_HEAD_SLEEP_SECONDS)
+            refreshed_meta = adapter.fetch_review_request_meta(key)
+            refreshed_diff = adapter.fetch_diff(
+                key,
+                mode=review_run.mode,
+                base_sha=review_run.base_sha,
+            )
+            observed_head_sha = refreshed_diff.pull_request.get("head_sha") or refreshed_meta.head_sha
+            if observed_head_sha == expected_head_sha:
+                return refreshed_meta, refreshed_diff
+
+        logger.warning(
+            "detect_head_not_settled review_run_id=%s project_ref=%s review_request_id=%s expected_head_sha=%s observed_head_sha=%s",
+            review_run.id,
+            key.project_ref,
+            key.review_request_id,
+            expected_head_sha,
+            observed_head_sha,
+        )
+        return refreshed_meta, refreshed_diff
 
     def execute_publish_phase(self, session: Session, review_run_id: str) -> None:
         review_run = self._get_review_run(session, review_run_id)
@@ -790,7 +849,9 @@ class ReviewRunner:
             threads = {thread.thread_ref: thread for thread in adapter.list_threads(key)}
             self._reconcile_thread_snapshots(
                 session,
-                review_request_pk=review_request.id,
+                review_request=review_request,
+                key=key,
+                adapter=adapter,
                 threads=threads,
                 head_sha=review_run.head_sha,
             )
@@ -847,8 +908,28 @@ class ReviewRunner:
                             thread_state.adapter_thread_ref,
                             reason="no_longer_eligible",
                         )
+                        previous_head_sha = thread_state.last_seen_head_sha
+                        thread_decision = self._decision_for_thread_state(session, thread_state)
                         thread_state.sync_status = "resolved"
                         thread_state.resolution_reason = "no_longer_eligible"
+                        thread_state.last_seen_head_sha = review_run.head_sha
+                        thread_state.last_synced_at = datetime.now(UTC)
+                        if thread_decision is not None:
+                            finding_resolution_events_total.labels(
+                                rule_family=thread_decision.source_family or "unknown",
+                                resolution_reason="no_longer_eligible",
+                            ).inc()
+                        self._record_finding_lifecycle_event(
+                            session,
+                            review_request=review_request,
+                            thread_state=thread_state,
+                            decision=thread_decision,
+                            event_type="resolved",
+                            event_reason="no_longer_eligible",
+                            observed_head_sha=review_run.head_sha,
+                            compared_from_sha=previous_head_sha,
+                            payload={"mode": review_run.mode, "auto_resolved": True},
+                        )
                         self._mark_fingerprint_resolved(
                             session, review_request.id, thread_state.finding_fingerprint
                         )
@@ -1457,7 +1538,7 @@ class ReviewRunner:
         *,
         review_request: ReviewRequest,
         feedback_page: FeedbackPage,
-    ) -> None:
+        ) -> None:
         for event in feedback_page.events:
             exists = (
                 session.query(FeedbackEvent.id)
@@ -1482,6 +1563,11 @@ class ReviewRunner:
                     occurred_at=event.occurred_at,
                 )
             )
+            if event.event_type == "reply" and event.actor_type == "human":
+                body = str((event.payload or {}).get("body") or "")
+                command = self._latest_feedback_command(body)
+                if command is not None:
+                    feedback_commands_total.labels(command=command).inc()
 
     def _mark_fingerprint_resolved(
         self,
@@ -1533,11 +1619,159 @@ class ReviewRunner:
         if latest_resolved is not None:
             latest_resolved.state = "published"
 
+    def _decision_for_thread_state(
+        self,
+        session: Session,
+        thread_state: ThreadSyncState,
+    ) -> FindingDecision | None:
+        if thread_state.finding_decision_id:
+            decision = session.get(FindingDecision, thread_state.finding_decision_id)
+            if decision is not None:
+                return decision
+        return (
+            session.query(FindingDecision)
+            .filter(
+                FindingDecision.review_request_pk == thread_state.review_request_pk,
+                FindingDecision.fingerprint == thread_state.finding_fingerprint,
+            )
+            .order_by(FindingDecision.updated_at.desc(), FindingDecision.created_at.desc())
+            .first()
+        )
+
+    def _record_finding_lifecycle_event(
+        self,
+        session: Session,
+        *,
+        review_request: ReviewRequest,
+        thread_state: ThreadSyncState,
+        decision: FindingDecision | None,
+        event_type: str,
+        event_reason: str | None,
+        observed_head_sha: str | None,
+        compared_from_sha: str | None,
+        payload: dict[str, Any] | None = None,
+        event_at: datetime | None = None,
+    ) -> None:
+        session.add(
+            FindingLifecycleEvent(
+                review_request_pk=review_request.id,
+                review_system=review_request.review_system,
+                project_ref=review_request.project_ref,
+                review_request_id=review_request.review_request_id,
+                finding_fingerprint=thread_state.finding_fingerprint,
+                finding_decision_id=decision.id if decision is not None else None,
+                adapter_thread_ref=thread_state.adapter_thread_ref,
+                rule_no=decision.rule_no if decision is not None else None,
+                rule_family=decision.source_family if decision is not None else None,
+                file_path=(
+                    decision.file_path
+                    if decision is not None
+                    else str((payload or {}).get("file_path") or "") or None
+                ),
+                event_type=event_type,
+                event_reason=event_reason,
+                observed_head_sha=observed_head_sha,
+                compared_from_sha=compared_from_sha,
+                payload=payload or {},
+                event_at=event_at or datetime.now(UTC),
+            )
+        )
+
+    def _classify_resolution_reason(
+        self,
+        session: Session,
+        *,
+        review_request: ReviewRequest,
+        key: ReviewRequestKey | None,
+        adapter: Any | None,
+        thread_state: ThreadSyncState,
+        decision: FindingDecision | None,
+        observed_head_sha: str | None,
+    ) -> tuple[str, dict[str, Any]]:
+        del review_request, session
+        previous_head_sha = thread_state.last_seen_head_sha
+        anchor_payload = dict(decision.anchor_payload or {}) if decision is not None else {}
+        file_path = str(anchor_payload.get("file_path") or (decision.file_path if decision else "") or "")
+        candidate_line_nos = {
+            int(line_no)
+            for line_no in (anchor_payload.get("candidate_line_nos") or [])
+            if line_no is not None
+        }
+        start_line = anchor_payload.get("start_line")
+        end_line = anchor_payload.get("end_line")
+        hunk_header = str(anchor_payload.get("hunk_header") or "")
+        changed_line_digest = str(anchor_payload.get("changed_line_digest") or "")
+
+        payload: dict[str, Any] = {
+            "file_path": file_path or None,
+            "candidate_line_nos": sorted(candidate_line_nos),
+            "anchor_range": [start_line, end_line],
+        }
+        if not previous_head_sha or not observed_head_sha:
+            payload["classifier_reason"] = "missing_head_sha"
+            return "remote_resolved_manual_only", payload
+        if previous_head_sha == observed_head_sha:
+            payload["classifier_reason"] = "head_unchanged"
+            return "remote_resolved_manual_only", payload
+        if adapter is None or key is None or not file_path:
+            payload["classifier_reason"] = "insufficient_context"
+            return "remote_resolved_manual_only", payload
+
+        try:
+            diff_payload = adapter.fetch_diff(key, mode="incremental", base_sha=previous_head_sha)
+        except Exception as exc:
+            logger.warning(
+                "resolution_classifier_failed thread_ref=%s error=%s",
+                thread_state.adapter_thread_ref,
+                exc,
+            )
+            payload["classifier_reason"] = "diff_fetch_failed"
+            payload["classifier_error"] = str(exc)
+            return "remote_resolved_manual_only", payload
+
+        for file_item in diff_payload.files:
+            changed_paths = {path for path in [file_item.path, file_item.old_path, file_item.new_path] if path}
+            if file_path not in changed_paths:
+                continue
+            for review_unit in self._iter_review_units(file_item.patch):
+                matched_by: str | None = None
+                changed_candidates = set(review_unit.candidate_line_nos)
+                if candidate_line_nos and changed_candidates.intersection(candidate_line_nos):
+                    matched_by = "candidate_line_nos"
+                elif (
+                    start_line is not None
+                    and end_line is not None
+                    and any(int(start_line) <= line_no <= int(end_line) for line_no in changed_candidates)
+                ):
+                    matched_by = "anchor_range"
+                elif hunk_header and review_unit.patch.splitlines() and review_unit.patch.splitlines()[0] == hunk_header:
+                    matched_by = "hunk_header"
+                elif changed_line_digest and self._sha1(review_unit.change_snippet) == changed_line_digest:
+                    matched_by = "changed_line_digest"
+                if matched_by is None:
+                    continue
+                payload.update(
+                    {
+                        "classifier_reason": "matched_incremental_diff",
+                        "matched_by": matched_by,
+                        "matched_file_path": file_item.path,
+                        "matched_hunk_header": review_unit.patch.splitlines()[0]
+                        if review_unit.patch.splitlines()
+                        else None,
+                    }
+                )
+                return "fixed_in_followup_commit", payload
+
+        payload["classifier_reason"] = "no_matching_diff_evidence"
+        return "remote_resolved_manual_only", payload
+
     def _reconcile_thread_snapshots(
         self,
         session: Session,
         *,
-        review_request_pk: str,
+        review_request: ReviewRequest,
+        key: ReviewRequestKey | None,
+        adapter: Any | None,
         threads: dict[str, ThreadSnapshot],
         head_sha: str | None = None,
     ) -> None:
@@ -1546,7 +1780,7 @@ class ReviewRunner:
         tracked_threads = (
             session.query(ThreadSyncState)
             .filter(
-                ThreadSyncState.review_request_pk == review_request_pk,
+                ThreadSyncState.review_request_pk == review_request.id,
                 ThreadSyncState.sync_status.in_(["open", "stale", "resolved"]),
             )
             .all()
@@ -1556,25 +1790,69 @@ class ReviewRunner:
             snapshot = threads.get(thread_state.adapter_thread_ref)
             if snapshot is None:
                 continue
+            previous_head_sha = thread_state.last_seen_head_sha
             thread_state.adapter_comment_ref = snapshot.comment_ref or thread_state.adapter_comment_ref
             thread_state.last_synced_at = refreshed_at
-            thread_state.last_seen_head_sha = head_sha or thread_state.last_seen_head_sha
             if snapshot.resolved:
                 if thread_state.sync_status != "resolved":
+                    thread_decision = self._decision_for_thread_state(session, thread_state)
+                    resolution_reason, classifier_payload = self._classify_resolution_reason(
+                        session,
+                        review_request=review_request,
+                        key=key,
+                        adapter=adapter,
+                        thread_state=thread_state,
+                        decision=thread_decision,
+                        observed_head_sha=head_sha,
+                    )
                     thread_state.sync_status = "resolved"
-                    thread_state.resolution_reason = "remote_resolved"
+                    thread_state.resolution_reason = resolution_reason
+                    thread_state.last_seen_head_sha = head_sha or thread_state.last_seen_head_sha
+                    if thread_decision is not None:
+                        finding_resolution_events_total.labels(
+                            rule_family=thread_decision.source_family or "unknown",
+                            resolution_reason=resolution_reason,
+                        ).inc()
+                    self._record_finding_lifecycle_event(
+                        session,
+                        review_request=review_request,
+                        thread_state=thread_state,
+                        decision=thread_decision,
+                        event_type="resolved",
+                        event_reason=resolution_reason,
+                        observed_head_sha=head_sha,
+                        compared_from_sha=previous_head_sha,
+                        payload=classifier_payload,
+                        event_at=snapshot.updated_at or refreshed_at,
+                    )
                     self._mark_fingerprint_resolved(
                         session,
-                        review_request_pk,
+                        review_request.id,
                         thread_state.finding_fingerprint,
                     )
+                else:
+                    thread_state.last_seen_head_sha = head_sha or thread_state.last_seen_head_sha
                 continue
+            thread_state.last_seen_head_sha = head_sha or thread_state.last_seen_head_sha
             if thread_state.sync_status == "resolved":
+                thread_decision = self._decision_for_thread_state(session, thread_state)
                 thread_state.sync_status = "open"
                 thread_state.resolution_reason = "remote_reopened"
+                self._record_finding_lifecycle_event(
+                    session,
+                    review_request=review_request,
+                    thread_state=thread_state,
+                    decision=thread_decision,
+                    event_type="reopened",
+                    event_reason="remote_reopened",
+                    observed_head_sha=head_sha,
+                    compared_from_sha=previous_head_sha,
+                    payload={"remote_resolved": False},
+                    event_at=snapshot.updated_at or refreshed_at,
+                )
                 self._mark_fingerprint_reopened(
                     session,
-                    review_request_pk,
+                    review_request.id,
                     thread_state.finding_fingerprint,
                 )
                 continue
@@ -1629,7 +1907,9 @@ class ReviewRunner:
             for (fp,) in session.query(ThreadSyncState.finding_fingerprint)
             .filter(
                 ThreadSyncState.sync_status == "resolved",
-                ThreadSyncState.resolution_reason == "remote_resolved",
+                ThreadSyncState.resolution_reason.in_(
+                    ["remote_resolved", "remote_resolved_manual_only"]
+                ),
             )
             .all()
         }
@@ -1668,6 +1948,7 @@ class ReviewRunner:
         rows = (
             session.query(
                 FindingDecision.fingerprint,
+                FindingDecision.project_ref,
                 FindingDecision.rule_no,
                 FindingDecision.source_family,
                 FindingDecision.state,
@@ -1677,16 +1958,249 @@ class ReviewRunner:
             .all()
         )
         latest_by_fingerprint: dict[str, RuleEffectivenessFingerprintState] = {}
-        for fingerprint, rule_no, source_family, state in rows:
+        for fingerprint, project_ref, rule_no, source_family, state in rows:
             if not fingerprint or fingerprint in latest_by_fingerprint:
                 continue
             latest_by_fingerprint[fingerprint] = RuleEffectivenessFingerprintState(
                 fingerprint=fingerprint,
+                project_ref=project_ref or "",
                 rule_no=rule_no or "",
                 source_family=source_family or "unknown",
                 state=state,
             )
         return latest_by_fingerprint
+
+    def finding_outcomes(
+        self,
+        session: Session,
+        *,
+        project_ref: str | None = None,
+        source_family: str | None = None,
+        window: Literal["14d", "28d"] = "28d",
+    ) -> dict[str, Any]:
+        window_days = 14 if window == "14d" else 28
+        boundary = datetime.now(UTC) - timedelta(days=window_days)
+        latest_by_fp = {
+            fingerprint: row
+            for fingerprint, row in self.latest_rule_effectiveness_states(session).items()
+            if (project_ref is None or row.project_ref == project_ref)
+            and (source_family is None or row.source_family == source_family)
+        }
+        if not latest_by_fp:
+            return {
+                "window": window,
+                "project_ref": project_ref,
+                "source_family": source_family,
+                "surfaced_distinct": 0,
+                "resolved_distinct": 0,
+                "fixed_distinct": 0,
+                "manual_resolved_distinct": 0,
+                "ignored_distinct": 0,
+                "false_positive_distinct": 0,
+                "reopened_distinct": 0,
+                "surfaced_cohort_distinct": 0,
+                "converted_cohort_distinct": 0,
+                "fix_confirmation_rate": 0.0,
+                "human_resolve_rate": 0.0,
+                "false_positive_feedback_rate": 0.0,
+                "fix_conversion_rate": 0.0,
+            }
+
+        allowed_fingerprints = set(latest_by_fp)
+        publication_rows = (
+            session.query(FindingDecision.fingerprint, PublicationState.published_at)
+            .join(
+                FindingDecision,
+                PublicationState.finding_decision_id == FindingDecision.id,
+            )
+            .filter(
+                FindingDecision.fingerprint.in_(allowed_fingerprints),
+                PublicationState.publish_state.in_(["created", "updated", "skipped"]),
+                PublicationState.published_at.isnot(None),
+            )
+            .all()
+        )
+        first_surfaced_at: dict[str, datetime] = {}
+        for fingerprint, published_at in publication_rows:
+            normalized_published_at = self._as_utc(published_at)
+            if not fingerprint or normalized_published_at is None:
+                continue
+            current = first_surfaced_at.get(fingerprint)
+            if current is None or normalized_published_at < current:
+                first_surfaced_at[fingerprint] = normalized_published_at
+
+        lifecycle_rows = (
+            session.query(
+                FindingLifecycleEvent.finding_fingerprint,
+                FindingLifecycleEvent.event_type,
+                FindingLifecycleEvent.event_reason,
+                FindingLifecycleEvent.event_at,
+            )
+            .filter(FindingLifecycleEvent.finding_fingerprint.in_(allowed_fingerprints))
+            .order_by(FindingLifecycleEvent.event_at.asc(), FindingLifecycleEvent.id.asc())
+            .all()
+        )
+        first_fixed_at: dict[str, datetime] = {}
+        latest_lifecycle_reason: dict[str, str | None] = {}
+        latest_lifecycle_type: dict[str, str | None] = {}
+        latest_lifecycle_marker: dict[str, tuple[datetime, str]] = {}
+        reopened_fingerprints: set[str] = set()
+        for fingerprint, event_type, event_reason, event_at in lifecycle_rows:
+            if not fingerprint:
+                continue
+            normalized_event_at = self._as_utc(event_at)
+            marker = (normalized_event_at or datetime.min.replace(tzinfo=UTC), event_type or "")
+            if latest_lifecycle_marker.get(fingerprint, marker) <= marker:
+                latest_lifecycle_marker[fingerprint] = marker
+                latest_lifecycle_reason[fingerprint] = event_reason
+                latest_lifecycle_type[fingerprint] = event_type
+            if (
+                event_type == "resolved"
+                and event_reason == "fixed_in_followup_commit"
+                and normalized_event_at is not None
+            ):
+                current = first_fixed_at.get(fingerprint)
+                if current is None or normalized_event_at < current:
+                    first_fixed_at[fingerprint] = normalized_event_at
+            if event_type == "reopened":
+                reopened_fingerprints.add(fingerprint)
+
+        thread_rows = (
+            session.query(ThreadSyncState.adapter_thread_ref, ThreadSyncState.finding_fingerprint)
+            .filter(
+                ThreadSyncState.finding_fingerprint.in_(allowed_fingerprints),
+                ThreadSyncState.adapter_thread_ref.isnot(None),
+            )
+            .all()
+        )
+        thread_to_fingerprint = {
+            thread_ref: fingerprint
+            for thread_ref, fingerprint in thread_rows
+            if thread_ref and fingerprint
+        }
+        latest_feedback_command: dict[str, str | None] = {}
+        latest_feedback_marker: dict[str, tuple[datetime, str]] = {}
+        if thread_to_fingerprint:
+            feedback_rows = (
+                session.query(
+                    FeedbackEvent.adapter_thread_ref,
+                    FeedbackEvent.payload,
+                    FeedbackEvent.occurred_at,
+                    FeedbackEvent.event_key,
+                )
+                .filter(
+                    FeedbackEvent.adapter_thread_ref.in_(thread_to_fingerprint),
+                    FeedbackEvent.actor_type == "human",
+                    FeedbackEvent.event_type == "reply",
+                )
+                .all()
+            )
+            for thread_ref, payload, occurred_at, event_key in feedback_rows:
+                if thread_ref is None:
+                    continue
+                command = self._latest_feedback_command(str((payload or {}).get("body") or ""))
+                if command is None:
+                    continue
+                fingerprint = thread_to_fingerprint.get(thread_ref)
+                if fingerprint is None:
+                    continue
+                normalized_occurred_at = self._as_utc(occurred_at)
+                marker = (
+                    normalized_occurred_at or datetime.min.replace(tzinfo=UTC),
+                    event_key or "",
+                )
+                if latest_feedback_marker.get(fingerprint, marker) <= marker:
+                    latest_feedback_marker[fingerprint] = marker
+                    latest_feedback_command[fingerprint] = command
+
+        cohort_fingerprints = {
+            fingerprint
+            for fingerprint, surfaced_at in first_surfaced_at.items()
+            if surfaced_at >= boundary
+        }
+        resolved_fingerprints = {
+            fingerprint
+            for fingerprint in cohort_fingerprints
+            if latest_by_fp.get(fingerprint) is not None
+            and latest_by_fp[fingerprint].state == "resolved"
+        }
+        fixed_fingerprints = {
+            fingerprint for fingerprint in cohort_fingerprints if fingerprint in first_fixed_at
+        }
+        manual_resolved_fingerprints = {
+            fingerprint
+            for fingerprint in resolved_fingerprints
+            if latest_lifecycle_reason.get(fingerprint) == "remote_resolved_manual_only"
+        }
+        current_fixed_resolved_fingerprints = {
+            fingerprint
+            for fingerprint in resolved_fingerprints
+            if latest_lifecycle_reason.get(fingerprint) == "fixed_in_followup_commit"
+        }
+        ignored_fingerprints = {
+            fingerprint
+            for fingerprint in cohort_fingerprints
+            if latest_feedback_command.get(fingerprint) == "ignore"
+        }
+        false_positive_fingerprints = {
+            fingerprint
+            for fingerprint in cohort_fingerprints
+            if latest_feedback_command.get(fingerprint) == "false-positive"
+        }
+        reopened_cohort_fingerprints = reopened_fingerprints & cohort_fingerprints
+        converted_cohort_fingerprints = {
+            fingerprint
+            for fingerprint in cohort_fingerprints
+            if fingerprint in first_fixed_at
+            and first_fixed_at[fingerprint]
+            <= first_surfaced_at[fingerprint] + timedelta(days=28)
+        }
+
+        surfaced_distinct = len(cohort_fingerprints)
+        resolved_distinct = len(resolved_fingerprints)
+        fixed_distinct = len(fixed_fingerprints)
+        manual_resolved_distinct = len(manual_resolved_fingerprints)
+        false_positive_distinct = len(false_positive_fingerprints)
+        result = {
+            "window": window,
+            "project_ref": project_ref,
+            "source_family": source_family,
+            "surfaced_distinct": surfaced_distinct,
+            "resolved_distinct": resolved_distinct,
+            "fixed_distinct": fixed_distinct,
+            "manual_resolved_distinct": manual_resolved_distinct,
+            "ignored_distinct": len(ignored_fingerprints),
+            "false_positive_distinct": false_positive_distinct,
+            "reopened_distinct": len(reopened_cohort_fingerprints),
+            "surfaced_cohort_distinct": surfaced_distinct if window == "28d" else 0,
+            "converted_cohort_distinct": (
+                len(converted_cohort_fingerprints) if window == "28d" else 0
+            ),
+            "fix_confirmation_rate": (
+                round(
+                    len(current_fixed_resolved_fingerprints) / resolved_distinct,
+                    3,
+                )
+                if window == "14d" and resolved_distinct > 0
+                else 0.0
+            ),
+            "human_resolve_rate": (
+                round(manual_resolved_distinct / surfaced_distinct, 3)
+                if window == "14d" and surfaced_distinct > 0
+                else 0.0
+            ),
+            "false_positive_feedback_rate": (
+                round(false_positive_distinct / surfaced_distinct, 3)
+                if window == "14d" and surfaced_distinct > 0
+                else 0.0
+            ),
+            "fix_conversion_rate": (
+                round(len(converted_cohort_fingerprints) / surfaced_distinct, 3)
+                if window == "28d" and surfaced_distinct > 0
+                else 0.0
+            ),
+        }
+        return result
 
     def _feedback_signal(
         self,
@@ -2223,6 +2737,13 @@ class ReviewRunner:
         if hasattr(self.platform_client, "fetch_diff"):
             return self.platform_client
         return _LegacyAdapterShim(self.platform_client)
+
+    def _as_utc(self, value: datetime | None) -> datetime | None:
+        if value is None:
+            return None
+        if value.tzinfo is None:
+            return value.replace(tzinfo=UTC)
+        return value.astimezone(UTC)
 
     def _severity_from_score(self, score: float) -> str:
         if score >= 0.9:
@@ -2830,6 +3351,15 @@ class ReviewRunner:
             decision.suggested_fix = draft.suggested_fix
             decision.evidence_snippet = draft.evidence_snippet
             decision.auto_fix_lines = draft.auto_fix_lines or []
+            verify_suppression = self._maybe_verify_draft(
+                review_request=review_request,
+                decision=decision,
+                draft=draft,
+            )
+            if verify_suppression is not None:
+                decision.state = "suppressed"
+                decision.suppression_reason = verify_suppression
+                continue
             base_body = self._render_comment(decision)
             base_body_hash = self._sha256(base_body)
             existing_thread = self._find_existing_thread(
@@ -2893,6 +3423,89 @@ class ReviewRunner:
                 )
             )
         return candidates
+
+    def _maybe_verify_draft(
+        self,
+        *,
+        review_request: ReviewRequest,
+        decision: FindingDecision,
+        draft: FindingDraft,
+    ) -> str | None:
+        if not self.settings.verify_enabled:
+            return None
+        if not draft.should_publish or decision.state != "eligible":
+            return None
+        score_final = float(decision.score_final or 0.0)
+        if (
+            draft.confidence >= self.settings.verify_confidence_threshold
+            and score_final
+            >= self.settings.minimum_publish_score + self.settings.verify_score_band
+        ):
+            return None
+
+        verify_attempts_total.labels(mode="llm_self_check").inc()
+        try:
+            result = self.provider.verify_draft(
+                draft=draft,
+                file_path=decision.file_path,
+                rule_no=decision.rule_no,
+                title=decision.title or decision.rule_no,
+                summary=decision.summary or decision.rule_no,
+                category=str(decision.evidence.raw_engine_payload.get("category") or ""),
+                change_snippet=decision.evidence.change_snippet,
+                line_no=decision.line_no,
+                candidate_line_nos=tuple(decision.evidence.candidate_line_nos),
+                file_context=decision.evidence.raw_engine_payload.get(_FILE_CONTEXT_KEY),
+                pr_title=review_request.title,
+                pr_source_branch=review_request.source_branch,
+                pr_target_branch=review_request.target_branch,
+                similar_code=decision.evidence.raw_engine_payload.get(_SIMILAR_CODE_KEY),
+            )
+        except Exception as exc:
+            logger.warning(
+                "verify_failed_open fingerprint=%s rule_no=%s error=%s",
+                decision.fingerprint,
+                decision.rule_no,
+                exc,
+            )
+            return None
+
+        reason = self._normalize_verify_reason(result)
+        if reason is None:
+            return None
+        if reason == "execution_error":
+            logger.warning(
+                "verify_execution_error_fail_open fingerprint=%s rule_no=%s",
+                decision.fingerprint,
+                decision.rule_no,
+            )
+            return None
+        verify_dropped_total.labels(mode="llm_self_check", reason=reason).inc()
+        return f"verify:{reason}"
+
+    def _normalize_verify_reason(self, result: VerifyDraftResult) -> str | None:
+        if result.applies:
+            return None
+        raw_reason = str(result.reason or "").strip().lower()
+        if not raw_reason:
+            return "low_confidence"
+
+        normalized_reason = re.sub(r"[^a-z0-9]+", "_", raw_reason).strip("_")
+        normalized_reason = {
+            "not_real_bug": "not_a_real_bug",
+            "no_real_bug": "not_a_real_bug",
+            "execution_failed": "execution_error",
+            "runtime_error": "execution_error",
+        }.get(normalized_reason, normalized_reason)
+
+        if normalized_reason in {
+            "not_a_real_bug",
+            "low_confidence",
+            "pattern_mismatch",
+            "execution_error",
+        }:
+            return normalized_reason
+        return "low_confidence"
 
     def _classify_backlog(
         self,

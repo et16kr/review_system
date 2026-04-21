@@ -12,6 +12,7 @@
 - `scripts/attach_local_gitlab_bot.py`
 - `scripts/replay_local_gitlab_tde_review.py`
 - `scripts/smoke_local_gitlab_tde_review.sh`
+- `scripts/capture_review_bot_baseline.py`
 - `review-bot-policy.example.json`
 
 초기 실행:
@@ -51,4 +52,11 @@ python3 /home/et16/work/review_system/ops/scripts/replay_local_gitlab_tde_review
 
 ```bash
 bash /home/et16/work/review_system/ops/scripts/smoke_local_gitlab_tde_review.sh
+```
+
+Phase A baseline snapshot을 남기려면:
+
+```bash
+python3 /home/et16/work/review_system/ops/scripts/capture_review_bot_baseline.py \
+  --baseline-kind v0
 ```

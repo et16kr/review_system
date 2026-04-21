@@ -217,6 +217,32 @@ class FeedbackEvent(Base):
     )
 
 
+class FindingLifecycleEvent(Base):
+    __tablename__ = "finding_lifecycle_events"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    review_request_pk: Mapped[str] = mapped_column(ForeignKey("review_requests.id"), index=True)
+    review_system: Mapped[str] = mapped_column(String(32), index=True)
+    project_ref: Mapped[str] = mapped_column(String(255), index=True)
+    review_request_id: Mapped[str] = mapped_column(String(128), index=True)
+    finding_fingerprint: Mapped[str] = mapped_column(String(255), index=True)
+    finding_decision_id: Mapped[str | None] = mapped_column(
+        ForeignKey("finding_decisions.id"), nullable=True, index=True
+    )
+    adapter_thread_ref: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
+    rule_no: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    rule_family: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    file_path: Mapped[str | None] = mapped_column(String(1000), nullable=True)
+    event_type: Mapped[str] = mapped_column(String(32), index=True)
+    event_reason: Mapped[str | None] = mapped_column(String(128), nullable=True, index=True)
+    observed_head_sha: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    compared_from_sha: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    payload: Mapped[dict[str, object]] = mapped_column(JSON, default=dict)
+    event_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), index=True
+    )
+
+
 class DeadLetterRecord(Base):
     __tablename__ = "dead_letter_records"
 

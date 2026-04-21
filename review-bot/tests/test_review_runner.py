@@ -17,11 +17,21 @@ from review_bot.contracts import (
     ThreadNoteSnapshot,
     ThreadSnapshot,
 )
-from review_bot.db.models import DeadLetterRecord, FeedbackEvent, FindingDecision, PublicationState, ThreadSyncState
+from review_bot.db.models import (
+    DeadLetterRecord,
+    FeedbackEvent,
+    FindingDecision,
+    FindingLifecycleEvent,
+    PublicationState,
+    ReviewRun,
+    ThreadSyncState,
+)
 from review_bot.db.session import Base, SessionLocal, engine
 from review_bot.errors import ReviewBotError
+from review_bot.metrics import feedback_commands_total, verify_attempts_total, verify_dropped_total
 from review_bot.policy import PathPolicy, ReviewPolicy
-from review_bot.providers.base import FindingDraft, ReviewCommentProvider
+from review_bot.providers.base import FindingDraft, ReviewCommentProvider, VerifyDraftResult
+from review_bot.providers.fallback_provider import FallbackReviewCommentProvider
 
 
 def test_review_runner_publishes_inline_comment_and_persists_thread_state() -> None:
@@ -413,6 +423,406 @@ def test_review_runner_collects_feedback_events_from_resolved_threads_and_human_
         session.close()
 
 
+def test_feedback_command_metric_counts_unique_event_key_once() -> None:
+    _reset_db()
+
+    runner = ReviewRunner()
+    adapter = FakeAdapter()
+    key = runner._legacy_key(7071)  # noqa: SLF001
+    adapter.set_diff(key, path="src/a.cpp", patch=_malloc_patch())
+    runner.platform_client = adapter
+    runner.engine_client = EngineStub([_result("ALTI-MEM-007", category="memory")])
+    runner.provider = FixedProvider()
+
+    baseline = _counter_value(feedback_commands_total, command="later")
+    session = SessionLocal()
+    try:
+        runner.run_review(session, pr_id=7071, trigger="first")
+        adapter.add_human_reply(key, "thread-1", "bot:later\n다음 주에 처리하겠습니다.")
+
+        runner.run_review(session, pr_id=7071, trigger="second")
+        runner.run_review(session, pr_id=7071, trigger="third")
+
+        assert _counter_value(feedback_commands_total, command="later") - baseline == 1
+    finally:
+        session.close()
+
+
+def test_verify_reject_suppresses_candidate_and_records_metrics() -> None:
+    _reset_db()
+
+    runner = ReviewRunner()
+    runner.settings = dataclass_replace(
+        runner.settings,
+        verify_enabled=True,
+        verify_confidence_threshold=0.85,
+        verify_score_band=0.1,
+    )
+    adapter = FakeAdapter()
+    key = runner._legacy_key(7072)  # noqa: SLF001
+    adapter.set_diff(key, path="src/a.cpp", patch=_malloc_patch())
+    runner.platform_client = adapter
+    runner.engine_client = EngineStub([_result("ALTI-MEM-007", category="memory", score=0.7)])
+    runner.provider = VerifyScenarioProvider(
+        verify_result=VerifyDraftResult(applies=False, reason="not_a_real_bug")
+    )
+
+    attempts_before = _counter_value(verify_attempts_total, mode="llm_self_check")
+    dropped_before = _counter_value(
+        verify_dropped_total,
+        mode="llm_self_check",
+        reason="not_a_real_bug",
+    )
+    session = SessionLocal()
+    try:
+        review_run = runner.run_review(session, pr_id=7072, trigger="verify-suppress")
+        decision = session.query(FindingDecision).filter_by(review_run_id=review_run.id).one()
+
+        assert decision.state == "suppressed"
+        assert decision.suppression_reason == "verify:not_a_real_bug"
+        assert len(adapter.upsert_requests) == 0
+        assert _counter_value(verify_attempts_total, mode="llm_self_check") - attempts_before == 1
+        assert (
+            _counter_value(
+                verify_dropped_total,
+                mode="llm_self_check",
+                reason="not_a_real_bug",
+            )
+            - dropped_before
+            == 1
+        )
+    finally:
+        session.close()
+
+
+def test_verify_execution_error_fails_open_and_keeps_publish() -> None:
+    _reset_db()
+
+    runner = ReviewRunner()
+    runner.settings = dataclass_replace(
+        runner.settings,
+        verify_enabled=True,
+        verify_confidence_threshold=0.85,
+        verify_score_band=0.1,
+    )
+    adapter = FakeAdapter()
+    key = runner._legacy_key(7073)  # noqa: SLF001
+    adapter.set_diff(key, path="src/a.cpp", patch=_malloc_patch())
+    runner.platform_client = adapter
+    runner.engine_client = EngineStub([_result("ALTI-MEM-007", category="memory", score=0.7)])
+    runner.provider = VerifyScenarioProvider(verify_error=RuntimeError("verify execution failed"))
+
+    attempts_before = _counter_value(verify_attempts_total, mode="llm_self_check")
+    dropped_before = _counter_value(
+        verify_dropped_total,
+        mode="llm_self_check",
+        reason="low_confidence",
+    )
+    session = SessionLocal()
+    try:
+        review_run = runner.run_review(session, pr_id=7073, trigger="verify-fail-open")
+        decision = session.query(FindingDecision).filter_by(review_run_id=review_run.id).one()
+
+        assert decision.state == "published"
+        assert decision.suppression_reason is None
+        assert len(adapter.upsert_requests) == 1
+        assert _counter_value(verify_attempts_total, mode="llm_self_check") - attempts_before == 1
+        assert (
+            _counter_value(
+                verify_dropped_total,
+                mode="llm_self_check",
+                reason="low_confidence",
+            )
+            - dropped_before
+            == 0
+        )
+    finally:
+        session.close()
+
+
+def test_verify_execution_error_reason_alias_fails_open_and_keeps_publish() -> None:
+    _reset_db()
+
+    runner = ReviewRunner()
+    runner.settings = dataclass_replace(
+        runner.settings,
+        verify_enabled=True,
+        verify_confidence_threshold=0.85,
+        verify_score_band=0.1,
+    )
+    adapter = FakeAdapter()
+    key = runner._legacy_key(70731)  # noqa: SLF001
+    adapter.set_diff(key, path="src/a.cpp", patch=_malloc_patch())
+    runner.platform_client = adapter
+    runner.engine_client = EngineStub([_result("ALTI-MEM-007", category="memory", score=0.7)])
+    runner.provider = VerifyScenarioProvider(
+        verify_result=VerifyDraftResult(applies=False, reason="execution error")
+    )
+
+    attempts_before = _counter_value(verify_attempts_total, mode="llm_self_check")
+    dropped_before = _counter_value(
+        verify_dropped_total,
+        mode="llm_self_check",
+        reason="execution_error",
+    )
+    session = SessionLocal()
+    try:
+        review_run = runner.run_review(session, pr_id=70731, trigger="verify-fail-open-alias")
+        decision = session.query(FindingDecision).filter_by(review_run_id=review_run.id).one()
+
+        assert decision.state == "published"
+        assert decision.suppression_reason is None
+        assert len(adapter.upsert_requests) == 1
+        assert _counter_value(verify_attempts_total, mode="llm_self_check") - attempts_before == 1
+        assert (
+            _counter_value(
+                verify_dropped_total,
+                mode="llm_self_check",
+                reason="execution_error",
+            )
+            - dropped_before
+            == 0
+        )
+    finally:
+        session.close()
+
+
+def test_normalize_verify_reason_accepts_common_aliases() -> None:
+    runner = ReviewRunner()
+
+    assert (
+        runner._normalize_verify_reason(  # noqa: SLF001
+            VerifyDraftResult(applies=False, reason="not a real bug")
+        )
+        == "not_a_real_bug"
+    )
+    assert (
+        runner._normalize_verify_reason(  # noqa: SLF001
+            VerifyDraftResult(applies=False, reason="Pattern mismatch")
+        )
+        == "pattern_mismatch"
+    )
+    assert (
+        runner._normalize_verify_reason(  # noqa: SLF001
+            VerifyDraftResult(applies=False, reason="execution error")
+        )
+        == "execution_error"
+    )
+    assert (
+        runner._normalize_verify_reason(  # noqa: SLF001
+            VerifyDraftResult(applies=False, reason="something else")
+        )
+        == "low_confidence"
+    )
+
+
+def test_fallback_provider_verify_failure_does_not_disable_primary_build_draft() -> None:
+    provider = FallbackReviewCommentProvider(
+        primary=VerifyScenarioProvider(
+            title="primary-title",
+            verify_error=RuntimeError("verify execution failed"),
+        ),
+        fallback=FixedProvider(title="fallback-title"),
+    )
+
+    verify_result = provider.verify_draft(
+        draft=FindingDraft(
+            title="draft-title",
+            summary="draft-summary",
+            suggested_fix=None,
+        ),
+        file_path="src/a.cpp",
+        rule_no="ALTI-MEM-007",
+        title="memory finding",
+        summary="memory summary",
+    )
+    draft = provider.build_draft(
+        file_path="src/a.cpp",
+        rule_no="ALTI-MEM-007",
+        title="memory finding",
+        summary="memory summary",
+    )
+
+    assert verify_result.applies is True
+    assert draft.title == "primary-title"
+    assert draft.summary == "이 변경은 소유권을 직접 관리합니다."
+
+
+def test_review_runner_waits_for_expected_head_on_gitlab_note_trigger(monkeypatch) -> None:
+    _reset_db()
+
+    runner = ReviewRunner()
+    adapter = FakeAdapter()
+    key = ReviewRequestKey(
+        review_system="gitlab",
+        project_ref="group/project-a",
+        review_request_id="7991",
+    )
+    expected_head_sha = "new-head"
+    stale_head_sha = "stale-head"
+    adapter.set_diff(key, path="src/a.cpp", patch=_malloc_patch(), head_sha=stale_head_sha)
+    runner.platform_client = adapter
+    runner.engine_client = EngineStub([_result("ALTI-MEM-007", category="memory")])
+    runner.provider = FixedProvider()
+
+    key_tuple = _key_tuple(key)
+    base_meta = adapter.meta_by_key[key_tuple]
+    base_diff = adapter.diff_by_key[key_tuple]
+    meta_calls = {"count": 0}
+    diff_calls = {"count": 0}
+
+    def fetch_review_request_meta(test_key: ReviewRequestKey) -> ReviewRequestMeta:
+        assert test_key == key
+        meta_calls["count"] += 1
+        head_sha = expected_head_sha if meta_calls["count"] >= 2 else stale_head_sha
+        return ReviewRequestMeta(
+            key=key,
+            title=base_meta.title,
+            source_branch=base_meta.source_branch,
+            target_branch=base_meta.target_branch,
+            base_sha=base_meta.base_sha,
+            start_sha=base_meta.start_sha,
+            head_sha=head_sha,
+        )
+
+    def fetch_diff(test_key: ReviewRequestKey, *, mode: str, base_sha: str | None = None) -> DiffPayload:
+        assert test_key == key
+        assert mode == "manual"
+        assert base_sha is None
+        diff_calls["count"] += 1
+        head_sha = expected_head_sha if diff_calls["count"] >= 2 else stale_head_sha
+        return DiffPayload(
+            pull_request={
+                **base_diff.pull_request,
+                "head_sha": head_sha,
+            },
+            files=list(base_diff.files),
+        )
+
+    monkeypatch.setattr(adapter, "fetch_review_request_meta", fetch_review_request_meta)
+    monkeypatch.setattr(adapter, "fetch_diff", fetch_diff)
+    monkeypatch.setattr("review_bot.bot.review_runner.time.sleep", lambda _: None)
+
+    session = SessionLocal()
+    try:
+        review_run = runner.create_review_run_for_key(
+            session,
+            key,
+            trigger="gitlab:note_mention",
+            mode="manual",
+            meta=ReviewRequestMeta(
+                key=key,
+                title="MR 7991",
+                source_branch="feature",
+                target_branch="main",
+                head_sha=expected_head_sha,
+            ),
+        )
+
+        runner.execute_review_run(session, review_run.id)
+
+        refreshed = session.get(ReviewRun, review_run.id)
+        assert refreshed is not None
+        assert refreshed.status == "success"
+        assert refreshed.head_sha == expected_head_sha
+        assert meta_calls["count"] >= 2
+        assert diff_calls["count"] >= 2
+    finally:
+        session.close()
+
+
+def test_resolution_classifier_marks_fixed_in_followup_commit_and_records_lifecycle() -> None:
+    _reset_db()
+
+    runner = ReviewRunner()
+    adapter = FakeAdapter()
+    key = runner._legacy_key(7074)  # noqa: SLF001
+    adapter.set_diff(key, path="src/a.cpp", patch=_malloc_patch(), head_sha="head-a")
+    runner.platform_client = adapter
+    runner.engine_client = EngineStub([_result("ALTI-MEM-007", category="memory")])
+    runner.provider = FixedProvider()
+
+    session = SessionLocal()
+    try:
+        runner.run_review(session, pr_id=7074, trigger="first")
+
+        adapter.mark_resolved(key, "thread-1", resolved=True)
+        adapter.set_diff(key, path="src/a.cpp", patch=_malloc_patch(), head_sha="head-b")
+        adapter.set_incremental_diff(
+            key,
+            base_sha="head-a",
+            files=[{"path": "src/a.cpp", "patch": _malloc_patch()}],
+            head_sha="head-b",
+        )
+        runner.engine_client = EngineStub(
+            [_result("ALTI-MEM-007", category="memory", reviewability="manual_only")]
+        )
+
+        runner.run_review(session, pr_id=7074, trigger="resolved-with-fix")
+
+        thread_state = session.query(ThreadSyncState).filter_by(review_request_id="7074").one()
+        lifecycle_event = (
+            session.query(FindingLifecycleEvent)
+            .filter_by(review_request_id="7074", event_type="resolved")
+            .order_by(FindingLifecycleEvent.event_at.desc())
+            .first()
+        )
+
+        assert thread_state.sync_status == "resolved"
+        assert thread_state.resolution_reason == "fixed_in_followup_commit"
+        assert lifecycle_event is not None
+        assert lifecycle_event.event_reason == "fixed_in_followup_commit"
+        assert lifecycle_event.compared_from_sha == "head-a"
+        assert lifecycle_event.observed_head_sha == "head-b"
+    finally:
+        session.close()
+
+
+def test_resolution_classifier_marks_remote_resolved_manual_only_when_diff_does_not_match() -> None:
+    _reset_db()
+
+    runner = ReviewRunner()
+    adapter = FakeAdapter()
+    key = runner._legacy_key(7075)  # noqa: SLF001
+    adapter.set_diff(key, path="src/a.cpp", patch=_malloc_patch(), head_sha="head-a")
+    runner.platform_client = adapter
+    runner.engine_client = EngineStub([_result("ALTI-MEM-007", category="memory")])
+    runner.provider = FixedProvider()
+
+    session = SessionLocal()
+    try:
+        runner.run_review(session, pr_id=7075, trigger="first")
+
+        adapter.mark_resolved(key, "thread-1", resolved=True)
+        adapter.set_diff(key, path="src/a.cpp", patch=_continue_patch(), head_sha="head-b")
+        adapter.set_incremental_diff(
+            key,
+            base_sha="head-a",
+            files=[{"path": "src/a.cpp", "patch": _continue_patch()}],
+            head_sha="head-b",
+        )
+        runner.engine_client = EngineStub(
+            [_result("ALTI-MEM-007", category="memory", reviewability="manual_only")]
+        )
+
+        runner.run_review(session, pr_id=7075, trigger="resolved-manual")
+
+        thread_state = session.query(ThreadSyncState).filter_by(review_request_id="7075").one()
+        lifecycle_event = (
+            session.query(FindingLifecycleEvent)
+            .filter_by(review_request_id="7075", event_type="resolved")
+            .order_by(FindingLifecycleEvent.event_at.desc())
+            .first()
+        )
+
+        assert thread_state.sync_status == "resolved"
+        assert thread_state.resolution_reason == "remote_resolved_manual_only"
+        assert lifecycle_event is not None
+        assert lifecycle_event.event_reason == "remote_resolved_manual_only"
+    finally:
+        session.close()
+
+
 def test_review_runner_recovers_stale_thread_after_resolve_failure_when_remote_thread_is_still_open() -> None:
     _reset_db()
 
@@ -487,6 +897,53 @@ def test_review_runner_persists_manual_reopen_without_posting_redundant_bot_repl
         assert thread_state.sync_status == "open"
         assert adapter.list_threads(key)[0].resolved is False
         assert len(adapter.list_threads(key)[0].notes) == 2
+    finally:
+        session.close()
+
+
+def test_reopen_records_immutable_lifecycle_event_without_erasing_fixed_history() -> None:
+    _reset_db()
+
+    runner = ReviewRunner()
+    adapter = FakeAdapter()
+    key = runner._legacy_key(7091)  # noqa: SLF001
+    adapter.set_diff(key, path="src/a.cpp", patch=_malloc_patch(), head_sha="head-a")
+    runner.platform_client = adapter
+    runner.engine_client = EngineStub([_result("ALTI-MEM-007", category="memory")])
+    runner.provider = FixedProvider()
+
+    session = SessionLocal()
+    try:
+        runner.run_review(session, pr_id=7091, trigger="first")
+
+        adapter.mark_resolved(key, "thread-1", resolved=True)
+        adapter.set_diff(key, path="src/a.cpp", patch=_malloc_patch(), head_sha="head-b")
+        adapter.set_incremental_diff(
+            key,
+            base_sha="head-a",
+            files=[{"path": "src/a.cpp", "patch": _malloc_patch()}],
+            head_sha="head-b",
+        )
+        runner.engine_client = EngineStub(
+            [_result("ALTI-MEM-007", category="memory", reviewability="manual_only")]
+        )
+        runner.run_review(session, pr_id=7091, trigger="resolved")
+
+        adapter.mark_resolved(key, "thread-1", resolved=False)
+        adapter.set_diff(key, path="src/a.cpp", patch=_malloc_patch(), head_sha="head-c")
+        runner.engine_client = EngineStub([_result("ALTI-MEM-007", category="memory")])
+        runner.run_review(session, pr_id=7091, trigger="reopened")
+
+        lifecycle_events = (
+            session.query(FindingLifecycleEvent)
+            .filter_by(review_request_id="7091")
+            .order_by(FindingLifecycleEvent.event_at.asc())
+            .all()
+        )
+        event_pairs = [(event.event_type, event.event_reason) for event in lifecycle_events]
+
+        assert ("resolved", "fixed_in_followup_commit") in event_pairs
+        assert ("reopened", "remote_reopened") in event_pairs
     finally:
         session.close()
 
@@ -1021,6 +1478,25 @@ class ScenarioProvider(ReviewCommentProvider):
         )
 
 
+class VerifyScenarioProvider(FixedProvider):
+    def __init__(
+        self,
+        *,
+        verify_result: VerifyDraftResult | None = None,
+        verify_error: Exception | None = None,
+        **kwargs,
+    ) -> None:
+        super().__init__(**kwargs)
+        self.verify_result = verify_result or VerifyDraftResult()
+        self.verify_error = verify_error
+
+    def verify_draft(self, **kwargs) -> VerifyDraftResult:
+        del kwargs
+        if self.verify_error is not None:
+            raise self.verify_error
+        return self.verify_result
+
+
 class FakeAdapter:
     def __init__(
         self,
@@ -1032,6 +1508,9 @@ class FakeAdapter:
         self.fail_inline_message = fail_inline_message
         self.meta_by_key: dict[tuple[str, str, str], ReviewRequestMeta] = {}
         self.diff_by_key: dict[tuple[str, str, str], DiffPayload] = {}
+        self.incremental_diff_by_key_and_base: dict[
+            tuple[tuple[str, str, str], str], DiffPayload
+        ] = {}
         self.threads_by_key: dict[tuple[str, str, str], list[ThreadSnapshot]] = {}
         self.upsert_requests = []
         self.publish_checks = []
@@ -1093,6 +1572,34 @@ class FakeAdapter:
             ],
         )
 
+    def set_incremental_diff(
+        self,
+        key: ReviewRequestKey,
+        *,
+        base_sha: str,
+        files: list[dict[str, str]],
+        head_sha: str,
+    ) -> None:
+        key_tuple = _key_tuple(key)
+        self.incremental_diff_by_key_and_base[(key_tuple, base_sha)] = DiffPayload(
+            pull_request={
+                "id": key.review_request_id,
+                "base_sha": base_sha,
+                "start_sha": "start123",
+                "head_sha": head_sha,
+            },
+            files=[
+                DiffFile(
+                    path=item["path"],
+                    status="modified",
+                    patch=item["patch"],
+                    old_path=item.get("old_path") or item["path"],
+                    new_path=item.get("new_path") or item["path"],
+                )
+                for item in files
+            ],
+        )
+
     def fetch_review_request_meta(self, key: ReviewRequestKey) -> ReviewRequestMeta:
         return self.meta_by_key[_key_tuple(key)]
 
@@ -1103,7 +1610,10 @@ class FakeAdapter:
         mode: str,
         base_sha: str | None = None,
     ) -> DiffPayload:
-        del mode, base_sha
+        if mode == "incremental" and base_sha:
+            incremental = self.incremental_diff_by_key_and_base.get((_key_tuple(key), base_sha))
+            if incremental is not None:
+                return incremental
         return self.diff_by_key[_key_tuple(key)]
 
     def list_threads(self, key: ReviewRequestKey) -> list[ThreadSnapshot]:
@@ -1341,6 +1851,10 @@ def _feedback_time_key(value: datetime | None) -> str:
     if value is None:
         return "unknown"
     return value.strftime("%Y%m%dT%H%M%S%f%z")
+
+
+def _counter_value(counter, **labels) -> float:
+    return float(counter.labels(**labels)._value.get())
 
 
 def _malloc_patch() -> str:

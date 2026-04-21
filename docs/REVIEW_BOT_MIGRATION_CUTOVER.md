@@ -9,7 +9,7 @@
 - runtime schema owner: Alembic
 - canonical identity: `ReviewRequestKey(review_system, project_ref, review_request_id)`
 - current head revision:
-  - `20260420_000002`
+  - `20260421_000004`
 
 ## 현재 스키마 구성
 
@@ -22,6 +22,7 @@
 - `publication_states`
 - `thread_sync_states`
 - `feedback_events`
+- `finding_lifecycle_events`
 - `dead_letter_records`
 
 ## Cutover 원칙
@@ -44,6 +45,13 @@
 docker compose exec review-bot-api uv run alembic upgrade head
 docker compose up -d review-bot-api review-bot-worker
 curl http://127.0.0.1:18081/health
+```
+
+추가 확인:
+
+```bash
+curl http://127.0.0.1:18081/internal/analytics/rule-effectiveness
+curl "http://127.0.0.1:18081/internal/analytics/finding-outcomes?window=28d"
 ```
 
 ## Backfill 정책
@@ -78,6 +86,14 @@ curl http://127.0.0.1:18081/health
    - replay 가능한 실패면 publish/sync 재실행
 3. schema mismatch
    - 현재 revision 확인 후 `alembic upgrade head`
+
+## Phase A Cutover Notes
+
+- `ThreadSyncState.resolution_reason`는 기존 값과 새 값이 한동안 공존할 수 있다.
+- historical `remote_resolved` 데이터는 기본적으로 backfill하지 않는다.
+- 새 배포 후 관측되는 resolve event부터 `fixed_in_followup_commit` /
+  `remote_resolved_manual_only`가 기록된다.
+- `baseline_v1`은 새 analytics window가 충분히 채워진 뒤 기록한다.
 
 ## Legacy API 정리
 

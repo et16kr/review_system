@@ -11,22 +11,24 @@ from app.schemas import ChangedFileResponse
 
 class DiffService:
     def get_changed_files(
-        self, repository: Repository, pull_request: PullRequest
+        self, repository: Repository, pull_request: PullRequest, *, base_sha: str | None = None
     ) -> list[ChangedFileResponse]:
         repo_path = Path(repository.storage_path)
+        from_sha = base_sha or pull_request.base_sha
+        to_sha = pull_request.head_sha
         name_status = self._run_git(
             repo_path,
             "diff",
             "--name-status",
-            pull_request.base_sha,
-            pull_request.head_sha,
+            from_sha,
+            to_sha,
         )
         stats_output = self._run_git(
             repo_path,
             "diff",
             "--numstat",
-            pull_request.base_sha,
-            pull_request.head_sha,
+            from_sha,
+            to_sha,
         )
         stats_by_path = self._parse_numstat(stats_output)
 
@@ -42,8 +44,8 @@ class DiffService:
                 repo_path,
                 "diff",
                 "--unified=3",
-                pull_request.base_sha,
-                pull_request.head_sha,
+                from_sha,
+                to_sha,
                 "--",
                 path,
             )

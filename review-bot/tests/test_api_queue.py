@@ -324,6 +324,52 @@ def test_gitlab_note_webhook_creates_manual_run_for_bot_mention() -> None:
         session.close()
 
 
+def test_gitlab_note_webhook_prefers_source_branch_head_when_payload_commit_is_stale() -> None:
+    _reset_db()
+    fake_queue = FakeQueue(name="review-detect-test", job_id="job-789b")
+    payload = {
+        "object_kind": "note",
+        "user": {"username": "alice"},
+        "project": {"path_with_namespace": "group/project-a"},
+        "merge_request": {
+            "iid": 911,
+            "title": "MR title",
+            "source_branch": "feature",
+            "target_branch": "main",
+            "last_commit": {"id": "stale-head"},
+        },
+        "object_attributes": {
+            "id": 502,
+            "note": "@review-bot review 부탁드립니다.",
+            "noteable_type": "MergeRequest",
+            "system": False,
+        },
+    }
+
+    with patch.object(api_main, "init_db", lambda: None):
+        with patch.object(api_main, "detect_queue", fake_queue):
+            with patch.object(
+                api_main.runner.platform_client,
+                "fetch_branch_head_sha",
+                return_value="fresh-head",
+                create=True,
+            ):
+                with TestClient(api_main.app) as client:
+                    response = client.post(
+                        "/webhooks/gitlab/merge-request",
+                        json=payload,
+                        headers={"X-Gitlab-Event": "Note Hook"},
+                    )
+
+    assert response.status_code == 200
+    session = SessionLocal()
+    try:
+        run = session.query(ReviewRun).filter_by(review_request_id="911").one()
+        assert run.head_sha == "fresh-head"
+    finally:
+        session.close()
+
+
 def test_gitlab_note_webhook_posts_full_report_without_enqueue() -> None:
     _reset_db()
     fake_queue = FakeQueue(name="review-detect-test", job_id="job-791")

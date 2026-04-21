@@ -111,6 +111,79 @@ def test_repository_and_pull_request_flow(tmp_path: Path) -> None:
         assert "다음 5개 게시" in page_response.text
 
 
+def test_pull_request_diff_supports_optional_base_sha(tmp_path: Path) -> None:
+    _reset_platform_state()
+
+    with TestClient(app) as client:
+        repo_response = client.post(
+            "/api/repos",
+            json={"name": "sample-base-sha", "description": "sample repo", "default_branch": "main"},
+        )
+        repository = repo_response.json()
+        bare_repo_path = Path(repository["storage_path"])
+
+        working_copy = tmp_path / "sample-base-sha-work"
+        _run(["git", "clone", str(bare_repo_path), str(working_copy)])
+        _run(["git", "config", "user.name", "Tester"], cwd=working_copy)
+        _run(["git", "config", "user.email", "tester@example.com"], cwd=working_copy)
+
+        source_file = working_copy / "src.cpp"
+        source_file.write_text("int main() {\n    return 0;\n}\n", encoding="utf-8")
+        _run(["git", "add", "src.cpp"], cwd=working_copy)
+        _run(["git", "commit", "-m", "initial"], cwd=working_copy)
+        _run(["git", "push", "origin", "main"], cwd=working_copy)
+
+        _run(["git", "checkout", "-b", "feature/base-sha"], cwd=working_copy)
+        source_file.write_text(
+            "int main() {\n    char* ptr = (char*)malloc(10);\n    return 0;\n}\n",
+            encoding="utf-8",
+        )
+        _run(["git", "add", "src.cpp"], cwd=working_copy)
+        _run(["git", "commit", "-m", "feature-1"], cwd=working_copy)
+        first_feature_sha = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=working_copy,
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+        source_file.write_text(
+            "int main() {\n    char* ptr = (char*)malloc(10);\n    free(ptr);\n    return 0;\n}\n",
+            encoding="utf-8",
+        )
+        _run(["git", "add", "src.cpp"], cwd=working_copy)
+        _run(["git", "commit", "-m", "feature-2"], cwd=working_copy)
+        _run(["git", "push", "origin", "feature/base-sha"], cwd=working_copy)
+
+        pr_response = client.post(
+            "/api/pull-requests",
+            json={
+                "repository_id": repository["id"],
+                "title": "Base SHA diff",
+                "description": "test PR",
+                "base_branch": "main",
+                "head_branch": "feature/base-sha",
+            },
+        )
+        assert pr_response.status_code == 200
+        pull_request = pr_response.json()
+
+        full_diff_response = client.get(f"/api/pull-requests/{pull_request['id']}/diff")
+        assert full_diff_response.status_code == 200
+        full_patch = full_diff_response.json()["files"][0]["patch"]
+        assert "malloc" in full_patch
+        assert "free" in full_patch
+
+        incremental_diff_response = client.get(
+            f"/api/pull-requests/{pull_request['id']}/diff",
+            params={"base_sha": first_feature_sha},
+        )
+        assert incremental_diff_response.status_code == 200
+        incremental_patch = incremental_diff_response.json()["files"][0]["patch"]
+        assert "+    free(ptr);" in incremental_patch
+        assert "+    char* ptr = (char*)malloc(10);" not in incremental_patch
+
+
 def test_bot_facade_routes_forward_requests() -> None:
     settings = _reset_platform_state()
     with TestClient(app) as client, patch("app.api.main.bot_client") as mock_bot:

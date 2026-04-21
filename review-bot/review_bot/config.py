@@ -43,6 +43,9 @@ class Settings:
     bot_author_name: str
     repeat_open_thread_reminder_enabled: bool
     resolved_unchanged_resurface_enabled: bool
+    verify_enabled: bool
+    verify_confidence_threshold: float
+    verify_score_band: float
 
 
 @lru_cache(maxsize=1)
@@ -95,4 +98,9 @@ def get_settings() -> Settings:
         resolved_unchanged_resurface_enabled=os.getenv(
             "BOT_RESOLVED_UNCHANGED_RESURFACE_ENABLED", "0"
         ) not in {"0", "false", "False"},
+        verify_enabled=os.getenv("BOT_VERIFY_ENABLED", "0") not in {"0", "false", "False"},
+        verify_confidence_threshold=float(
+            os.getenv("BOT_VERIFY_CONFIDENCE_THRESHOLD", "0.85")
+        ),
+        verify_score_band=float(os.getenv("BOT_VERIFY_SCORE_BAND", "0.10")),
     )

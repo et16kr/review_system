@@ -26,6 +26,30 @@ findings_resolved_total = Counter(
     ["rule_no"],
 )
 
+feedback_commands_total = Counter(
+    "feedback_commands_total",
+    "Total feedback commands by command type",
+    ["command"],
+)
+
+verify_attempts_total = Counter(
+    "verify_attempts_total",
+    "Total verify attempts by mode",
+    ["mode"],
+)
+
+verify_dropped_total = Counter(
+    "verify_dropped_total",
+    "Total findings dropped by verify",
+    ["mode", "reason"],
+)
+
+finding_resolution_events_total = Counter(
+    "finding_resolution_events_total",
+    "Total finding resolution events by rule family and reason",
+    ["rule_family", "resolution_reason"],
+)
+
 detect_phase_duration_seconds = Histogram(
     "detect_phase_duration_seconds",
     "Detect phase wall-clock time",

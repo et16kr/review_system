@@ -7,7 +7,7 @@ from openai import OpenAI
 from pydantic import BaseModel, Field
 
 from review_bot.config import get_settings
-from review_bot.providers.base import FindingDraft, ReviewCommentProvider
+from review_bot.providers.base import FindingDraft, ReviewCommentProvider, VerifyDraftResult
 
 logger = logging.getLogger(__name__)
 
@@ -109,7 +109,10 @@ _AGENT_HINTS: dict[str, str] = {
 
 _VERIFY_SYSTEM_PROMPT = (
     "주어진 코드 리뷰 코멘트가 실제 코드 변경에 적용되는지만 판단하세요. "
-    "JSON으로만 응답하세요."
+    "JSON으로만 응답하세요. "
+    "applies=false인 경우 reason은 "
+    "`not_a_real_bug`, `low_confidence`, `pattern_mismatch`, `execution_error` "
+    "중 하나만 사용하세요."
 )
 
 
@@ -138,7 +141,14 @@ class ReviewDraftPayload(BaseModel):
 
 class VerifyPayload(BaseModel):
     applies: bool
-    reason: str = ""
+    reason: str = Field(
+        default="",
+        description=(
+            "applies=false일 때만 사용. "
+            "허용값: not_a_real_bug, low_confidence, pattern_mismatch, execution_error"
+        ),
+    )
+    confidence: float | None = Field(default=None, ge=0.0, le=1.0)
 
 
 class OpenAIReviewCommentProvider(ReviewCommentProvider):
@@ -251,39 +261,48 @@ class OpenAIReviewCommentProvider(ReviewCommentProvider):
             auto_fix_lines=payload.auto_fix_lines if payload.confidence >= 0.9 else [],
         )
 
-        # 자가 검증: 신뢰도가 중간 범위인 경우 LLM으로 주장 재확인
-        if draft.should_publish and 0.50 <= draft.confidence < 0.75:
-            draft = self._verify_draft(draft, change_snippet or "")
-
         return draft
 
-    def _verify_draft(self, draft: FindingDraft, snippet: str) -> FindingDraft:
-        """LLM 코멘트 주장이 실제 코드 변경에 근거하는지 검증한다."""
-        try:
-            verify_content = (
-                f"코드 리뷰 코멘트: {draft.summary}\n\n"
-                f"실제 코드 변경:\n{snippet[:2000]}\n\n"
-                "이 코멘트가 위 코드 변경에 실제로 적용되는가? "
-                "코드에 해당 문제가 실제로 존재하는가?"
-            )
-            response = self.client.responses.parse(
-                model=self.model,
-                input=[
-                    {"role": "system", "content": _VERIFY_SYSTEM_PROMPT},
-                    {"role": "user", "content": verify_content},
-                ],
-                text_format=VerifyPayload,
-            )
-            result = response.output_parsed
-            if result is not None and not result.applies:
-                logger.info(
-                    "verify_rejected title=%r reason=%r confidence=%.2f",
-                    draft.title,
-                    result.reason,
-                    draft.confidence,
-                )
-                draft.should_publish = False
-                draft.confidence = max(0.0, draft.confidence - 0.25)
-        except Exception as exc:
-            logger.warning("verify_draft_failed error=%s", exc)
-        return draft
+    def verify_draft(
+        self,
+        *,
+        draft: FindingDraft,
+        file_path: str,
+        rule_no: str,
+        title: str,
+        summary: str,
+        category: str | None = None,
+        change_snippet: str | None = None,
+        line_no: int | None = None,
+        candidate_line_nos: tuple[int, ...] = (),
+        file_context: str | None = None,
+        pr_title: str | None = None,
+        pr_source_branch: str | None = None,
+        pr_target_branch: str | None = None,
+        similar_code: list[dict] | None = None,
+    ) -> VerifyDraftResult:
+        del file_path, rule_no, title, summary, category, line_no, candidate_line_nos
+        del file_context, pr_title, pr_source_branch, pr_target_branch, similar_code
+        verify_content = (
+            f"코드 리뷰 코멘트 제목: {draft.title}\n"
+            f"코드 리뷰 코멘트 본문: {draft.summary}\n\n"
+            f"실제 코드 변경:\n{(change_snippet or '')[:2000]}\n\n"
+            "이 코멘트가 위 코드 변경에 실제로 적용되는가? "
+            "코드에 해당 문제가 실제로 존재하는가?"
+        )
+        response = self.client.responses.parse(
+            model=self.model,
+            input=[
+                {"role": "system", "content": _VERIFY_SYSTEM_PROMPT},
+                {"role": "user", "content": verify_content},
+            ],
+            text_format=VerifyPayload,
+        )
+        payload = response.output_parsed
+        if payload is None:
+            raise ValueError("Structured verify output parsing returned no payload.")
+        return VerifyDraftResult(
+            applies=payload.applies,
+            reason=payload.reason,
+            confidence=payload.confidence,
+        )

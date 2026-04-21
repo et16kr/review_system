@@ -57,6 +57,9 @@ BOT_DEAD_LETTER_ENABLED=1
 BOT_OPENAI_TIMEOUT_SECONDS=10
 BOT_OPENAI_MAX_RETRIES=0
 BOT_AUTHOR_NAME=review-bot
+BOT_VERIFY_ENABLED=0
+BOT_VERIFY_CONFIDENCE_THRESHOLD=0.85
+BOT_VERIFY_SCORE_BAND=0.10
 ```
 
 기본 포트:
@@ -85,6 +88,18 @@ OPENAI_API_KEY=...
 1. OpenAI provider를 먼저 시도한다.
 2. structured output이 실패하거나 quota 문제가 있으면 stub로 fallback 한다.
 3. detect / publish / sync lifecycle은 가능한 한 계속 진행한다.
+
+verify phase 기본값:
+
+- `BOT_VERIFY_ENABLED=0`
+- `BOT_VERIFY_CONFIDENCE_THRESHOLD=0.85`
+- `BOT_VERIFY_SCORE_BAND=0.10`
+
+의미:
+
+- 기본값에서는 canonical verify가 꺼져 있다.
+- 켜면 publish 직전 runner-level verify가 동작한다.
+- `execution_error`는 fail-open으로 처리되어 게시를 막지 않는다.
 
 선택적으로 path/rule 정책 파일을 연결할 수 있다.
 
@@ -154,6 +169,8 @@ http://<bot-host>:18081/webhooks/gitlab/merge-request
 - resolved thread가 다시 eligible하면 full reconcile에서 기존 thread를 reopen/update 한다.
 - human reply에 `bot:ignore`가 있으면 동일 fingerprint를 suppress 한다.
 - human reply에 `bot:allow`가 있으면 score penalty를 일부 상쇄한다.
+- resolve/reopen lifecycle은 `finding_lifecycle_events`에 immutable history로 남는다.
+- 수동 resolve와 실제 follow-up fix는 `remote_resolved_manual_only` / `fixed_in_followup_commit`로 구분된다.
 
 ## 5. 리뷰 엔진 적재
 
@@ -186,6 +203,36 @@ Chroma 컬렉션:
 5. inline comment / status / state 조회 확인
 
 이 모드는 외부 시스템 연동 전, engine/bot 흐름을 빠르게 확인하기 위한 용도다.
+
+## 6-a. Baseline 수집
+
+Phase A 이후 운영 baseline은 아래 스크립트로 Markdown snapshot을 남긴다.
+
+```bash
+python3 /home/et16/work/review_system/ops/scripts/capture_review_bot_baseline.py \
+  --baseline-kind v0
+```
+
+프로젝트 단위로 좁히려면:
+
+```bash
+python3 /home/et16/work/review_system/ops/scripts/capture_review_bot_baseline.py \
+  --baseline-kind v1 \
+  --project-ref group/project \
+  --source-family altibase
+```
+
+기본 저장 위치:
+
+- `docs/baselines/review_bot/`
+
+수집 항목:
+
+- `/health`
+- `/internal/analytics/rule-effectiveness`
+- `/internal/analytics/finding-outcomes?window=14d`
+- `/internal/analytics/finding-outcomes?window=28d`
+- `/metrics` 중 Phase A 관련 counter snapshot
 
 ## 7. 로컬 GitLab E2E 검증
 

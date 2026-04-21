@@ -19,6 +19,13 @@ class FindingDraft:
     auto_fix_lines: list[str] = field(default_factory=list)
 
 
+@dataclass(frozen=True)
+class VerifyDraftResult:
+    applies: bool = True
+    reason: str = ""
+    confidence: float | None = None
+
+
 class ReviewCommentProvider:
     def build_draft(
         self,
@@ -40,3 +47,39 @@ class ReviewCommentProvider:
         similar_code: list[dict] | None = None,
     ) -> FindingDraft:
         raise NotImplementedError
+
+    def verify_draft(
+        self,
+        *,
+        draft: FindingDraft,
+        file_path: str,
+        rule_no: str,
+        title: str,
+        summary: str,
+        category: str | None = None,
+        change_snippet: str | None = None,
+        line_no: int | None = None,
+        candidate_line_nos: tuple[int, ...] = (),
+        file_context: str | None = None,
+        pr_title: str | None = None,
+        pr_source_branch: str | None = None,
+        pr_target_branch: str | None = None,
+        similar_code: list[dict] | None = None,
+    ) -> VerifyDraftResult:
+        del (
+            draft,
+            file_path,
+            rule_no,
+            title,
+            summary,
+            category,
+            change_snippet,
+            line_no,
+            candidate_line_nos,
+            file_context,
+            pr_title,
+            pr_source_branch,
+            pr_target_branch,
+            similar_code,
+        )
+        return VerifyDraftResult()

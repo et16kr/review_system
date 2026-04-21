@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 
-from review_bot.providers.base import FindingDraft, ReviewCommentProvider
+from review_bot.providers.base import FindingDraft, ReviewCommentProvider, VerifyDraftResult
 from review_bot.providers.change_analysis import (
     classify_issue,
     extract_changed_excerpt,
@@ -53,6 +53,41 @@ class StubReviewCommentProvider(ReviewCommentProvider):
         if draft.line_no is None and not requires_direct_signal(issue):
             draft.line_no = line_no
         return draft
+
+    def verify_draft(
+        self,
+        *,
+        draft: FindingDraft,
+        file_path: str,
+        rule_no: str,
+        title: str,
+        summary: str,
+        category: str | None = None,
+        change_snippet: str | None = None,
+        line_no: int | None = None,
+        candidate_line_nos: tuple[int, ...] = (),
+        file_context: str | None = None,
+        pr_title: str | None = None,
+        pr_source_branch: str | None = None,
+        pr_target_branch: str | None = None,
+        similar_code: list[dict] | None = None,
+    ) -> VerifyDraftResult:
+        del (
+            file_path,
+            rule_no,
+            title,
+            summary,
+            category,
+            change_snippet,
+            line_no,
+            candidate_line_nos,
+            file_context,
+            pr_title,
+            pr_source_branch,
+            pr_target_branch,
+            similar_code,
+        )
+        return VerifyDraftResult(applies=True, confidence=draft.confidence)
 
 
 def _build_issue_draft(

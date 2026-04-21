@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import time
 from collections import deque
 from contextlib import asynccontextmanager
@@ -17,6 +18,7 @@ from review_bot.db.session import get_session, init_db
 from review_bot.metrics import redis_queue_depth
 from review_bot.queueing import get_detect_queue, get_publish_queue, get_sync_queue
 from review_bot.schemas import (
+    FindingOutcomesResponse,
     PublishRunResponse,
     ReviewAcceptedResponse,
     ReviewFullReportResponse,
@@ -33,6 +35,7 @@ _WEBHOOK_RATE_WINDOW = 60   # seconds
 # 인스턴스별로 독립 동작(분산 제어 아님). 단일 GitLab IP → 429 위험 있음.
 # 운영형 전환 시 Redis 기반 슬라이딩 윈도우로 교체 필요.
 _rate_limit_buckets: dict[str, deque[float]] = {}
+logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
@@ -322,7 +325,7 @@ def _handle_gitlab_note_hook(payload: dict, *, session: Session) -> WebhookAccep
         key,
         trigger="gitlab:note_mention",
         mode="manual",
-        meta=meta,
+        meta=_refresh_gitlab_note_head_meta(key=key, meta=meta),
     )
     review_run_id = review_run.id
     try:
@@ -357,6 +360,42 @@ def _enqueue_detect_job(session: Session, review_run: object) -> bool:
 
 
 _RECOGNIZED_NOTE_COMMANDS: tuple[str, ...] = ("review", "full-report", "backlog", "help")
+
+
+def _refresh_gitlab_note_head_meta(
+    *,
+    key: ReviewRequestKey,
+    meta: ReviewRequestMeta,
+) -> ReviewRequestMeta:
+    fetch_branch_head_sha = getattr(runner.platform_client, "fetch_branch_head_sha", None)
+    if key.review_system != "gitlab" or not callable(fetch_branch_head_sha):
+        return meta
+    if not meta.source_branch:
+        return meta
+    try:
+        branch_head_sha = fetch_branch_head_sha(key, meta.source_branch)
+    except Exception as exc:
+        logger.warning(
+            "gitlab_note_branch_head_refresh_failed project_ref=%s review_request_id=%s branch=%s error=%s",
+            key.project_ref,
+            key.review_request_id,
+            meta.source_branch,
+            exc,
+        )
+        return meta
+    if not branch_head_sha or branch_head_sha == meta.head_sha:
+        return meta
+    return ReviewRequestMeta(
+        key=meta.key,
+        title=meta.title,
+        state=meta.state,
+        draft=meta.draft,
+        source_branch=meta.source_branch,
+        target_branch=meta.target_branch,
+        base_sha=meta.base_sha,
+        start_sha=meta.start_sha,
+        head_sha=branch_head_sha,
+    )
 
 
 @dataclass(frozen=True)
@@ -444,7 +483,7 @@ def rule_effectiveness(session: SessionDep):
         fp
         for (fp,) in session.query(TSS.finding_fingerprint).filter(
             TSS.sync_status == "resolved",
-            TSS.resolution_reason == "remote_resolved",
+            TSS.resolution_reason.in_(["remote_resolved", "remote_resolved_manual_only"]),
         ).all()
     }
 
@@ -490,6 +529,26 @@ def rule_effectiveness(session: SessionDep):
         )
     results.sort(key=lambda item: item["total"], reverse=True)
     return {"rules": results[:50], "total_rules": len(results[:50])}
+
+
+@app.get(
+    "/internal/analytics/finding-outcomes",
+    response_model=FindingOutcomesResponse,
+)
+def finding_outcomes(
+    session: SessionDep,
+    project_ref: str | None = None,
+    source_family: str | None = None,
+    window: Literal["14d", "28d"] = "28d",
+):
+    return FindingOutcomesResponse(
+        **runner.finding_outcomes(
+            session,
+            project_ref=project_ref,
+            source_family=source_family,
+            window=window,
+        )
+    )
 
 
 def _verify_gitlab_webhook_secret(provided_token: str | None) -> None:

@@ -126,3 +126,22 @@ class SyncRunResponse(BaseModel):
     review_run_id: str
     queue_name: str | None = None
     status: str = "queued"
+
+
+class FindingOutcomesResponse(BaseModel):
+    window: Literal["14d", "28d"] = "28d"
+    project_ref: str | None = None
+    source_family: str | None = None
+    surfaced_distinct: int = 0
+    resolved_distinct: int = 0
+    fixed_distinct: int = 0
+    manual_resolved_distinct: int = 0
+    ignored_distinct: int = 0
+    false_positive_distinct: int = 0
+    reopened_distinct: int = 0
+    surfaced_cohort_distinct: int = 0
+    converted_cohort_distinct: int = 0
+    fix_confirmation_rate: float = 0.0
+    human_resolve_rate: float = 0.0
+    false_positive_feedback_rate: float = 0.0
+    fix_conversion_rate: float = 0.0

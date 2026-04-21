@@ -67,6 +67,15 @@ class GitLabReviewSystemAdapter(ReviewSystemAdapterV2):
             head_sha=(payload.get("diff_refs") or {}).get("head_sha"),
         )
 
+    def fetch_branch_head_sha(self, key: ReviewRequestKey, branch_name: str) -> str | None:
+        payload = self._get(
+            self._api_path(
+                key,
+                f"/repository/branches/{quote(branch_name, safe='')}",
+            )
+        )
+        return ((payload.get("commit") or {}).get("id"))
+
     def fetch_diff(
         self,
         key: ReviewRequestKey,

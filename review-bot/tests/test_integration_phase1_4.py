@@ -40,6 +40,8 @@ from review_bot.db.models import (
     DeadLetterRecord,
     FindingDecision,
     FindingEvidence,
+    FindingLifecycleEvent,
+    FeedbackEvent,
     PublicationState,
     ReviewRequest,
     ReviewRun,
@@ -1308,6 +1310,367 @@ class TestPhase4Advanced:
         assert rule["published"] == 1
         assert rule["resolved"] == 0
         assert rule["suppressed"] == 0
+
+    def test_finding_outcomes_api_uses_distinct_fingerprint_and_preserves_fixed_history(self):
+        from fastapi.testclient import TestClient
+        from review_bot.api.main import app
+
+        _reset_db()
+        session = SessionLocal()
+        try:
+            review_request = ReviewRequest(
+                review_system="gitlab",
+                project_ref="group/project",
+                review_request_id="60056",
+            )
+            session.add(review_request)
+            session.flush()
+
+            run1 = ReviewRun(
+                review_request_pk=review_request.id,
+                review_system="gitlab",
+                project_ref="group/project",
+                review_request_id="60056",
+                trigger="seed-1",
+                mode="manual",
+                status="success",
+            )
+            run2 = ReviewRun(
+                review_request_pk=review_request.id,
+                review_system="gitlab",
+                project_ref="group/project",
+                review_request_id="60056",
+                trigger="seed-2",
+                mode="manual",
+                status="success",
+            )
+            session.add_all([run1, run2])
+            session.flush()
+
+            evidence1 = FindingEvidence(
+                review_run_id=run1.id,
+                review_request_pk=review_request.id,
+                file_path="src/a.cpp",
+                patch_digest="digest-a",
+                change_snippet="",
+            )
+            evidence2 = FindingEvidence(
+                review_run_id=run2.id,
+                review_request_pk=review_request.id,
+                file_path="src/b.cpp",
+                patch_digest="digest-b",
+                change_snippet="",
+            )
+            session.add_all([evidence1, evidence2])
+            session.flush()
+
+            base_time = datetime.now(UTC) - timedelta(days=7)
+            decision1 = FindingDecision(
+                review_run_id=run1.id,
+                evidence_id=evidence1.id,
+                review_request_pk=review_request.id,
+                review_system="gitlab",
+                project_ref="group/project",
+                review_request_id="60056",
+                fingerprint="fp-fixed-reopened",
+                dedupe_key="dk-fixed",
+                file_path="src/a.cpp",
+                line_no=10,
+                rule_no="ALTI-MEM-007",
+                source_family="altibase",
+                score_raw=0.9,
+                score_final=0.9,
+                anchor_signature="sig-fixed",
+                state="published",
+                created_at=base_time + timedelta(days=2),
+            )
+            decision2 = FindingDecision(
+                review_run_id=run2.id,
+                evidence_id=evidence2.id,
+                review_request_pk=review_request.id,
+                review_system="gitlab",
+                project_ref="group/project",
+                review_request_id="60056",
+                fingerprint="fp-manual",
+                dedupe_key="dk-manual",
+                file_path="src/b.cpp",
+                line_no=20,
+                rule_no="ALTI-MEM-007",
+                source_family="altibase",
+                score_raw=0.88,
+                score_final=0.88,
+                anchor_signature="sig-manual",
+                state="resolved",
+                created_at=base_time + timedelta(days=3),
+            )
+            session.add_all([decision1, decision2])
+            session.flush()
+
+            session.add_all(
+                [
+                    PublicationState(
+                        finding_decision_id=decision1.id,
+                        review_request_pk=review_request.id,
+                        review_system="gitlab",
+                        project_ref="group/project",
+                        review_request_id="60056",
+                        adapter_thread_ref="thread-fixed",
+                        publish_state="created",
+                        published_at=base_time,
+                    ),
+                    PublicationState(
+                        finding_decision_id=decision2.id,
+                        review_request_pk=review_request.id,
+                        review_system="gitlab",
+                        project_ref="group/project",
+                        review_request_id="60056",
+                        adapter_thread_ref="thread-manual",
+                        publish_state="created",
+                        published_at=base_time + timedelta(days=1),
+                    ),
+                    ThreadSyncState(
+                        review_request_pk=review_request.id,
+                        review_system="gitlab",
+                        project_ref="group/project",
+                        review_request_id="60056",
+                        finding_decision_id=decision1.id,
+                        finding_fingerprint="fp-fixed-reopened",
+                        anchor_signature="sig-fixed",
+                        adapter_thread_ref="thread-fixed",
+                        sync_status="open",
+                    ),
+                    ThreadSyncState(
+                        review_request_pk=review_request.id,
+                        review_system="gitlab",
+                        project_ref="group/project",
+                        review_request_id="60056",
+                        finding_decision_id=decision2.id,
+                        finding_fingerprint="fp-manual",
+                        anchor_signature="sig-manual",
+                        adapter_thread_ref="thread-manual",
+                        sync_status="resolved",
+                        resolution_reason="remote_resolved_manual_only",
+                    ),
+                    FindingLifecycleEvent(
+                        review_request_pk=review_request.id,
+                        review_system="gitlab",
+                        project_ref="group/project",
+                        review_request_id="60056",
+                        finding_fingerprint="fp-fixed-reopened",
+                        finding_decision_id=decision1.id,
+                        adapter_thread_ref="thread-fixed",
+                        rule_no="ALTI-MEM-007",
+                        rule_family="altibase",
+                        file_path="src/a.cpp",
+                        event_type="resolved",
+                        event_reason="fixed_in_followup_commit",
+                        observed_head_sha="head-b",
+                        compared_from_sha="head-a",
+                        payload={},
+                        event_at=base_time + timedelta(days=2),
+                    ),
+                    FindingLifecycleEvent(
+                        review_request_pk=review_request.id,
+                        review_system="gitlab",
+                        project_ref="group/project",
+                        review_request_id="60056",
+                        finding_fingerprint="fp-fixed-reopened",
+                        finding_decision_id=decision1.id,
+                        adapter_thread_ref="thread-fixed",
+                        rule_no="ALTI-MEM-007",
+                        rule_family="altibase",
+                        file_path="src/a.cpp",
+                        event_type="reopened",
+                        event_reason="remote_reopened",
+                        observed_head_sha="head-c",
+                        compared_from_sha="head-b",
+                        payload={},
+                        event_at=base_time + timedelta(days=4),
+                    ),
+                    FindingLifecycleEvent(
+                        review_request_pk=review_request.id,
+                        review_system="gitlab",
+                        project_ref="group/project",
+                        review_request_id="60056",
+                        finding_fingerprint="fp-manual",
+                        finding_decision_id=decision2.id,
+                        adapter_thread_ref="thread-manual",
+                        rule_no="ALTI-MEM-007",
+                        rule_family="altibase",
+                        file_path="src/b.cpp",
+                        event_type="resolved",
+                        event_reason="remote_resolved_manual_only",
+                        observed_head_sha="head-d",
+                        compared_from_sha="head-c",
+                        payload={},
+                        event_at=base_time + timedelta(days=3),
+                    ),
+                    FeedbackEvent(
+                        review_request_pk=review_request.id,
+                        review_system="gitlab",
+                        project_ref="group/project",
+                        review_request_id="60056",
+                        event_key="thread-fixed:reply:1",
+                        adapter_thread_ref="thread-fixed",
+                        adapter_comment_ref="note-1",
+                        event_type="reply",
+                        actor_type="human",
+                        actor_ref="reviewer",
+                        payload={"body": "bot:false-positive\n오탐입니다."},
+                        occurred_at=base_time + timedelta(days=5),
+                    ),
+                ]
+            )
+            session.commit()
+        finally:
+            session.close()
+
+        client = TestClient(app)
+        response_28d = client.get(
+            "/internal/analytics/finding-outcomes",
+            params={"window": "28d", "project_ref": "group/project"},
+        )
+        assert response_28d.status_code == 200
+        data_28d = response_28d.json()
+        assert data_28d["surfaced_distinct"] == 2
+        assert data_28d["resolved_distinct"] == 1
+        assert data_28d["fixed_distinct"] == 1
+        assert data_28d["manual_resolved_distinct"] == 1
+        assert data_28d["false_positive_distinct"] == 1
+        assert data_28d["reopened_distinct"] == 1
+        assert data_28d["surfaced_cohort_distinct"] == 2
+        assert data_28d["converted_cohort_distinct"] == 1
+        assert data_28d["fix_conversion_rate"] == 0.5
+
+        response_14d = client.get(
+            "/internal/analytics/finding-outcomes",
+            params={"window": "14d", "project_ref": "group/project"},
+        )
+        assert response_14d.status_code == 200
+        data_14d = response_14d.json()
+        assert data_14d["fixed_distinct"] == 1
+        assert data_14d["resolved_distinct"] == 1
+        assert data_14d["fix_confirmation_rate"] == 0.0
+        assert data_14d["human_resolve_rate"] == 0.5
+        assert data_14d["false_positive_feedback_rate"] == 0.5
+
+    def test_finding_outcomes_api_filters_by_source_family(self):
+        from fastapi.testclient import TestClient
+        from review_bot.api.main import app
+
+        _reset_db()
+        session = SessionLocal()
+        try:
+            review_request = ReviewRequest(
+                review_system="gitlab",
+                project_ref="group/project",
+                review_request_id="60057",
+            )
+            session.add(review_request)
+            session.flush()
+
+            review_run = ReviewRun(
+                review_request_pk=review_request.id,
+                review_system="gitlab",
+                project_ref="group/project",
+                review_request_id="60057",
+                trigger="seed",
+                mode="manual",
+                status="success",
+            )
+            session.add(review_run)
+            session.flush()
+
+            evidence = FindingEvidence(
+                review_run_id=review_run.id,
+                review_request_pk=review_request.id,
+                file_path="src/a.cpp",
+                patch_digest="digest-source",
+                change_snippet="",
+            )
+            session.add(evidence)
+            session.flush()
+
+            altibase_decision = FindingDecision(
+                review_run_id=review_run.id,
+                evidence_id=evidence.id,
+                review_request_pk=review_request.id,
+                review_system="gitlab",
+                project_ref="group/project",
+                review_request_id="60057",
+                fingerprint="fp-altibase",
+                dedupe_key="dk-altibase",
+                file_path="src/a.cpp",
+                line_no=10,
+                rule_no="ALTI-MEM-007",
+                source_family="altibase",
+                score_raw=0.9,
+                score_final=0.9,
+                anchor_signature="sig-altibase",
+                state="published",
+            )
+            cpp_core_decision = FindingDecision(
+                review_run_id=review_run.id,
+                evidence_id=evidence.id,
+                review_request_pk=review_request.id,
+                review_system="gitlab",
+                project_ref="group/project",
+                review_request_id="60057",
+                fingerprint="fp-cpp-core",
+                dedupe_key="dk-cpp-core",
+                file_path="src/b.cpp",
+                line_no=20,
+                rule_no="CPP-001",
+                source_family="cpp_core",
+                score_raw=0.9,
+                score_final=0.9,
+                anchor_signature="sig-cpp",
+                state="published",
+            )
+            session.add_all([altibase_decision, cpp_core_decision])
+            session.flush()
+
+            now = datetime.now(UTC)
+            session.add_all(
+                [
+                    PublicationState(
+                        finding_decision_id=altibase_decision.id,
+                        review_request_pk=review_request.id,
+                        review_system="gitlab",
+                        project_ref="group/project",
+                        review_request_id="60057",
+                        publish_state="created",
+                        published_at=now,
+                    ),
+                    PublicationState(
+                        finding_decision_id=cpp_core_decision.id,
+                        review_request_pk=review_request.id,
+                        review_system="gitlab",
+                        project_ref="group/project",
+                        review_request_id="60057",
+                        publish_state="created",
+                        published_at=now,
+                    ),
+                ]
+            )
+            session.commit()
+        finally:
+            session.close()
+
+        client = TestClient(app)
+        response = client.get(
+            "/internal/analytics/finding-outcomes",
+            params={
+                "window": "28d",
+                "project_ref": "group/project",
+                "source_family": "altibase",
+            },
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["surfaced_distinct"] == 1
+        assert data["project_ref"] == "group/project"
+        assert data["source_family"] == "altibase"
 
     def test_comment_footer_always_present(self):
         """코멘트 형식: 모든 코멘트에 안내 문구가 포함된다."""

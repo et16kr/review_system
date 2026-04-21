@@ -46,9 +46,12 @@ class LocalPlatformReviewSystemAdapter(ReviewSystemAdapterV2):
         mode: str,
         base_sha: str | None = None,
     ) -> DiffPayload:
-        del mode, base_sha
+        params: dict[str, str] | None = None
+        if mode == "incremental" and base_sha:
+            params = {"base_sha": base_sha}
         response = httpx.get(
             f"{self.base_url}/api/pull-requests/{int(key.review_request_id)}/diff",
+            params=params,
             timeout=30.0,
         )
         response.raise_for_status()

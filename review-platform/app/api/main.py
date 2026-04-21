@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 from typing import Annotated
 
 import httpx
-from fastapi import Depends, FastAPI, Form, Request
+from fastapi import Depends, FastAPI, Form, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
@@ -226,10 +226,14 @@ def list_pull_requests(session: SessionDep, repository_id: int | None = None):
 
 
 @app.get("/api/pull-requests/{pr_id}/diff", response_model=PullRequestDiffResponse)
-def get_pull_request_diff(pr_id: int, session: SessionDep):
+def get_pull_request_diff(
+    pr_id: int,
+    session: SessionDep,
+    base_sha: Annotated[str | None, Query()] = None,
+):
     pull_request = pull_request_service.get_pull_request(session, pr_id)
     repository = repository_service.get_repository(session, pull_request.repository_id)
-    files = diff_service.get_changed_files(repository, pull_request)
+    files = diff_service.get_changed_files(repository, pull_request, base_sha=base_sha)
     return PullRequestDiffResponse(
         pull_request=PullRequestResponse.model_validate(pull_request, from_attributes=True),
         files=files,
