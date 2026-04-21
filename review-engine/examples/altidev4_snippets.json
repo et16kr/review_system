@@ -7,12 +7,12 @@
     "focus_patterns": [
       "raw_new",
       "malloc_free",
-      "manual_delete",
-      "ide_rc_flow"
+      "manual_delete"
     ],
     "expected_rules": [
-      "ALTI-MEM-007",
-      "ALTI-PCM-002"
+      "R.10",
+      "R.11",
+      "R.12"
     ]
   },
   {
@@ -26,9 +26,9 @@
       "direct_system_call"
     ],
     "expected_rules": [
-      "ALTI-COF-002",
-      "ALTI-MEM-007",
-      "ALTI-PCM-002"
+      "R.10",
+      "E.19",
+      "ES.78"
     ]
   },
   {
@@ -43,9 +43,9 @@
       "primitive_format_specifier"
     ],
     "expected_rules": [
-      "ALTI-MEM-007",
-      "ALTI-PCM-005",
-      "ALTI-DCL-008"
+      "R.10",
+      "R.11",
+      "R.12"
     ]
   },
   {
@@ -58,9 +58,9 @@
       "primitive_format_specifier"
     ],
     "expected_rules": [
-      "ALTI-COF-006",
-      "ALTI-PCM-005",
-      "ALTI-DCL-008"
+      "SL.io.3",
+      "ES.34",
+      "ES.6"
     ]
   },
   {
@@ -73,9 +73,8 @@
       "primitive_types"
     ],
     "expected_rules": [
-      "ALTI-PRE-004",
-      "ALTI-PRE-002",
-      "ALTI-TYC-001"
+      "SF.13",
+      "I.4"
     ]
   },
   {
@@ -88,8 +87,8 @@
       "direct_system_call"
     ],
     "expected_rules": [
-      "ALTI-COF-001",
-      "ALTI-PCM-002"
+      "ES.77",
+      "P.11"
     ]
   },
   {
@@ -102,9 +101,9 @@
       "direct_system_call"
     ],
     "expected_rules": [
-      "ALTI-MEM-006",
-      "ALTI-MEM-007",
-      "R.1"
+      "R.10",
+      "R.1",
+      "E.19"
     ]
   }
 ]

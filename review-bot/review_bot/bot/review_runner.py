@@ -383,6 +383,9 @@ class ReviewRunner:
                     )
                     for result in review.get("results", [])[:3]:
                         payload = dict(result)
+                        for runtime_key in ("language_id", "profile_id", "prompt_overlay_refs"):
+                            if review.get(runtime_key) is not None:
+                                payload[runtime_key] = review.get(runtime_key)
                         if file_context:
                             payload[_FILE_CONTEXT_KEY] = file_context[:FILE_CONTEXT_MAX_CHARS]
                         if similar_code:
@@ -3336,6 +3339,9 @@ class ReviewRunner:
                 line_no=decision.line_no,
                 candidate_line_nos=tuple(decision.evidence.candidate_line_nos),
                 file_context=file_context,
+                language_id=decision.evidence.raw_engine_payload.get("language_id"),
+                profile_id=decision.evidence.raw_engine_payload.get("profile_id"),
+                prompt_overlay_refs=decision.evidence.raw_engine_payload.get("prompt_overlay_refs"),
                 pr_title=review_request.title,
                 pr_source_branch=review_request.source_branch,
                 pr_target_branch=review_request.target_branch,
@@ -3456,6 +3462,9 @@ class ReviewRunner:
                 line_no=decision.line_no,
                 candidate_line_nos=tuple(decision.evidence.candidate_line_nos),
                 file_context=decision.evidence.raw_engine_payload.get(_FILE_CONTEXT_KEY),
+                language_id=decision.evidence.raw_engine_payload.get("language_id"),
+                profile_id=decision.evidence.raw_engine_payload.get("profile_id"),
+                prompt_overlay_refs=decision.evidence.raw_engine_payload.get("prompt_overlay_refs"),
                 pr_title=review_request.title,
                 pr_source_branch=review_request.source_branch,
                 pr_target_branch=review_request.target_branch,

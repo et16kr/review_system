@@ -47,6 +47,7 @@ def review_diff(request: ReviewDiffRequest):
     return service.review_diff(
         request.diff,
         top_k=request.top_k,
+        file_path=request.file_path,
         file_context=request.file_context,
     ).model_dump()
 

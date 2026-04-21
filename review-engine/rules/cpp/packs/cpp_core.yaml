@@ -1,0 +1,265 @@
+schema_version: 1
+pack_id: cpp_core
+namespace: public
+language_id: cpp
+source_kind: public_standard
+description: Public C++ Core Guidelines pack for the default review profile.
+default_enabled: true
+default_priority_tier: default
+profile_tags:
+  - default
+plugin_refs: []
+entries:
+  - rule_no: R.1
+    section: R
+    title: Manage resources automatically using resource handles and RAII
+    summary: Avoid leaks and manual cleanup complexity by preferring RAII-based resource management.
+    text: Prefer RAII objects so resource acquisition and release stay paired across normal and exceptional control flow.
+    category: memory
+    trigger_patterns: [malloc_free, manual_lock_unlock, direct_system_call]
+    fix_guidance: Prefer scoped resource handles and standard library ownership types over manual acquire/release pairs.
+    base_score: 0.86
+    severity_default: 0.90
+    priority_tier: high
+    specificity: 0.86
+    false_positive_risk: low
+    review_rank_default: 0.90
+  - rule_no: R.10
+    section: R
+    title: Avoid malloc() and free()
+    summary: Prefer C++ object lifetimes and resource handles instead of manual C allocation APIs.
+    text: malloc and free do not provide construction, destruction, or ownership clarity. Prefer standard C++ resource management.
+    category: memory
+    trigger_patterns: [malloc_free, direct_system_call, free_without_null_reset]
+    fix_guidance: Replace malloc/free with constructors, containers, or smart-pointer based ownership.
+    base_score: 0.92
+    severity_default: 0.95
+    priority_tier: override
+    specificity: 0.92
+    false_positive_risk: low
+    review_rank_default: 0.95
+  - rule_no: R.11
+    section: R
+    title: Avoid calling new and delete explicitly
+    summary: Explicit new/delete makes ownership and cleanup error-prone.
+    text: The result of new should immediately move into an owning abstraction instead of remaining in a raw pointer.
+    category: memory
+    trigger_patterns: [raw_new, manual_delete, ownership_ambiguity]
+    fix_guidance: Replace explicit new/delete with make_unique, containers, or other owning abstractions.
+    base_score: 0.91
+    severity_default: 0.94
+    priority_tier: override
+    specificity: 0.91
+    false_positive_risk: low
+    review_rank_default: 0.94
+  - rule_no: R.12
+    section: R
+    title: Immediately give the result of an explicit resource allocation to a manager object
+    summary: Raw allocations should be handed off to a manager immediately to avoid leaks on early exit.
+    text: If you keep an explicitly allocated resource in an unmanaged state, exceptions or returns can leak it.
+    category: memory
+    trigger_patterns: [raw_new, malloc_free, manual_delete, direct_system_call]
+    fix_guidance: Move newly allocated resources into an owner on the same line or encapsulate them in a helper.
+    base_score: 0.88
+    severity_default: 0.90
+    priority_tier: high
+    specificity: 0.85
+    false_positive_risk: low
+    review_rank_default: 0.90
+  - rule_no: R.20
+    section: R
+    title: Use unique_ptr or shared_ptr to represent ownership
+    summary: Make ownership explicit with standard smart pointers when dynamic lifetime is required.
+    text: Prefer standard ownership types over raw pointers when an object has dynamic lifetime and ownership matters.
+    category: memory
+    trigger_patterns: [raw_new, manual_delete, ownership_ambiguity]
+    fix_guidance: Use unique_ptr for single ownership and shared_ptr only when shared lifetime is truly required.
+    base_score: 0.82
+    severity_default: 0.84
+    priority_tier: high
+    specificity: 0.82
+    false_positive_risk: medium
+    review_rank_default: 0.84
+  - rule_no: I.11
+    section: I
+    title: Never transfer ownership by a raw pointer or reference
+    summary: Ownership transfer through raw pointers or references is ambiguous and error-prone.
+    text: Interfaces should make ownership explicit so callers and callees cannot disagree about lifetime responsibility.
+    category: type_usage
+    trigger_patterns: [raw_new, ownership_ambiguity]
+    fix_guidance: Use explicit owner types or value-returning interfaces instead of raw ownership transfer.
+    base_score: 0.78
+    severity_default: 0.80
+    specificity: 0.79
+    false_positive_risk: medium
+    review_rank_default: 0.80
+  - rule_no: I.4
+    section: I
+    title: Make interfaces precisely and strongly typed
+    summary: Prefer precise, expressive types over vague primitive representations.
+    text: Strong types improve readability, correctness, and optimization opportunities compared to loosely typed interfaces.
+    category: type_usage
+    trigger_patterns: [primitive_types]
+    fix_guidance: Replace ambiguous primitive representations with stronger, domain-meaningful interfaces where practical.
+    base_score: 0.70
+    severity_default: 0.72
+    specificity: 0.68
+    false_positive_risk: medium
+    review_rank_default: 0.72
+  - rule_no: CP.20
+    section: CP
+    title: Use RAII, never plain lock() or unlock()
+    summary: Prefer scoped locking so locks cannot leak across exceptional or early-exit paths.
+    text: Direct lock and unlock calls are fragile. Prefer scoped guard types that release automatically.
+    category: wrapper_usage
+    trigger_patterns: [manual_lock_unlock]
+    fix_guidance: Replace manual lock and unlock pairs with scoped guard types such as lock_guard or unique_lock.
+    base_score: 0.88
+    severity_default: 0.90
+    priority_tier: high
+    specificity: 0.88
+    false_positive_risk: low
+    review_rank_default: 0.90
+  - rule_no: ES.77
+    section: ES
+    title: Minimize the use of break and continue in loops
+    summary: Frequent continue or break paths make non-trivial loops harder to reason about.
+    text: Prefer restructuring loop logic when break or continue obscures the main path through the loop body.
+    category: control_flow
+    trigger_patterns: [continue_usage]
+    fix_guidance: Rewrite the loop with clearer guards or extracted helper logic so the main path stays explicit.
+    base_score: 0.76
+    severity_default: 0.78
+    specificity: 0.78
+    false_positive_risk: medium
+    review_rank_default: 0.78
+  - rule_no: ES.78
+    section: ES
+    title: Don’t rely on implicit fallthrough in switch statements
+    summary: Non-empty switch cases should end explicitly so control flow stays obvious.
+    text: Always make switch fallthrough explicit; accidental fallthrough is a common bug source.
+    category: control_flow
+    trigger_patterns: [switch_without_default]
+    fix_guidance: End each meaningful case explicitly or add a clearly documented fallthrough marker when it is intentional.
+    base_score: 0.75
+    severity_default: 0.77
+    specificity: 0.77
+    false_positive_risk: medium
+    review_rank_default: 0.77
+  - rule_no: ES.79
+    section: ES
+    title: Use default to handle common cases (only)
+    summary: Keep switch handling explicit and use default only for a deliberate common-case fallback.
+    text: Switch statements should make unhandled or common paths obvious and support error detection through clear structure.
+    category: control_flow
+    trigger_patterns: [switch_without_default]
+    fix_guidance: Add an explicit default path when the switch requires one and document how unexpected values are handled.
+    base_score: 0.73
+    severity_default: 0.75
+    specificity: 0.74
+    false_positive_risk: medium
+    review_rank_default: 0.75
+  - rule_no: ES.6
+    section: ES
+    title: Declare names in for-statement initializers and conditions to limit scope
+    summary: Loop-local names should stay scoped to the loop when that improves clarity.
+    text: Prefer the narrowest useful scope for loop variables and loop-specific helper state.
+    category: control_flow
+    trigger_patterns: [for_initializer_declaration]
+    fix_guidance: Keep loop variables scoped to the loop unless broader visibility is required for clarity.
+    base_score: 0.62
+    severity_default: 0.64
+    specificity: 0.60
+    false_positive_risk: medium
+    review_rank_default: 0.64
+  - rule_no: ES.34
+    section: ES
+    title: Don’t define a C-style variadic function
+    summary: C-style variadic interfaces are not type-safe and are difficult to evolve safely.
+    text: Prefer typed alternatives over variadic C-style formatting or forwarding interfaces.
+    category: format_usage
+    trigger_patterns: [primitive_format_specifier]
+    fix_guidance: Use typed formatting or overload/template-based interfaces instead of C-style variadic patterns.
+    base_score: 0.68
+    severity_default: 0.70
+    specificity: 0.72
+    false_positive_risk: medium
+    review_rank_default: 0.70
+  - rule_no: SL.io.3
+    section: SL
+    title: Prefer iostreams for I/O
+    summary: Prefer safer, extensible, typed I/O facilities over printf-style interfaces.
+    text: iostream-based code is type-aware and extensible, which reduces format mismatches and interface fragility.
+    category: format_usage
+    trigger_patterns: [primitive_format_specifier, direct_system_call]
+    fix_guidance: Prefer type-safe formatting and stream-style I/O over printf-family calls when practical.
+    base_score: 0.74
+    severity_default: 0.76
+    specificity: 0.74
+    false_positive_risk: medium
+    review_rank_default: 0.76
+  - rule_no: SF.13
+    section: SF
+    title: Use portable header identifiers in #include statements
+    summary: Keep include directives portable and implementation-agnostic.
+    text: Header identifiers should remain portable across compilers and platforms rather than depending on non-portable lookup assumptions.
+    category: portability
+    trigger_patterns: [direct_system_header]
+    fix_guidance: Prefer portable include forms and project-sanctioned wrappers when portability matters.
+    base_score: 0.72
+    severity_default: 0.74
+    specificity: 0.76
+    false_positive_risk: medium
+    review_rank_default: 0.74
+  - rule_no: P.8
+    section: P
+    title: Don’t leak any resources
+    summary: Resource leaks accumulate over time and degrade correctness and stability.
+    text: Avoid designs that allow memory, handles, or other resources to grow without reliable cleanup.
+    category: memory
+    trigger_patterns: [malloc_free, raw_new, manual_delete]
+    fix_guidance: Ensure every acquired resource has a deterministic owner and release path.
+    base_score: 0.80
+    severity_default: 0.82
+    specificity: 0.70
+    false_positive_risk: medium
+    review_rank_default: 0.82
+  - rule_no: P.11
+    section: P
+    title: Encapsulate messy constructs, rather than spreading through the code
+    summary: Low-level, messy, or platform-specific constructs should be isolated behind safer interfaces.
+    text: Encapsulate brittle low-level details so most code depends on clear, maintainable abstractions.
+    category: wrapper_usage
+    trigger_patterns: [direct_system_call, direct_system_header]
+    fix_guidance: Wrap low-level or platform-sensitive behavior behind a narrow abstraction instead of spreading it through call sites.
+    base_score: 0.71
+    severity_default: 0.72
+    specificity: 0.69
+    false_positive_risk: medium
+    review_rank_default: 0.72
+  - rule_no: E.19
+    section: E
+    title: Use a final_action object to express cleanup if no suitable resource handle is available
+    summary: When RAII is not immediately available, cleanup should still be captured explicitly and locally.
+    text: Express cleanup with a structured final-action helper rather than scattered manual cleanup branches.
+    category: memory
+    trigger_patterns: [malloc_free, direct_system_call]
+    fix_guidance: Prefer a scope-bound cleanup helper or equivalent local cleanup abstraction when direct RAII is unavailable.
+    base_score: 0.77
+    severity_default: 0.79
+    specificity: 0.76
+    false_positive_risk: medium
+    review_rank_default: 0.79
+  - rule_no: F.48
+    section: F
+    title: Don’t return std::move(local)
+    summary: Returning a local object should rely on move elision or implicit move, not an explicit std::move.
+    text: Explicit std::move on a local return value blocks return value optimization and usually pessimizes the code.
+    category: general
+    trigger_patterns: [return_move_local]
+    fix_guidance: Return the local object directly and let the compiler apply move elision or implicit move.
+    base_score: 0.69
+    severity_default: 0.70
+    specificity: 0.78
+    false_positive_risk: medium
+    review_rank_default: 0.70

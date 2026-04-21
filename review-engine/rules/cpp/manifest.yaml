@@ -1,0 +1,8 @@
+schema_version: 1
+language_id: cpp
+pack_files:
+  - packs/cpp_core.yaml
+profile_files:
+  - profiles/default.yaml
+policy_files:
+  - policies/cpp_default.yaml

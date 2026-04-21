@@ -1,8 +1,10 @@
 from __future__ import annotations
 
-from review_engine.config import Settings, load_json_file
-from review_engine.models import CandidateHit, QueryAnalysis
-from review_engine.query.cpp_feature_extractor import PATTERN_RULE_HINTS, collect_hinted_rules
+from functools import cmp_to_key
+
+from review_engine.config import Settings
+from review_engine.models import CandidateHit, PriorityPolicy, QueryAnalysis
+from review_engine.query.cpp_feature_extractor import collect_hinted_rules
 from review_engine.text_utils import tokenize
 
 
@@ -11,37 +13,109 @@ def rerank_candidates(
     query_analysis: QueryAnalysis,
     settings: Settings,
     top_k: int = 10,
+    *,
+    policy: PriorityPolicy | None = None,
 ) -> list[CandidateHit]:
-    authority_scores = load_json_file(settings.source_priority_path)["authority_scores"]
+    del settings
+    effective_policy = policy or PriorityPolicy(policy_id="default")
     filtered = [
         candidate
         for candidate in candidates
-        if candidate.record.conflict_policy not in {"excluded", "overridden"}
+        if candidate.record.conflict_action not in {"excluded", "overridden"}
     ]
 
     for candidate in filtered:
-        candidate.authority_score = float(authority_scores[candidate.record.source_family])
+        candidate.pack_weight_score = float(candidate.record.pack_weight)
         candidate.pattern_boost = _pattern_boost(candidate, query_analysis)
         candidate.final_score = round(
             candidate.similarity_score * 0.45
-            + candidate.authority_score * 0.20
-            + candidate.record.priority * 0.20
+            + candidate.pack_weight_score * 0.20
+            + candidate.record.base_score * 0.20
             + candidate.record.severity_default * 0.10
             + candidate.pattern_boost * 0.05,
             4,
         )
 
     filtered.sort(
-        key=lambda candidate: (
-            candidate.final_score,
-            _hint_match_count(candidate, query_analysis),
-            candidate.record.review_rank_default,
-            candidate.record.source_family == "altibase",
-            candidate.record.priority,
-        ),
-        reverse=True,
+        key=cmp_to_key(
+            lambda left, right: _compare_candidates(
+                left,
+                right,
+                effective_policy,
+            )
+        )
     )
     return filtered[:top_k]
+
+
+def _compare_candidates(
+    left: CandidateHit,
+    right: CandidateHit,
+    policy: PriorityPolicy,
+) -> int:
+    for breaker in policy.tie_breakers:
+        breaker_cmp = _compare_tie_breaker(left, right, breaker, policy)
+        if breaker_cmp != 0:
+            return breaker_cmp
+
+    final_cmp = _compare_desc(left.final_score, right.final_score)
+    if final_cmp != 0:
+        return final_cmp
+
+    left_id = left.record.id or left.record.rule_no
+    right_id = right.record.id or right.record.rule_no
+    if left_id < right_id:
+        return -1
+    if left_id > right_id:
+        return 1
+    return 0
+
+
+def _compare_tie_breaker(
+    left: CandidateHit,
+    right: CandidateHit,
+    breaker: str,
+    policy: PriorityPolicy,
+) -> int:
+    if breaker == "explicit_override":
+        return _compare_desc(
+            int(left.record.explicit_override),
+            int(right.record.explicit_override),
+        )
+    if breaker == "higher_tier":
+        rank_map = _tier_rank_map(policy)
+        return _compare_desc(
+            rank_map.get(left.record.priority_tier, 0),
+            rank_map.get(right.record.priority_tier, 0),
+        )
+    if breaker == "higher_specificity":
+        return _compare_desc(left.record.specificity, right.record.specificity)
+    if breaker == "higher_base_score":
+        return _compare_desc(left.record.base_score, right.record.base_score)
+    if breaker == "higher_pack_weight":
+        return _compare_desc(left.record.pack_weight, right.record.pack_weight)
+    if breaker == "lexical_rule_id":
+        left_id = left.record.id or left.record.rule_no
+        right_id = right.record.id or right.record.rule_no
+        if left_id < right_id:
+            return -1
+        if left_id > right_id:
+            return 1
+        return 0
+    return 0
+
+
+def _tier_rank_map(policy: PriorityPolicy) -> dict[str, int]:
+    highest = len(policy.tier_order)
+    return {tier: highest - index for index, tier in enumerate(policy.tier_order)}
+
+
+def _compare_desc(left: float | int, right: float | int) -> int:
+    if left > right:
+        return -1
+    if left < right:
+        return 1
+    return 0
 
 
 def _pattern_boost(candidate: CandidateHit, query_analysis: QueryAnalysis) -> float:
@@ -68,15 +142,3 @@ def _pattern_boost(candidate: CandidateHit, query_analysis: QueryAnalysis) -> fl
     if total_weight == 0.0:
         return 0.0
     return round(min(1.0, matched_weight / total_weight), 4)
-
-
-def _exact_hint_match(candidate: CandidateHit, query_analysis: QueryAnalysis) -> bool:
-    return any(
-        candidate.record.rule_no in PATTERN_RULE_HINTS.get(pattern.name, [])
-        for pattern in query_analysis.patterns
-    )
-
-
-def _hint_match_count(candidate: CandidateHit, query_analysis: QueryAnalysis) -> int:
-    hinted_rules = collect_hinted_rules(query_analysis.patterns, direct_only=True)
-    return 1 if candidate.record.rule_no in hinted_rules else 0

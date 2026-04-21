@@ -1,13 +1,13 @@
 # 리뷰 시스템
 
-Altibase 사내 코딩 컨벤션과 호환 가능한 C++ Core Guidelines를 함께 사용하는
-사내 우선 C++ 가이드라인 검색 MVP입니다.
+공개 `cpp_core` 규칙팩과 선택적 extension을 사용해 C++ 코드와 diff를 검색/리뷰하는
+가이드라인 엔진입니다.
 
 ## 주요 기능
 
-- `CODING_CONVENTION.md`를 규칙 레코드로 파싱합니다.
-- 공식 C++ Core Guidelines를 가져와 규칙 레코드로 파싱합니다.
-- 사내 정책에 의해 덮어쓰이거나 충돌하는 외부 규칙을 제외합니다.
+- `rules/cpp/` canonical YAML root에서 public rule pack, profile, priority policy를 로드합니다.
+- filesystem root 또는 entry point 기반 extension rule root / prompt overlay를 합성합니다.
+- priority policy로 active/reference/excluded 규칙셋을 계산합니다.
 - 활성 규칙을 결정론적 로컬 임베딩 기반으로 ChromaDB에 저장합니다.
 - CLI와 FastAPI 서비스로 C++ 코드 또는 diff를 리뷰합니다.
 
@@ -25,10 +25,13 @@ uv run python -m review_engine.cli.ingest_guidelines
 
 이 명령은 다음 정규화 산출물을 생성합니다.
 
-- `data/altibase_coding_convention_rules.json`
-- `data/cpp_core_guidelines_rules.json`
 - `data/active_guideline_records.json`
+- `data/reference_guideline_records.json`
+- `data/excluded_guideline_records.json`
 - `data/chroma/`
+
+기본 런타임 프로필은 `cpp/default`입니다. public-only 실행에서는 `review-engine/rules/cpp/`
+아래 canonical YAML만 사용합니다.
 
 ## CLI 사용법
 
@@ -51,7 +54,6 @@ uv run python -m review_engine.cli.review_cpp_diff \
 단일 규칙 조회:
 
 ```bash
-uv run python -m review_engine.cli.inspect_rule --rule ALTI-MEM-007
 uv run python -m review_engine.cli.inspect_rule --rule R.11
 ```
 
@@ -85,7 +87,7 @@ curl -X POST http://127.0.0.1:8000/ingest
 curl -X POST http://127.0.0.1:8000/review/code \
   -H "Content-Type: application/json" \
   -d '{"code":"#include <stdio.h>\nvoid bad(){ int* ptr = new int(1); free(ptr); }\n","top_k":5}'
-curl http://127.0.0.1:8000/rule/ALTI-MEM-007
+curl http://127.0.0.1:8000/rule/R.10
 ```
 
 ## 테스트
@@ -100,7 +102,7 @@ uv run ruff check .
 
 ## 확장 분석
 
-실제 외부 Altibase 코드베이스 전체를 대상으로 컨벤션 패턴 후보를 스캔하려면 아래
+실제 외부 C/C++ 코드베이스 전체를 대상으로 패턴 후보를 스캔하려면 아래
 명령을 사용할 수 있습니다.
 
 ```bash

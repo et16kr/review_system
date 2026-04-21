@@ -1,35 +1,35 @@
 [
   {
     "input": "examples/altidev4/queue_perf_memory_and_rc.cpp",
-    "expected_rules": ["ALTI-MEM-007", "ALTI-PCM-002"]
+    "expected_rules": ["R.10", "R.11", "R.12"]
   },
   {
     "input": "examples/altidev4/stackwalker_switch_and_free.cpp",
-    "expected_rules": ["ALTI-COF-002", "ALTI-MEM-007", "ALTI-PCM-002"]
+    "expected_rules": ["R.10", "E.19", "ES.78"]
   },
   {
     "input": "examples/altidev4/mydump_manual_memory.cpp",
-    "expected_rules": ["ALTI-MEM-007", "ALTI-PCM-005", "ALTI-DCL-008"]
+    "expected_rules": ["R.10", "R.11", "R.12"]
   },
   {
     "input": "examples/altidev4/idu_shm_dump_for_initializer.cpp",
-    "expected_rules": ["ALTI-COF-006", "ALTI-PCM-005", "ALTI-DCL-008"]
+    "expected_rules": ["SL.io.3", "ES.34", "ES.6"]
   },
   {
     "input": "examples/altidev4/sdpjl_portability_headers.cpp",
-    "expected_rules": ["ALTI-PRE-004", "ALTI-PRE-002", "ALTI-TYC-001"]
+    "expected_rules": ["SF.13", "I.4"]
   },
   {
     "input": "examples/altidev4/idu_limit_continue.cpp",
-    "expected_rules": ["ALTI-COF-001", "ALTI-PCM-002"]
+    "expected_rules": ["ES.77", "P.11"]
   },
   {
     "input": "examples/altidev4/rps_sm_executor_cleanup.cpp",
-    "expected_rules": ["ALTI-MEM-006", "ALTI-MEM-007", "R.1"]
+    "expected_rules": ["R.10", "R.1", "E.19"]
   },
   {
     "input": "examples/altidev4_diffs/queue_perf_memory_and_rc.diff",
-    "expected_rules": ["ALTI-MEM-007", "ALTI-PCM-002"]
+    "expected_rules": ["R.10", "R.11", "R.12"]
   },
   {
     "input": "examples/altidev4_diffs/ids_tde_rc_cleanup_flow.diff",
@@ -37,30 +37,30 @@
   },
   {
     "input": "examples/altidev4_diffs/stackwalker_switch_and_free.diff",
-    "expected_rules": ["ALTI-COF-002", "ALTI-MEM-007", "ALTI-PCM-002"]
+    "expected_rules": ["R.10", "E.19", "ES.78"]
   },
   {
     "input": "examples/altidev4_diffs/sdpjl_portability.diff",
-    "expected_rules": ["ALTI-PRE-004", "ALTI-PCM-005", "ALTI-TYC-001"]
+    "expected_rules": ["SL.io.3", "SF.13", "P.11"]
   },
   {
     "input": "examples/altidev4_diffs/idu_limit_continue.diff",
-    "expected_rules": ["ALTI-COF-001", "ALTI-PCM-002"]
+    "expected_rules": ["ES.77", "P.11"]
   },
   {
     "input": "examples/altidev4_diffs/rps_cleanup.diff",
-    "expected_rules": ["ALTI-MEM-006", "ALTI-MEM-007", "R.1"]
+    "expected_rules": ["R.10", "R.1", "E.19"]
   },
   {
     "input": "examples/raw_pointer_example.cpp",
-    "expected_rules": ["ALTI-MEM-007", "ALTI-COM-001", "R.11"]
+    "expected_rules": ["R.10", "R.11", "R.12"]
   },
   {
     "input": "examples/altibase_portability_example.cpp",
-    "expected_rules": ["ALTI-PCM-002", "ALTI-PRE-004", "ALTI-TYC-001"]
+    "expected_rules": ["SL.io.3", "SF.13", "I.4"]
   },
   {
     "input": "examples/manual_memory.diff",
-    "expected_rules": ["ALTI-MEM-006", "ALTI-MEM-007", "R.10"]
+    "expected_rules": ["R.10", "R.11", "R.12"]
   }
 ]

@@ -27,12 +27,26 @@ class StubReviewCommentProvider(ReviewCommentProvider):
         line_no: int | None = None,
         candidate_line_nos: tuple[int, ...] = (),
         file_context: str | None = None,
+        language_id: str | None = None,
+        profile_id: str | None = None,
+        prompt_overlay_refs: list[str] | tuple[str, ...] | None = None,
         pr_title: str | None = None,
         pr_source_branch: str | None = None,
         pr_target_branch: str | None = None,
         similar_code: list[dict] | None = None,
     ) -> FindingDraft:
-        del rule_no, rule_text, file_context, pr_title, pr_source_branch, pr_target_branch, similar_code
+        del (
+            rule_no,
+            rule_text,
+            file_context,
+            language_id,
+            profile_id,
+            prompt_overlay_refs,
+            pr_title,
+            pr_source_branch,
+            pr_target_branch,
+            similar_code,
+        )
 
         excerpt = extract_changed_excerpt(change_snippet or "")
         issue = classify_issue(excerpt, category, title, summary)
@@ -67,6 +81,9 @@ class StubReviewCommentProvider(ReviewCommentProvider):
         line_no: int | None = None,
         candidate_line_nos: tuple[int, ...] = (),
         file_context: str | None = None,
+        language_id: str | None = None,
+        profile_id: str | None = None,
+        prompt_overlay_refs: list[str] | tuple[str, ...] | None = None,
         pr_title: str | None = None,
         pr_source_branch: str | None = None,
         pr_target_branch: str | None = None,
@@ -82,6 +99,9 @@ class StubReviewCommentProvider(ReviewCommentProvider):
             line_no,
             candidate_line_nos,
             file_context,
+            language_id,
+            profile_id,
+            prompt_overlay_refs,
             pr_title,
             pr_source_branch,
             pr_target_branch,

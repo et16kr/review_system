@@ -113,6 +113,9 @@ def _result(rule_no: str = "ALTI-MEM-007", *, score: float = 0.82,
 class EngineStub:
     results: list[dict]
     detected_patterns: list[str] | None = None
+    language_id: str = "cpp"
+    profile_id: str = "default"
+    prompt_overlay_refs: list[str] | None = None
 
     def review_diff(self, diff, top_k=8, *, file_path=None, file_context=None):
         del diff
@@ -120,6 +123,9 @@ class EngineStub:
         self.last_file_path = file_path
         self.last_file_context = file_context
         return {
+            "language_id": self.language_id,
+            "profile_id": self.profile_id,
+            "prompt_overlay_refs": list(self.prompt_overlay_refs or []),
             "detected_patterns": list(self.detected_patterns or []),
             "results": [dict(r) for r in self.results],
         }
@@ -498,7 +504,11 @@ class TestPhase2Quality:
         key = runner._legacy_key(4003)
         adapter.set_diff(key, path="src/a.cpp", patch=_malloc_patch())
         runner.platform_client = adapter
-        runner.engine_client = EngineStub([_result()])
+        runner.engine_client = EngineStub(
+            [_result()],
+            profile_id="org-default",
+            prompt_overlay_refs=["release-branch"],
+        )
         runner.provider = CapturingProvider()
 
         session = SessionLocal()
@@ -506,6 +516,9 @@ class TestPhase2Quality:
             runner.run_review(session, pr_id=4003, trigger="test")
             assert "pr_title" in captured, "pr_title이 build_draft에 전달되지 않았습니다"
             assert captured.get("pr_source_branch") is not None
+            assert captured.get("language_id") == "cpp"
+            assert captured.get("profile_id") == "org-default"
+            assert captured.get("prompt_overlay_refs") == ["release-branch"]
         finally:
             session.close()
 
@@ -982,7 +995,7 @@ class TestPhase4Advanced:
 
         # 에러 처리 카테고리
         hint_error = _AGENT_HINTS.get("error_handling", "")
-        assert "IDE_RC" in hint_error or "IDE_TEST" in hint_error
+        assert "실패 경로" in hint_error or "cleanup" in hint_error or "조기 반환" in hint_error
 
         # naming 카테고리
         hint_naming = _AGENT_HINTS.get("naming", "")

@@ -20,9 +20,9 @@ def test_retrieval_prefers_pattern_hint_rules(fixture_settings) -> None:
     response = service.review_code(code, top_k=6)
     returned_rules = [result.rule_no for result in response.results]
 
-    assert "ALTI-MEM-007" in returned_rules
-    assert "ALTI-COM-001" in returned_rules
-    assert any(rule in returned_rules for rule in {"R.10", "R.11"})
+    assert "R.10" in returned_rules
+    assert "R.11" in returned_rules
+    assert "R.12" in returned_rules
 
 
 def test_retrieval_does_not_force_rule_r_for_ide_rc_declaration_only(fixture_settings) -> None:
@@ -46,7 +46,7 @@ def test_retrieval_does_not_force_rule_r_for_ide_rc_declaration_only(fixture_set
     assert "Rule-R3" not in returned_rules
 
 
-def test_retrieval_returns_no_results_for_clean_altibase_typed_code(fixture_settings) -> None:
+def test_retrieval_returns_no_results_for_clean_typed_code(fixture_settings) -> None:
     ingest_all_sources(fixture_settings)
     service = GuidelineSearchService(fixture_settings)
     code = """

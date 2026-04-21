@@ -10,7 +10,7 @@ from review_engine.query.repository_scan import render_repo_scan_markdown, scan_
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Scan a C/C++ codebase for likely Altibase and C++ guideline patterns."
+        description="Scan a C/C++ codebase for likely public guideline patterns."
     )
     parser.add_argument("--root", required=True, help="Repository or source root to scan.")
     parser.add_argument(

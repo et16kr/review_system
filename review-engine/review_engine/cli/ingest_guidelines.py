@@ -7,7 +7,9 @@ from review_engine.retrieve.search import GuidelineSearchService
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Ingest Altibase and C++ guideline sources.")
+    parser = argparse.ArgumentParser(
+        description="Ingest the canonical public C++ rule root and optional extensions.",
+    )
     parser.add_argument("--force-refresh", action="store_true", help="Refresh cached HTML source.")
     args = parser.parse_args()
 

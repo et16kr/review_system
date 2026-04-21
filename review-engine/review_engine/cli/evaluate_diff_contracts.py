@@ -9,7 +9,7 @@ from review_engine.retrieve.search import GuidelineSearchService
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Evaluate Altibase diff contract examples against expected rules.",
+        description="Evaluate bundled diff contract examples against expected rules.",
     )
     parser.add_argument(
         "--spec",

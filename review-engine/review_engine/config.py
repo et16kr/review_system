@@ -8,21 +8,32 @@ from pathlib import Path
 from typing import Any
 
 
+def _split_path_env(name: str) -> tuple[Path, ...]:
+    raw = os.getenv(name, "")
+    if not raw.strip():
+        return ()
+    return tuple(
+        Path(item).expanduser().resolve()
+        for item in raw.split(os.pathsep)
+        if item.strip()
+    )
+
+
 @dataclass(frozen=True)
 class Settings:
     project_root: Path
     data_dir: Path
     examples_dir: Path
-    internal_guideline_path: Path
-    cpp_core_html_cache: Path
-    parsed_altibase_path: Path
-    parsed_cpp_core_path: Path
-    active_dataset_path: Path
-    source_priority_path: Path
-    conflict_rules_path: Path
-    disabled_cpp_rules_path: Path
-    chroma_path: Path
-    collection_name: str
+    internal_guideline_path: Path | None = None
+    cpp_core_html_cache: Path | None = None
+    parsed_altibase_path: Path | None = None
+    parsed_cpp_core_path: Path | None = None
+    active_dataset_path: Path | None = None
+    source_priority_path: Path | None = None
+    conflict_rules_path: Path | None = None
+    disabled_cpp_rules_path: Path | None = None
+    chroma_path: Path | None = None
+    collection_name: str = "guideline_records"
     reference_dataset_path: Path | None = None
     excluded_dataset_path: Path | None = None
     review_profiles_path: Path | None = None
@@ -32,10 +43,18 @@ class Settings:
     chroma_host: str | None = None
     chroma_port: int | None = None
     embedding_provider: str = "hashing"
+    public_rule_root: Path | None = None
+    extension_rule_roots: tuple[Path, ...] = ()
+    default_profile_id: str = "default"
+    default_language_id: str = "cpp"
+    strict_extension_loading: bool = True
+    prompt_root: Path | None = None
+    extension_prompt_roots: tuple[Path, ...] = ()
+    extension_entry_point_group: str = "review_engine.rule_extensions"
 
     def dataset_path(self, kind: str) -> Path:
         if kind == "active":
-            return self.active_dataset_path
+            return self.active_dataset_path or (self.data_dir / "active_guideline_records.json")
         if kind == "reference":
             return self.reference_dataset_path or (
                 self.data_dir / "reference_guideline_records.json"
@@ -60,11 +79,17 @@ class Settings:
 def get_settings() -> Settings:
     project_root = Path(__file__).resolve().parents[1]
     data_dir = project_root / "data"
+    public_rule_root = Path(
+        os.getenv("REVIEW_ENGINE_PUBLIC_RULE_ROOT", project_root / "rules" / "cpp")
+    ).expanduser().resolve()
+    prompt_root = Path(
+        os.getenv("REVIEW_ENGINE_PROMPT_ROOT", project_root / "prompts")
+    ).expanduser().resolve()
     return Settings(
         project_root=project_root,
         data_dir=data_dir,
         examples_dir=project_root / "examples",
-        internal_guideline_path=project_root / "CODING_CONVENTION.md",
+        internal_guideline_path=None,
         cpp_core_html_cache=data_dir / "cpp_core_guidelines.html",
         parsed_altibase_path=data_dir / "altibase_coding_convention_rules.json",
         parsed_cpp_core_path=data_dir / "cpp_core_guidelines_rules.json",
@@ -83,6 +108,14 @@ def get_settings() -> Settings:
         chroma_host=os.getenv("REVIEW_ENGINE_CHROMA_HOST"),
         chroma_port=int(os.getenv("REVIEW_ENGINE_CHROMA_PORT", "8000")),
         embedding_provider=os.getenv("REVIEW_ENGINE_EMBEDDING_PROVIDER", "hashing"),
+        public_rule_root=public_rule_root,
+        extension_rule_roots=_split_path_env("REVIEW_ENGINE_EXTENSION_RULE_ROOTS"),
+        default_profile_id=os.getenv("REVIEW_ENGINE_DEFAULT_PROFILE", "default"),
+        default_language_id="cpp",
+        strict_extension_loading=os.getenv("REVIEW_ENGINE_STRICT_EXTENSION_LOADING", "1")
+        not in {"0", "false", "False"},
+        prompt_root=prompt_root,
+        extension_prompt_roots=_split_path_env("REVIEW_ENGINE_EXTENSION_PROMPT_ROOTS"),
     )
 
 

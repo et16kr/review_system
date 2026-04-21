@@ -1,28 +1,208 @@
 from __future__ import annotations
 
-from typing import Literal
+from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
+
+
+PriorityTier = Literal["reference", "default", "high", "override"]
+ConflictAction = Literal["compatible", "overridden", "excluded", "reference_only"]
+
+
+def _legacy_authority(source_kind: str) -> str:
+    if source_kind in {"organization_policy", "project_policy"}:
+        return "internal"
+    return "external"
+
+
+def _legacy_conflict_policy(conflict_action: str, priority_tier: str) -> str:
+    if priority_tier == "override" and conflict_action == "compatible":
+        return "authoritative"
+    return conflict_action
+
+
+def _default_namespace(source_kind: str) -> str:
+    if source_kind == "project_policy":
+        return "project"
+    if source_kind == "organization_policy":
+        return "organization"
+    return "public"
+
+
+def _build_embedding_text(
+    *,
+    rule_no: str,
+    section: str,
+    title: str,
+    summary: str,
+    keywords: list[str],
+    category: str,
+    reviewability: str,
+    trigger_patterns: list[str],
+    fix_guidance: str | None,
+    text: str,
+    pack_id: str,
+    language_id: str,
+) -> str:
+    return "\n".join(
+        [
+            f"rule_no: {rule_no}",
+            f"pack_id: {pack_id}",
+            f"language_id: {language_id}",
+            f"section: {section}",
+            f"title: {title}",
+            f"summary: {summary}",
+            f"keywords: {', '.join(keywords)}",
+            f"category: {category}",
+            f"reviewability: {reviewability}",
+            f"trigger_patterns: {', '.join(trigger_patterns)}",
+            f"fix_guidance: {fix_guidance or ''}",
+            f"text: {text}",
+        ]
+    ).strip()
+
+
+class RuleEntry(BaseModel):
+    rule_no: str
+    section: str
+    title: str
+    text: str
+    summary: str
+    keywords: list[str] = Field(default_factory=list)
+    category: str = "general"
+    reviewability: Literal["auto_review", "manual_only", "reference_only"] = "auto_review"
+    applies_to: list[str] = Field(default_factory=lambda: ["code", "diff"])
+    false_positive_risk: Literal["low", "medium", "high"] = "medium"
+    trigger_patterns: list[str] = Field(default_factory=list)
+    fix_guidance: str | None = None
+    bot_comment_template: str | None = None
+    review_rank_default: float | None = None
+    base_score: float | None = None
+    severity_default: float | None = None
+    priority_tier: PriorityTier | None = None
+    specificity: float = 0.5
+    stability: float = 0.5
+    default_action: ConflictAction = "compatible"
+    overrides: list[str] = Field(default_factory=list)
+    excluded_by: list[str] = Field(default_factory=list)
+    rationale: str | None = None
+
+
+class RulePackManifest(BaseModel):
+    schema_version: int = 1
+    pack_id: str
+    namespace: str = "public"
+    language_id: str = "cpp"
+    source_kind: str = "public_standard"
+    description: str = ""
+    default_enabled: bool = True
+    default_priority_tier: PriorityTier = "default"
+    profile_tags: list[str] = Field(default_factory=list)
+    plugin_refs: list[str] = Field(default_factory=list)
+    entries: list[RuleEntry] = Field(default_factory=list)
+
+
+class ProfileConfig(BaseModel):
+    schema_version: int = 1
+    profile_id: str
+    language_id: str = "cpp"
+    enabled_packs: list[str] = Field(default_factory=list)
+    shared_packs: list[str] = Field(default_factory=list)
+    prompt_overlay_refs: list[str] = Field(default_factory=list)
+    detector_refs: list[str] = Field(default_factory=list)
+    priority_policy_ref: str = "cpp_default"
+
+
+class PriorityPolicyMatch(BaseModel):
+    rule_id: str | None = None
+    rule_no: str | None = None
+    pack_id: str | None = None
+
+
+class PriorityPolicyOverride(BaseModel):
+    match: PriorityPolicyMatch
+    action: Literal["overridden", "excluded"] = "overridden"
+    overridden_by: list[str] = Field(default_factory=list)
+    rationale: str | None = None
+
+
+class PriorityPolicyExclusion(BaseModel):
+    match: PriorityPolicyMatch
+    rationale: str | None = None
+
+
+class PriorityPolicyDefaults(BaseModel):
+    conflict_action: ConflictAction = "compatible"
+    default_pack_weight: float = 0.5
+
+
+class PriorityPolicy(BaseModel):
+    schema_version: int = 1
+    policy_id: str
+    language_id: str = "cpp"
+    tier_order: list[PriorityTier] = Field(
+        default_factory=lambda: ["override", "high", "default", "reference"]
+    )
+    pack_weights: dict[str, float] = Field(default_factory=dict)
+    defaults: PriorityPolicyDefaults = Field(default_factory=PriorityPolicyDefaults)
+    tie_breakers: list[str] = Field(
+        default_factory=lambda: [
+            "explicit_override",
+            "higher_tier",
+            "higher_specificity",
+            "higher_base_score",
+            "higher_pack_weight",
+            "lexical_rule_id",
+        ]
+    )
+    overrides: list[PriorityPolicyOverride] = Field(default_factory=list)
+    exclusions: list[PriorityPolicyExclusion] = Field(default_factory=list)
+
+
+class RuleRootManifest(BaseModel):
+    schema_version: int = 1
+    language_id: str = "cpp"
+    pack_files: list[str] = Field(default_factory=list)
+    profile_files: list[str] = Field(default_factory=list)
+    policy_files: list[str] = Field(default_factory=list)
 
 
 class ParsedRule(BaseModel):
     rule_no: str
     source: str
-    source_family: Literal["altibase", "cpp_core"]
+    pack_id: str | None = None
+    source_kind: str = "public_standard"
+    language_id: str = "cpp"
+    namespace: str | None = None
+    source_family: str | None = None
     section: str
     title: str
     text: str
     summary: str
     keywords: list[str] = Field(default_factory=list)
 
+    @model_validator(mode="after")
+    def _sync_pack_and_legacy_source(self) -> ParsedRule:
+        pack_id = self.pack_id or self.source_family or "unknown"
+        self.pack_id = pack_id
+        self.source_family = self.source_family or pack_id
+        self.namespace = self.namespace or _default_namespace(self.source_kind)
+        return self
+
 
 class GuidelineRecord(ParsedRule):
-    id: str
-    authority: Literal["internal", "external"]
-    priority: float
-    severity_default: float
-    conflict_policy: Literal["authoritative", "compatible", "overridden", "excluded"]
-    embedding_text: str
+    id: str | None = None
+    base_score: float = 0.5
+    priority_tier: PriorityTier = "default"
+    pack_weight: float = 0.5
+    specificity: float = 0.5
+    explicit_override: bool = False
+    authority: str | None = None
+    priority: float | None = None
+    severity_default: float = 0.5
+    conflict_action: ConflictAction = "compatible"
+    conflict_policy: str | None = None
+    embedding_text: str | None = None
     overridden_by: list[str] = Field(default_factory=list)
     conflict_reason: str | None = None
     active: bool = True
@@ -35,20 +215,59 @@ class GuidelineRecord(ParsedRule):
     fix_guidance: str | None = None
     review_rank_default: float = 0.5
 
+    @model_validator(mode="after")
+    def _sync_runtime_aliases(self) -> GuidelineRecord:
+        self.id = self.id or f"{self.pack_id}:{self.rule_no}"
+        self.source_family = self.source_family or self.pack_id
+        self.authority = self.authority or _legacy_authority(self.source_kind)
+        self.priority = self.base_score if self.priority is None else self.priority
+        self.conflict_policy = self.conflict_policy or _legacy_conflict_policy(
+            self.conflict_action,
+            self.priority_tier,
+        )
+        if self.review_rank_default == 0.5 and self.base_score != 0.5:
+            self.review_rank_default = round(self.base_score, 4)
+        if not self.embedding_text:
+            self.embedding_text = _build_embedding_text(
+                rule_no=self.rule_no,
+                section=self.section,
+                title=self.title,
+                summary=self.summary,
+                keywords=self.keywords,
+                category=self.category,
+                reviewability=self.reviewability,
+                trigger_patterns=self.trigger_patterns,
+                fix_guidance=self.fix_guidance,
+                text=self.text,
+                pack_id=self.pack_id or "unknown",
+                language_id=self.language_id,
+            )
+        return self
+
     def chroma_metadata(self) -> dict[str, float | int | str | bool]:
         return {
             "rule_no": self.rule_no,
             "source": self.source,
-            "source_family": self.source_family,
-            "authority": self.authority,
+            "pack_id": self.pack_id or "",
+            "source_kind": self.source_kind,
+            "language_id": self.language_id,
+            "namespace": self.namespace or "",
+            "source_family": self.source_family or "",
+            "authority": self.authority or "",
             "section": self.section,
             "title": self.title,
             "summary": self.summary,
             "text": self.text,
             "keywords": ",".join(self.keywords),
-            "priority": self.priority,
+            "priority": self.priority if self.priority is not None else self.base_score,
+            "base_score": self.base_score,
+            "priority_tier": self.priority_tier,
+            "pack_weight": self.pack_weight,
+            "specificity": self.specificity,
+            "explicit_override": self.explicit_override,
             "severity_default": self.severity_default,
-            "conflict_policy": self.conflict_policy,
+            "conflict_policy": self.conflict_policy or "",
+            "conflict_action": self.conflict_action,
             "overridden_by": ",".join(self.overridden_by),
             "conflict_reason": self.conflict_reason or "",
             "active": self.active,
@@ -72,6 +291,9 @@ class QueryPattern(BaseModel):
 
 class QueryAnalysis(BaseModel):
     input_kind: Literal["code", "diff"]
+    language_id: str = "cpp"
+    profile_id: str = "default"
+    detector_refs: list[str] = Field(default_factory=list)
     query_text: str
     patterns: list[QueryPattern] = Field(default_factory=list)
 
@@ -80,7 +302,7 @@ class CandidateHit(BaseModel):
     record: GuidelineRecord
     distance: float
     similarity_score: float
-    authority_score: float = 0.0
+    pack_weight_score: float = 0.0
     pattern_boost: float = 0.0
     final_score: float = 0.0
 
@@ -99,9 +321,18 @@ class ReviewResult(BaseModel):
     category: str
     reviewability: str
     fix_guidance: str | None = None
+    pack_id: str | None = None
+    source_kind: str | None = None
+    priority_tier: str | None = None
+    pack_weight: float | None = None
+    language_id: str | None = None
+    conflict_action: str | None = None
 
 
 class ReviewResponse(BaseModel):
+    language_id: str = "cpp"
+    profile_id: str = "default"
+    prompt_overlay_refs: list[str] = Field(default_factory=list)
     query_text: str
     detected_patterns: list[str]
     results: list[ReviewResult]
@@ -121,18 +352,21 @@ class ReviewDiffRequest(BaseModel):
 
 class IngestionSummary(BaseModel):
     total_parsed: int
-    altibase_records: int
-    cpp_core_records: int
+    altibase_records: int = 0
+    cpp_core_records: int = 0
     active_records: int
     reference_records: int = 0
     excluded_records: int
-    source_html_cache: str
+    source_html_cache: str = ""
     active_dataset_path: str
     reference_dataset_path: str | None = None
     excluded_dataset_path: str | None = None
-    parsed_altibase_path: str
-    parsed_cpp_core_path: str
+    parsed_altibase_path: str = ""
+    parsed_cpp_core_path: str = ""
     collections: dict[str, int] = Field(default_factory=dict)
+    parsed_pack_counts: dict[str, int] = Field(default_factory=dict)
+    public_rule_root: str | None = None
+    extension_rule_roots: list[str] = Field(default_factory=list)
 
 
 class ConflictResolutionResult(BaseModel):
@@ -155,3 +389,17 @@ class RepoScanReport(BaseModel):
     matched_files: int
     aggregate_patterns: dict[str, int] = Field(default_factory=dict)
     findings: list[RepoFileFinding] = Field(default_factory=list)
+
+
+class LoadedRuleContext(BaseModel):
+    language_id: str
+    profile: ProfileConfig
+    policy: PriorityPolicy
+    active_records: list[GuidelineRecord]
+    reference_records: list[GuidelineRecord]
+    excluded_records: list[GuidelineRecord]
+    parsed_pack_counts: dict[str, int] = Field(default_factory=dict)
+    public_rule_root: str | None = None
+    extension_rule_roots: list[str] = Field(default_factory=list)
+    prompt_overlay_refs: list[str] = Field(default_factory=list)
+    detector_refs: list[str] = Field(default_factory=list)

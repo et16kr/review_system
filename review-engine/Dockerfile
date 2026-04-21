@@ -4,7 +4,7 @@ WORKDIR /app
 
 RUN pip install --no-cache-dir uv
 
-COPY pyproject.toml uv.lock README.md CODING_CONVENTION.md ./
+COPY pyproject.toml uv.lock README.md ./
 COPY review_engine ./review_engine
 COPY data ./data
 COPY examples ./examples

@@ -9,16 +9,15 @@
       "direct_system_call"
     ],
     "expected_rules": [
-      "ALTI-MEM-007",
-      "ALTI-PCM-002"
+      "R.10",
+      "R.11",
+      "R.12"
     ]
   },
   {
     "example_path": "examples/altidev4_diffs/ids_tde_rc_cleanup_flow.diff",
     "source_path": "src/id/ids/idsTde.cpp",
-    "focus_patterns": [
-      "ide_rc_flow"
-    ],
+    "focus_patterns": [],
     "expected_rules": []
   },
   {
@@ -30,9 +29,9 @@
       "switch_without_default"
     ],
     "expected_rules": [
-      "ALTI-COF-002",
-      "ALTI-MEM-007",
-      "ALTI-PCM-002"
+      "R.10",
+      "E.19",
+      "ES.78"
     ]
   },
   {
@@ -45,9 +44,9 @@
       "primitive_types"
     ],
     "expected_rules": [
-      "ALTI-PRE-004",
-      "ALTI-PCM-005",
-      "ALTI-TYC-001"
+      "SL.io.3",
+      "SF.13",
+      "P.11"
     ]
   },
   {
@@ -58,8 +57,8 @@
       "direct_system_call"
     ],
     "expected_rules": [
-      "ALTI-COF-001",
-      "ALTI-PCM-002"
+      "ES.77",
+      "P.11"
     ]
   },
   {
@@ -70,9 +69,9 @@
       "direct_system_call"
     ],
     "expected_rules": [
-      "ALTI-MEM-006",
-      "ALTI-MEM-007",
-      "R.1"
+      "R.10",
+      "R.1",
+      "E.19"
     ]
   }
 ]

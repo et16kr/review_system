@@ -24,9 +24,52 @@ def test_review_code_api_shape(monkeypatch, fixture_settings) -> None:
 
     assert response.status_code == 200
     payload = response.json()
-    assert set(payload) == {"query_text", "detected_patterns", "results"}
+    assert set(payload) == {
+        "language_id",
+        "profile_id",
+        "prompt_overlay_refs",
+        "query_text",
+        "detected_patterns",
+        "results",
+    }
+    assert payload["language_id"] == "cpp"
+    assert payload["profile_id"] == "default"
+    assert payload["prompt_overlay_refs"] == []
     assert isinstance(payload["results"], list)
-    assert {"rule_no", "title", "score"} <= set(payload["results"][0])
+    assert {
+        "rule_no",
+        "title",
+        "score",
+        "source_family",
+        "authority",
+        "conflict_policy",
+        "pack_id",
+        "source_kind",
+        "priority_tier",
+        "pack_weight",
+        "language_id",
+        "conflict_action",
+    } <= set(payload["results"][0])
+
+
+def test_rule_api_returns_legacy_and_canonical_metadata(monkeypatch, fixture_settings) -> None:
+    ingest_all_sources(fixture_settings)
+    monkeypatch.setattr(api_main, "service", GuidelineSearchService(fixture_settings))
+    client = TestClient(api_main.app)
+
+    response = client.get("/rule/R.10")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["rule_no"] == "R.10"
+    assert payload["source_family"] == "cpp_core"
+    assert payload["authority"] == "external"
+    assert payload["conflict_policy"] == "authoritative"
+    assert payload["pack_id"] == "cpp_core"
+    assert payload["source_kind"] == "public_standard"
+    assert payload["priority_tier"] == "override"
+    assert payload["language_id"] == "cpp"
+    assert payload["conflict_action"] == "compatible"
 
 
 def test_codebase_index_rejects_root_outside_allowed_roots(tmp_path: Path) -> None:

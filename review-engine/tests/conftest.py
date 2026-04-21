@@ -45,7 +45,7 @@ def real_settings(tmp_path_factory) -> Settings:
         project_root=project_root,
         data_dir=data_dir,
         examples_dir=project_root / "examples",
-        internal_guideline_path=project_root / "CODING_CONVENTION.md",
+        internal_guideline_path=None,
         cpp_core_html_cache=project_root / "data" / "cpp_core_guidelines.html",
         parsed_altibase_path=data_dir / "altibase_rules.json",
         parsed_cpp_core_path=data_dir / "cpp_core_rules.json",

@@ -41,8 +41,7 @@ def test_altidev4_queue_perf_patterns_are_detected_from_local_snippet() -> None:
     names = {pattern.name for pattern in analysis.patterns}
 
     assert {"raw_new", "malloc_free", "manual_delete", "direct_system_call"} <= names
-    assert "ide_rc_flow" in names
-    assert "IDE_RC return pattern detected" in analysis.query_text
+    assert "ide_rc_flow" not in names
 
 
 def test_altidev4_stackwalker_excerpt_detects_switch_and_free_patterns() -> None:
@@ -68,7 +67,6 @@ def test_repository_scan_handles_repo_local_altidev4_snippets() -> None:
     assert "raw_new" in report.aggregate_patterns
     assert "switch_without_default" in report.aggregate_patterns
     assert "direct_system_header" in report.aggregate_patterns
-    assert "ide_rc_flow" in report.aggregate_patterns
 
 
 def test_altidev4_snippet_manifest_expected_rules_are_returned(real_search_service) -> None:
