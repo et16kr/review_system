@@ -1,12 +1,27 @@
 # Review Bot Repeat / Feedback Policy Design
 
-- 문서 상태: Ready For Implementation
+- 문서 상태: Implemented Reference
 - 작성일: 2026-04-21
+- 최종 갱신일: 2026-04-21
 - 대상 독자: AI agent, 구현 담당자
 - 관련 문서:
   - `docs/REVIEW_BOT_ADDITIONAL_IDEAS.md`
   - `docs/REVIEW_BOT_REDESIGN_DESIGN.md`
   - `docs/API_CONTRACTS.md`
+
+## 0. 현재 반영 상태
+
+이 문서는 반복 지적 / feedback 정책의 상세 설계 기준으로 작성되었고,
+현재 트리에는 핵심 정책이 이미 반영되어 있다.
+
+- unchanged open thread reminder reply는 기본값으로 꺼져 있다.
+- `bot:ignore`, `bot:false-positive`, `bot:later`, `bot:allow`가 모두 지원된다.
+- `later`와 `resolved + unchanged`는 inline 재게시보다 backlog 쪽으로 표현된다.
+- summary는 실제 게시 수와 backlog / feedback suppress 상태를 구분해 보여 준다.
+- full-report / backlog 노출 정책은 `docs/REVIEW_BOT_BACKLOG_ANALYTICS_AND_COMMAND_UX_DESIGN.md`와 `docs/API_CONTRACTS.md`에 현재 기준이 정리되어 있다.
+
+즉 이 문서는 구현 전 할 일 목록이라기보다,
+현재 정책이 왜 그렇게 되어 있는지 설명하는 reference 문서로 읽는 편이 맞다.
 
 ## 1. 목적
 
@@ -36,21 +51,21 @@ AI agent가 바로 구현 작업으로 옮길 수 있도록 상세화한다.
 
 ### 2.2 현재 UX가 거친 부분
 
-- full/manual rerun에서 open thread가 그대로 남아 있으면 reminder reply를 추가로 단다.
-  - `_should_resurface_open_thread()`
-  - `_render_reminder_comment()`
+- 기본 설정에서는 full/manual rerun에서도 unchanged open thread에 reminder reply를 추가로 달지 않는다.
+  - `_should_resurface_open_thread()`는 feature flag 기반 opt-in 동작이다.
 - 일반 `resolve`는 suppress가 아니라 score penalty에 가깝다.
   - `_was_previously_resolved()`
   - `_score_candidate()`
-- summary는 현재 "이번에 게시된 항목"만 보여 주며,
-  "이미 열린 backlog를 재게시하지 않았다"는 상태는 설명하지 않는다.
+- summary는 현재 "실제 게시된 항목"과
+  "이미 열린 backlog / later / feedback suppress" 상태를 구분해 설명한다.
 
 ### 2.3 현재 상태의 의미
 
 즉, 현재 정책은 다음에 가깝다.
 
 - "문제가 남아 있으면 다시 잡아낸다"는 점은 맞다.
-- 하지만 "같은 open thread에 대해 다시 새 bot reply를 남긴다"는 기본값이 사용자 피로를 키울 수 있다.
+- 다만 `resolve`/`later`/`ignore`의 의미를 사용자가 얼마나 직관적으로 느끼는지는
+  앞으로도 계속 다듬을 여지가 있다.
 
 ## 3. 목표 정책
 
@@ -72,21 +87,22 @@ AI agent가 바로 구현 작업으로 옮길 수 있도록 상세화한다.
 
 ### 3.2 이번 설계의 구현 범위
 
-이번 문서는 아래 2단계 구현을 전제로 한다.
+이 문서는 원래 아래 2단계 구현을 전제로 썼고,
+현재는 대부분 완료된 상태다.
 
 #### Phase 1
 
-- full/manual rerun의 open-thread reminder reply 기본값 비활성화
-- `bot:false-positive`, `bot:later` feedback command 파싱 추가
-- summary에 "재게시하지 않고 backlog로 유지한 기존 이슈 수"를 노출할 수 있는 집계 기반 추가
+- 완료: full/manual rerun의 open-thread reminder reply 기본값 비활성화
+- 완료: `bot:false-positive`, `bot:later` feedback command 파싱 추가
+- 완료: summary에 "재게시하지 않고 backlog로 유지한 기존 이슈 수"를 노출할 수 있는 집계 기반 추가
 
 #### Phase 2
 
-- `@review-bot full-report` 또는 동등한 backlog view 추가
-- `later` 항목을 backlog 전용 출력으로 노출
-- richer feedback UX를 API/adapter 수준으로 확장
+- 완료: `@review-bot full-report` / `@review-bot backlog` view 추가
+- 완료: `later` 항목을 backlog 전용 출력으로 노출
+- 부분 반영: richer feedback UX의 command/note 경로 확장
 
-이번 상세 설계의 주요 구현 기준은 **Phase 1** 이다.
+현재는 **Phase 1 + 주요 Phase 2**가 반영된 상태다.
 
 ## 4. 비범위
 
@@ -95,7 +111,6 @@ AI agent가 바로 구현 작업으로 옮길 수 있도록 상세화한다.
 - GitLab UI에 전용 버튼 추가
 - DB 스키마 대규모 개편
 - Gerrit/GitHub adapter 구현
-- full-report API의 최종 사용자 인터페이스 완성
 - reviewer/team profile 기능
 
 ## 5. 현재 코드 기준 변경 포인트

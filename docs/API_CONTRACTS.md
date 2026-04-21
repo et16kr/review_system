@@ -28,6 +28,8 @@
 - `resolve_thread(key, thread_ref, reason=...)`
 - `publish_check(key, request)`
 - `collect_feedback(key, since=None)`
+- `post_general_note(key, body)`
+- `upsert_general_note(key, body=..., purpose=...)`
 
 현재 구현 상태:
 
@@ -119,6 +121,12 @@ BOT_GITLAB_API_RETRY_BACKOFF_SECONDS=0.5
   - `POST /api/v4/projects/:project/statuses/:head_sha`
 - thread / feedback 조회:
   - `GET /api/v4/projects/:project/merge_requests/:iid/discussions`
+- general note 조회:
+  - `GET /api/v4/projects/:project/merge_requests/:iid/notes`
+- general note 생성:
+  - `POST /api/v4/projects/:project/merge_requests/:iid/notes`
+- same-purpose general note 갱신:
+  - `PUT /api/v4/projects/:project/merge_requests/:iid/notes/:note_id`
 
 현재 정책:
 
@@ -177,6 +185,11 @@ Response:
 }
 ```
 
+응답 정책:
+
+- `status`는 하드코딩된 `"queued"`가 아니라 실제 `review_run.status`를 반환한다.
+- dedupe로 기존 pending run을 재사용한 경우 `status`는 `queued` 또는 `running`일 수 있다.
+
 ### `POST /internal/review/runs/{run_id}/publish`
 
 용도:
@@ -218,6 +231,86 @@ Response:
 }
 ```
 
+### `GET /internal/review/requests/{review_system}/{project_ref}/{review_request_id}/full-report`
+
+용도:
+
+- 특정 review request의 "최신 run 결과 + 현재 backlog" view를 조회한다.
+- inline 게시, 다음 batch 대기, backlog 유지, feedback suppress 상태를 분리해서 반환한다.
+- query parameter `view`를 지원한다.
+  - `view=full` — 기본값
+  - `view=backlog` — backlog section만 남기고 run-specific section은 0/빈 배열로 필터링
+
+Section별 source of truth:
+
+| 섹션 | source of truth |
+| --- | --- |
+| `published_inline` | 최신 run의 `PublicationState(created/updated)` |
+| `pending_batch` | 최신 run의 `FindingDecision.state == eligible` |
+| `failed_publication` | 최신 run의 `FindingDecision.state == failed_publication` |
+| `suppressed_feedback_*` / `suppressed_other` | 최신 run의 `FindingDecision.suppression_reason` |
+| `already_open` | 최신 run에서 open thread에 다시 반영되었으나 새 게시가 없는 항목 |
+| `backlog_existing_open` | 현재 `ThreadSyncState.sync_status == open` 중 unchanged backlog |
+| `backlog_resolved_unchanged` | 현재 `ThreadSyncState.sync_status == resolved` 중 unchanged backlog |
+| `backlog_feedback_later` | 현재 feedback signal이 `later_requested`인 backlog |
+
+- `backlog_*` 섹션은 최신 run에서 다시 관측되지 않았더라도 MR에 실제로 남아 있으면 포함된다.
+- 같은 fingerprint가 최신 run과 backlog에서 동시에 보이면 중복 카운트하지 않고 run 섹션을 우선한다.
+
+추가 메타데이터:
+
+- `last_*` — review request 기준 최신 run 메타데이터
+- `report_*` — report 본문을 구성하는 가장 최근 완료 run 메타데이터
+- `in_flight_*` — `queued`/`running` 상태의 더 새로운 run이 있을 때만 채운다
+
+표현 정책:
+
+- 최신 run이 `queued`/`running`이라도, 더 이전의 완료 run이 있으면 report 본문은 `report_*` 기준으로 안정적으로 렌더링한다.
+- 이때 최신 in-flight run은 숨기지 않고 `in_flight_*` 필드와 note wording으로 별도 노출한다.
+
+### `GET /internal/analytics/rule-effectiveness`
+
+용도:
+
+- 규칙별 유효성(게시/해소/사람의 실제 resolve 비율)을 집계한다.
+
+집계 단위:
+
+- row 단위가 아니라 고유 `fingerprint` (unique surfaced finding) 단위다.
+- 같은 finding이 여러 번 rerun으로 쌓여도 1건으로 본다.
+- 각 fingerprint는 "latest meaningful state"(resolved > published > failed_publication > suppressed/eligible/candidate/stale) 기준으로 1개 상태에만 귀속된다.
+
+Response 각 필드 의미:
+
+- `total` — 해당 rule의 distinct surfaced fingerprint 수
+- `published` — 최신 의미 상태가 `published`인 distinct fingerprint 수
+- `resolved` — 최신 의미 상태가 `resolved`인 distinct fingerprint 수
+- `suppressed` — 최신 의미 상태가 `suppressed`인 distinct fingerprint 수
+- `human_resolved` — `ThreadSyncState.resolution_reason == remote_resolved`로 끝난 distinct fingerprint 수
+- `resolve_rate` — `resolved / (published + resolved)`
+- `human_resolve_rate` — `human_resolved / (published + resolved)`
+
+Response 예시:
+
+```json
+{
+  "rules": [
+    {
+      "rule_no": "ALTI-MEM-007",
+      "source_family": "altibase",
+      "total": 12,
+      "published": 7,
+      "resolved": 3,
+      "human_resolved": 2,
+      "suppressed": 2,
+      "resolve_rate": 0.3,
+      "human_resolve_rate": 0.2
+    }
+  ],
+  "total_rules": 1
+}
+```
+
 ### `POST /webhooks/gitlab/merge-request`
 
 용도:
@@ -229,9 +322,24 @@ Response:
 
 - `object_kind = note`
 - `noteable_type = MergeRequest`
-- note body에 `@review-bot` mention 포함
+- note body 줄 시작에 `@review-bot` 또는 `/review-bot` 명령이 있음
 - system note 아님
 - bot 자신이 작성한 note 아님
+
+지원 명령:
+
+- `@review-bot review` 또는 `/review-bot review` — detect job enqueue
+- `@review-bot full-report` 또는 `/review-bot full-report` — 최신 full-report note 게시
+- `@review-bot backlog` 또는 `/review-bot backlog` — 현재 backlog만 보여 주는 note 게시
+- `@review-bot help` 또는 `/review-bot help` — 지원 명령을 안내하는 help note 게시
+- `@review-bot` 단독 mention — `review`로 해석
+- mention 뒤에는 공백뿐 아니라 `:`, `,`, `.`도 허용한다. 예: `@review-bot, review`
+
+파서 정책:
+
+- 명령 매칭은 줄 시작 기준(`^\s*@name ...`)으로만 이루어진다. "please ping @review-bot when ready" 같은 문장 중 incidental mention은 무시한다.
+- 알 수 없는 token(`@review-bot fullreport` 등)이 뒤에 오면 리뷰를 실행하지 않고 `ignored_reason=unknown_command:...`로 응답한다.
+- mention 자체가 아예 없으면 `ignored_reason=missing_review_request_mention:@review-bot`으로 응답한다.
 
 추가 정책:
 
@@ -243,6 +351,11 @@ Response:
 - resolved thread가 다시 eligible하면 full reconcile에서 기존 thread를 reopen/update 한다.
 - human reply에 `bot:ignore`, `/bot ignore`, `review-bot:ignore`가 들어 있으면 이후 동일 fingerprint는 suppress 된다.
 - human reply에 `bot:allow`, `/bot allow`, `review-bot:allow`가 들어 있으면 score penalty를 일부 상쇄한다.
+- full-report note는 "최신 run 결과 + 현재 MR에 남아 있는 backlog"를 함께 보여 준다.
+- backlog note는 현재 MR에 실제로 남아 있는 backlog만 보여 준다.
+- help note는 현재 지원 명령을 간단히 안내한다. adapter가 general note를 지원하지 않으면 webhook response만 `posted` 없이 ignored로 끝낼 수 있다.
+- full-report / backlog / help note는 adapter가 `upsert_general_note`를 지원하면 same-purpose update를 우선한다.
+- run-level summary note는 현재 append-only를 유지한다.
 - `project.path_with_namespace` 또는 MR `iid`가 없으면 400을 반환한다.
 
 Request body 예시:
@@ -279,11 +392,25 @@ Response 예시:
 ```json
 {
   "accepted": true,
-  "event": "gitlab_merge_request",
-  "action": "update",
+  "event": "gitlab_note",
+  "action": "mention",
   "review_run_id": "uuid",
   "status": "queued",
   "queue_name": "review-detect",
+  "ignored_reason": null
+}
+```
+
+추가 응답 예시:
+
+```json
+{
+  "accepted": true,
+  "event": "gitlab_note",
+  "action": "full_report",
+  "review_run_id": null,
+  "status": "posted",
+  "queue_name": null,
   "ignored_reason": null
 }
 ```

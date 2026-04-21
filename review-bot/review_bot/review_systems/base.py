@@ -14,6 +14,12 @@ from review_bot.contracts import (
     ThreadSnapshot,
 )
 
+_GENERAL_NOTE_PURPOSE_PREFIX = "<!-- review-bot:general-note-purpose:"
+
+
+def render_general_note_purpose_marker(purpose: str) -> str:
+    return f"{_GENERAL_NOTE_PURPOSE_PREFIX}{purpose} -->"
+
 
 class ReviewSystemAdapterV2(Protocol):
     def fetch_review_request_meta(self, key: ReviewRequestKey) -> ReviewRequestMeta:
@@ -74,6 +80,15 @@ class ReviewSystemAdapterV2(Protocol):
         self,
         key: ReviewRequestKey,
         body: str,
+    ) -> dict[str, Any]:
+        return {"ok": False, "reason": "not_supported"}
+
+    def upsert_general_note(
+        self,
+        key: ReviewRequestKey,
+        *,
+        body: str,
+        purpose: str,
     ) -> dict[str, Any]:
         return {"ok": False, "reason": "not_supported"}
 

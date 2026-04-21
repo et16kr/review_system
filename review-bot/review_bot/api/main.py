@@ -3,12 +3,12 @@ from __future__ import annotations
 import time
 from collections import deque
 from contextlib import asynccontextmanager
+from dataclasses import dataclass
 import re
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Request, Response
 from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
-from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from review_bot.bot.review_runner import ReviewRunner
@@ -19,6 +19,7 @@ from review_bot.queueing import get_detect_queue, get_publish_queue, get_sync_qu
 from review_bot.schemas import (
     PublishRunResponse,
     ReviewAcceptedResponse,
+    ReviewFullReportResponse,
     ReviewRequestStateResponse,
     ReviewRunCreateRequest,
     SyncRunResponse,
@@ -129,6 +130,29 @@ def sync_review_run(run_id: str):
 
 
 @app.get(
+    "/internal/review/requests/{review_system}/{project_ref:path}/{review_request_id}/full-report",
+    response_model=ReviewFullReportResponse,
+)
+def review_request_full_report(
+    review_system: str,
+    project_ref: str,
+    review_request_id: str,
+    session: SessionDep,
+    view: Literal["full", "backlog"] = "full",
+):
+    report = runner.build_full_report(
+        session,
+        key=ReviewRequestKey(
+            review_system=review_system,
+            project_ref=project_ref,
+            review_request_id=review_request_id,
+        ),
+        view=view,
+    )
+    return ReviewFullReportResponse(**report)
+
+
+@app.get(
     "/internal/review/requests/{review_system}/{project_ref:path}/{review_request_id}",
     response_model=ReviewRequestStateResponse,
 )
@@ -204,13 +228,22 @@ def _handle_gitlab_note_hook(payload: dict, *, session: Session) -> WebhookAccep
         )
 
     note_body = str(attrs.get("note") or "")
+    parsed = _extract_gitlab_note_command(note_body, runner.settings.bot_author_name)
     mention = f"@{runner.settings.bot_author_name}"
-    if not _contains_gitlab_mention(note_body, runner.settings.bot_author_name):
+    if parsed is None:
         return WebhookAcceptedResponse(
             accepted=False,
             event="gitlab_note",
             status="ignored",
             ignored_reason=f"missing_review_request_mention:{mention}",
+        )
+    if parsed.is_unknown_command:
+        matched = parsed.matched_text or ""
+        return WebhookAcceptedResponse(
+            accepted=False,
+            event="gitlab_note",
+            status="ignored",
+            ignored_reason=f"unknown_command:{matched}".strip(":"),
         )
 
     author_username = str((payload.get("user") or {}).get("username") or "")
@@ -247,6 +280,43 @@ def _handle_gitlab_note_hook(payload: dict, *, session: Session) -> WebhookAccep
         target_branch=merge_request.get("target_branch"),
         head_sha=((merge_request.get("last_commit") or {}).get("id")),
     )
+    if parsed.command == "full-report":
+        posted = runner.post_full_report_note(session, key=key)
+        if not posted:
+            raise HTTPException(status_code=501, detail="Current adapter does not support general notes.")
+        return WebhookAcceptedResponse(
+            accepted=True,
+            event="gitlab_note",
+            action="full_report",
+            status="posted",
+        )
+    if parsed.command == "backlog":
+        posted = runner.post_backlog_note(session, key=key)
+        if not posted:
+            raise HTTPException(status_code=501, detail="Current adapter does not support general notes.")
+        return WebhookAcceptedResponse(
+            accepted=True,
+            event="gitlab_note",
+            action="backlog",
+            status="posted",
+        )
+    if parsed.command == "help":
+        posted = runner.post_help_note(key=key)
+        if not posted:
+            return WebhookAcceptedResponse(
+                accepted=True,
+                event="gitlab_note",
+                action="help",
+                status="ignored",
+                ignored_reason="adapter_does_not_support_general_notes",
+            )
+        return WebhookAcceptedResponse(
+            accepted=True,
+            event="gitlab_note",
+            action="help",
+            status="posted",
+        )
+
     review_run = runner.create_review_run_for_key(
         session,
         key,
@@ -286,9 +356,67 @@ def _enqueue_detect_job(session: Session, review_run: object) -> bool:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
 
 
-def _contains_gitlab_mention(body: str, username: str) -> bool:
-    pattern = re.compile(rf"(?<![\w/-])@{re.escape(username)}\b", re.IGNORECASE)
-    return bool(pattern.search(body))
+_RECOGNIZED_NOTE_COMMANDS: tuple[str, ...] = ("review", "full-report", "backlog", "help")
+
+
+@dataclass(frozen=True)
+class GitlabNoteCommand:
+    """Result of parsing a GitLab note for bot commands.
+
+    Either `command` is one of the recognized commands (incl. an implicit
+    `review` for a bare mention) or `is_unknown_command` is True, meaning the
+    mention was clearly directed at the bot but followed by an unknown token.
+    Incidental mentions (not line-anchored) return None instead — callers
+    treat them as "no actionable mention".
+    """
+
+    command: str | None
+    is_bare_mention: bool = False
+    is_unknown_command: bool = False
+    matched_text: str | None = None
+
+
+def _extract_gitlab_note_command(body: str, username: str) -> GitlabNoteCommand | None:
+    # A note is treated as directed at the bot only when a line begins with
+    # the mention (allowing `@name` or `/name`). Mid-sentence mentions like
+    # "please ping @review-bot when ready" are incidental and ignored.
+    line_pattern = re.compile(
+        rf"(?im)^\s*(?P<prefix>@|/){re.escape(username)}\b(?P<rest>.*)$"
+    )
+    command_token = re.compile(
+        r"^\s*(?:(?:[:.,])|\s+)?\s*(?P<cmd>full[- ]report|review|backlog|help)\b",
+        re.IGNORECASE,
+    )
+
+    saw_unknown = False
+    unknown_matched_text: str | None = None
+    for match in line_pattern.finditer(body):
+        rest = match.group("rest") or ""
+        stripped = rest.strip().rstrip(".,!?")
+        if not stripped:
+            return GitlabNoteCommand(
+                command="review",
+                is_bare_mention=True,
+                matched_text=match.group(0).strip(),
+            )
+        token_match = command_token.match(rest)
+        if token_match is not None:
+            command = token_match.group("cmd").lower().replace(" ", "-")
+            return GitlabNoteCommand(
+                command=command,
+                matched_text=match.group(0).strip(),
+            )
+        saw_unknown = True
+        if unknown_matched_text is None:
+            unknown_matched_text = match.group(0).strip()
+
+    if saw_unknown:
+        return GitlabNoteCommand(
+            command=None,
+            is_unknown_command=True,
+            matched_text=unknown_matched_text,
+        )
+    return None
 
 
 def _check_rate_limit(client_ip: str) -> bool:
@@ -304,8 +432,12 @@ def _check_rate_limit(client_ip: str) -> bool:
 
 @app.get("/internal/analytics/rule-effectiveness")
 def rule_effectiveness(session: SessionDep):
-    from sqlalchemy import case as sa_case
-    from review_bot.db.models import FindingDecision as FD, ThreadSyncState as TSS
+    from review_bot.db.models import ThreadSyncState as TSS
+
+    # Distinct finding metrics must follow the latest meaningful row for each
+    # fingerprint so reopened findings count as published again, while later
+    # no-op rows (candidate/eligible/stale) do not erase earlier surfaced state.
+    latest_by_fp = runner.latest_rule_effectiveness_states(session)
 
     # human-resolve fingerprint 집합 (개발자가 직접 resolve한 것만)
     human_fps: set[str] = {
@@ -316,48 +448,38 @@ def rule_effectiveness(session: SessionDep):
         ).all()
     }
 
-    rows = (
-        session.query(
-            FD.rule_no,
-            FD.source_family,
-            func.count(FD.id).label("total"),
-            func.sum(sa_case((FD.state == "published", 1), else_=0)).label("published"),
-            func.sum(sa_case((FD.state == "resolved", 1), else_=0)).label("resolved"),
-            func.sum(sa_case((FD.state == "suppressed", 1), else_=0)).label("suppressed"),
+    aggregated: dict[tuple[str, str], dict[str, int]] = {}
+    for fingerprint, row in latest_by_fp.items():
+        if row.state not in {"published", "resolved", "suppressed"}:
+            continue
+        bucket = aggregated.setdefault(
+            (row.rule_no, row.source_family),
+            {"total": 0, "published": 0, "resolved": 0, "suppressed": 0, "human_resolved": 0},
         )
-        .group_by(FD.rule_no, FD.source_family)
-        .order_by(func.count(FD.id).desc())
-        .limit(50)
-        .all()
-    )
-
-    # human-resolve 건수를 규칙별로 집계
-    human_resolved_by_rule: dict[str, int] = {}
-    if human_fps:
-        for rule_no, cnt in (
-            session.query(FD.rule_no, func.count(FD.id))
-            .filter(FD.state == "resolved", FD.fingerprint.in_(human_fps))
-            .group_by(FD.rule_no)
-            .all()
-        ):
-            human_resolved_by_rule[rule_no] = cnt
+        bucket["total"] += 1
+        if row.state == "published":
+            bucket["published"] += 1
+        elif row.state == "resolved":
+            bucket["resolved"] += 1
+            if fingerprint in human_fps:
+                bucket["human_resolved"] += 1
+        elif row.state == "suppressed":
+            bucket["suppressed"] += 1
 
     results = []
-    for rule_no, family, total, published, resolved, suppressed in rows:
-        pub = int(published or 0)
-        res = int(resolved or 0)
-        sup = int(suppressed or 0)
-        human_res = human_resolved_by_rule.get(rule_no, 0)
-        # surfaced = 현재 게시중 + 해소됨 (auto-resolve 포함)
+    for (rule_no, family), bucket in aggregated.items():
+        pub = bucket["published"]
+        res = bucket["resolved"]
+        sup = bucket["suppressed"]
+        human_res = bucket["human_resolved"]
         surfaced = pub + res
-        # human_resolve_rate = 개발자가 실제로 수정한 비율 (신뢰도 있는 지표)
-        human_resolve_rate = round(human_res / surfaced, 3) if surfaced > 0 else 0.0
         resolve_rate = round(res / surfaced, 3) if surfaced > 0 else 0.0
+        human_resolve_rate = round(human_res / surfaced, 3) if surfaced > 0 else 0.0
         results.append(
             {
                 "rule_no": rule_no,
                 "source_family": family,
-                "total": int(total),
+                "total": bucket["total"],
                 "published": pub,
                 "resolved": res,
                 "human_resolved": human_res,
@@ -366,7 +488,8 @@ def rule_effectiveness(session: SessionDep):
                 "human_resolve_rate": human_resolve_rate,
             }
         )
-    return {"rules": results, "total_rules": len(results)}
+    results.sort(key=lambda item: item["total"], reverse=True)
+    return {"rules": results[:50], "total_rules": len(results[:50])}
 
 
 def _verify_gitlab_webhook_secret(provided_token: str | None) -> None:

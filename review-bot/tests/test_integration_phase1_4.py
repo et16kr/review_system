@@ -8,6 +8,7 @@ from __future__ import annotations
 import time
 from collections import deque
 from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
 from typing import Any
 from unittest.mock import MagicMock, patch
 
@@ -40,6 +41,7 @@ from review_bot.db.models import (
     FindingDecision,
     FindingEvidence,
     PublicationState,
+    ReviewRequest,
     ReviewRun,
     ThreadSyncState,
 )
@@ -150,6 +152,7 @@ class FakeAdapter:
     def __init__(self) -> None:
         self.upsert_requests: list = []
         self.general_notes: list[str] = []
+        self.general_note_index_by_purpose: dict[str, int] = {}
         self._diff: DiffPayload | None = None
         self._meta: ReviewRequestMeta | None = None
         self._threads: list[ThreadSnapshot] = []
@@ -190,6 +193,16 @@ class FakeAdapter:
     def post_general_note(self, key, body: str):
         self.general_notes.append(body)
         return {"ok": True}
+
+    def upsert_general_note(self, key, *, body: str, purpose: str):
+        del key
+        index = self.general_note_index_by_purpose.get(purpose)
+        if index is None:
+            self.general_note_index_by_purpose[purpose] = len(self.general_notes)
+            self.general_notes.append(body)
+            return {"ok": True, "action": "created"}
+        self.general_notes[index] = body
+        return {"ok": True, "action": "updated"}
 
     def resolve_thread(self, key, thread_ref, *, reason):
         return {"ok": True}
@@ -832,6 +845,27 @@ class TestPhase4Advanced:
         finally:
             session.close()
 
+    def test_pr_summary_not_posted_for_backlog_only_rerun(self):
+        """PR 요약: backlog 유지 정보만 있는 rerun은 새 요약 노트를 게시하지 않는다."""
+        _reset_db()
+        runner = ReviewRunner()
+        adapter = FakeAdapter()
+        key = runner._legacy_key(60041)
+        adapter.set_diff(key, path="src/a.cpp", patch=_malloc_patch())
+        runner.platform_client = adapter
+        runner.engine_client = EngineStub([_result()])
+        runner.provider = FixedProvider()
+
+        session = SessionLocal()
+        try:
+            runner.run_review(session, pr_id=60041, trigger="first")
+            runner.run_review(session, pr_id=60041, trigger="second")
+
+            assert len(adapter.general_notes) == 1
+            assert "총 **1개** 항목이 게시되었습니다." in adapter.general_notes[0]
+        finally:
+            session.close()
+
     def test_pr_summary_not_posted_when_all_publications_fail(self):
         """PR 요약: inline publish가 전부 실패하면 요약 노트를 게시하지 않는다."""
         _reset_db()
@@ -1072,6 +1106,208 @@ class TestPhase4Advanced:
         assert rule["published"] >= 1
         assert rule["resolved"] >= 1
         assert rule["resolve_rate"] == 0.5
+
+    def test_rule_effectiveness_api_prefers_latest_meaningful_state_on_reopen(self):
+        """규칙 대시보드: reopened finding은 과거 resolved보다 최신 published를 따라야 한다."""
+        from fastapi.testclient import TestClient
+        from review_bot.api.main import app
+
+        _reset_db()
+        session = SessionLocal()
+        try:
+            review_request = ReviewRequest(
+                review_system="gitlab",
+                project_ref="group/project",
+                review_request_id="60054",
+            )
+            session.add(review_request)
+            session.flush()
+
+            run1 = ReviewRun(
+                review_request_pk=review_request.id,
+                review_system="gitlab",
+                project_ref="group/project",
+                review_request_id="60054",
+                trigger="test-1",
+                mode="manual",
+                status="success",
+            )
+            run2 = ReviewRun(
+                review_request_pk=review_request.id,
+                review_system="gitlab",
+                project_ref="group/project",
+                review_request_id="60054",
+                trigger="test-2",
+                mode="manual",
+                status="success",
+            )
+            session.add_all([run1, run2])
+            session.flush()
+
+            evidence1 = FindingEvidence(
+                review_run_id=run1.id,
+                review_request_pk=review_request.id,
+                file_path="src/a.cpp",
+                patch_digest="digest-1",
+                change_snippet="",
+            )
+            evidence2 = FindingEvidence(
+                review_run_id=run2.id,
+                review_request_pk=review_request.id,
+                file_path="src/a.cpp",
+                patch_digest="digest-2",
+                change_snippet="",
+            )
+            session.add_all([evidence1, evidence2])
+            session.flush()
+
+            base_time = datetime(2026, 4, 21, tzinfo=UTC)
+            session.add(
+                FindingDecision(
+                    review_run_id=run1.id,
+                    evidence_id=evidence1.id,
+                    review_request_pk=review_request.id,
+                    review_system="gitlab",
+                    project_ref="group/project",
+                    review_request_id="60054",
+                    fingerprint="fp-reopened",
+                    dedupe_key="dk-reopened-1",
+                    file_path="src/a.cpp",
+                    line_no=10,
+                    rule_no="ALTI-MEM-007",
+                    source_family="altibase",
+                    score_raw=0.9,
+                    score_final=0.9,
+                    anchor_signature="sig-a",
+                    state="resolved",
+                    created_at=base_time,
+                )
+            )
+            session.add(
+                FindingDecision(
+                    review_run_id=run2.id,
+                    evidence_id=evidence2.id,
+                    review_request_pk=review_request.id,
+                    review_system="gitlab",
+                    project_ref="group/project",
+                    review_request_id="60054",
+                    fingerprint="fp-reopened",
+                    dedupe_key="dk-reopened-2",
+                    file_path="src/a.cpp",
+                    line_no=10,
+                    rule_no="ALTI-MEM-007",
+                    source_family="altibase",
+                    score_raw=0.95,
+                    score_final=0.95,
+                    anchor_signature="sig-a",
+                    state="published",
+                    created_at=base_time + timedelta(seconds=1),
+                )
+            )
+            session.commit()
+        finally:
+            session.close()
+
+        client = TestClient(app)
+        response = client.get("/internal/analytics/rule-effectiveness")
+        assert response.status_code == 200
+        data = response.json()
+        rule = next(r for r in data["rules"] if r["rule_no"] == "ALTI-MEM-007")
+        assert rule["published"] == 1
+        assert rule["resolved"] == 0
+        assert rule["resolve_rate"] == 0.0
+
+    def test_rule_effectiveness_api_excludes_candidate_only_finding_from_total(self):
+        """규칙 대시보드: surfaced되지 않은 candidate-only finding은 total에 포함되면 안 된다."""
+        from fastapi.testclient import TestClient
+        from review_bot.api.main import app
+
+        _reset_db()
+        session = SessionLocal()
+        try:
+            review_request = ReviewRequest(
+                review_system="gitlab",
+                project_ref="group/project",
+                review_request_id="60055",
+            )
+            session.add(review_request)
+            session.flush()
+
+            review_run = ReviewRun(
+                review_request_pk=review_request.id,
+                review_system="gitlab",
+                project_ref="group/project",
+                review_request_id="60055",
+                trigger="test",
+                mode="manual",
+                status="success",
+            )
+            session.add(review_run)
+            session.flush()
+
+            evidence = FindingEvidence(
+                review_run_id=review_run.id,
+                review_request_pk=review_request.id,
+                file_path="src/a.cpp",
+                patch_digest="digest-total",
+                change_snippet="",
+            )
+            session.add(evidence)
+            session.flush()
+
+            session.add(
+                FindingDecision(
+                    review_run_id=review_run.id,
+                    evidence_id=evidence.id,
+                    review_request_pk=review_request.id,
+                    review_system="gitlab",
+                    project_ref="group/project",
+                    review_request_id="60055",
+                    fingerprint="fp-published",
+                    dedupe_key="dk-published",
+                    file_path="src/a.cpp",
+                    line_no=10,
+                    rule_no="ALTI-MEM-007",
+                    source_family="altibase",
+                    score_raw=0.9,
+                    score_final=0.9,
+                    anchor_signature="sig-a",
+                    state="published",
+                )
+            )
+            session.add(
+                FindingDecision(
+                    review_run_id=review_run.id,
+                    evidence_id=evidence.id,
+                    review_request_pk=review_request.id,
+                    review_system="gitlab",
+                    project_ref="group/project",
+                    review_request_id="60055",
+                    fingerprint="fp-candidate",
+                    dedupe_key="dk-candidate",
+                    file_path="src/b.cpp",
+                    line_no=20,
+                    rule_no="ALTI-MEM-007",
+                    source_family="altibase",
+                    score_raw=0.8,
+                    score_final=0.8,
+                    anchor_signature="sig-b",
+                    state="candidate",
+                )
+            )
+            session.commit()
+        finally:
+            session.close()
+
+        client = TestClient(app)
+        response = client.get("/internal/analytics/rule-effectiveness")
+        assert response.status_code == 200
+        data = response.json()
+        rule = next(r for r in data["rules"] if r["rule_no"] == "ALTI-MEM-007")
+        assert rule["total"] == 1
+        assert rule["published"] == 1
+        assert rule["resolved"] == 0
+        assert rule["suppressed"] == 0
 
     def test_comment_footer_always_present(self):
         """코멘트 형식: 모든 코멘트에 안내 문구가 포함된다."""

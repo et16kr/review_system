@@ -5,7 +5,7 @@ import logging
 import re
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, Literal
 
 from fastapi import HTTPException
 from sqlalchemy import func
@@ -52,6 +52,7 @@ from review_bot.providers.change_analysis import (
 from review_bot.providers.base import FindingDraft
 from review_bot.providers.factory import build_review_comment_provider
 from review_bot.review_systems.factory import build_review_system_adapter
+from review_bot.review_systems.base import render_general_note_purpose_marker
 
 CPP_EXTENSIONS = {".c", ".cc", ".cpp", ".cxx", ".h", ".hh", ".hpp", ".hxx"}
 HUNK_RE = re.compile(r"@@ -(?P<old>\d+)(?:,\d+)? \+(?P<new>\d+)(?:,\d+)? @@")
@@ -60,6 +61,56 @@ MAX_COMMENT_BODY = 3800  # GitLab 4000자 제한 여유
 FILE_CONTEXT_MAX_CHARS = 4000  # LLM 프롬프트에 포함할 파일 컨텍스트 최대 길이
 _FILE_CONTEXT_KEY = "_file_context"  # raw_engine_payload 내 파일 컨텍스트 저장 키
 _SIMILAR_CODE_KEY = "_similar_code"  # raw_engine_payload 내 유사 코드 저장 키
+_REPORTABLE_REVIEW_RUN_STATUSES = ("success", "partial", "failed")
+_IN_FLIGHT_REVIEW_RUN_STATUSES = ("queued", "running")
+_FULL_REPORT_SECTION_ORDER = (
+    "published_inline",
+    "already_open",
+    "pending_batch",
+    "backlog_existing_open",
+    "backlog_resolved_unchanged",
+    "backlog_feedback_later",
+    "suppressed_feedback_ignore",
+    "suppressed_feedback_false_positive",
+    "suppressed_other",
+    "failed_publication",
+)
+_FULL_REPORT_SECTION_TITLES = {
+    "published_inline": "이번 run에서 inline으로 게시된 항목",
+    "already_open": "이미 열린 thread에 반영되어 재게시하지 않은 항목",
+    "pending_batch": "다음 batch 후보",
+    "backlog_existing_open": "기존 open thread backlog",
+    "backlog_resolved_unchanged": "resolved 이후 unchanged backlog",
+    "backlog_feedback_later": "`bot:later`로 보류된 항목",
+    "suppressed_feedback_ignore": "`bot:ignore`로 suppress된 항목",
+    "suppressed_feedback_false_positive": "`bot:false-positive`로 suppress된 항목",
+    "suppressed_other": "기타 억제 항목",
+    "failed_publication": "게시 실패 항목",
+}
+_FULL_REPORT_SECTION_SUMMARY_LABELS = {
+    "published_inline": "inline 게시",
+    "already_open": "이미 열린 thread 반영",
+    "pending_batch": "다음 batch 대기",
+    "backlog_existing_open": "기존 open backlog",
+    "backlog_resolved_unchanged": "resolved backlog",
+    "backlog_feedback_later": "`bot:later` 보류",
+    "suppressed_feedback_ignore": "`bot:ignore` suppress",
+    "suppressed_feedback_false_positive": "`bot:false-positive` suppress",
+    "suppressed_other": "기타 suppress",
+    "failed_publication": "게시 실패",
+}
+_BACKLOG_ONLY_SECTION_ORDER = (
+    "backlog_existing_open",
+    "backlog_resolved_unchanged",
+    "backlog_feedback_later",
+)
+_RULE_EFFECTIVENESS_MEANINGFUL_STATES = (
+    "published",
+    "resolved",
+    "suppressed",
+    "failed_publication",
+)
+_RULE_EFFECTIVENESS_SURFACED_STATES = ("published", "resolved", "suppressed")
 
 
 def _compute_top_k(patch: str) -> int:
@@ -103,6 +154,8 @@ class PublicationCandidate:
     publication_key: tuple[str, int | None, str]
     priority_group: int
     reminder_candidate: bool = False
+    backlog_only: bool = False
+    backlog_reason: str | None = None
 
 
 @dataclass(frozen=True)
@@ -111,7 +164,25 @@ class FeedbackSignal:
     unresolved_count: int = 0
     human_reply_count: int = 0
     ignore_requested: bool = False
+    false_positive_requested: bool = False
+    later_requested: bool = False
     allow_requested: bool = False
+
+
+@dataclass(frozen=True)
+class BacklogEntry:
+    section: str
+    thread: ThreadSyncState
+    reason: str
+    feedback_signal: FeedbackSignal
+
+
+@dataclass(frozen=True)
+class RuleEffectivenessFingerprintState:
+    fingerprint: str
+    rule_no: str
+    source_family: str
+    state: str
 
 
 class ReviewRunner:
@@ -165,7 +236,7 @@ class ReviewRunner:
                 ReviewRun.status.in_(["queued", "running"]),
                 ReviewRun.mode == mode,
             )
-            .order_by(ReviewRun.created_at.desc())
+            .order_by(ReviewRun.created_at.desc(), ReviewRun.id.desc())
             .all()
         )
         existing = next(
@@ -203,6 +274,7 @@ class ReviewRunner:
             base_sha=requested_base_sha,
             start_sha=requested_start_sha,
             head_sha=requested_head_sha,
+            created_at=datetime.now(UTC),
         )
         session.add(review_run)
         session.commit()
@@ -389,11 +461,13 @@ class ReviewRunner:
                 .order_by(FindingDecision.score_final.desc(), FindingDecision.created_at.asc())
                 .all()
             )
+            feedback_cache = self._load_feedback_cache(session, review_request.id)
             candidates = self._prepare_publication_candidates(
                 session=session,
                 review_run=review_run,
                 review_request=review_request,
                 decisions=eligible,
+                feedback_cache=feedback_cache,
             )
             selected = self._select_batch_candidates(candidates)
             current_batch = (
@@ -406,8 +480,17 @@ class ReviewRunner:
             successful_publications: list[PublicationCandidate] = []
             seen_publication_keys: set[tuple[str, int | None, str]] = set()
             noop_existing_candidates = [
-                candidate for candidate in candidates if candidate.priority_group == 3
+                candidate
+                for candidate in candidates
+                if candidate.priority_group == 3 and not candidate.backlog_only
             ]
+            backlog_counts: dict[str, int] = {}
+            for candidate in candidates:
+                if candidate.backlog_only and candidate.backlog_reason:
+                    backlog_counts[candidate.backlog_reason] = (
+                        backlog_counts.get(candidate.backlog_reason, 0) + 1
+                    )
+            suppressed_feedback_counts = self._suppressed_feedback_counts(session, review_run.id)
 
             self._log_run_event(
                 "publish_candidates_built",
@@ -415,7 +498,14 @@ class ReviewRunner:
                 eligible_count=len(eligible),
                 selected_count=len(selected),
                 noop_existing_count=len(noop_existing_candidates),
+                backlog_counts=backlog_counts,
+                suppressed_feedback_counts=suppressed_feedback_counts,
             )
+
+            for candidate in candidates:
+                if candidate.backlog_only and candidate.backlog_reason == "existing_open_thread":
+                    candidate.decision.state = "published"
+                    candidate.decision.publication_error = None
 
             for candidate in noop_existing_candidates:
                 decision = candidate.decision
@@ -454,6 +544,7 @@ class ReviewRunner:
                         existing_thread
                         and existing_thread.sync_status == "open"
                         and existing_thread.body_hash == candidate.body_hash
+                        and existing_thread.resolution_reason != "remote_reopened"
                     ):
                         publication = PublicationState(
                             finding_decision_id=decision.id,
@@ -630,6 +721,8 @@ class ReviewRunner:
                     review_run=review_run,
                     published_candidates=successful_publications,
                     batch_no=batch_no,
+                    backlog_counts=backlog_counts,
+                    suppressed_feedback_counts=suppressed_feedback_counts,
                 )
 
             self._safe_publish_check(
@@ -852,12 +945,7 @@ class ReviewRunner:
         if review_request is None:
             raise HTTPException(status_code=400, detail="No previous review run exists for this pull request.")
         if review_run_id is None:
-            run = (
-                session.query(ReviewRun)
-                .filter(ReviewRun.review_request_pk == review_request.id)
-                .order_by(ReviewRun.created_at.desc())
-                .first()
-            )
+            run = self._latest_review_run_for_request(session, review_request.id)
             if run is None:
                 raise HTTPException(status_code=400, detail="No previous review run exists for this pull request.")
             review_run_id = run.id
@@ -899,19 +987,17 @@ class ReviewRunner:
                 "feedback_event_count": 0,
                 "dead_letter_count": 0,
             }
-        last_run = (
-            session.query(ReviewRun)
-            .filter(ReviewRun.review_request_pk == review_request.id)
-            .order_by(ReviewRun.created_at.desc())
-            .first()
-        )
+        last_run = self._latest_review_run_for_request(session, review_request.id)
         published_batch_count = (
-            session.query(func.max(PublicationState.batch_no))
-            .filter(PublicationState.review_request_pk == review_request.id)
+            session.query(func.count(func.distinct(PublicationState.batch_no)))
+            .filter(
+                PublicationState.review_request_pk == review_request.id,
+                PublicationState.publish_state.in_(["created", "updated"]),
+            )
             .scalar()
         ) or 0
         open_finding_count = (
-            session.query(func.count(FindingDecision.id))
+            session.query(func.count(func.distinct(FindingDecision.fingerprint)))
             .filter(
                 FindingDecision.review_request_pk == review_request.id,
                 FindingDecision.state.in_(["eligible", "published", "failed_publication"]),
@@ -967,6 +1053,193 @@ class ReviewRunner:
             "feedback_event_count": int(feedback_event_count),
             "dead_letter_count": int(dead_letter_count),
         }
+
+    def build_full_report(
+        self,
+        session: Session,
+        pr_id: int | None = None,
+        *,
+        key: ReviewRequestKey | None = None,
+        view: Literal["full", "backlog"] = "full",
+    ) -> dict[str, Any]:
+        target_key = key or self._legacy_key(int(pr_id or 0))
+        report = self._empty_full_report(target_key)
+        review_request = self._find_review_request(session, target_key)
+        if review_request is None:
+            return report
+
+        report["review_request_title"] = review_request.title
+        last_run = self._latest_review_run_for_request(session, review_request.id)
+        if last_run is not None:
+            report["last_review_run_id"] = last_run.id
+            report["last_status"] = last_run.status
+            report["last_head_sha"] = last_run.head_sha or review_request.latest_head_sha
+        report_run = self._latest_review_run_for_request(
+            session,
+            review_request.id,
+            statuses=_REPORTABLE_REVIEW_RUN_STATUSES,
+        )
+        if report_run is not None:
+            report["report_review_run_id"] = report_run.id
+            report["report_status"] = report_run.status
+            report["report_head_sha"] = report_run.head_sha or review_request.latest_head_sha
+        in_flight_run = self._latest_review_run_for_request(
+            session,
+            review_request.id,
+            statuses=_IN_FLIGHT_REVIEW_RUN_STATUSES,
+        )
+        if in_flight_run is not None and self._is_newer_run(in_flight_run, report_run):
+            report["in_flight_review_run_id"] = in_flight_run.id
+            report["in_flight_status"] = in_flight_run.status
+            report["in_flight_head_sha"] = in_flight_run.head_sha or review_request.latest_head_sha
+
+        feedback_cache = self._load_feedback_cache(session, review_request.id)
+        counts = dict(report["counts"])
+        latest_run_fingerprints: set[str] = set()
+
+        if report_run is not None:
+            decisions = (
+                session.query(FindingDecision)
+                .filter(FindingDecision.review_run_id == report_run.id)
+                .order_by(FindingDecision.score_final.desc(), FindingDecision.created_at.asc())
+                .all()
+            )
+            publications = self._latest_publications_for_decisions(
+                session,
+                [decision.id for decision in decisions],
+            )
+
+            for decision in decisions:
+                existing_thread = self._find_existing_thread(
+                    session,
+                    review_request.id,
+                    decision.fingerprint,
+                    include_resolved=True,
+                )
+                reminder_candidate = self._should_resurface_open_thread(
+                    review_run=report_run,
+                    decision=decision,
+                    existing_thread=existing_thread,
+                )
+                feedback_signal = self._feedback_signal(
+                    session,
+                    review_request.id,
+                    decision.fingerprint,
+                    feedback_cache=feedback_cache,
+                )
+                backlog_only, backlog_reason = self._classify_backlog(
+                    existing_thread=existing_thread,
+                    canonical_body_hash=self._sha256(self._render_comment(decision)),
+                    decision=decision,
+                    feedback_signal=feedback_signal,
+                    reminder_candidate=reminder_candidate,
+                )
+                section = self._classify_full_report_section(
+                    decision=decision,
+                    publication=publications.get(decision.id),
+                    backlog_only=backlog_only,
+                    backlog_reason=backlog_reason,
+                )
+                if section is None:
+                    # Resolved-unchanged / feedback:later cases are rendered
+                    # via the current-state backlog view below.
+                    continue
+                counts[section] += 1
+                latest_run_fingerprints.add(decision.fingerprint)
+                report[section].append(
+                    self._build_full_report_item(
+                        decision=decision,
+                        disposition=section,
+                        existing_thread=existing_thread,
+                        reason=self._full_report_reason(
+                            decision=decision,
+                            section=section,
+                            backlog_reason=backlog_reason,
+                            publication=publications.get(decision.id),
+                        ),
+                    )
+                )
+
+        # Backlog sections always come from the current ThreadSyncState so
+        # they reflect what actually remains open on the MR rather than just
+        # whatever was re-detected in the latest run.
+        for entry in self._current_backlog_entries(
+            session,
+            review_request_pk=review_request.id,
+            feedback_cache=feedback_cache,
+        ):
+            fingerprint = entry.thread.finding_fingerprint
+            if fingerprint in latest_run_fingerprints:
+                continue
+            latest_decision = self._latest_decision_for_fingerprint(
+                session,
+                review_request_pk=review_request.id,
+                fingerprint=fingerprint,
+            )
+            counts[entry.section] += 1
+            report[entry.section].append(
+                self._build_backlog_report_item(
+                    section=entry.section,
+                    thread=entry.thread,
+                    decision=latest_decision,
+                    reason=entry.reason,
+                )
+            )
+
+        report["counts"] = counts
+        return self._filter_full_report_view(report, view=view)
+
+    def post_full_report_note(
+        self,
+        session: Session,
+        *,
+        key: ReviewRequestKey,
+        adapter: Any | None = None,
+    ) -> bool:
+        target_adapter = adapter or self._get_adapter()
+        if not hasattr(target_adapter, "post_general_note"):
+            return False
+        body = self._render_full_report_note(self.build_full_report(session, key=key))
+        return self._publish_general_note(
+            adapter=target_adapter,
+            key=key,
+            body=body,
+            purpose="full-report",
+        )
+
+    def post_backlog_note(
+        self,
+        session: Session,
+        *,
+        key: ReviewRequestKey,
+        adapter: Any | None = None,
+    ) -> bool:
+        target_adapter = adapter or self._get_adapter()
+        if not hasattr(target_adapter, "post_general_note"):
+            return False
+        body = self._render_backlog_note(self.build_full_report(session, key=key, view="backlog"))
+        return self._publish_general_note(
+            adapter=target_adapter,
+            key=key,
+            body=body,
+            purpose="backlog",
+        )
+
+    def post_help_note(
+        self,
+        *,
+        key: ReviewRequestKey,
+        adapter: Any | None = None,
+    ) -> bool:
+        target_adapter = adapter or self._get_adapter()
+        if not hasattr(target_adapter, "post_general_note"):
+            return False
+        return self._publish_general_note(
+            adapter=target_adapter,
+            key=key,
+            body=self._render_help_note(),
+            purpose="help",
+        )
 
     def _build_decision(
         self,
@@ -1056,6 +1329,9 @@ class ReviewRunner:
         elif feedback_signal.ignore_requested:
             state = "suppressed"
             suppression_reason = "feedback:ignore"
+        elif feedback_signal.false_positive_requested:
+            state = "suppressed"
+            suppression_reason = "feedback:false_positive"
         elif reviewability != "auto_review":
             state = "suppressed"
             suppression_reason = f"reviewability:{reviewability}"
@@ -1342,12 +1618,12 @@ class ReviewRunner:
     def _load_rule_effectiveness_weights(self, session: Session) -> dict[str, float]:
         """규칙별 인간 해소율을 기반으로 스코어 가중치를 계산한다.
 
+        집계 단위는 row가 아니라 고유 finding(``fingerprint``)이다.
+        같은 finding이 여러 run으로 반복 surfaced되더라도 1건으로 본다.
+
         human-resolve(개발자가 직접 resolve)만 긍정 신호로 사용한다.
         auto-resolve(no_longer_eligible)는 retrieval 품질과 무관하므로 제외한다.
         """
-        from sqlalchemy import case
-
-        # 개발자가 실제로 resolve한 thread fingerprint 집합
         human_resolved_fps: set[str] = {
             fp
             for (fp,) in session.query(ThreadSyncState.finding_fingerprint)
@@ -1358,48 +1634,59 @@ class ReviewRunner:
             .all()
         }
 
-        rows = (
-            session.query(
-                FindingDecision.rule_no,
-                func.count(FindingDecision.id).label("total"),
-                func.sum(
-                    case((FindingDecision.state == "resolved", 1), else_=0)
-                ).label("resolved_all"),
-            )
-            .filter(FindingDecision.state.in_(["published", "resolved", "stale"]))
-            .group_by(FindingDecision.rule_no)
-            .all()
-        )
-        # fingerprint별로 human-resolved 여부를 판단하기 위해 추가 조회
-        human_resolved_by_rule: dict[str, int] = {}
-        if human_resolved_fps:
-            from sqlalchemy import func as _func
-            rule_human_rows = (
-                session.query(
-                    FindingDecision.rule_no,
-                    func.count(FindingDecision.id),
-                )
-                .filter(
-                    FindingDecision.state == "resolved",
-                    FindingDecision.fingerprint.in_(human_resolved_fps),
-                )
-                .group_by(FindingDecision.rule_no)
-                .all()
-            )
-            human_resolved_by_rule = {r: cnt for r, cnt in rule_human_rows}
+        surfaced_fps_by_rule: dict[str, set[str]] = {}
+        for fingerprint, row in self.latest_rule_effectiveness_states(session).items():
+            if row.state not in _RULE_EFFECTIVENESS_SURFACED_STATES or not row.rule_no:
+                continue
+            surfaced_fps_by_rule.setdefault(row.rule_no, set()).add(fingerprint)
 
         weights: dict[str, float] = {}
-        for rule_no, total, _resolved_all in rows:
+        for rule_no, fingerprints in surfaced_fps_by_rule.items():
+            total = len(fingerprints)
             if total < 5:  # 데이터 부족 시 중립
                 continue
-            # human-resolve만 사용
-            human_res = human_resolved_by_rule.get(rule_no, 0)
+            human_res = sum(1 for fp in fingerprints if fp in human_resolved_fps)
             resolve_rate = human_res / total
             if resolve_rate >= 0.5:
                 weights[rule_no] = min(1.2, 0.9 + resolve_rate * 0.6)
             else:
                 weights[rule_no] = max(0.8, 0.8 + resolve_rate * 0.4)
         return weights
+
+    def latest_rule_effectiveness_states(
+        self,
+        session: Session,
+    ) -> dict[str, RuleEffectivenessFingerprintState]:
+        """Return one latest meaningful state per fingerprint for analytics.
+
+        We intentionally scan only meaningful states so a later no-op rerun
+        (`eligible`/`candidate`/`stale`) does not hide an already surfaced
+        finding, while a true reopen (`published` after `resolved`) still wins
+        because it is the latest meaningful row.
+        """
+
+        rows = (
+            session.query(
+                FindingDecision.fingerprint,
+                FindingDecision.rule_no,
+                FindingDecision.source_family,
+                FindingDecision.state,
+            )
+            .filter(FindingDecision.state.in_(_RULE_EFFECTIVENESS_MEANINGFUL_STATES))
+            .order_by(FindingDecision.created_at.desc(), FindingDecision.id.desc())
+            .all()
+        )
+        latest_by_fingerprint: dict[str, RuleEffectivenessFingerprintState] = {}
+        for fingerprint, rule_no, source_family, state in rows:
+            if not fingerprint or fingerprint in latest_by_fingerprint:
+                continue
+            latest_by_fingerprint[fingerprint] = RuleEffectivenessFingerprintState(
+                fingerprint=fingerprint,
+                rule_no=rule_no or "",
+                source_family=source_family or "unknown",
+                state=state,
+            )
+        return latest_by_fingerprint
 
     def _feedback_signal(
         self,
@@ -1441,8 +1728,8 @@ class ReviewRunner:
         resolved_count = 0
         unresolved_count = 0
         human_reply_count = 0
-        ignore_requested = False
-        allow_requested = False
+        latest_command: str | None = None
+        latest_command_marker: tuple[datetime, str] | None = None
 
         for event in events:
             if event.event_type == "resolved":
@@ -1452,17 +1739,24 @@ class ReviewRunner:
             elif event.event_type == "reply" and event.actor_type == "human":
                 human_reply_count += 1
                 body = str((event.payload or {}).get("body") or "")
-                if self._contains_feedback_command(body, "ignore"):
-                    ignore_requested = True
-                if self._contains_feedback_command(body, "allow"):
-                    allow_requested = True
+                command = self._latest_feedback_command(body)
+                if command is not None:
+                    marker = (
+                        event.occurred_at or datetime.min.replace(tzinfo=UTC),
+                        str(getattr(event, "event_key", "") or ""),
+                    )
+                    if latest_command_marker is None or marker >= latest_command_marker:
+                        latest_command = command
+                        latest_command_marker = marker
 
         return FeedbackSignal(
             resolved_count=resolved_count,
             unresolved_count=unresolved_count,
             human_reply_count=human_reply_count,
-            ignore_requested=ignore_requested,
-            allow_requested=allow_requested,
+            ignore_requested=latest_command == "ignore",
+            false_positive_requested=latest_command == "false-positive",
+            later_requested=latest_command == "later",
+            allow_requested=latest_command == "allow",
         )
 
     def _contains_feedback_command(self, body: str, command: str) -> bool:
@@ -1470,6 +1764,16 @@ class ReviewRunner:
             rf"(?im)^\s*(?:/)?(?:review-bot|bot)(?::|\s+)\s*{re.escape(command)}(?:\s|$)"
         )
         return bool(pattern.search(body))
+
+    def _latest_feedback_command(self, body: str) -> str | None:
+        pattern = re.compile(
+            r"(?im)^\s*(?:/)?(?:review-bot|bot)(?::|\s+)\s*"
+            r"(?P<command>ignore|false-positive|later|allow)(?:\s|$)"
+        )
+        latest: str | None = None
+        for match in pattern.finditer(body):
+            latest = str(match.group("command"))
+        return latest
 
     def _path_policy_adjustment(
         self,
@@ -1520,6 +1824,242 @@ class ReviewRunner:
             .order_by(ThreadSyncState.updated_at.desc())
             .first()
         )
+
+    def _latest_publications_for_decisions(
+        self,
+        session: Session,
+        decision_ids: list[str],
+    ) -> dict[str, PublicationState]:
+        if not decision_ids:
+            return {}
+        publications = (
+            session.query(PublicationState)
+            .filter(PublicationState.finding_decision_id.in_(decision_ids))
+            .order_by(PublicationState.updated_at.desc(), PublicationState.published_at.desc())
+            .all()
+        )
+        latest_by_decision_id: dict[str, PublicationState] = {}
+        for publication in publications:
+            latest_by_decision_id.setdefault(publication.finding_decision_id, publication)
+        return latest_by_decision_id
+
+    def _empty_full_report(self, key: ReviewRequestKey) -> dict[str, Any]:
+        return {
+            "key": key,
+            "review_request_title": None,
+            "last_review_run_id": None,
+            "last_status": None,
+            "last_head_sha": None,
+            "report_review_run_id": None,
+            "report_status": None,
+            "report_head_sha": None,
+            "in_flight_review_run_id": None,
+            "in_flight_status": None,
+            "in_flight_head_sha": None,
+            "generated_at": datetime.now(UTC),
+            "counts": {section: 0 for section in _FULL_REPORT_SECTION_ORDER},
+            **{section: [] for section in _FULL_REPORT_SECTION_ORDER},
+        }
+
+    def _filter_full_report_view(
+        self,
+        report: dict[str, Any],
+        *,
+        view: Literal["full", "backlog"],
+    ) -> dict[str, Any]:
+        if view == "full":
+            return report
+        counts = dict(report["counts"])
+        for section in _FULL_REPORT_SECTION_ORDER:
+            if section in _BACKLOG_ONLY_SECTION_ORDER:
+                continue
+            report[section] = []
+            counts[section] = 0
+        report["counts"] = counts
+        return report
+
+    def _classify_full_report_section(
+        self,
+        *,
+        decision: FindingDecision,
+        publication: PublicationState | None,
+        backlog_only: bool,
+        backlog_reason: str | None,
+    ) -> str | None:
+        """Classify a latest-run decision into a run-oriented report section.
+
+        Returns None when the decision's canonical representation belongs to
+        the current-state backlog view (resolved-unchanged / feedback-later);
+        callers should skip those and let the backlog helper render them.
+        """
+        if decision.suppression_reason == "feedback:ignore":
+            return "suppressed_feedback_ignore"
+        if decision.suppression_reason == "feedback:false_positive":
+            return "suppressed_feedback_false_positive"
+        if decision.state == "failed_publication":
+            return "failed_publication"
+        if publication and publication.publish_state in {"created", "updated"}:
+            return "published_inline"
+        if backlog_only:
+            if backlog_reason == "existing_open_thread":
+                return "already_open"
+            return None
+        if decision.state == "suppressed":
+            return "suppressed_other"
+        if decision.state == "published":
+            return "already_open"
+        if decision.state == "eligible":
+            return "pending_batch"
+        return "suppressed_other"
+
+    def _build_full_report_item(
+        self,
+        *,
+        decision: FindingDecision,
+        disposition: str,
+        existing_thread: ThreadSyncState | None,
+        reason: str | None,
+    ) -> dict[str, Any]:
+        return {
+            "fingerprint": decision.fingerprint,
+            "file_path": decision.file_path,
+            "line_no": decision.line_no,
+            "rule_no": decision.rule_no,
+            "severity": decision.severity or "medium",
+            "title": decision.title,
+            "summary": decision.summary,
+            "state": decision.state,
+            "disposition": disposition,
+            "reason": reason,
+            "score_final": (
+                round(float(decision.score_final), 3)
+                if decision.score_final is not None
+                else None
+            ),
+            "thread_ref": existing_thread.adapter_thread_ref if existing_thread else None,
+        }
+
+    def _build_backlog_report_item(
+        self,
+        *,
+        section: str,
+        thread: ThreadSyncState,
+        decision: FindingDecision | None,
+        reason: str | None,
+    ) -> dict[str, Any]:
+        return {
+            "fingerprint": thread.finding_fingerprint,
+            "file_path": decision.file_path if decision else "",
+            "line_no": decision.line_no if decision else None,
+            "rule_no": decision.rule_no if decision else "",
+            "severity": (decision.severity if decision else None) or "medium",
+            "title": decision.title if decision else None,
+            "summary": decision.summary if decision else None,
+            "state": decision.state if decision else "backlog",
+            "disposition": section,
+            "reason": reason,
+            "score_final": (
+                round(float(decision.score_final), 3)
+                if decision and decision.score_final is not None
+                else None
+            ),
+            "thread_ref": thread.adapter_thread_ref,
+        }
+
+    def _current_backlog_entries(
+        self,
+        session: Session,
+        *,
+        review_request_pk: str,
+        feedback_cache: tuple[dict, dict] | None,
+    ) -> list[BacklogEntry]:
+        """Return backlog entries sourced from current ThreadSyncState.
+
+        Dedupes by fingerprint (keeps the most recently updated thread) so
+        repeated reruns for the same finding only count once.
+        """
+        threads = (
+            session.query(ThreadSyncState)
+            .filter(ThreadSyncState.review_request_pk == review_request_pk)
+            .order_by(ThreadSyncState.updated_at.desc())
+            .all()
+        )
+        seen: set[str] = set()
+        entries: list[BacklogEntry] = []
+        for thread in threads:
+            fingerprint = thread.finding_fingerprint
+            if not fingerprint or fingerprint in seen:
+                continue
+            if thread.sync_status not in {"open", "resolved"}:
+                continue
+            feedback_signal = self._feedback_signal(
+                session,
+                review_request_pk,
+                fingerprint,
+                feedback_cache=feedback_cache,
+            )
+            if feedback_signal.later_requested:
+                section = "backlog_feedback_later"
+                reason = "feedback:later"
+            elif thread.sync_status == "open":
+                if thread.resolution_reason == "remote_reopened":
+                    # Reopened threads are actionable open findings handled by
+                    # the run view (already_open / pending_batch); not backlog.
+                    continue
+                section = "backlog_existing_open"
+                reason = "existing_open_thread"
+            else:
+                if self.settings.resolved_unchanged_resurface_enabled:
+                    continue
+                section = "backlog_resolved_unchanged"
+                reason = "resolved_unchanged"
+            seen.add(fingerprint)
+            entries.append(
+                BacklogEntry(
+                    section=section,
+                    thread=thread,
+                    reason=reason,
+                    feedback_signal=feedback_signal,
+                )
+            )
+        return entries
+
+    def _latest_decision_for_fingerprint(
+        self,
+        session: Session,
+        *,
+        review_request_pk: str,
+        fingerprint: str,
+    ) -> FindingDecision | None:
+        return (
+            session.query(FindingDecision)
+            .filter(
+                FindingDecision.review_request_pk == review_request_pk,
+                FindingDecision.fingerprint == fingerprint,
+            )
+            .order_by(FindingDecision.created_at.desc(), FindingDecision.id.desc())
+            .first()
+        )
+
+    def _full_report_reason(
+        self,
+        *,
+        decision: FindingDecision,
+        section: str,
+        backlog_reason: str | None,
+        publication: PublicationState | None,
+    ) -> str | None:
+        if section.startswith("backlog_"):
+            return backlog_reason
+        if section == "already_open":
+            return publication.publish_state if publication else "already_open"
+        if section.startswith("suppressed_feedback_"):
+            return decision.suppression_reason
+        if section == "suppressed_other":
+            return decision.suppression_reason
+        if section == "failed_publication":
+            return publication.error_category if publication else decision.publication_error
+        return None
 
     def _thread_targets_current_files(
         self,
@@ -1628,6 +2168,31 @@ class ReviewRunner:
             .one_or_none()
         )
 
+    def _latest_review_run_for_request(
+        self,
+        session: Session,
+        review_request_pk: str,
+        *,
+        statuses: tuple[str, ...] | None = None,
+    ) -> ReviewRun | None:
+        query = session.query(ReviewRun).filter(ReviewRun.review_request_pk == review_request_pk)
+        if statuses is not None:
+            query = query.filter(ReviewRun.status.in_(statuses))
+        return query.order_by(ReviewRun.created_at.desc(), ReviewRun.id.desc()).first()
+
+    def _is_newer_run(
+        self,
+        candidate: ReviewRun,
+        baseline: ReviewRun | None,
+    ) -> bool:
+        if baseline is None:
+            return True
+        return self._run_sort_key(candidate) > self._run_sort_key(baseline)
+
+    def _run_sort_key(self, review_run: ReviewRun) -> tuple[datetime, str]:
+        created_at = review_run.created_at or datetime.min.replace(tzinfo=UTC)
+        return (created_at, review_run.id)
+
     def _get_review_request(self, session: Session, review_request_pk: str) -> ReviewRequest:
         review_request = session.get(ReviewRequest, review_request_pk)
         if review_request is None:
@@ -1704,6 +2269,37 @@ class ReviewRunner:
         suffix = "\n\n...(내용이 잘렸습니다. 파일을 직접 확인하세요.)"
         return body[: MAX_COMMENT_BODY - len(suffix)] + suffix
 
+    def _truncate_general_note(self, body: str) -> str:
+        if len(body) <= MAX_COMMENT_BODY:
+            return body
+        suffix = "\n\n...(일부 항목이 잘렸습니다. 필요하면 full-report/API로 전체를 확인하세요.)"
+        return body[: MAX_COMMENT_BODY - len(suffix)] + suffix
+
+    def _publish_general_note(
+        self,
+        *,
+        adapter: Any,
+        key: ReviewRequestKey,
+        body: str,
+        purpose: str,
+    ) -> bool:
+        note_body = self._truncate_general_note(
+            self._attach_general_note_purpose(body=body, purpose=purpose)
+        )
+        upsert_general_note = getattr(adapter, "upsert_general_note", None)
+        if callable(upsert_general_note):
+            result = upsert_general_note(key, body=note_body, purpose=purpose)
+            if result.get("ok"):
+                return True
+        adapter.post_general_note(key, note_body)
+        return True
+
+    def _attach_general_note_purpose(self, *, body: str, purpose: str) -> str:
+        marker = render_general_note_purpose_marker(purpose)
+        if marker in body:
+            return body
+        return f"{marker}\n{body}"
+
     def _post_pr_summary(
         self,
         *,
@@ -1712,6 +2308,8 @@ class ReviewRunner:
         review_run: ReviewRun,
         published_candidates: list[PublicationCandidate],
         batch_no: int,
+        backlog_counts: dict[str, int] | None = None,
+        suppressed_feedback_counts: dict[str, int] | None = None,
     ) -> None:
         """신규 게시된 finding을 요약해 MR 일반 노트로 게시한다."""
         if not hasattr(adapter, "post_general_note"):
@@ -1737,11 +2335,240 @@ class ReviewRunner:
             lines += [
                 "---",
                 f"총 **{len(published_candidates)}개** 항목이 게시되었습니다.",
-                "각 코멘트를 확인하고 수정 후 스레드를 **Resolve** 해주세요.",
             ]
-            adapter.post_general_note(key, "\n".join(lines))
+            if backlog_counts:
+                backlog_existing = backlog_counts.get("existing_open_thread", 0)
+                backlog_resolved = backlog_counts.get("resolved_unchanged", 0)
+                backlog_later = backlog_counts.get("feedback:later", 0)
+                if backlog_existing > 0:
+                    lines.append(
+                        f"기존 열린 이슈 {backlog_existing}개는 재게시하지 않고 backlog로 유지했습니다."
+                    )
+                if backlog_resolved > 0:
+                    lines.append(
+                        f"이미 Resolve된 동일 항목 {backlog_resolved}개는 inline으로 다시 올리지 않았습니다."
+                    )
+                if backlog_later > 0:
+                    lines.append(f"사용자 피드백(`bot:later`)으로 보류된 항목: {backlog_later}개.")
+            if suppressed_feedback_counts:
+                ignored = suppressed_feedback_counts.get("feedback:ignore", 0)
+                false_positive = suppressed_feedback_counts.get("feedback:false_positive", 0)
+                feedback_summary_parts: list[str] = []
+                if ignored > 0:
+                    feedback_summary_parts.append(f"무시된 항목 {ignored}개")
+                if false_positive > 0:
+                    feedback_summary_parts.append(f"오탐으로 처리된 항목 {false_positive}개")
+                if feedback_summary_parts:
+                    lines.append(
+                        "사용자 피드백으로 "
+                        + ", ".join(feedback_summary_parts)
+                        + "가 이번 run에서 suppress되었습니다."
+                    )
+            lines.append("전체 backlog가 필요하면 `@review-bot full-report`를 코멘트로 요청해 주세요.")
+            lines.append("각 코멘트를 확인하고 수정 후 스레드를 **Resolve** 해주세요.")
+            adapter.post_general_note(key, self._truncate_general_note("\n".join(lines)))
         except Exception as exc:
             logger.warning("pr_summary_failed error=%s", exc)
+
+    def _render_full_report_note(self, report: dict[str, Any]) -> str:
+        lines = ["## 🤖 자동 리뷰 Full Report", ""]
+        if report.get("last_review_run_id") is None:
+            lines.extend(
+                [
+                    "아직 이 MR에 대한 리뷰 결과가 없습니다.",
+                    "`@review-bot review`로 먼저 리뷰를 실행한 뒤 다시 요청해 주세요.",
+                ]
+            )
+            return "\n".join(lines)
+        report_run_id = report.get("report_review_run_id")
+        report_status = report.get("report_status")
+        report_head_sha = report.get("report_head_sha")
+        if report_run_id is None and report.get("last_status") in _REPORTABLE_REVIEW_RUN_STATUSES:
+            report_run_id = report.get("last_review_run_id")
+            report_status = report_status or report.get("last_status")
+            report_head_sha = report_head_sha or report.get("last_head_sha")
+        if report_run_id is None:
+            lines.extend(
+                [
+                    "현재 더 새로운 리뷰 run이 진행 중이지만, 완료된 결과는 아직 없습니다.",
+                    f"- 최신 run: `{report['last_review_run_id']}`",
+                    f"- 상태: `{report.get('last_status') or 'unknown'}`",
+                ]
+            )
+            if report.get("last_head_sha"):
+                lines.append(f"- head sha: `{report['last_head_sha']}`")
+            lines.extend(
+                [
+                    "",
+                    "run이 끝난 뒤 다시 `@review-bot full-report`를 요청해 주세요.",
+                ]
+            )
+            return self._truncate_general_note("\n".join(lines))
+
+        lines.extend(
+            [
+                f"- 보고서 기준 run: `{report_run_id}`",
+                f"- 보고서 상태: `{report_status or 'unknown'}`",
+            ]
+        )
+        if report_head_sha:
+            lines.append(f"- 보고서 head sha: `{report_head_sha}`")
+        if report.get("last_review_run_id") != report_run_id:
+            lines.append(
+                f"- 최신 run: `{report['last_review_run_id']}` (`{report.get('last_status') or 'unknown'}`)"
+            )
+        if report.get("in_flight_review_run_id"):
+            lines.append(
+                f"- 진행 중 run: `{report['in_flight_review_run_id']}` (`{report.get('in_flight_status') or 'unknown'}`)"
+            )
+        if report.get("review_request_title"):
+            lines.append(f"- 제목: {report['review_request_title']}")
+        if report.get("in_flight_review_run_id"):
+            lines.extend(
+                [
+                    "",
+                    "현재 더 새로운 run이 진행 중이므로, 아래 내용은 가장 최근에 완료된 run 기준입니다.",
+                ]
+            )
+        lines.extend(["", "### 요약"])
+
+        counts = report.get("counts") or {}
+        for section in _FULL_REPORT_SECTION_ORDER:
+            count = int(counts.get(section, 0) or 0)
+            if count <= 0:
+                continue
+            lines.append(f"- {_FULL_REPORT_SECTION_SUMMARY_LABELS[section]}: {count}개")
+
+        for section in _FULL_REPORT_SECTION_ORDER:
+            items = report.get(section) or []
+            if not items:
+                continue
+            lines.extend(["", f"### {_FULL_REPORT_SECTION_TITLES[section]} ({len(items)}개)"])
+            for item in items[:20]:
+                location = item["file_path"]
+                if item.get("line_no") is not None:
+                    location += f":{item['line_no']}"
+                severity = item.get("severity") or "medium"
+                title = item.get("title") or item.get("rule_no") or "untitled"
+                lines.append(f"- `{location}` [{severity}] {title}")
+                if item.get("summary"):
+                    lines.append(f"  - {item['summary']}")
+                if item.get("reason"):
+                    lines.append(f"  - reason: `{item['reason']}`")
+            if len(items) > 20:
+                lines.append(f"- ... 외 {len(items) - 20}개")
+
+        lines.extend(
+            [
+                "",
+                "필요하면 `@review-bot review`로 최신 diff를 다시 검사할 수 있습니다.",
+            ]
+        )
+        return self._truncate_general_note("\n".join(lines))
+
+    def _render_backlog_note(self, report: dict[str, Any]) -> str:
+        lines = ["## 🤖 자동 리뷰 Backlog", ""]
+        if report.get("last_review_run_id") is None:
+            lines.extend(
+                [
+                    "아직 이 MR에 대한 리뷰 결과가 없습니다.",
+                    "`@review-bot review`로 먼저 리뷰를 실행한 뒤 다시 요청해 주세요.",
+                ]
+            )
+            return "\n".join(lines)
+
+        counts = report.get("counts") or {}
+        total_backlog = sum(
+            int(counts.get(section, 0) or 0) for section in _BACKLOG_ONLY_SECTION_ORDER
+        )
+        if total_backlog == 0:
+            lines.append("현재 MR에 남아 있는 backlog가 없습니다.")
+            return self._truncate_general_note("\n".join(lines))
+
+        lines.append("현재 남아 있는 backlog 현황입니다.")
+        if report.get("in_flight_review_run_id"):
+            lines.extend(
+                [
+                    "",
+                    f"- 진행 중 run: `{report['in_flight_review_run_id']}` (`{report.get('in_flight_status') or 'unknown'}`)",
+                    "- backlog는 현재 스레드 상태 기준으로 집계되었습니다.",
+                ]
+            )
+        lines.extend(["", "### 요약"])
+        for section in _BACKLOG_ONLY_SECTION_ORDER:
+            count = int(counts.get(section, 0) or 0)
+            if count <= 0:
+                continue
+            lines.append(f"- {_FULL_REPORT_SECTION_SUMMARY_LABELS[section]}: {count}개")
+
+        for section in _BACKLOG_ONLY_SECTION_ORDER:
+            items = report.get(section) or []
+            if not items:
+                continue
+            lines.extend(["", f"### {_FULL_REPORT_SECTION_TITLES[section]} ({len(items)}개)"])
+            for item in items[:20]:
+                location = item.get("file_path") or ""
+                if item.get("line_no") is not None:
+                    location = f"{location}:{item['line_no']}" if location else f"L{item['line_no']}"
+                severity = item.get("severity") or "medium"
+                title = item.get("title") or item.get("rule_no") or "untitled"
+                display_location = f"`{location}`" if location else ""
+                prefix = f"- {display_location} " if display_location else "- "
+                lines.append(f"{prefix}[{severity}] {title}")
+                if item.get("summary"):
+                    lines.append(f"  - {item['summary']}")
+                if item.get("reason"):
+                    lines.append(f"  - reason: `{item['reason']}`")
+            if len(items) > 20:
+                lines.append(f"- ... 외 {len(items) - 20}개")
+
+        lines.extend(
+            [
+                "",
+                "필요하면 `@review-bot full-report`로 이번 run 결과까지 함께 볼 수 있습니다.",
+            ]
+        )
+        return self._truncate_general_note("\n".join(lines))
+
+    def _render_help_note(self) -> str:
+        lines = [
+            "## 🤖 review-bot 사용법",
+            "",
+            "이 MR에서 다음 명령을 지원합니다.",
+            "",
+            "- `@review-bot review` — 최신 diff에 대해 리뷰를 실행합니다.",
+            "- `@review-bot full-report` — 최신 run 결과와 현재 backlog를 함께 보여 줍니다.",
+            "- `@review-bot backlog` — 현재 MR에 남아 있는 backlog만 보여 줍니다.",
+            "- `@review-bot help` — 이 도움말을 보여 줍니다.",
+            "",
+            "스레드 댓글로 `bot:ignore`, `bot:false-positive`, `bot:later`, `bot:allow`를 작성하면",
+            "해당 finding에 대한 피드백으로 반영됩니다.",
+            "",
+            "멘션은 줄 시작에 있을 때만 인식됩니다. "
+            "알 수 없는 명령은 안전을 위해 무시됩니다.",
+        ]
+        return self._truncate_general_note("\n".join(lines))
+
+    def _suppressed_feedback_counts(self, session: Session, review_run_id: str) -> dict[str, int]:
+        rows = (
+            session.query(FindingDecision.suppression_reason, FindingDecision.fingerprint)
+            .filter(
+                FindingDecision.review_run_id == review_run_id,
+                FindingDecision.suppression_reason.in_(
+                    ["feedback:ignore", "feedback:false_positive"]
+                ),
+            )
+            .all()
+        )
+        fingerprints_by_reason: dict[str, set[str]] = {}
+        for reason, fingerprint in rows:
+            if reason is None or fingerprint is None:
+                continue
+            fingerprints_by_reason.setdefault(reason, set()).add(fingerprint)
+        return {
+            reason: len(fingerprints)
+            for reason, fingerprints in fingerprints_by_reason.items()
+        }
 
     def _is_cpp_path(self, path: str) -> bool:
         return any(path.endswith(ext) for ext in CPP_EXTENSIONS)
@@ -1970,6 +2797,7 @@ class ReviewRunner:
         review_run: ReviewRun,
         review_request: ReviewRequest,
         decisions: list[FindingDecision],
+        feedback_cache: tuple[dict, dict] | None = None,
     ) -> list[PublicationCandidate]:
         candidates: list[PublicationCandidate] = []
         for decision in decisions:
@@ -2028,6 +2856,17 @@ class ReviewRunner:
                     decision.suppression_reason = "incremental_out_of_scope"
                     continue
 
+            publish_feedback = self._feedback_signal(
+                session, review_request.id, decision.fingerprint, feedback_cache=feedback_cache
+            )
+            backlog_only, backlog_reason = self._classify_backlog(
+                existing_thread=existing_thread,
+                canonical_body_hash=base_body_hash,
+                decision=decision,
+                feedback_signal=publish_feedback,
+                reminder_candidate=reminder_candidate,
+            )
+
             candidates.append(
                 PublicationCandidate(
                     decision=decision,
@@ -2049,9 +2888,41 @@ class ReviewRunner:
                         reminder_candidate=reminder_candidate,
                     ),
                     reminder_candidate=reminder_candidate,
+                    backlog_only=backlog_only,
+                    backlog_reason=backlog_reason,
                 )
             )
         return candidates
+
+    def _classify_backlog(
+        self,
+        *,
+        existing_thread: ThreadSyncState | None,
+        canonical_body_hash: str,
+        decision: FindingDecision,
+        feedback_signal: FeedbackSignal,
+        reminder_candidate: bool = False,
+    ) -> tuple[bool, str | None]:
+        if feedback_signal.later_requested:
+            return True, "feedback:later"
+        if existing_thread is None:
+            return False, None
+        same_anchor = existing_thread.anchor_signature == decision.anchor_signature
+        same_body = existing_thread.body_hash == canonical_body_hash
+        if existing_thread.sync_status == "open" and same_anchor and same_body:
+            if existing_thread.resolution_reason == "remote_reopened":
+                return False, None
+            if reminder_candidate:
+                return False, None
+            return True, "existing_open_thread"
+        if (
+            existing_thread.sync_status == "resolved"
+            and same_anchor
+            and same_body
+            and not self.settings.resolved_unchanged_resurface_enabled
+        ):
+            return True, "resolved_unchanged"
+        return False, None
 
     def _candidate_priority_group(
         self,
@@ -2069,6 +2940,8 @@ class ReviewRunner:
             return 0
         if existing_thread.anchor_signature != decision.anchor_signature:
             return 0
+        if existing_thread.resolution_reason == "remote_reopened":
+            return 0
         if reminder_candidate:
             return 2
         if existing_thread.body_hash != canonical_body_hash:
@@ -2082,6 +2955,8 @@ class ReviewRunner:
         decision: FindingDecision,
         existing_thread: ThreadSyncState | None,
     ) -> bool:
+        if not self.settings.repeat_open_thread_reminder_enabled:
+            return False
         if review_run.mode == "incremental":
             return False
         if existing_thread is None:
@@ -2101,7 +2976,7 @@ class ReviewRunner:
             (
                 candidate
                 for candidate in candidates
-                if candidate.priority_group != 3
+                if candidate.priority_group != 3 and not candidate.backlog_only
             ),
             key=lambda candidate: (
                 candidate.priority_group,

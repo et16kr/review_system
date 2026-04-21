@@ -5,6 +5,7 @@ from datetime import UTC, datetime
 import httpx
 
 from review_bot.contracts import CommentUpsertRequest, ReviewRequestKey, ThreadNoteSnapshot, ThreadSnapshot
+from review_bot.review_systems.base import render_general_note_purpose_marker
 from review_bot.review_systems.gitlab import GitLabReviewSystemAdapter
 
 
@@ -293,3 +294,91 @@ def test_gitlab_adapter_reopens_resolved_discussion_before_reply(monkeypatch) ->
 
     assert result.action == "updated"
     assert [call[0] for call in calls] == ["PUT", "POST"]
+
+
+def test_gitlab_adapter_upserts_general_note_by_purpose(monkeypatch) -> None:
+    adapter = GitLabReviewSystemAdapter(
+        base_url="http://gitlab.local",
+        token="token",
+    )
+    key = ReviewRequestKey(
+        review_system="gitlab",
+        project_ref="root/altidev4-review",
+        review_request_id="9",
+    )
+    marker = render_general_note_purpose_marker("full-report")
+    seen_requests: list[tuple[str, str, dict | None, dict | None]] = []
+
+    def fake_request(method: str, url: str, *, headers=None, params=None, data=None, timeout=None):
+        del headers, timeout
+        seen_requests.append((method, url, params, data))
+        request = httpx.Request(method, url)
+        if method == "GET" and url.endswith("/merge_requests/9/notes"):
+            return httpx.Response(
+                200,
+                json=[
+                    {
+                        "id": 41,
+                        "body": f"{marker}\nold body",
+                        "system": False,
+                        "author": {"username": "review-bot"},
+                    },
+                    {
+                        "id": 42,
+                        "body": "human note",
+                        "system": False,
+                        "author": {"username": "alice"},
+                    },
+                ],
+                request=request,
+            )
+        if method == "PUT" and url.endswith("/merge_requests/9/notes/41"):
+            assert data == {"body": f"{marker}\nnew body"}
+            return httpx.Response(200, json={"id": 41}, request=request)
+        raise AssertionError(f"Unexpected {method} {url} params={params} data={data}")
+
+    monkeypatch.setattr(httpx, "request", fake_request)
+
+    result = adapter.upsert_general_note(
+        key,
+        body=f"{marker}\nnew body",
+        purpose="full-report",
+    )
+
+    assert result["ok"] is True
+    assert result["action"] == "updated"
+    assert any(method == "PUT" for method, *_ in seen_requests)
+
+
+def test_gitlab_adapter_creates_general_note_when_purpose_not_found(monkeypatch) -> None:
+    adapter = GitLabReviewSystemAdapter(
+        base_url="http://gitlab.local",
+        token="token",
+    )
+    key = ReviewRequestKey(
+        review_system="gitlab",
+        project_ref="root/altidev4-review",
+        review_request_id="10",
+    )
+    marker = render_general_note_purpose_marker("backlog")
+
+    def fake_request(method: str, url: str, *, headers=None, params=None, data=None, timeout=None):
+        del headers, timeout
+        request = httpx.Request(method, url)
+        if method == "GET" and url.endswith("/merge_requests/10/notes"):
+            return httpx.Response(200, json=[], request=request)
+        if method == "POST" and url.endswith("/merge_requests/10/notes"):
+            assert data == {"body": f"{marker}\nbacklog body"}
+            return httpx.Response(200, json={"id": 77}, request=request)
+        raise AssertionError(f"Unexpected {method} {url} params={params} data={data}")
+
+    monkeypatch.setattr(httpx, "request", fake_request)
+
+    result = adapter.upsert_general_note(
+        key,
+        body=f"{marker}\nbacklog body",
+        purpose="backlog",
+    )
+
+    assert result["ok"] is True
+    assert result["action"] == "created"

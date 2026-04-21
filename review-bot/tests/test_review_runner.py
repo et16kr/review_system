@@ -2,8 +2,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass, replace as dataclass_replace
 from datetime import UTC, datetime, timedelta
+from types import SimpleNamespace
 
-from review_bot.bot.review_runner import ReviewRunner
+from review_bot.bot.review_runner import MAX_COMMENT_BODY, ReviewRunner
 from review_bot.contracts import (
     CheckPublishResult,
     CommentUpsertResult,
@@ -90,7 +91,7 @@ def test_review_runner_keeps_distinct_findings_per_hunk() -> None:
         session.close()
 
 
-def test_review_runner_resurfaces_unfixed_open_finding_on_full_rerun() -> None:
+def test_full_rerun_does_not_reply_again_to_unchanged_open_thread_by_default() -> None:
     _reset_db()
 
     runner = ReviewRunner()
@@ -113,12 +114,14 @@ def test_review_runner_resurfaces_unfixed_open_finding_on_full_rerun() -> None:
             .all()
         )
         threads = adapter.list_threads(key)
+        state = runner.build_state(session, 404)
 
-        assert len(adapter.upsert_requests) == 2
-        assert adapter.upsert_requests[1].existing_thread_ref == "thread-1"
-        assert [item.publish_state for item in publications] == ["created", "updated"]
+        assert len(adapter.upsert_requests) == 1
+        assert [item.publish_state for item in publications] == ["created"]
         assert len(threads) == 1
-        assert len(threads[0].notes) == 2
+        assert len(threads[0].notes) == 1
+        assert state["published_batch_count"] == 1
+        assert state["open_finding_count"] == 1
     finally:
         session.close()
 
@@ -294,7 +297,7 @@ def test_review_runner_does_not_spend_batch_slot_on_unchanged_open_thread() -> N
         assert len(adapter.upsert_requests) == 2
         assert adapter.upsert_requests[1].existing_thread_ref is None
         assert [item.file_path for item in findings if item.state == "published"] == ["src/a.cpp", "src/b.cpp"]
-        assert [item.publish_state for item in publications] == ["created", "skipped", "created"]
+        assert [item.publish_state for item in publications] == ["created", "created"]
         assert len(adapter.list_threads(key)) == 2
     finally:
         session.close()
@@ -441,12 +444,13 @@ def test_review_runner_recovers_stale_thread_after_resolve_failure_when_remote_t
 
         thread_state = session.query(ThreadSyncState).filter_by(review_request_id="708").one()
 
-        assert len(adapter.upsert_requests) == 2
-        assert adapter.upsert_requests[1].existing_thread_ref == "thread-1"
+        # stale 복구 후에는 reconcile이 스레드를 open으로 되돌리지만,
+        # unchanged open thread 정책에 따라 새 reply를 달지 않는다.
+        assert len(adapter.upsert_requests) == 1
         assert thread_state.sync_status == "open"
         assert thread_state.resolution_reason is None
         assert len(adapter.list_threads(key)) == 1
-        assert len(adapter.list_threads(key)[0].notes) == 2
+        assert len(adapter.list_threads(key)[0].notes) == 1
     finally:
         session.close()
 
@@ -529,7 +533,7 @@ def test_review_runner_records_repeated_resolve_and_unresolve_feedback_transitio
         session.close()
 
 
-def test_review_runner_reopens_resolved_thread_on_full_reconcile() -> None:
+def test_resolved_unchanged_finding_stays_backlog_only_by_default() -> None:
     _reset_db()
 
     runner = ReviewRunner()
@@ -549,11 +553,38 @@ def test_review_runner_reopens_resolved_thread_on_full_reconcile() -> None:
         thread_state = session.query(ThreadSyncState).filter_by(review_request_id="717").one()
 
         assert review_run.status == "success"
+        assert len(adapter.upsert_requests) == 1
+        assert thread_state.sync_status == "resolved"
+        assert adapter.list_threads(key)[0].resolved is True
+    finally:
+        session.close()
+
+
+def test_opt_in_resurface_can_reopen_resolved_unchanged_thread() -> None:
+    _reset_db()
+
+    runner = ReviewRunner()
+    runner.settings = dataclass_replace(runner.settings, resolved_unchanged_resurface_enabled=True)
+    adapter = FakeAdapter()
+    key = runner._legacy_key(7170)  # noqa: SLF001
+    adapter.set_diff(key, path="src/a.cpp", patch=_malloc_patch())
+    runner.platform_client = adapter
+    runner.engine_client = EngineStub([_result("ALTI-MEM-007", category="memory")])
+    runner.provider = FixedProvider()
+
+    session = SessionLocal()
+    try:
+        runner.run_review(session, pr_id=7170, trigger="first")
+        adapter.mark_resolved(key, "thread-1", resolved=True)
+
+        review_run = runner.run_review(session, pr_id=7170, trigger="full-reconcile")
+        thread_state = session.query(ThreadSyncState).filter_by(review_request_id="7170").one()
+
+        assert review_run.status == "success"
         assert len(adapter.upsert_requests) == 2
         assert adapter.upsert_requests[1].existing_thread_ref == "thread-1"
         assert adapter.upsert_requests[1].reopen_if_resolved is True
         assert thread_state.sync_status == "open"
-        assert len(adapter.list_threads(key)) == 1
         assert adapter.list_threads(key)[0].resolved is False
     finally:
         session.close()
@@ -618,8 +649,50 @@ def test_review_runner_does_not_treat_plain_text_mentions_as_feedback_commands()
 
         assert current_findings[0].state == "published"
         assert current_findings[0].suppression_reason is None
-        assert len(adapter.upsert_requests) == 2
-        assert adapter.upsert_requests[1].existing_thread_ref == "thread-1"
+        assert len(adapter.upsert_requests) == 1
+    finally:
+        session.close()
+
+
+def test_build_state_and_full_report_use_latest_created_run() -> None:
+    _reset_db()
+
+    runner = ReviewRunner()
+    adapter = FakeAdapter()
+    key = runner._legacy_key(8010)  # noqa: SLF001
+    adapter.set_diff(key, path="src/a.cpp", patch=_malloc_patch(), head_sha="head-a")
+    runner.platform_client = adapter
+    runner.engine_client = EngineStub([_result("ALTI-MEM-007", category="memory")])
+    runner.provider = FixedProvider(summary_suffix="first")
+
+    session = SessionLocal()
+    try:
+        first_run = runner.run_review(session, pr_id=8010, trigger="first")
+
+        adapter.set_diff(key, path="src/b.cpp", patch=_continue_patch(), head_sha="head-b")
+        runner.engine_client = EngineStub([_result("ALTI-COF-001", category="control_flow")])
+        runner.provider = FixedProvider(
+            title="두 번째 run finding",
+            summary="두 번째 run에서 생성된 finding입니다.",
+        )
+        second_run = runner.run_review(session, pr_id=8010, trigger="second")
+
+        first_run = session.get(type(first_run), first_run.id)
+        second_run = session.get(type(second_run), second_run.id)
+        assert first_run is not None
+        assert second_run is not None
+
+        first_run.completed_at = (second_run.completed_at or datetime.now(UTC)) + timedelta(minutes=5)
+        session.commit()
+
+        state = runner.build_state(session, key=key)
+        report = runner.build_full_report(session, key=key)
+
+        assert state["last_review_run_id"] == second_run.id
+        assert state["last_head_sha"] == "head-b"
+        assert report["last_review_run_id"] == second_run.id
+        assert report["last_head_sha"] == "head-b"
+        assert [item["file_path"] for item in report["published_inline"]] == ["src/b.cpp"]
     finally:
         session.close()
 
@@ -962,6 +1035,8 @@ class FakeAdapter:
         self.threads_by_key: dict[tuple[str, str, str], list[ThreadSnapshot]] = {}
         self.upsert_requests = []
         self.publish_checks = []
+        self.general_notes: list[str] = []
+        self.general_note_index_by_purpose: dict[str, int] = {}
         self.resolved_threads: list[str] = []
         self.fail_resolve_refs: set[str] = set()
         self._thread_index = 0
@@ -1131,6 +1206,27 @@ class FakeAdapter:
             description=request.description,
         )
 
+    def post_general_note(self, key: ReviewRequestKey, body: str) -> dict[str, bool]:
+        del key
+        self.general_notes.append(body)
+        return {"ok": True}
+
+    def upsert_general_note(
+        self,
+        key: ReviewRequestKey,
+        *,
+        body: str,
+        purpose: str,
+    ) -> dict[str, str | bool]:
+        del key
+        index = self.general_note_index_by_purpose.get(purpose)
+        if index is None:
+            self.general_note_index_by_purpose[purpose] = len(self.general_notes)
+            self.general_notes.append(body)
+            return {"ok": True, "action": "created"}
+        self.general_notes[index] = body
+        return {"ok": True, "action": "updated"}
+
     def collect_feedback(
         self,
         key: ReviewRequestKey,
@@ -1273,6 +1369,815 @@ def _continue_patch() -> str:
         "+     continue;\n"
         "+ }\n"
     )
+
+
+def test_open_thread_with_changed_body_updates_existing_thread() -> None:
+    _reset_db()
+
+    runner = ReviewRunner()
+    adapter = FakeAdapter()
+    key = runner._legacy_key(8001)  # noqa: SLF001
+    adapter.set_diff(key, path="src/a.cpp", patch=_malloc_patch())
+    runner.platform_client = adapter
+    runner.engine_client = EngineStub([_result("ALTI-MEM-007", category="memory")])
+    provider = FixedProvider(summary_suffix="v1")
+    runner.provider = provider
+
+    session = SessionLocal()
+    try:
+        runner.run_review(session, pr_id=8001, trigger="first")
+        provider.summary_suffix = "v2"
+        runner.run_review(session, pr_id=8001, trigger="second")
+
+        assert len(adapter.upsert_requests) == 2
+        assert adapter.upsert_requests[1].existing_thread_ref == "thread-1"
+    finally:
+        session.close()
+
+
+def test_feedback_false_positive_suppresses_future_candidate() -> None:
+    _reset_db()
+
+    runner = ReviewRunner()
+    adapter = FakeAdapter()
+    key = runner._legacy_key(8002)  # noqa: SLF001
+    adapter.set_diff(key, path="src/a.cpp", patch=_malloc_patch())
+    runner.platform_client = adapter
+    runner.engine_client = EngineStub([_result("ALTI-MEM-007", category="memory")])
+    runner.provider = FixedProvider()
+
+    session = SessionLocal()
+    try:
+        runner.run_review(session, pr_id=8002, trigger="first")
+        adapter.add_human_reply(key, "thread-1", "bot:false-positive\n이 경고는 오탐입니다.")
+
+        review_run = runner.run_review(session, pr_id=8002, trigger="second")
+        current_findings = (
+            session.query(FindingDecision)
+            .filter_by(review_run_id=review_run.id)
+            .all()
+        )
+
+        assert len(adapter.upsert_requests) == 1
+        assert current_findings[0].state == "suppressed"
+        assert current_findings[0].suppression_reason == "feedback:false_positive"
+    finally:
+        session.close()
+
+
+def test_feedback_allow_overrides_false_positive_request() -> None:
+    _reset_db()
+
+    runner = ReviewRunner()
+    adapter = FakeAdapter()
+    key = runner._legacy_key(80021)  # noqa: SLF001
+    adapter.set_diff(key, path="src/a.cpp", patch=_malloc_patch())
+    runner.platform_client = adapter
+    runner.engine_client = EngineStub([_result("ALTI-MEM-007", category="memory")])
+    provider = FixedProvider(summary_suffix="v1")
+    runner.provider = provider
+
+    session = SessionLocal()
+    try:
+        runner.run_review(session, pr_id=80021, trigger="first")
+        adapter.add_human_reply(key, "thread-1", "bot:false-positive\n이 경고는 오탐입니다.")
+        provider.summary_suffix = "v2"
+        runner.run_review(session, pr_id=80021, trigger="second")
+        adapter.add_human_reply(key, "thread-1", "bot:allow\n지금은 다시 검토해도 됩니다.")
+        provider.summary_suffix = "v3"
+
+        review_run = runner.run_review(session, pr_id=80021, trigger="third")
+        current_findings = (
+            session.query(FindingDecision)
+            .filter_by(review_run_id=review_run.id)
+            .all()
+        )
+
+        assert len(adapter.upsert_requests) == 2
+        assert adapter.upsert_requests[1].existing_thread_ref == "thread-1"
+        assert current_findings[0].state == "published"
+        assert current_findings[0].suppression_reason is None
+    finally:
+        session.close()
+
+
+def test_feedback_later_keeps_candidate_out_of_inline_publish() -> None:
+    _reset_db()
+
+    runner = ReviewRunner()
+    adapter = FakeAdapter()
+    key = runner._legacy_key(8003)  # noqa: SLF001
+    adapter.set_diff(key, path="src/a.cpp", patch=_malloc_patch())
+    runner.platform_client = adapter
+    runner.engine_client = EngineStub([_result("ALTI-MEM-007", category="memory")])
+    runner.provider = FixedProvider()
+
+    session = SessionLocal()
+    try:
+        runner.run_review(session, pr_id=8003, trigger="first")
+        adapter.add_human_reply(key, "thread-1", "bot:later\n나중에 처리하겠습니다.")
+
+        runner.run_review(session, pr_id=8003, trigger="second")
+
+        assert len(adapter.upsert_requests) == 1
+    finally:
+        session.close()
+
+
+def test_feedback_allow_overrides_later_request() -> None:
+    _reset_db()
+
+    runner = ReviewRunner()
+    adapter = FakeAdapter()
+    key = runner._legacy_key(80031)  # noqa: SLF001
+    adapter.set_diff(key, path="src/a.cpp", patch=_malloc_patch())
+    runner.platform_client = adapter
+    runner.engine_client = EngineStub([_result("ALTI-MEM-007", category="memory")])
+    provider = FixedProvider(summary_suffix="v1")
+    runner.provider = provider
+
+    session = SessionLocal()
+    try:
+        runner.run_review(session, pr_id=80031, trigger="first")
+        adapter.add_human_reply(key, "thread-1", "bot:later\n나중에 처리하겠습니다.")
+        provider.summary_suffix = "v2"
+        runner.run_review(session, pr_id=80031, trigger="second")
+        adapter.add_human_reply(key, "thread-1", "bot:allow\n이제 다시 보여줘도 됩니다.")
+        provider.summary_suffix = "v3"
+
+        review_run = runner.run_review(session, pr_id=80031, trigger="third")
+        current_findings = (
+            session.query(FindingDecision)
+            .filter_by(review_run_id=review_run.id)
+            .all()
+        )
+
+        assert len(adapter.upsert_requests) == 2
+        assert adapter.upsert_requests[1].existing_thread_ref == "thread-1"
+        assert current_findings[0].state == "published"
+        assert current_findings[0].suppression_reason is None
+    finally:
+        session.close()
+
+
+def test_pr_summary_includes_feedback_backlog_and_suppressed_counts() -> None:
+    _reset_db()
+
+    runner = ReviewRunner()
+    adapter = FakeAdapter()
+    key = runner._legacy_key(80032)  # noqa: SLF001
+    adapter.set_files_diff(
+        key,
+        files=[
+            {"path": "src/a.cpp", "patch": _malloc_patch()},
+            {"path": "src/b.cpp", "patch": _continue_patch()},
+            {"path": "src/c.cpp", "patch": _malloc_patch()},
+        ],
+        head_sha="head-a",
+    )
+    runner.platform_client = adapter
+    runner.engine_client = SequentialEngineStub(
+        [
+            [_result("ALTI-MEM-007", category="memory")],
+            [_result("ALTI-COF-001", category="control_flow")],
+            [_result("ALTI-TYP-001", category="type_usage")],
+        ]
+    )
+    runner.provider = ScenarioProvider(
+        {
+            ("src/a.cpp", "ALTI-MEM-007"): FindingDraft(
+                title="src/a.cpp 메모리 소유권 관리",
+                summary="이 코드는 직접 메모리 해제를 전제로 합니다.",
+                suggested_fix="RAII wrapper를 사용해 주세요.",
+            ),
+            ("src/b.cpp", "ALTI-COF-001"): FindingDraft(
+                title="src/b.cpp 제어 흐름 단순화",
+                summary="continue 중심 제어 흐름은 가독성을 떨어뜨립니다.",
+                suggested_fix="조건 분기를 정리해 주세요.",
+            ),
+            ("src/c.cpp", "ALTI-TYP-001"): FindingDraft(
+                title="src/c.cpp 타입 사용 개선",
+                summary="명시적 타입 의도를 더 분명히 해 주세요.",
+                suggested_fix="프로젝트 표준 타입 alias를 사용해 주세요.",
+            ),
+            ("src/d.cpp", "ALTI-ERR-001"): FindingDraft(
+                title="src/d.cpp 오류 처리 일관성",
+                summary="새로운 오류 처리 finding입니다.",
+                suggested_fix="반환값 검사를 추가해 주세요.",
+            ),
+        }
+    )
+
+    session = SessionLocal()
+    try:
+        runner.run_review(session, pr_id=80032, trigger="first")
+        adapter.add_human_reply(key, "thread-1", "bot:ignore\n이번 건은 의도된 구현입니다.")
+        adapter.add_human_reply(key, "thread-2", "bot:false-positive\n이 경고는 오탐입니다.")
+        adapter.add_human_reply(key, "thread-3", "bot:later\n다음 정리 때 처리하겠습니다.")
+
+        adapter.set_files_diff(
+            key,
+            files=[
+                {"path": "src/a.cpp", "patch": _malloc_patch()},
+                {"path": "src/b.cpp", "patch": _continue_patch()},
+                {"path": "src/c.cpp", "patch": _malloc_patch()},
+                {"path": "src/d.cpp", "patch": _continue_patch()},
+            ],
+            head_sha="head-b",
+        )
+        runner.engine_client = SequentialEngineStub(
+            [
+                [_result("ALTI-MEM-007", category="memory")],
+                [_result("ALTI-COF-001", category="control_flow")],
+                [_result("ALTI-TYP-001", category="type_usage")],
+                [_result("ALTI-ERR-001", category="error_handling")],
+            ]
+        )
+
+        runner.run_review(session, pr_id=80032, trigger="second")
+
+        assert len(adapter.general_notes) == 2
+        summary = adapter.general_notes[-1]
+        assert "총 **1개** 항목이 게시되었습니다." in summary
+        assert "사용자 피드백(`bot:later`)으로 보류된 항목: 1개." in summary
+        assert "무시된 항목 1개" in summary
+        assert "오탐으로 처리된 항목 1개" in summary
+        assert "기존 열린 이슈 1개는 재게시하지 않고 backlog로 유지했습니다." not in summary
+    finally:
+        session.close()
+
+
+def test_build_full_report_classifies_backlog_and_feedback_sections() -> None:
+    _reset_db()
+
+    runner = ReviewRunner()
+    adapter = FakeAdapter()
+    key = runner._legacy_key(80033)  # noqa: SLF001
+    adapter.set_files_diff(
+        key,
+        files=[
+            {"path": "src/a.cpp", "patch": _malloc_patch()},
+            {"path": "src/b.cpp", "patch": _continue_patch()},
+            {"path": "src/c.cpp", "patch": _malloc_patch()},
+        ],
+        head_sha="head-a",
+    )
+    runner.platform_client = adapter
+    runner.engine_client = SequentialEngineStub(
+        [
+            [_result("ALTI-MEM-007", category="memory")],
+            [_result("ALTI-COF-001", category="control_flow")],
+            [_result("ALTI-TYP-001", category="type_usage")],
+        ]
+    )
+    runner.provider = ScenarioProvider(
+        {
+            ("src/a.cpp", "ALTI-MEM-007"): FindingDraft(
+                title="src/a.cpp 메모리 소유권 관리",
+                summary="이 코드는 직접 메모리 해제를 전제로 합니다.",
+                suggested_fix="RAII wrapper를 사용해 주세요.",
+            ),
+            ("src/b.cpp", "ALTI-COF-001"): FindingDraft(
+                title="src/b.cpp 제어 흐름 단순화",
+                summary="continue 중심 제어 흐름은 가독성을 떨어뜨립니다.",
+                suggested_fix="조건 분기를 정리해 주세요.",
+            ),
+            ("src/c.cpp", "ALTI-TYP-001"): FindingDraft(
+                title="src/c.cpp 타입 사용 개선",
+                summary="명시적 타입 의도를 더 분명히 해 주세요.",
+                suggested_fix="프로젝트 표준 타입 alias를 사용해 주세요.",
+            ),
+            ("src/d.cpp", "ALTI-ERR-001"): FindingDraft(
+                title="src/d.cpp 오류 처리 일관성",
+                summary="새로운 오류 처리 finding입니다.",
+                suggested_fix="반환값 검사를 추가해 주세요.",
+            ),
+        }
+    )
+
+    session = SessionLocal()
+    try:
+        runner.run_review(session, pr_id=80033, trigger="first")
+        adapter.add_human_reply(key, "thread-1", "bot:ignore\n이번 건은 의도된 구현입니다.")
+        adapter.add_human_reply(key, "thread-2", "bot:false-positive\n이 경고는 오탐입니다.")
+        adapter.add_human_reply(key, "thread-3", "bot:later\n다음 정리 때 처리하겠습니다.")
+
+        adapter.set_files_diff(
+            key,
+            files=[
+                {"path": "src/a.cpp", "patch": _malloc_patch()},
+                {"path": "src/b.cpp", "patch": _continue_patch()},
+                {"path": "src/c.cpp", "patch": _malloc_patch()},
+                {"path": "src/d.cpp", "patch": _continue_patch()},
+            ],
+            head_sha="head-b",
+        )
+        runner.engine_client = SequentialEngineStub(
+            [
+                [_result("ALTI-MEM-007", category="memory")],
+                [_result("ALTI-COF-001", category="control_flow")],
+                [_result("ALTI-TYP-001", category="type_usage")],
+                [_result("ALTI-ERR-001", category="error_handling")],
+            ]
+        )
+
+        runner.run_review(session, pr_id=80033, trigger="second")
+        report = runner.build_full_report(session, key=key)
+
+        assert report["last_status"] == "success"
+        assert report["counts"]["published_inline"] == 1
+        assert report["counts"]["backlog_feedback_later"] == 1
+        assert report["counts"]["suppressed_feedback_ignore"] == 1
+        assert report["counts"]["suppressed_feedback_false_positive"] == 1
+        assert [item["file_path"] for item in report["published_inline"]] == ["src/d.cpp"]
+        assert [item["file_path"] for item in report["backlog_feedback_later"]] == ["src/c.cpp"]
+        assert [item["file_path"] for item in report["suppressed_feedback_ignore"]] == ["src/a.cpp"]
+        assert [item["file_path"] for item in report["suppressed_feedback_false_positive"]] == ["src/b.cpp"]
+    finally:
+        session.close()
+
+
+def test_post_full_report_note_posts_backlog_overview() -> None:
+    _reset_db()
+
+    runner = ReviewRunner()
+    adapter = FakeAdapter()
+    key = runner._legacy_key(80034)  # noqa: SLF001
+    adapter.set_files_diff(
+        key,
+        files=[
+            {"path": "src/a.cpp", "patch": _malloc_patch()},
+            {"path": "src/b.cpp", "patch": _continue_patch()},
+        ],
+        head_sha="head-a",
+    )
+    runner.platform_client = adapter
+    runner.engine_client = SequentialEngineStub(
+        [
+            [_result("ALTI-MEM-007", category="memory")],
+            [_result("ALTI-COF-001", category="control_flow")],
+        ]
+    )
+    runner.provider = ScenarioProvider(
+        {
+            ("src/a.cpp", "ALTI-MEM-007"): FindingDraft(
+                title="src/a.cpp 메모리 소유권 관리",
+                summary="이 코드는 직접 메모리 해제를 전제로 합니다.",
+                suggested_fix="RAII wrapper를 사용해 주세요.",
+            ),
+            ("src/b.cpp", "ALTI-COF-001"): FindingDraft(
+                title="src/b.cpp 제어 흐름 단순화",
+                summary="continue 중심 제어 흐름은 가독성을 떨어뜨립니다.",
+                suggested_fix="조건 분기를 정리해 주세요.",
+            ),
+        }
+    )
+
+    session = SessionLocal()
+    try:
+        runner.run_review(session, pr_id=80034, trigger="first")
+        adapter.add_human_reply(key, "thread-2", "bot:later\n다음 정리 때 처리하겠습니다.")
+        runner.engine_client = SequentialEngineStub(
+            [
+                [_result("ALTI-MEM-007", category="memory")],
+                [_result("ALTI-COF-001", category="control_flow")],
+            ]
+        )
+        runner.run_review(session, pr_id=80034, trigger="second")
+
+        assert runner.post_full_report_note(session, key=key, adapter=adapter) is True
+        note = adapter.general_notes[-1]
+        assert "자동 리뷰 Full Report" in note
+        assert "### 요약" in note
+        assert "`bot:later` 보류: 1개" in note
+        assert "src/b.cpp" in note
+    finally:
+        session.close()
+
+
+def test_full_report_prefers_latest_completed_run_while_showing_in_flight_run() -> None:
+    _reset_db()
+
+    runner = ReviewRunner()
+    adapter = FakeAdapter()
+    key = runner._legacy_key(800340)  # noqa: SLF001
+    adapter.set_diff(key, path="src/a.cpp", patch=_malloc_patch(), head_sha="head-a")
+    runner.platform_client = adapter
+    runner.engine_client = EngineStub([_result("ALTI-MEM-007", category="memory")])
+    runner.provider = FixedProvider(summary_suffix="done")
+
+    session = SessionLocal()
+    try:
+        completed_run = runner.run_review(session, pr_id=800340, trigger="first")
+        queued_run = runner.create_review_run_for_key(
+            session,
+            key,
+            trigger="second",
+            mode="manual",
+            meta=adapter.fetch_review_request_meta(key),
+        )
+
+        report = runner.build_full_report(session, key=key)
+
+        assert report["last_review_run_id"] == queued_run.id
+        assert report["last_status"] == "queued"
+        assert report["report_review_run_id"] == completed_run.id
+        assert report["report_status"] == "success"
+        assert report["in_flight_review_run_id"] == queued_run.id
+        assert report["in_flight_status"] == "queued"
+        assert report["counts"]["published_inline"] == 1
+
+        assert runner.post_full_report_note(session, key=key, adapter=adapter) is True
+        note = adapter.general_notes[-1]
+        assert "보고서 기준 run" in note
+        assert "진행 중 run" in note
+        assert "가장 최근에 완료된 run 기준입니다." in note
+    finally:
+        session.close()
+
+
+def test_post_full_report_note_upserts_same_purpose_general_note() -> None:
+    runner = ReviewRunner()
+    adapter = FakeAdapter()
+    key = runner._legacy_key(800343)  # noqa: SLF001
+    report = runner._empty_full_report(key)  # noqa: SLF001
+    report["last_review_run_id"] = "run-1"
+    report["last_status"] = "success"
+    report["last_head_sha"] = "head-1"
+    report["report_review_run_id"] = "run-1"
+    report["report_status"] = "success"
+    report["report_head_sha"] = "head-1"
+    report["review_request_title"] = "첫 번째"
+    report["counts"]["backlog_existing_open"] = 1
+    report["backlog_existing_open"] = [
+        {
+            "fingerprint": "fp-1",
+            "file_path": "src/a.cpp",
+            "line_no": 10,
+            "rule_no": "ALTI-TEST-001",
+            "severity": "medium",
+            "title": "첫 번째 backlog",
+            "summary": "첫 번째 내용",
+            "state": "backlog",
+            "disposition": "backlog_existing_open",
+            "reason": "existing_open_thread",
+            "score_final": 0.5,
+            "thread_ref": "thread-1",
+        }
+    ]
+
+    original_build_full_report = runner.build_full_report
+    runner.build_full_report = lambda *args, **kwargs: report
+    session = SessionLocal()
+    try:
+        assert runner.post_full_report_note(session, key=key, adapter=adapter) is True
+        assert len(adapter.general_notes) == 1
+        assert "첫 번째 backlog" in adapter.general_notes[0]
+
+        report["review_request_title"] = "두 번째"
+        report["backlog_existing_open"][0]["title"] = "두 번째 backlog"
+
+        assert runner.post_full_report_note(session, key=key, adapter=adapter) is True
+        assert len(adapter.general_notes) == 1
+        assert "두 번째 backlog" in adapter.general_notes[0]
+    finally:
+        runner.build_full_report = original_build_full_report
+        session.close()
+
+
+def test_post_full_report_note_truncates_long_general_note() -> None:
+    _reset_db()
+
+    runner = ReviewRunner()
+    adapter = FakeAdapter()
+    key = runner._legacy_key(800341)  # noqa: SLF001
+    report = runner._empty_full_report(key)  # noqa: SLF001
+    report["review_request_title"] = "긴 Full Report"
+    report["last_review_run_id"] = "run-long"
+    report["last_status"] = "success"
+    report["last_head_sha"] = "head-long"
+
+    long_items = []
+    for idx in range(30):
+        long_items.append(
+            {
+                "fingerprint": f"fp-{idx}",
+                "file_path": f"src/file_{idx}.cpp",
+                "line_no": idx + 1,
+                "rule_no": "ALTI-LONG-001",
+                "severity": "high",
+                "title": f"긴 제목 {idx} " + ("T" * 120),
+                "summary": "요약 " + ("S" * 260),
+                "state": "published",
+                "disposition": "published_inline",
+                "reason": "created",
+                "score_final": 0.99,
+                "thread_ref": f"thread-{idx}",
+            }
+        )
+    report["published_inline"] = long_items
+    report["counts"]["published_inline"] = len(long_items)
+
+    original_build_full_report = runner.build_full_report
+    runner.build_full_report = lambda *args, **kwargs: report
+
+    session = SessionLocal()
+    try:
+        assert runner.post_full_report_note(session, key=key, adapter=adapter) is True
+        note = adapter.general_notes[-1]
+        assert len(note) <= MAX_COMMENT_BODY
+        assert "일부 항목이 잘렸습니다" in note
+    finally:
+        runner.build_full_report = original_build_full_report
+        session.close()
+
+
+def test_pr_summary_general_note_is_truncated_when_too_long() -> None:
+    runner = ReviewRunner()
+    adapter = FakeAdapter()
+    key = runner._legacy_key(800342)  # noqa: SLF001
+    published_candidates = [
+        SimpleNamespace(
+            decision=SimpleNamespace(severity="high", file_path=f"src/file_{idx}.cpp"),
+            draft=SimpleNamespace(title=f"아주 긴 제목 {idx} " + ("X" * 180)),
+        )
+        for idx in range(80)
+    ]
+
+    runner._post_pr_summary(
+        adapter=adapter,
+        key=key,
+        review_run=SimpleNamespace(),
+        published_candidates=published_candidates,
+        batch_no=3,
+    )
+
+    note = adapter.general_notes[-1]
+    assert len(note) <= MAX_COMMENT_BODY
+    assert "일부 항목이 잘렸습니다" in note
+
+
+def test_opt_in_reminder_mode_can_restore_old_behavior() -> None:
+    _reset_db()
+
+    runner = ReviewRunner()
+    runner.settings = dataclass_replace(runner.settings, repeat_open_thread_reminder_enabled=True)
+    adapter = FakeAdapter()
+    key = runner._legacy_key(8004)  # noqa: SLF001
+    adapter.set_diff(key, path="src/a.cpp", patch=_malloc_patch())
+    runner.platform_client = adapter
+    runner.engine_client = EngineStub([_result("ALTI-MEM-007", category="memory")])
+    runner.provider = FixedProvider(summary_suffix="same")
+
+    session = SessionLocal()
+    try:
+        runner.run_review(session, pr_id=8004, trigger="first")
+        runner.run_review(session, pr_id=8004, trigger="second")
+
+        assert len(adapter.upsert_requests) == 2
+        assert adapter.upsert_requests[1].existing_thread_ref == "thread-1"
+        assert len(adapter.list_threads(key)[0].notes) == 2
+    finally:
+        session.close()
+
+
+def test_build_full_report_preserves_backlog_across_incremental_runs() -> None:
+    _reset_db()
+
+    runner = ReviewRunner()
+    adapter = FakeAdapter()
+    key = runner._legacy_key(80099)  # noqa: SLF001
+    adapter.set_files_diff(
+        key,
+        files=[
+            {"path": "src/a.cpp", "patch": _malloc_patch()},
+            {"path": "src/b.cpp", "patch": _continue_patch()},
+        ],
+        head_sha="head-a",
+    )
+    runner.platform_client = adapter
+    runner.engine_client = SequentialEngineStub(
+        [
+            [_result("ALTI-MEM-007", category="memory")],
+            [_result("ALTI-COF-001", category="control_flow")],
+        ]
+    )
+    runner.provider = ScenarioProvider(
+        {
+            ("src/a.cpp", "ALTI-MEM-007"): FindingDraft(
+                title="src/a.cpp 메모리 소유권 관리",
+                summary="이 코드는 직접 메모리 해제를 전제로 합니다.",
+                suggested_fix="RAII wrapper를 사용해 주세요.",
+            ),
+            ("src/b.cpp", "ALTI-COF-001"): FindingDraft(
+                title="src/b.cpp 제어 흐름 단순화",
+                summary="continue 중심 제어 흐름은 가독성을 떨어뜨립니다.",
+                suggested_fix="조건 분기를 정리해 주세요.",
+            ),
+            ("src/c.cpp", "ALTI-TYP-001"): FindingDraft(
+                title="src/c.cpp 타입 사용 개선",
+                summary="명시적 타입 의도를 더 분명히 해 주세요.",
+                suggested_fix="프로젝트 표준 타입 alias를 사용해 주세요.",
+            ),
+        }
+    )
+
+    session = SessionLocal()
+    try:
+        runner.run_review(session, pr_id=80099, trigger="first")
+        open_threads = (
+            session.query(ThreadSyncState)
+            .filter_by(review_request_id="80099", sync_status="open")
+            .count()
+        )
+        assert open_threads == 2
+
+        # Second run is incremental and only touches src/c.cpp. The sync
+        # phase should leave the existing open threads for a/b alone.
+        adapter.set_files_diff(
+            key,
+            files=[{"path": "src/c.cpp", "patch": _malloc_patch()}],
+            head_sha="head-b",
+        )
+        runner.engine_client = SequentialEngineStub(
+            [
+                [_result("ALTI-TYP-001", category="type_usage")],
+            ]
+        )
+        second_run = runner.create_review_run_for_key(
+            session, key, trigger="second", mode="incremental"
+        )
+        runner.execute_review_run(session, second_run.id)
+
+        report = runner.build_full_report(session, key=key)
+
+        assert report["counts"]["published_inline"] == 1
+        assert [item["file_path"] for item in report["published_inline"]] == ["src/c.cpp"]
+        assert report["counts"]["backlog_existing_open"] == 2
+        backlog_files = sorted(
+            item["file_path"] for item in report["backlog_existing_open"]
+        )
+        assert backlog_files == ["src/a.cpp", "src/b.cpp"]
+    finally:
+        session.close()
+
+
+def test_post_backlog_note_posts_backlog_only_view() -> None:
+    _reset_db()
+
+    runner = ReviewRunner()
+    adapter = FakeAdapter()
+    key = runner._legacy_key(80101)  # noqa: SLF001
+    adapter.set_files_diff(
+        key,
+        files=[{"path": "src/a.cpp", "patch": _malloc_patch()}],
+        head_sha="head-a",
+    )
+    runner.platform_client = adapter
+    runner.engine_client = SequentialEngineStub(
+        [[_result("ALTI-MEM-007", category="memory")]]
+    )
+    runner.provider = ScenarioProvider(
+        {
+            ("src/a.cpp", "ALTI-MEM-007"): FindingDraft(
+                title="src/a.cpp 메모리 소유권 관리",
+                summary="이 코드는 직접 메모리 해제를 전제로 합니다.",
+                suggested_fix="RAII wrapper를 사용해 주세요.",
+            ),
+            ("src/b.cpp", "ALTI-COF-001"): FindingDraft(
+                title="src/b.cpp 제어 흐름 단순화",
+                summary="continue 중심 제어 흐름은 가독성을 떨어뜨립니다.",
+                suggested_fix="조건 분기를 정리해 주세요.",
+            ),
+        }
+    )
+
+    session = SessionLocal()
+    try:
+        runner.run_review(session, pr_id=80101, trigger="first")
+
+        adapter.set_files_diff(
+            key,
+            files=[{"path": "src/b.cpp", "patch": _continue_patch()}],
+            head_sha="head-b",
+        )
+        runner.engine_client = SequentialEngineStub(
+            [[_result("ALTI-COF-001", category="control_flow")]]
+        )
+        second_run = runner.create_review_run_for_key(
+            session, key, trigger="second", mode="incremental"
+        )
+        runner.execute_review_run(session, second_run.id)
+
+        assert runner.post_backlog_note(session, key=key, adapter=adapter) is True
+        note = adapter.general_notes[-1]
+        assert "자동 리뷰 Backlog" in note
+        # Backlog note must NOT include the run-specific published-inline section.
+        assert "이번 run에서 inline으로 게시된 항목" not in note
+        assert "기존 open thread backlog" in note
+        assert "src/a.cpp" in note
+
+        backlog_report = runner.build_full_report(session, key=key, view="backlog")
+        assert backlog_report["counts"]["published_inline"] == 0
+        assert backlog_report["published_inline"] == []
+        assert backlog_report["counts"]["backlog_existing_open"] == 1
+    finally:
+        session.close()
+
+
+def test_load_rule_effectiveness_weights_uses_distinct_fingerprint() -> None:
+    _reset_db()
+
+    runner = ReviewRunner()
+    session = SessionLocal()
+    try:
+        from review_bot.db.models import (
+            FindingDecision as FD,
+            FindingEvidence as FE,
+            ReviewRequest,
+            ReviewRun,
+            ThreadSyncState as TSS,
+        )
+
+        review_request = ReviewRequest(
+            review_system="gitlab",
+            project_ref="group/project",
+            review_request_id="500",
+        )
+        session.add(review_request)
+        session.flush()
+
+        review_run = ReviewRun(
+            review_request_pk=review_request.id,
+            review_system="gitlab",
+            project_ref="group/project",
+            review_request_id="500",
+            trigger="test",
+            mode="manual",
+            status="success",
+        )
+        session.add(review_run)
+        session.flush()
+
+        evidence = FE(
+            review_run_id=review_run.id,
+            review_request_pk=review_request.id,
+            file_path="src/a.cpp",
+            patch_digest="digest",
+            change_snippet="",
+        )
+        session.add(evidence)
+        session.flush()
+
+        fingerprints = [f"fp-{idx}" for idx in range(6)]
+        # Resolve 3 out of 6 unique findings.
+        human_resolved = set(fingerprints[:3])
+        for fp in human_resolved:
+            session.add(
+                TSS(
+                    review_request_pk=review_request.id,
+                    review_system="gitlab",
+                    project_ref="group/project",
+                    review_request_id="500",
+                    finding_fingerprint=fp,
+                    anchor_signature="sig",
+                    adapter_thread_ref=f"thread-{fp}",
+                    sync_status="resolved",
+                    resolution_reason="remote_resolved",
+                )
+            )
+
+        # Insert 20 decision rows per fingerprint to simulate reruns.
+        for fp in fingerprints:
+            for run_idx in range(20):
+                state = "resolved" if fp in human_resolved else "published"
+                session.add(
+                    FD(
+                        review_run_id=review_run.id,
+                        evidence_id=evidence.id,
+                        review_request_pk=review_request.id,
+                        review_system="gitlab",
+                        project_ref="group/project",
+                        review_request_id="500",
+                        fingerprint=fp,
+                        dedupe_key=f"dk-{fp}-{run_idx}",
+                        file_path="src/a.cpp",
+                        rule_no="ALTI-TEST-001",
+                        source_family="altibase",
+                        score_raw=0.9,
+                        score_final=0.9,
+                        anchor_signature="sig",
+                        state=state,
+                    )
+                )
+        session.commit()
+
+        weights = runner._load_rule_effectiveness_weights(session)  # noqa: SLF001
+        assert "ALTI-TEST-001" in weights
+        # 3 human-resolved out of 6 unique fingerprints = 0.5 → weight ≈ 1.2.
+        assert weights["ALTI-TEST-001"] == 1.2
+    finally:
+        session.close()
 
 
 def _reset_db() -> None:

@@ -23,7 +23,10 @@ from review_bot.contracts import (
     ThreadSnapshot,
 )
 from review_bot.errors import ReviewBotError
-from review_bot.review_systems.base import ReviewSystemAdapterV2
+from review_bot.review_systems.base import (
+    ReviewSystemAdapterV2,
+    render_general_note_purpose_marker,
+)
 
 
 class GitLabReviewSystemAdapter(ReviewSystemAdapterV2):
@@ -710,6 +713,45 @@ class GitLabReviewSystemAdapter(ReviewSystemAdapterV2):
             data={"body": body},
         )
         return {"ok": True, "note_id": payload.get("id")}
+
+    def upsert_general_note(
+        self,
+        key: ReviewRequestKey,
+        *,
+        body: str,
+        purpose: str,
+    ) -> dict[str, Any]:
+        existing = self._find_general_note_by_purpose(key, purpose)
+        if existing is None:
+            result = self.post_general_note(key, body)
+            result["action"] = "created"
+            return result
+        payload = self._put(
+            self._api_path(
+                key,
+                f"/merge_requests/{key.review_request_id}/notes/{existing['id']}",
+            ),
+            data={"body": body},
+        )
+        return {"ok": True, "note_id": payload.get("id"), "action": "updated"}
+
+    def _find_general_note_by_purpose(
+        self,
+        key: ReviewRequestKey,
+        purpose: str,
+    ) -> dict[str, Any] | None:
+        marker = render_general_note_purpose_marker(purpose)
+        notes = self._get_paginated(
+            self._api_path(key, f"/merge_requests/{key.review_request_id}/notes")
+        )
+        matches = [
+            note
+            for note in notes
+            if self._author_type(note) == "bot" and marker in str(note.get("body") or "")
+        ]
+        if not matches:
+            return None
+        return max(matches, key=lambda note: int(note.get("id") or 0))
 
     def _author_type(self, note: dict[str, Any]) -> str:
         if note.get("system"):

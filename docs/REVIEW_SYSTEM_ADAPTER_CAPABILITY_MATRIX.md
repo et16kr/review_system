@@ -13,6 +13,8 @@
 - `resolve_thread`
 - `publish_check`
 - `collect_feedback`
+- `post_general_note`
+- `upsert_general_note`
 
 ## 현재 상태
 
@@ -27,6 +29,8 @@
 | thread resolve | 구현 | 설계 필요 | 설계 필요 |
 | status/check publish | 구현 | 설계 필요 | 설계 필요 |
 | feedback collect | 구현 | 설계 필요 | 설계 필요 |
+| general note create | 구현 | 설계 필요 | 설계 필요 |
+| same-purpose general note update | 구현 | 설계 필요 | 설계 필요 |
 | pagination handling | 구현 | 설계 필요 | 설계 필요 |
 | large diff patch rebuild | 구현 | 설계 필요 | 설계 필요 |
 

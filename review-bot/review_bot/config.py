@@ -41,6 +41,8 @@ class Settings:
     legacy_review_system: str
     legacy_project_ref: str
     bot_author_name: str
+    repeat_open_thread_reminder_enabled: bool
+    resolved_unchanged_resurface_enabled: bool
 
 
 @lru_cache(maxsize=1)
@@ -87,4 +89,10 @@ def get_settings() -> Settings:
         legacy_review_system=os.getenv("BOT_LEGACY_REVIEW_SYSTEM", "legacy"),
         legacy_project_ref=os.getenv("BOT_LEGACY_PROJECT_REF", "legacy/default"),
         bot_author_name=os.getenv("BOT_AUTHOR_NAME", "review-bot"),
+        repeat_open_thread_reminder_enabled=os.getenv(
+            "BOT_REPEAT_OPEN_THREAD_REMINDER_ENABLED", "0"
+        ) not in {"0", "false", "False"},
+        resolved_unchanged_resurface_enabled=os.getenv(
+            "BOT_RESOLVED_UNCHANGED_RESURFACE_ENABLED", "0"
+        ) not in {"0", "false", "False"},
     )

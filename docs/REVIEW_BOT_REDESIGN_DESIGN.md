@@ -34,9 +34,14 @@
 
 아직 남아 있는 제품 과제는 아래와 같다.
 
-- inline batch와 별도로 전체 backlog를 보여 주는 full-report / overview 인터페이스
+- run-level summary/general note lifecycle을 얼마나 더 stateful하게 다듬을지
 - reviewer/team preference를 더 직접 반영하는 출력 정책
 - GitHub/Gerrit 등 multi-SCM adapter 확장
+
+참고:
+
+- full-report / backlog command 인터페이스와 current contract는 현재 구현되어 있으며
+  `docs/API_CONTRACTS.md`를 기준으로 본다.
 
 ## 2. 범위와 비범위
 

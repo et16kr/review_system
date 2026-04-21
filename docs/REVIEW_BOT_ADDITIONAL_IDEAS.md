@@ -22,9 +22,28 @@
 
 즉, 구조적 완성도와 운영 안정성은 현재 시스템이 더 낫다. 반면 사용자 체감 UX에서는 지인 사례가 던진 문제, 특히 "처음부터 전체를 더 보고 싶다"는 요구를 우리도 받아들일 필요가 있다.
 
+## 1.1 현재 반영 상태
+
+이 문서의 초기 아이디어 중 현재 코드에 이미 반영된 항목은 아래와 같다.
+
+- full-report / backlog view
+- summary에 backlog / feedback suppress 요약 추가
+- 반복 지적은 허용하되 반복 게시를 줄이는 정책
+- `ignore` / `false-positive` / `later` / `allow` feedback command
+
+따라서 아래 섹션 중 일부는 "새 제안"이라기보다
+왜 그런 방향이 필요했는지를 설명하는 historical context로 읽는 편이 맞다.
+
 ## 2. 놓치고 있는 핵심 아이디어
 
-### 2.1 Full Report / Backlog View
+주의:
+
+- 2.1 ~ 2.3은 아이디어가 처음 정리될 당시의 문제의식이며,
+  현재는 상당 부분이 구현에 반영되었다.
+- 지금 읽을 때는 "신규 제안"보다 "왜 이런 방향이 중요했는가"를 설명하는
+  historical context에 가깝다.
+
+### 2.1 Full Report / Backlog View [대부분 반영됨]
 
 현재 시스템은 inline batch cap을 둔 운영 모델이 맞다. 다만 사용자는 "왜 이것만 보였는지"를 바로 이해하기 어렵다.
 
@@ -40,7 +59,7 @@
 - 지인 사례의 불만을 가장 직접적으로 해소한다.
 - inline noise를 늘리지 않고도 "전체를 보고 싶다"는 요구를 만족시킬 수 있다.
 
-### 2.2 "왜 이 10개만 보였는가" 설명
+### 2.2 "왜 이 10개만 보였는가" 설명 [부분 반영]
 
 현재 시스템은 lifecycle-aware batch selection을 하고 있지만, 사용자에게는 selection logic이 잘 보이지 않는다.
 
@@ -55,7 +74,7 @@
 - full-report보다 구현 난이도가 낮고 체감 효과가 빠르다.
 - 운영자와 개발자 모두가 현재 출력 정책을 신뢰하기 쉬워진다.
 
-### 2.3 반복 지적 / Ignore UX 정책 재정렬
+### 2.3 반복 지적 / Ignore UX 정책 재정렬 [대부분 반영됨]
 
 현재 시스템은 이 영역에서 절반은 맞고 절반은 과도하다.
 
@@ -63,8 +82,8 @@
 
 - 같은 finding이 다시 검출되어도 기존 thread를 재사용하려는 방향은 이미 있다.
 - incremental run에서는 unchanged open thread를 새로 다시 끌어올리지 않는다.
-- `bot:ignore`와 `bot:allow` 같은 명시적 human feedback command도 이미 지원한다.
-- 하지만 full/manual 재검토에서는, 아직 열려 있는 기존 thread가 같은 anchor로 다시 검출되면 reminder reply를 추가로 남기는 방향으로 구현돼 있다.
+- `bot:ignore`, `bot:false-positive`, `bot:later`, `bot:allow` 같은 명시적 human feedback command를 지원한다.
+- full/manual 재검토에서도 unchanged open thread reminder reply는 기본값으로 꺼져 있고, 필요 시 opt-in 방향으로만 남겨 두는 편이 맞다.
 - 일반 `resolve`는 명시적 ignore가 아니라 score penalty에 가깝다. 즉 사용자가 "이번에는 넘어가자"는 뜻으로 resolve해도, 시스템은 이를 완전한 suppress 신호로 보지 않는다.
 
 이 구조는 "수정이 안 됐으면 다시 지적해도 된다"는 원칙에는 맞지만, 사용자 체감 UX에는 다소 거칠 수 있다. 특히 first-class ignore 버튼이 없는 상태에서는 "이미 본 말을 또 듣는 느낌"이 강해질 수 있다.
@@ -168,20 +187,20 @@
 
 ### P0
 
-- full-report / backlog view
-- summary에 게시/보류/억제 총계와 selection 이유 추가
-- 반복 지적 / ignore UX 정책 재정렬
+- must-fix / should-fix / coaching tier
+- evidence transparency와 explainability 강화
+- summary selection 이유를 더 직접적으로 설명하는 UX
 
 ### P1
 
-- must-fix / should-fix / coaching tier
 - patch bundle / safe autofix mode
-- first-class `ignore/later/false-positive/allow` 피드백 명령
+- reviewer / team preference profile
+- first-class feedback 명령의 richer UI 경로
 
 ### P2
 
-- reviewer / team preference profile
-- evidence transparency와 explainability 강화
+- summary/general note lifecycle의 추가 고도화
+- retrieval/selection rationale의 시각화
 
 ## 5. 최종 판단
 
