@@ -1,21 +1,42 @@
-# 리뷰 봇 재설계 설계 문서
+# 리뷰 봇 기준 설계 문서
 
-- 문서 상태: Proposed
-- 작성일: 2026-04-20
-- 기반 문서: `docs/REVIEW_BOT_REDESIGN_AUDIT_REPORT.md`
+- 문서 상태: Active Reference
+- 최초 작성일: 2026-04-20
+- 최종 갱신일: 2026-04-21
+- 관련 문서:
+  - `docs/API_CONTRACTS.md`
+  - `docs/OPERATIONS_RUNBOOK.md`
+  - `docs/REVIEW_BOT_ADDITIONAL_IDEAS.md`
 - 적용 범위: `review-bot`, `review-engine`, GitLab adapter, 내부 DB/queue/worker, 운영 문서
 - 설계 관점: GitLab-first, multi-project/multi-SCM 확장 가능, 운영형 리뷰 lifecycle 중심
 
 ## 1. 문서 목적
 
-이 문서는 감사 보고서의 결론을 실제 구현 가능한 target design으로 구체화한다.
+이 문서는 현재 구현과 운영 경험을 기준으로 `review-bot`과 `review-engine`의
+장기 설계 기준을 고정한다.
 
 핵심 목표는 다음과 같다.
 
+- 이미 반영된 구조와 계약을 현재 기준선으로 정리한다.
 - 현재의 `external Git UI -> review-bot -> review-engine` 큰 방향은 유지한다.
 - 운영형 리뷰 봇에 필요한 identity, adapter contract, thread lifecycle, observability, feedback loop를 설계한다.
 - LLM의 역할을 1차 탐지기보다 설명기와 triage assistant로 재배치한다.
-- 향후 구현자가 추가 아키텍처 결정을 최소화하고 바로 구현에 들어갈 수 있도록 한다.
+- 향후 구현자가 현재 코드와 문서 사이에서 기준점을 잃지 않도록 한다.
+
+### 1.1 현재 기준 반영 상태
+
+현재 이 문서가 전제하는 baseline은 아래와 같다.
+
+- `ReviewRequestKey(review_system, project_ref, review_request_id)` 기반 composite identity
+- GitLab-first inline discussion lifecycle과 `detect -> publish -> sync` 파이프라인
+- run-level summary note를 보조 인터페이스로 사용하는 운영 모델
+- `docs/API_CONTRACTS.md`는 current runtime contract, 본 문서는 장기 구조와 설계 원칙을 설명하는 reference 역할
+
+아직 남아 있는 제품 과제는 아래와 같다.
+
+- inline batch와 별도로 전체 backlog를 보여 주는 full-report / overview 인터페이스
+- reviewer/team preference를 더 직접 반영하는 출력 정책
+- GitHub/Gerrit 등 multi-SCM adapter 확장
 
 ## 2. 범위와 비범위
 
@@ -35,10 +56,12 @@
 
 - GitHub/Gerrit adapter의 즉시 구현
 - Sonar/Snyk 같은 외부 도구의 실제 연동 코드 작성
-- 기존 current-state 문서의 즉시 대체
+- 세부 runbook이나 endpoint 계약의 즉시 대체
 - 모델 프롬프트 세부 문안 확정
 
-현재 `docs/API_CONTRACTS.md`는 current implementation 문서로 남기고, 본 문서는 target design 문서로 관리한다. 구현 cutover가 끝나면 current-state 문서를 본 설계에 맞게 갱신한다.
+현재 `docs/API_CONTRACTS.md`는 current implementation contract 문서로 유지하고,
+본 문서는 장기 설계 원칙과 구조적 판단의 기준 문서로 관리한다.
+런타임이 바뀌면 API 계약과 본 문서를 함께 갱신한다.
 
 ## 3. 설계 목표
 
@@ -67,7 +90,7 @@
 4. LLM은 publishing-ready explanation을 생성한다.
 5. 게시는 생성(create)보다 동기화(sync)를 우선한다.
 6. rule metadata와 reviewer feedback은 scoring에 반영된다.
-7. current-state와 target-state는 cutover 이전까지 분리 문서로 관리한다.
+7. runtime contract와 reference design은 drift가 생기지 않도록 함께 갱신한다.
 
 ## 4. 목표 아키텍처
 
@@ -772,12 +795,15 @@ final_score =
 
 ### 15.3 summary 정책
 
-summary는 별도 생성 가능하되, target design의 핵심은 inline discussion lifecycle이다.
+summary는 이미 run-level overview note로 운영에 반영되었지만,
+핵심 인터페이스는 여전히 inline discussion lifecycle이다.
 
-초기 목표:
+운영 원칙:
 
-- summary는 optional
-- inline finding이 canonical
+- summary는 보조 인터페이스다.
+- summary 집계는 실제로 `created` 또는 `updated`에 성공한 게시만 반영한다.
+- summary는 inline finding을 대체하지 않는다.
+- 이후 full-report/backlog view가 추가되더라도 canonical review artifact는 inline thread다.
 
 ## 16. Thread Sync와 Feedback Loop
 
@@ -992,7 +1018,7 @@ gold diff corpus를 유지한다.
 ## 23. 열린 이슈
 
 - LLM provider 호출은 `review-bot` 내부에서 할지, 별도 explanation service로 분리할지
-- summary comment를 초기 버전에서 유지할지 여부
+- full-report / deferred backlog view를 어떤 명령과 출력 형태로 제공할지
 - GitLab commit status와 checks 유사 모델을 어느 수준까지 추상화할지
 - push 폭주 시 auto-pause 정책을 언제 도입할지
 - reviewer feedback을 개인 단위로 반영할지 팀 단위로만 반영할지
