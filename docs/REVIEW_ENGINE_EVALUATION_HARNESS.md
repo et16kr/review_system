@@ -8,10 +8,13 @@
 
 - retrieval 예제:
   - `review-engine/examples/expected_retrieval_examples.json`
-- Altibase diff contract 예제:
-  - `review-engine/examples/altidev4_diffs.json`
+- C++ diff contract 예제:
+  - `review-engine/examples/cpp_diff_contracts.json`
 - diff contract 예제 파일:
-  - `review-engine/examples/altidev4_diffs/*.diff`
+  - `review-engine/examples/*_diffs/*.diff`
+
+현재 shipped corpus는 repo-local generic/multilang fixture만 기준으로 유지한다.
+Altibase/Altidev4 전용 fixture는 evaluation contract에서 제거된 상태를 기준선으로 본다.
 
 ## 실행 명령
 
@@ -21,7 +24,7 @@ retrieval 예제:
 uv run --project review-engine python -m review_engine.cli.evaluate_examples
 ```
 
-Altibase diff contract 예제:
+C++ diff contract 예제:
 
 ```bash
 uv run --project review-engine python -m review_engine.cli.evaluate_diff_contracts
@@ -38,6 +41,7 @@ uv run --project review-engine pytest review-engine/tests -q
 1. positive example은 실제 기대 rule이 왜 필요한지 설명 가능한 diff만 추가한다.
 2. negative example은 false positive hotspot을 줄이는 목적일 때만 추가한다.
 3. 한 rule family를 바꾸면 대응 positive/negative 예제를 같이 갱신한다.
+4. shipped example/contract corpus에는 organization-specific legacy fixture를 다시 넣지 않는다.
 
 ## 권장 운영
 

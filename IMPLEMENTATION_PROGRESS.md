@@ -2,6 +2,13 @@
 
 날짜: 2026-04-19
 
+주의:
+
+- 이 문서는 초기 구현 단계 기록이다.
+- Altibase/Altidev4 기반 예제와 경로가 포함되어 있지만 현재 shipped runtime/evaluation 기준은 아니다.
+- 최신 기준은 `AGENTS.md`, `docs/REVIEW_ENGINE_MULTI_LANGUAGE_EXHAUSTIVE_REVIEW.md`,
+  `docs/REVIEW_ENGINE_EVALUATION_HARNESS.md`를 우선한다.
+
 ## 아키텍처 정정 메모
 
 이 문서 중 `review-platform` 중심으로 보이는 항목은
@@ -25,13 +32,13 @@
 `review_system.md`에 정의된 MVP를 다음 운영 원칙에 따라 구현한다.
 
 - `CODING_CONVENTION.md`를 최우선 기준으로 사용한다.
-- Altibase 정책과 충돌하는 C++ Core Guideline 규칙은 활성 리뷰 데이터셋에서 제외한다.
-- Altibase 규칙과 호환 가능한 C++ 규칙만 함께 ChromaDB에 저장한다.
+- 사내 정책과 충돌하는 C++ Core Guideline 규칙은 활성 리뷰 데이터셋에서 제외한다.
+- 사내 규칙과 호환 가능한 C++ 규칙만 함께 ChromaDB에 저장한다.
 
 ## 진행 절차
 
 1. 프로젝트 메타데이터, 설정 파일, 추적 문서를 생성한다.
-2. Altibase Markdown과 C++ Core Guidelines HTML 파서를 구현한다.
+2. 사내 Markdown 규칙 문서와 C++ Core Guidelines HTML 파서를 구현한다.
 3. 두 소스를 하나의 공통 레코드 스키마로 정규화하고 충돌 해소를 적용한다.
 4. 활성 데이터셋을 결정론적 로컬 임베딩과 함께 ChromaDB에 저장한다.
 5. 코드-쿼리 변환, 검색, 재랭킹을 구현한다.
@@ -42,7 +49,7 @@
 ## 상태
 
 - [x] 1단계 완료: 프로젝트 골격과 추적 문서를 생성했다.
-- [x] 2단계 완료: Altibase Markdown 및 C++ Core Guidelines 파서를 구현했다.
+- [x] 2단계 완료: 사내 Markdown 규칙 문서와 C++ Core Guidelines 파서를 구현했다.
 - [x] 3단계 완료: 정규화, 소스 권한 정책, 충돌 필터링을 구현했다.
 - [x] 4단계 완료: 결정론적 로컬 임베딩 기반 ChromaDB 적재를 구현했다.
 - [x] 5단계 완료: 코드-쿼리 변환, 검색, 재랭킹, 패턴-규칙 힌트를 구현했다.
@@ -101,7 +108,7 @@
     - partial publication persistence 검증
 - 현재 실행 기준 활성 적재 결과:
   - 전체 파싱 레코드 수: 608
-  - Altibase 레코드 수: 111
+  - 사내 규칙 레코드 수: 111
   - C++ Core Guideline 레코드 수: 497
   - ChromaDB에 저장된 활성 레코드 수: 529
   - 제외되거나 덮어쓴 외부 레코드 수: 79
@@ -111,9 +118,9 @@
   - 번들된 검색 기대 결과를 검증하는 `app.cli.evaluate_examples`를 추가했다.
   - 실제 `altidev4` 코드 조각을 repo 내부 excerpt로 옮겨 외부 경로 없이도
     패턴 추출, 저장소 스캔, 검색 우선순위 동작을 검증하도록 보강했다.
-  - Altibase-style unified diff fixture를 repo 내부에 추가해 `review_diff` 경로도
+  - 사내 C++ 저장소 스타일 unified diff fixture를 repo 내부에 추가해 `review_diff` 경로도
     실제 코드 변경 형태로 계약 테스트하도록 보강했다.
-- 실제 Altibase 저장소 `/home/et16/work/altidev4`를 기준으로 베이스라인 스캔을 완료했고,
+- 실제 내부 C++ 저장소 `/home/et16/work/altidev4`를 기준으로 베이스라인 스캔을 완료했고,
   그 결과를 바탕으로 대표 excerpt 7개를 `examples/altidev4/`에 내장했다.
   - 포함 디렉터리: `src`, `tsrc`, `ut`
   - 서드파티, 생성물, 플랫폼 전용 경로는 선별적으로 제외해 노이즈를 줄였다.
@@ -145,7 +152,7 @@
   - `uv run python -m app.cli.review_cpp_code --file examples/altidev4/sdpjl_portability_headers.cpp --top-k 6`
   - `uv run python -m app.cli.review_cpp_diff --diff examples/altidev4_diffs/queue_perf_memory_and_rc.diff --top-k 6`
   - `uv run python -m app.cli.evaluate_examples --spec examples/expected_retrieval_examples.json --top-k 12`
-  - `uv run python -m app.cli.scan_codebase --root /home/et16/work/altidev4 --include-dir src --include-dir tsrc --include-dir ut --exclude-fragment /src/core/acp/ArmAtomic/ARM64 --exclude-fragment /src/core/acl/externalLib --exclude-fragment /ut/libedit --exclude-fragment /ut/altiMon/com.altibase.picl --exclude-fragment /src/pd/port/vxworks/pentium/sample1 --ignore-pattern identifier_underscore --ignore-pattern ownership_ambiguity --ignore-pattern line_comment --ignore-pattern primitive_types --top-files 40 --json-output data/altidev4_scan_report.json --markdown-output ALTIDEV4_BASELINE_REPORT.md`
+  - `uv run python -m app.cli.scan_codebase --root /home/et16/work/altidev4 --include-dir src --include-dir tsrc --include-dir ut --exclude-fragment /src/core/acp/ArmAtomic/ARM64 --exclude-fragment /src/core/acl/externalLib --exclude-fragment /ut/libedit --exclude-fragment /ut/internal-monitoring/example.agent --exclude-fragment /src/pd/port/vxworks/pentium/sample1 --ignore-pattern identifier_underscore --ignore-pattern ownership_ambiguity --ignore-pattern line_comment --ignore-pattern primitive_types --top-files 40 --json-output data/altidev4_scan_report.json --markdown-output ALTIDEV4_BASELINE_REPORT.md`
   - `uv run --project review-engine --extra dev python -m pytest -q`
   - `uv run --project review-engine --extra dev python -m ruff check .`
   - `uv run --extra dev python -m pytest -q` in `review-platform/`

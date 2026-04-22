@@ -42,3 +42,13 @@ def test_expected_examples_are_present_in_results(real_search_service) -> None:
             assert expected_rule in returned_rules, (
                 f"{input_path} missing expected rule {expected_rule}"
             )
+
+
+def test_expected_examples_do_not_reference_removed_altibase_corpus() -> None:
+    spec_path = _repo_path("examples/expected_retrieval_examples.json")
+    spec = json.loads(spec_path.read_text(encoding="utf-8"))
+
+    for case in spec:
+        input_path = str(case["input"]).lower()
+        assert "altidev4" not in input_path
+        assert "altibase" not in input_path

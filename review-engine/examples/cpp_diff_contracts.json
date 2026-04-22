@@ -1,0 +1,16 @@
+[
+  {
+    "example_path": "examples/manual_memory.diff",
+    "source_path": "src/manual_memory.cpp",
+    "focus_patterns": [
+      "raw_new",
+      "malloc_free",
+      "direct_system_call"
+    ],
+    "expected_rules": [
+      "R.10",
+      "R.11",
+      "R.12"
+    ]
+  }
+]

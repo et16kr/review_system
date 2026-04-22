@@ -1,62 +1,10 @@
 [
   {
-    "input": "examples/altidev4/queue_perf_memory_and_rc.cpp",
-    "expected_rules": ["R.10", "R.11", "R.12"]
-  },
-  {
-    "input": "examples/altidev4/stackwalker_switch_and_free.cpp",
-    "expected_rules": ["R.10", "E.19", "ES.78"]
-  },
-  {
-    "input": "examples/altidev4/mydump_manual_memory.cpp",
-    "expected_rules": ["R.10", "R.11", "R.12"]
-  },
-  {
-    "input": "examples/altidev4/idu_shm_dump_for_initializer.cpp",
-    "expected_rules": ["SL.io.3", "ES.34", "ES.6"]
-  },
-  {
-    "input": "examples/altidev4/sdpjl_portability_headers.cpp",
-    "expected_rules": ["SF.13", "I.4"]
-  },
-  {
-    "input": "examples/altidev4/idu_limit_continue.cpp",
-    "expected_rules": ["ES.77", "P.11"]
-  },
-  {
-    "input": "examples/altidev4/rps_sm_executor_cleanup.cpp",
-    "expected_rules": ["R.10", "R.1", "E.19"]
-  },
-  {
-    "input": "examples/altidev4_diffs/queue_perf_memory_and_rc.diff",
-    "expected_rules": ["R.10", "R.11", "R.12"]
-  },
-  {
-    "input": "examples/altidev4_diffs/ids_tde_rc_cleanup_flow.diff",
-    "expected_rules": []
-  },
-  {
-    "input": "examples/altidev4_diffs/stackwalker_switch_and_free.diff",
-    "expected_rules": ["R.10", "E.19", "ES.78"]
-  },
-  {
-    "input": "examples/altidev4_diffs/sdpjl_portability.diff",
-    "expected_rules": ["SL.io.3", "SF.13", "P.11"]
-  },
-  {
-    "input": "examples/altidev4_diffs/idu_limit_continue.diff",
-    "expected_rules": ["ES.77", "P.11"]
-  },
-  {
-    "input": "examples/altidev4_diffs/rps_cleanup.diff",
-    "expected_rules": ["R.10", "R.1", "E.19"]
-  },
-  {
     "input": "examples/raw_pointer_example.cpp",
     "expected_rules": ["R.10", "R.11", "R.12"]
   },
   {
-    "input": "examples/altibase_portability_example.cpp",
+    "input": "examples/wrapper_portability_example.cpp",
     "expected_rules": ["SL.io.3", "SF.13", "I.4"]
   },
   {
@@ -88,6 +36,10 @@
     "expected_rules": ["JAVA.PROJ.5", "JAVA.PROJ.6"]
   },
   {
+    "input": "examples/multilang/java_spring_controller.java",
+    "expected_rules": ["JAVA.SPRING.1", "JAVA.SPRING.2", "JAVA.SPRING.4"]
+  },
+  {
     "input": "examples/multilang/javascript_innerhtml.js",
     "expected_rules": ["JS.2"]
   },
@@ -102,6 +54,14 @@
   {
     "input": "examples/multilang/python_runtime_assert.py",
     "expected_rules": ["PY.PROJ.6", "PY.PROJ.7"]
+  },
+  {
+    "input": "examples/multilang/python_django_service.py",
+    "expected_rules": ["PY.DJ.1", "PY.DJ.2", "PY.DJ.3", "PY.DJ.4"]
+  },
+  {
+    "input": "examples/multilang/python_fastapi_service.py",
+    "expected_rules": ["PY.FAPI.1", "PY.FAPI.2"]
   },
   {
     "input": "examples/multilang/query.sql",
@@ -120,6 +80,46 @@
     "expected_rules": ["RUST.8", "RUST.9"]
   },
   {
+    "input": "examples/multilang/rust_tokio_async.rs",
+    "expected_rules": ["RUST.TOKIO.1", "RUST.TOKIO.2", "RUST.TOKIO.3"]
+  },
+  {
+    "input": "examples/multilang/cuda_divergent_sync.cu",
+    "expected_rules": ["CUDA.3", "CUDA.4", "CUDA.PERF.1"]
+  },
+  {
+    "input": "examples/multilang/cuda_async_default_stream.cu",
+    "expected_rules": ["CUDA.ASYNC.1", "CUDA.ASYNC.2", "CUDA.ASYNC.3"]
+  },
+  {
+    "input": "examples/multilang/cuda_pipeline_async_stage_drift.cu",
+    "expected_rules": ["CUDA.PIPE.1", "CUDA.PIPE.2", "CUDA.PIPE.3"]
+  },
+  {
+    "input": "examples/multilang/cuda_thread_block_cluster_dsm.cu",
+    "expected_rules": ["CUDA.CLUSTER.1", "CUDA.CLUSTER.2", "CUDA.CLUSTER.3"]
+  },
+  {
+    "input": "examples/multilang/cuda_tma_tensor_map_contract.cu",
+    "expected_rules": ["CUDA.TMA.1", "CUDA.TMA.2", "CUDA.TMA.3"]
+  },
+  {
+    "input": "examples/multilang/cuda_wgmma_async_group_drift.cu",
+    "expected_rules": ["CUDA.WGMMA.1", "CUDA.WGMMA.2", "CUDA.WGMMA.3"]
+  },
+  {
+    "input": "examples/multilang/cuda_multigpu_nccl.cu",
+    "expected_rules": ["CUDA.MG.1", "CUDA.MG.2", "CUDA.MG.3"]
+  },
+  {
+    "input": "examples/multilang/cuda_tensor_core_wmma.cu",
+    "expected_rules": ["CUDA.TC.1", "CUDA.TC.2", "CUDA.TC.3"]
+  },
+  {
+    "input": "examples/multilang/cuda_cooperative_groups_grid_sync.cu",
+    "expected_rules": ["CUDA.CG.1", "CUDA.CG.2", "CUDA.CG.3"]
+  },
+  {
     "input": "examples/multilang/sample.c",
     "expected_rules": ["C.POSIX.1"]
   },
@@ -132,6 +132,25 @@
     "expected_rules": ["TS.API.6", "TS.API.7"]
   },
   {
+    "input": "examples/multilang/typescript_react_effect.tsx",
+    "expected_rules": ["TS.6", "TS.7", "TS.API.8"]
+  },
+  {
+    "input": "examples/multilang/next_app_route.ts",
+    "review_path": "app/api/users/route.ts",
+    "expected_rules": ["TS.NEXT.1"]
+  },
+  {
+    "input": "examples/multilang/next_client_secret.tsx",
+    "review_path": "app/dashboard/page.tsx",
+    "expected_rules": ["TS.NEXT.3"]
+  },
+  {
+    "input": "examples/multilang/next_server_browser_api.tsx",
+    "review_path": "app/dashboard/page.tsx",
+    "expected_rules": ["TS.NEXT.4"]
+  },
+  {
     "input": "examples/multilang/Dockerfile",
     "expected_rules": ["DOCKER.1", "DOCKER.SEC.1"]
   },
@@ -141,11 +160,15 @@
   },
   {
     "input": "examples/multilang/.github/workflows/unpinned.yml",
-    "expected_rules": ["YAML.CI.1", "YAML.CI.5"]
+    "expected_rules": ["YAML.CI.1", "YAML.CI.5", "YAML.CI.9"]
   },
   {
     "input": "examples/multilang/.gitlab-ci.yml",
     "expected_rules": ["YAML.CI.2", "YAML.CI.4"]
+  },
+  {
+    "input": "examples/multilang/gitlab_remote/.gitlab-ci.yml",
+    "expected_rules": ["YAML.CI.6", "YAML.CI.7", "YAML.CI.8"]
   },
   {
     "input": "examples/multilang/k8s/deployment.yaml",
@@ -156,8 +179,32 @@
     "expected_rules": ["YAML.HELM.2"]
   },
   {
+    "input": "examples/multilang/product_config.yaml",
+    "review_path": "config/app/settings.yaml",
+    "expected_rules": ["YAML.PROD.1"]
+  },
+  {
+    "input": "examples/multilang/schema_config.yaml",
+    "review_path": "schemas/openapi.yaml",
+    "expected_rules": ["YAML.SCHEMA.1", "YAML.SCHEMA.2"]
+  },
+  {
     "input": "examples/multilang/warehouse/postgres/report.sql",
     "expected_rules": ["SQL.PG.2"]
+  },
+  {
+    "input": "examples/multilang/warehouse/daily_rollup.sql",
+    "expected_rules": ["SQL.WH.1", "SQL.WH.2"]
+  },
+  {
+    "input": "examples/multilang/dbt_model.sql",
+    "review_path": "dbt/models/orders.sql",
+    "expected_rules": ["SQL.DBT.1", "SQL.DBT.2"]
+  },
+  {
+    "input": "examples/multilang/migration_ddl.sql",
+    "review_path": "db/migrations/postgres/V5__cleanup.sql",
+    "expected_rules": ["SQL.MIG.1", "SQL.MIG.2", "SQL.MIG.3", "SQL.MIG.4", "SQL.MIG.5"]
   },
   {
     "input": "examples/multilang_diffs/bash_unquoted.diff",
@@ -180,6 +227,51 @@
     "expected_rules": ["SQL.PROJ.1"]
   },
   {
+    "input": "examples/multilang_diffs/cuda_divergent_sync.diff",
+    "review_path": "examples/multilang/cuda_divergent_sync.cu",
+    "expected_rules": ["CUDA.3", "CUDA.PERF.1"]
+  },
+  {
+    "input": "examples/multilang_diffs/cuda_async_default_stream.diff",
+    "review_path": "examples/multilang/cuda_async_default_stream.cu",
+    "expected_rules": ["CUDA.ASYNC.1", "CUDA.ASYNC.2", "CUDA.ASYNC.3"]
+  },
+  {
+    "input": "examples/multilang_diffs/cuda_pipeline_async_stage_drift.diff",
+    "review_path": "examples/multilang/cuda_pipeline_async_stage_drift.cu",
+    "expected_rules": ["CUDA.PIPE.1", "CUDA.PIPE.2", "CUDA.PIPE.3"]
+  },
+  {
+    "input": "examples/multilang_diffs/cuda_thread_block_cluster_dsm.diff",
+    "review_path": "examples/multilang/cuda_thread_block_cluster_dsm.cu",
+    "expected_rules": ["CUDA.CLUSTER.1", "CUDA.CLUSTER.2", "CUDA.CLUSTER.3"]
+  },
+  {
+    "input": "examples/multilang_diffs/cuda_tma_tensor_map_contract.diff",
+    "review_path": "examples/multilang/cuda_tma_tensor_map_contract.cu",
+    "expected_rules": ["CUDA.TMA.1", "CUDA.TMA.2", "CUDA.TMA.3"]
+  },
+  {
+    "input": "examples/multilang_diffs/cuda_wgmma_async_group_drift.diff",
+    "review_path": "examples/multilang/cuda_wgmma_async_group_drift.cu",
+    "expected_rules": ["CUDA.WGMMA.1", "CUDA.WGMMA.2", "CUDA.WGMMA.3"]
+  },
+  {
+    "input": "examples/multilang_diffs/cuda_multigpu_nccl.diff",
+    "review_path": "examples/multilang/cuda_multigpu_nccl.cu",
+    "expected_rules": ["CUDA.MG.1", "CUDA.MG.2", "CUDA.MG.3"]
+  },
+  {
+    "input": "examples/multilang_diffs/cuda_tensor_core_wmma.diff",
+    "review_path": "examples/multilang/cuda_tensor_core_wmma.cu",
+    "expected_rules": ["CUDA.TC.1", "CUDA.TC.2", "CUDA.TC.3"]
+  },
+  {
+    "input": "examples/multilang_diffs/cuda_cooperative_groups_grid_sync.diff",
+    "review_path": "examples/multilang/cuda_cooperative_groups_grid_sync.cu",
+    "expected_rules": ["CUDA.CG.1", "CUDA.CG.2", "CUDA.CG.3"]
+  },
+  {
     "input": "examples/multilang_diffs/Dockerfile.diff",
     "review_path": "examples/multilang/Dockerfile",
     "expected_rules": ["DOCKER.1"]
@@ -187,6 +279,31 @@
   {
     "input": "examples/multilang_diffs/workflow.yml.diff",
     "review_path": "examples/multilang/.github/workflows/unpinned.yml",
-    "expected_rules": ["YAML.CI.1"]
+    "expected_rules": ["YAML.CI.1", "YAML.CI.9"]
+  },
+  {
+    "input": "examples/multilang_diffs/gitlab_remote.diff",
+    "review_path": "examples/multilang/gitlab_remote/.gitlab-ci.yml",
+    "expected_rules": ["YAML.CI.6", "YAML.CI.7", "YAML.CI.8"]
+  },
+  {
+    "input": "examples/multilang_diffs/warehouse_daily_rollup.diff",
+    "review_path": "examples/multilang/warehouse/daily_rollup.sql",
+    "expected_rules": ["SQL.WH.1", "SQL.WH.2"]
+  },
+  {
+    "input": "examples/multilang_diffs/typescript_react_effect.diff",
+    "review_path": "examples/multilang/typescript_react_effect.tsx",
+    "expected_rules": ["TS.6", "TS.7", "TS.API.8"]
+  },
+  {
+    "input": "examples/multilang_diffs/next_app_route.diff",
+    "review_path": "app/api/users/route.ts",
+    "expected_rules": ["TS.NEXT.1"]
+  },
+  {
+    "input": "examples/multilang_diffs/migration_ddl.diff",
+    "review_path": "db/migrations/postgres/V5__cleanup.sql",
+    "expected_rules": ["SQL.MIG.1", "SQL.MIG.2", "SQL.MIG.3", "SQL.MIG.4", "SQL.MIG.5"]
   }
 ]

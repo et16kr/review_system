@@ -15,28 +15,22 @@ def _repo_path(relative_path: str) -> Path:
 
 
 def _load_manifest() -> list[dict[str, object]]:
-    return json.loads(_repo_path("examples/altidev4_diffs.json").read_text(encoding="utf-8"))
-
-
-def _load_expected_examples() -> list[dict[str, object]]:
-    return json.loads(
-        _repo_path("examples/expected_retrieval_examples.json").read_text(encoding="utf-8")
-    )
+    return json.loads(_repo_path("examples/cpp_diff_contracts.json").read_text(encoding="utf-8"))
 
 
 DIFF_CASES = _load_manifest()
 
 
-def test_altidev4_diff_manifest_points_to_existing_non_empty_examples() -> None:
-    manifest = _load_manifest()
-
-    for item in manifest:
+def test_cpp_diff_contract_manifest_uses_repo_local_non_altibase_examples() -> None:
+    for item in DIFF_CASES:
         example_path = _repo_path(str(item["example_path"]))
         assert example_path.exists(), f"Missing diff file: {example_path}"
         assert example_path.stat().st_size > 0, f"Empty diff file: {example_path}"
         assert not Path(str(item["example_path"])).is_absolute(), (
             f"Diff path must be repo-local: {example_path}"
         )
+        assert "altidev4" not in str(item["example_path"]).lower()
+        assert "altibase" not in str(item.get("source_path", "")).lower()
 
 
 @pytest.mark.parametrize(
@@ -46,7 +40,7 @@ def test_altidev4_diff_manifest_points_to_existing_non_empty_examples() -> None:
         for item in DIFF_CASES
     ],
 )
-def test_altidev4_diff_manifest_focus_patterns_are_detected(
+def test_cpp_diff_contract_focus_patterns_are_detected(
     example_path: str,
     focus_patterns: tuple[str, ...],
 ) -> None:
@@ -65,7 +59,7 @@ def test_altidev4_diff_manifest_focus_patterns_are_detected(
         for item in DIFF_CASES
     ],
 )
-def test_altidev4_diff_manifest_expected_rules_are_present_in_top6(
+def test_cpp_diff_contract_expected_rules_are_present_in_top6(
     real_search_service,
     example_path: str,
     expected_rules: tuple[str, ...],
@@ -76,10 +70,3 @@ def test_altidev4_diff_manifest_expected_rules_are_present_in_top6(
 
     for rule_no in expected_rules:
         assert rule_no in returned_rules, f"{example_path} missing {rule_no} in top-6"
-
-
-def test_altidev4_diff_manifest_examples_are_registered_in_expected_examples_spec() -> None:
-    manifest_paths = {str(item["example_path"]) for item in _load_manifest()}
-    expected_paths = {str(item["input"]) for item in _load_expected_examples()}
-
-    assert manifest_paths <= expected_paths

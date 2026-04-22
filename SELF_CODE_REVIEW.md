@@ -2,6 +2,13 @@
 
 날짜: 2026-04-19
 
+주의:
+
+- 이 문서는 local harness 확장 단계의 self review snapshot이다.
+- 일부 파일 경로, MR 링크, Altidev4 관련 맥락은 현재 운영 기준과 다를 수 있다.
+- 최신 기준은 `AGENTS.md`, `docs/REVIEW_ENGINE_MULTI_LANGUAGE_EXHAUSTIVE_REVIEW.md`,
+  `docs/API_CONTRACTS.md`, `docs/OPERATIONS_RUNBOOK.md`를 우선한다.
+
 대상 범위:
 
 - `review-engine/`
