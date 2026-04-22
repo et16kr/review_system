@@ -1,0 +1,83 @@
+schema_version: 1
+pack_id: native_memory_shared
+namespace: public
+language_id: cpp
+source_kind: public_standard
+description: Native memory rules shared across manual-memory native languages.
+default_enabled: true
+default_priority_tier: high
+entries:
+  - rule_no: NM.1
+    section: NM
+    title: Pair every manual allocation with a single obvious owner
+    summary: Manual allocation should immediately establish who is responsible for cleanup.
+    text: Even in native code that cannot rely on high-level wrappers everywhere, a manual allocation should still have a single obvious owner and a deterministic cleanup story.
+    category: memory
+    trigger_patterns: [malloc_free, raw_new, manual_delete]
+    fix_guidance: Centralize ownership in one object or cleanup block instead of spreading free/delete across multiple branches.
+    base_score: 0.72
+    severity_default: 0.74
+    priority_tier: default
+    specificity: 0.76
+    false_positive_risk: low
+  - rule_no: NM.2
+    section: NM
+    title: Prefer scoped cleanup over duplicated manual release paths
+    summary: Cleanup code should stay close to acquisition and execute reliably on every exit path.
+    text: Duplicated cleanup branches are difficult to keep consistent over time. Prefer RAII, scope guards, or a single structured cleanup path that clearly owns release behavior.
+    category: memory
+    trigger_patterns: [malloc_free, manual_delete, manual_cleanup_goto]
+    fix_guidance: Collapse repeated cleanup branches into a single scoped or centralized cleanup mechanism.
+    base_score: 0.7
+    severity_default: 0.72
+    priority_tier: default
+    specificity: 0.74
+    false_positive_risk: low
+  - rule_no: NM.3
+    section: NM
+    title: Do not mix allocation families across one ownership path
+    summary: Memory ownership is easier to verify when each resource follows one allocation and release convention.
+    text: Combining malloc free, new delete, custom pools, and ad hoc cleanup in the same logical owner makes later maintenance far more error-prone.
+    category: ownership
+    trigger_patterns: [malloc_free, raw_new, manual_delete]
+    fix_guidance: Keep each owned resource within one allocation family and convert boundaries through narrow adapters if interop is unavoidable.
+    base_score: 0.58
+    severity_default: 0.6
+    priority_tier: default
+    specificity: 0.52
+    false_positive_risk: medium
+  - rule_no: NM.4
+    section: NM
+    title: Reassignment of manual owners should preserve one obvious rollback path
+    summary: Ownership updates are risky when the previous owner can be lost before success is known.
+    text: Manual memory code is safest when owner replacement happens through a temporary handle or clearly staged update rather than overwriting the only owner too early.
+    category: ownership
+    trigger_patterns: [malloc_free, raw_new, manual_delete, manual_cleanup_goto]
+    fix_guidance: Stage ownership changes through a temporary variable and commit them only after the new resource is known to be valid.
+    base_score: 0.57
+    severity_default: 0.59
+    priority_tier: default
+    specificity: 0.51
+    false_positive_risk: medium
+  - rule_no: NM.5
+    section: NM
+    title: Review raw storage boundaries through the lens of "who now owns release responsibility?"
+    summary: Manual-memory code often needs reference guidance even when the patch does not expose a concrete leak or double free.
+    text: Prefer reference guidance when the change introduces new raw storage boundaries but the defect depends on unseen ownership contracts elsewhere in the program.
+    category: memory
+    reviewability: reference_only
+    applies_to: [code, diff, docs]
+    false_positive_risk: medium
+    base_score: 0.56
+    severity_default: 0.56
+  - rule_no: NM.6
+    section: NM
+    title: Allocation-family choices should stay local to a wrapper or owner abstraction when compatibility allows
+    summary: Moving allocation policy behind a narrow abstraction reduces the review surface of native memory code.
+    text: This is usually a design-level recommendation rather than an inline defect claim unless the patch shows incompatible allocation families being mixed directly.
+    category: memory
+    reviewability: reference_only
+    applies_to: [code, diff, docs]
+    false_positive_risk: medium
+    base_score: 0.55
+    severity_default: 0.55

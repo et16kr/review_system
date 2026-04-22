@@ -1,0 +1,11 @@
+schema_version: 1
+profile_id: default
+language_id: bash
+enabled_packs:
+  - project_bash
+  - shell_safety
+shared_packs:
+  - shared_security
+prompt_overlay_refs: []
+detector_refs: []
+priority_policy_ref: bash_default

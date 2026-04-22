@@ -1,0 +1,12 @@
+schema_version: 1
+profile_id: default
+language_id: sql
+enabled_packs:
+  - ansi_sql
+  - postgres_sql
+  - project_sql
+shared_packs:
+  - shared_security
+prompt_overlay_refs: []
+detector_refs: []
+priority_policy_ref: sql_default

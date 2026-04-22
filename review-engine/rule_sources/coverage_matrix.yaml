@@ -1,0 +1,686 @@
+schema_version: 2
+bundle_id: review_engine_multilanguage_coverage_matrix
+source_bundle_ref: review_engine_multilanguage_seed_sources
+coverage_granularity: source_atom
+covered_sections:
+  - candidate_canonical_rule_groups
+  - reference_only_guidance
+status_note: Candidate and reference guidance atoms from every committed source bundle are now classified with no pending source atoms in the current seed corpus.
+languages:
+  - language_id: shared
+    sources:
+      - rule_source_id: shared.shared_security_baseline
+        section_counts:
+          candidate_canonical_rule_groups: 4
+          reference_only_guidance: 2
+        atoms:
+          - source_atom_id: secret_handling
+            section_id: candidate_canonical_rule_groups
+            status: mapped
+            pack_targets: [shared_security]
+            canonical_rules: [SEC.1, SEC.4, SEC.7]
+            reviewability_mix: [auto_review]
+            reason: Secret storage and fallback credential guidance is fully canonicalized.
+          - source_atom_id: command_construction
+            section_id: candidate_canonical_rule_groups
+            status: mapped
+            pack_targets: [shared_security]
+            canonical_rules: [SEC.2, SEC.5]
+            reviewability_mix: [auto_review]
+            reason: Structured command construction rules exist with detector-backed coverage.
+          - source_atom_id: query_safety
+            section_id: candidate_canonical_rule_groups
+            status: mapped
+            pack_targets: [shared_security]
+            canonical_rules: [SEC.3, SEC.6]
+            reviewability_mix: [auto_review]
+            reason: Shared query-construction guidance is covered by parameterization and allow-list rules.
+          - source_atom_id: review_process_overlays
+            section_id: candidate_canonical_rule_groups
+            status: reference_only
+            pack_targets: [shared_security, review_process]
+            canonical_rules: [PROC.1, PROC.2, PROC.3, PROC.4, PROC.5, PROC.6, PROC.7, SEC.REF.1]
+            reviewability_mix: [reference_only]
+            reason: Comment-shaping and downgrade guidance stays intentionally reference-only.
+          - source_atom_id: downgrade_without_whole_program_context
+            section_id: reference_only_guidance
+            status: reference_only
+            pack_targets: [shared_security, review_process]
+            canonical_rules: [PROC.5, PROC.7, SEC.REF.1]
+            reviewability_mix: [reference_only]
+            reason: This bundle intentionally keeps speculative security guidance out of inline defect claims.
+          - source_atom_id: trust_boundary_review_question
+            section_id: reference_only_guidance
+            status: reference_only
+            pack_targets: [shared_security, review_process]
+            canonical_rules: [PROC.3, PROC.4, SEC.REF.1]
+            reviewability_mix: [reference_only]
+            reason: Shared security review wording is preserved as reusable guidance rather than a standalone defect.
+
+  - language_id: cpp
+    sources:
+      - rule_source_id: cpp.cpp_core_guidelines
+        section_counts:
+          candidate_canonical_rule_groups: 5
+          reference_only_guidance: 3
+        atoms:
+          - source_atom_id: ownership_and_lifetime
+            section_id: candidate_canonical_rule_groups
+            status: mapped
+            pack_targets: [cpp_core, project_cpp, native_memory_shared]
+            canonical_rules: [R.10, R.11, R.12, R.20, I.11, CPP.PROJ.1]
+            reviewability_mix: [auto_review]
+            reason: RAII and explicit ownership boundaries are the strongest detector-backed C++ rules.
+          - source_atom_id: low_level_interop
+            section_id: candidate_canonical_rule_groups
+            status: mapped
+            pack_targets: [cpp_core, project_cpp]
+            canonical_rules: [SF.13, SL.io.3, P.11, CPP.PROJ.2, CPP.PROJ.4]
+            reviewability_mix: [auto_review]
+            reason: Portability and wrapper guidance is represented through concrete include and call-boundary rules.
+          - source_atom_id: concurrency_boundaries
+            section_id: candidate_canonical_rule_groups
+            status: mapped
+            pack_targets: [cpp_core, project_cpp]
+            canonical_rules: [CP.20, CP.21, CP.22, CPP.PROJ.3]
+            reviewability_mix: [auto_review]
+            reason: Lock-scope and callback-under-lock guidance is canonicalized with direct patterns.
+          - source_atom_id: control_flow_clarity
+            section_id: candidate_canonical_rule_groups
+            status: mapped
+            pack_targets: [cpp_core]
+            canonical_rules: [ES.77, ES.78, ES.79, ES.6, E.19]
+            reviewability_mix: [auto_review]
+            reason: Loop, switch, and cleanup-shape rules are already part of the active retrieval corpus.
+          - source_atom_id: boundary_documentation
+            section_id: candidate_canonical_rule_groups
+            status: reference_only
+            pack_targets: [cpp_core, project_cpp]
+            canonical_rules: [CPP.REF.1, CPP.REF.2, CPP.REF.3, CPP.REF.5]
+            reviewability_mix: [reference_only]
+            reason: API-shape guidance is canonicalized but intentionally kept advisory.
+          - source_atom_id: prefer_views_spans_and_value_returns
+            section_id: reference_only_guidance
+            status: reference_only
+            pack_targets: [cpp_core, project_cpp]
+            canonical_rules: [CPP.PROJ.7, CPP.REF.1, CPP.REF.5]
+            reviewability_mix: [reference_only]
+            reason: Pointer-plus-size modernization guidance depends on broader API context.
+          - source_atom_id: low_level_api_and_business_logic_boundary
+            section_id: reference_only_guidance
+            status: reference_only
+            pack_targets: [project_cpp]
+            canonical_rules: [CPP.PROJ.8, CPP.PROJ.9]
+            reviewability_mix: [reference_only]
+            reason: Mixed low-level and business-logic boundaries are better handled as design guidance.
+          - source_atom_id: broad_guideline_themes_stay_advisory
+            section_id: reference_only_guidance
+            status: reference_only
+            pack_targets: [cpp_core]
+            canonical_rules: [CPP.REF.4]
+            reviewability_mix: [reference_only]
+            reason: Whole-program concurrency design themes remain reference-only by design.
+
+  - language_id: c
+    sources:
+      - rule_source_id: c.posix_c_safety
+        section_counts:
+          candidate_canonical_rule_groups: 4
+          reference_only_guidance: 3
+        atoms:
+          - source_atom_id: manual_memory_ownership
+            section_id: candidate_canonical_rule_groups
+            status: mapped
+            pack_targets: [native_memory_shared]
+            canonical_rules: [C.NM.1, C.NM.2, C.NM.3, C.NM.4]
+            reviewability_mix: [auto_review]
+            reason: Allocation, rollback, and single-owner patterns are canonicalized.
+          - source_atom_id: cleanup_flow
+            section_id: candidate_canonical_rule_groups
+            status: mapped
+            pack_targets: [posix_c]
+            canonical_rules: [C.POSIX.2, C.POSIX.4, C.POSIX.6]
+            reviewability_mix: [auto_review]
+            reason: Structured goto-cleanup guidance is represented by explicit cleanup-path rules.
+          - source_atom_id: string_and_formatting_safety
+            section_id: candidate_canonical_rule_groups
+            status: mapped
+            pack_targets: [posix_c, project_c]
+            canonical_rules: [C.POSIX.1, C.POSIX.3, C.POSIX.5, C.PROJ.3]
+            reviewability_mix: [auto_review]
+            reason: Bounded string and formatting contracts are covered by active rules.
+          - source_atom_id: project_facing_c_apis
+            section_id: candidate_canonical_rule_groups
+            status: mapped
+            pack_targets: [project_c, native_memory_shared]
+            canonical_rules: [C.PROJ.1, C.PROJ.2, C.PROJ.4, C.PROJ.5, C.NM.5]
+            reviewability_mix: [auto_review, reference_only]
+            reason: Interface-facing ownership and buffer contracts use a hybrid canonicalization model.
+          - source_atom_id: pointer_plus_size_contracts
+            section_id: reference_only_guidance
+            status: reference_only
+            pack_targets: [project_c, native_memory_shared]
+            canonical_rules: [C.PROJ.1, C.PROJ.2, C.NM.5]
+            reviewability_mix: [reference_only]
+            reason: Packaging pointer-plus-size semantics remains mostly design guidance.
+          - source_atom_id: avoid_inferred_capacity_and_ownership
+            section_id: reference_only_guidance
+            status: reference_only
+            pack_targets: [project_c]
+            canonical_rules: [C.PROJ.4, C.PROJ.5]
+            reviewability_mix: [reference_only]
+            reason: Distant ownership and truncation assumptions are better surfaced as advisory review guidance.
+          - source_atom_id: owner_free_size_review_question
+            section_id: reference_only_guidance
+            status: reference_only
+            pack_targets: [project_c, native_memory_shared]
+            canonical_rules: [C.NM.5, C.PROJ.4]
+            reviewability_mix: [reference_only]
+            reason: This review question is preserved as boundary-oriented reference guidance.
+
+  - language_id: python
+    sources:
+      - rule_source_id: python.python_runtime_baseline
+        section_counts:
+          candidate_canonical_rule_groups: 4
+          reference_only_guidance: 2
+        atoms:
+          - source_atom_id: function_defaults_and_contracts
+            section_id: candidate_canonical_rule_groups
+            status: mapped
+            pack_targets: [pep8_python, pep257_docstrings]
+            canonical_rules: [PY.1, PY.4, PY.DOC.1, PY.DOC.2]
+            reviewability_mix: [auto_review, reference_only]
+            reason: Mutable defaults and public boundary contracts are both canonicalized.
+          - source_atom_id: exception_boundaries
+            section_id: candidate_canonical_rule_groups
+            status: mapped
+            pack_targets: [pep8_python, pep257_docstrings]
+            canonical_rules: [PY.2, PY.3, PY.5, PY.DOC.4]
+            reviewability_mix: [auto_review, reference_only]
+            reason: Exception-shape defects and their boundary documentation are covered together.
+          - source_atom_id: resource_ownership
+            section_id: candidate_canonical_rule_groups
+            status: mapped
+            pack_targets: [project_python]
+            canonical_rules: [PY.PROJ.1, PY.PROJ.3]
+            reviewability_mix: [auto_review]
+            reason: Context-manager and acquisition-adjacent cleanup rules are active.
+          - source_atom_id: dynamic_execution_and_parsing
+            section_id: candidate_canonical_rule_groups
+            status: mapped
+            pack_targets: [project_python, pep257_docstrings]
+            canonical_rules: [PY.PROJ.2, PY.PROJ.4, PY.PROJ.5, PY.PROJ.7, PY.PROJ.8]
+            reviewability_mix: [auto_review, reference_only]
+            reason: High-trust execution boundaries and their trust-model guidance are canonicalized.
+          - source_atom_id: public_docstrings_for_non_obvious_contracts
+            section_id: reference_only_guidance
+            status: reference_only
+            pack_targets: [pep257_docstrings]
+            canonical_rules: [PY.DOC.1, PY.DOC.2, PY.DOC.4]
+            reviewability_mix: [reference_only]
+            reason: Public contract documentation remains intentionally advisory.
+          - source_atom_id: explicit_boundary_and_cleanup_review_question
+            section_id: reference_only_guidance
+            status: reference_only
+            pack_targets: [pep257_docstrings, project_python]
+            canonical_rules: [PY.DOC.4, PY.PROJ.8]
+            reviewability_mix: [reference_only]
+            reason: Trust-model and cleanup-shape review framing is preserved as reference guidance.
+
+  - language_id: typescript
+    sources:
+      - rule_source_id: typescript.typescript_runtime_baseline
+        section_counts:
+          candidate_canonical_rule_groups: 4
+          reference_only_guidance: 2
+        atoms:
+          - source_atom_id: boundary_typing
+            section_id: candidate_canonical_rule_groups
+            status: mapped
+            pack_targets: [project_typescript, ts_api_design]
+            canonical_rules: [TS.1, TS.3, TS.REF.1]
+            reviewability_mix: [auto_review, reference_only]
+            reason: Boundary typing rules are implemented with both defect and advisory forms.
+          - source_atom_id: suppression_hygiene
+            section_id: candidate_canonical_rule_groups
+            status: mapped
+            pack_targets: [ts_api_design]
+            canonical_rules: [TS.API.1, TS.API.3, TS.API.6]
+            reviewability_mix: [auto_review]
+            reason: Suppression directives are fully detector-backed and canonicalized.
+          - source_atom_id: runtime_validation
+            section_id: candidate_canonical_rule_groups
+            status: mapped
+            pack_targets: [ts_api_design]
+            canonical_rules: [TS.API.2, TS.API.4, TS.API.5, TS.API.7]
+            reviewability_mix: [auto_review]
+            reason: Parse-plus-validate guidance is fully promoted into canonical runtime rules.
+          - source_atom_id: async_ownership
+            section_id: candidate_canonical_rule_groups
+            status: mapped
+            pack_targets: [project_typescript]
+            canonical_rules: [TS.5]
+            reviewability_mix: [auto_review]
+            reason: Detached promise ownership is covered by an active rule.
+          - source_atom_id: broader_type_modeling_topics
+            section_id: reference_only_guidance
+            status: reference_only
+            pack_targets: [project_typescript, ts_api_design]
+            canonical_rules: [TS.REF.1, TS.REF.2, TS.API.REF.1]
+            reviewability_mix: [reference_only]
+            reason: Broader union and state-model guidance remains intentionally advisory.
+          - source_atom_id: unchecked_runtime_data_review_question
+            section_id: reference_only_guidance
+            status: reference_only
+            pack_targets: [project_typescript, ts_api_design]
+            canonical_rules: [TS.REF.1, TS.API.REF.1]
+            reviewability_mix: [reference_only]
+            reason: The source review question is preserved through boundary-helper guidance.
+
+  - language_id: javascript
+    sources:
+      - rule_source_id: javascript.javascript_runtime_baseline
+        section_counts:
+          candidate_canonical_rule_groups: 4
+          reference_only_guidance: 2
+        atoms:
+          - source_atom_id: dynamic_execution
+            section_id: candidate_canonical_rule_groups
+            status: mapped
+            pack_targets: [project_javascript, node_javascript]
+            canonical_rules: [JS.1, JS.4, JS.NODE.5]
+            reviewability_mix: [auto_review]
+            reason: Eval-like execution and string timer callbacks are fully canonicalized.
+          - source_atom_id: dom_injection_boundaries
+            section_id: candidate_canonical_rule_groups
+            status: mapped
+            pack_targets: [project_javascript]
+            canonical_rules: [JS.2, JS.3, JS.5]
+            reviewability_mix: [auto_review]
+            reason: Raw HTML sinks are represented by strong XSS-oriented rules.
+          - source_atom_id: async_ownership
+            section_id: candidate_canonical_rule_groups
+            status: mapped
+            pack_targets: [node_javascript]
+            canonical_rules: [JS.NODE.1, JS.NODE.3, JS.NODE.REF.1]
+            reviewability_mix: [auto_review, reference_only]
+            reason: Promise ownership has both concrete and advisory coverage.
+          - source_atom_id: runtime_coercion
+            section_id: candidate_canonical_rule_groups
+            status: mapped
+            pack_targets: [node_javascript]
+            canonical_rules: [JS.NODE.2, JS.NODE.4]
+            reviewability_mix: [auto_review]
+            reason: Loose-equality and normalization guidance is canonicalized as reviewable runtime rules.
+          - source_atom_id: broader_state_and_listener_design
+            section_id: reference_only_guidance
+            status: reference_only
+            pack_targets: [project_javascript, node_javascript]
+            canonical_rules: [JS.REF.2, JS.NODE.REF.1]
+            reviewability_mix: [reference_only]
+            reason: Listener and module-side-effect ownership still depends on broader app context.
+          - source_atom_id: executable_behavior_or_dom_structure_question
+            section_id: reference_only_guidance
+            status: reference_only
+            pack_targets: [project_javascript]
+            canonical_rules: [JS.REF.1]
+            reviewability_mix: [reference_only]
+            reason: The source review question is preserved as DOM-boundary guidance.
+
+  - language_id: java
+    sources:
+      - rule_source_id: java.java_runtime_baseline
+        section_counts:
+          candidate_canonical_rule_groups: 4
+          reference_only_guidance: 2
+        atoms:
+          - source_atom_id: resource_lifetime
+            section_id: candidate_canonical_rule_groups
+            status: mapped
+            pack_targets: [effective_java]
+            canonical_rules: [JAVA.1, JAVA.4]
+            reviewability_mix: [auto_review]
+            reason: Try-with-resources and lexical ownership are fully active.
+          - source_atom_id: api_contracts
+            section_id: candidate_canonical_rule_groups
+            status: mapped
+            pack_targets: [effective_java]
+            canonical_rules: [JAVA.2, JAVA.3, JAVA.REF.1]
+            reviewability_mix: [auto_review, reference_only]
+            reason: Absence modeling is covered with both concrete and advisory rules.
+          - source_atom_id: data_access
+            section_id: candidate_canonical_rule_groups
+            status: mapped
+            pack_targets: [project_java]
+            canonical_rules: [JAVA.PROJ.1, JAVA.PROJ.3]
+            reviewability_mix: [auto_review]
+            reason: SQL parameterization and optional-clause structure are fully canonicalized.
+          - source_atom_id: concurrency
+            section_id: candidate_canonical_rule_groups
+            status: mapped
+            pack_targets: [project_java]
+            canonical_rules: [JAVA.PROJ.2, JAVA.PROJ.4, JAVA.PROJ.6, JAVA.PROJ.7]
+            reviewability_mix: [auto_review]
+            reason: Thread, synchronized-wrapper, and shared-collection ownership guidance is active.
+          - source_atom_id: broad_class_design_and_absence_consistency
+            section_id: reference_only_guidance
+            status: reference_only
+            pack_targets: [effective_java]
+            canonical_rules: [JAVA.REF.1, JAVA.REF.2]
+            reviewability_mix: [reference_only]
+            reason: Wider API ergonomics remain advisory to avoid over-claiming from partial patches.
+          - source_atom_id: resource_absence_and_concurrency_review_question
+            section_id: reference_only_guidance
+            status: reference_only
+            pack_targets: [effective_java]
+            canonical_rules: [JAVA.REF.2]
+            reviewability_mix: [reference_only]
+            reason: The source review question is kept as a reusable boundary reminder.
+
+  - language_id: go
+    sources:
+      - rule_source_id: go.go_runtime_baseline
+        section_counts:
+          candidate_canonical_rule_groups: 4
+          reference_only_guidance: 2
+        atoms:
+          - source_atom_id: error_handling
+            section_id: candidate_canonical_rule_groups
+            status: mapped
+            pack_targets: [project_go]
+            canonical_rules: [GO.3, GO.7]
+            reviewability_mix: [auto_review]
+            reason: Ignored and context-free errors are covered by active rules.
+          - source_atom_id: cleanup
+            section_id: candidate_canonical_rule_groups
+            status: mapped
+            pack_targets: [project_go]
+            canonical_rules: [GO.1, GO.6]
+            reviewability_mix: [auto_review]
+            reason: Prompt defer-based cleanup is fully canonicalized.
+          - source_atom_id: concurrency
+            section_id: candidate_canonical_rule_groups
+            status: mapped
+            pack_targets: [project_go]
+            canonical_rules: [GO.4, GO.10]
+            reviewability_mix: [auto_review]
+            reason: Goroutine ownership and stop conditions are active findings.
+          - source_atom_id: context_propagation
+            section_id: candidate_canonical_rule_groups
+            status: mapped
+            pack_targets: [project_go]
+            canonical_rules: [GO.2, GO.5, GO.8]
+            reviewability_mix: [auto_review]
+            reason: Request-scoped context inheritance and detached-background exceptions are covered.
+          - source_atom_id: zero_value_and_api_shape
+            section_id: reference_only_guidance
+            status: reference_only
+            pack_targets: [project_go]
+            canonical_rules: [GO.REF.1]
+            reviewability_mix: [reference_only]
+            reason: Zero-value and API shape guidance remains broader than a patch-local defect claim.
+          - source_atom_id: concurrency_review_question
+            section_id: reference_only_guidance
+            status: reference_only
+            pack_targets: [project_go]
+            canonical_rules: [GO.REF.2]
+            reviewability_mix: [reference_only]
+            reason: Goroutine and cancellation ownership framing is preserved as advisory guidance.
+
+  - language_id: rust
+    sources:
+      - rule_source_id: rust.rust_runtime_baseline
+        section_counts:
+          candidate_canonical_rule_groups: 4
+          reference_only_guidance: 2
+        atoms:
+          - source_atom_id: panic_behavior
+            section_id: candidate_canonical_rule_groups
+            status: mapped
+            pack_targets: [project_rust]
+            canonical_rules: [RUST.2, RUST.3, RUST.4, RUST.5, RUST.7]
+            reviewability_mix: [auto_review]
+            reason: Unwrap, panic, and placeholder-macro boundaries are fully active.
+          - source_atom_id: unsafe_containment
+            section_id: candidate_canonical_rule_groups
+            status: mapped
+            pack_targets: [project_rust]
+            canonical_rules: [RUST.1, RUST.6, RUST.9]
+            reviewability_mix: [auto_review]
+            reason: Unsafe block and unsafe fn containment is canonicalized with strong signals.
+          - source_atom_id: debug_residue
+            section_id: candidate_canonical_rule_groups
+            status: mapped
+            pack_targets: [project_rust]
+            canonical_rules: [RUST.8]
+            reviewability_mix: [auto_review]
+            reason: Temporary debug residue is covered by a concrete runtime rule.
+          - source_atom_id: boundary_clarity
+            section_id: candidate_canonical_rule_groups
+            status: reference_only
+            pack_targets: [project_rust]
+            canonical_rules: [RUST.REF.1, RUST.REF.2]
+            reviewability_mix: [reference_only]
+            reason: Intentional panic contracts and invariant framing are kept advisory.
+          - source_atom_id: broader_api_design_topics
+            section_id: reference_only_guidance
+            status: reference_only
+            pack_targets: [project_rust]
+            canonical_rules: [RUST.REF.2, RUST.REF.3]
+            reviewability_mix: [reference_only]
+            reason: Clone minimization and trait ergonomics remain outside patch-local defect scope.
+          - source_atom_id: safe_subset_and_invariant_review_question
+            section_id: reference_only_guidance
+            status: reference_only
+            pack_targets: [project_rust]
+            canonical_rules: [RUST.REF.2, RUST.9]
+            reviewability_mix: [reference_only]
+            reason: The source review question is preserved through invariant-oriented reference rules.
+
+  - language_id: bash
+    sources:
+      - rule_source_id: bash.shell_safety
+        section_counts:
+          candidate_canonical_rule_groups: 4
+          reference_only_guidance: 3
+        atoms:
+          - source_atom_id: expansion_and_argv_safety
+            section_id: candidate_canonical_rule_groups
+            status: mapped
+            pack_targets: [project_bash]
+            canonical_rules: [BASH.1, BASH.3, BASH.6]
+            reviewability_mix: [auto_review]
+            reason: Quoting and argv construction guidance is detector-backed and active.
+          - source_atom_id: failure_semantics
+            section_id: candidate_canonical_rule_groups
+            status: mapped
+            pack_targets: [shell_safety]
+            canonical_rules: [BASH.SAFE.1, BASH.SAFE.3, BASH.SAFE.7]
+            reviewability_mix: [auto_review, reference_only]
+            reason: Strict-mode rules are active while cleanup visibility remains partly advisory.
+          - source_atom_id: privileged_automation
+            section_id: candidate_canonical_rule_groups
+            status: mapped
+            pack_targets: [project_bash, shell_safety]
+            canonical_rules: [BASH.5, BASH.SAFE.6]
+            reviewability_mix: [auto_review]
+            reason: Privilege boundaries are canonicalized with concrete reviewable rules.
+          - source_atom_id: artifact_bootstrap
+            section_id: candidate_canonical_rule_groups
+            status: mapped
+            pack_targets: [shell_safety]
+            canonical_rules: [BASH.SAFE.2, BASH.SAFE.4, BASH.SAFE.5]
+            reviewability_mix: [auto_review]
+            reason: Remote bootstrap and TLS-bypass flows are fully active.
+          - source_atom_id: small_wrapper_preference
+            section_id: reference_only_guidance
+            status: reference_only
+            pack_targets: [project_bash, shell_safety]
+            canonical_rules: [BASH.SAFE.7, BASH.7]
+            reviewability_mix: [reference_only]
+            reason: Script-sizing and wrapper-shape guidance remains advisory.
+          - source_atom_id: cleanup_and_environment_visibility
+            section_id: reference_only_guidance
+            status: reference_only
+            pack_targets: [project_bash, shell_safety]
+            canonical_rules: [BASH.SAFE.7, BASH.7]
+            reviewability_mix: [reference_only]
+            reason: Cleanup ownership and environment assumptions are preserved as reference guidance.
+          - source_atom_id: expansion_privilege_filesystem_review_question
+            section_id: reference_only_guidance
+            status: reference_only
+            pack_targets: [project_bash]
+            canonical_rules: [BASH.7]
+            reviewability_mix: [reference_only]
+            reason: The source review question is represented through script-assumption visibility guidance.
+
+  - language_id: sql
+    sources:
+      - rule_source_id: sql.sql_runtime_baseline
+        section_counts:
+          candidate_canonical_rule_groups: 4
+          reference_only_guidance: 2
+        atoms:
+          - source_atom_id: result_set_contracts
+            section_id: candidate_canonical_rule_groups
+            status: mapped
+            pack_targets: [ansi_sql]
+            canonical_rules: [SQL.1, SQL.4]
+            reviewability_mix: [auto_review]
+            reason: SELECT * and projection-drift guidance is fully active.
+          - source_atom_id: join_clarity
+            section_id: candidate_canonical_rule_groups
+            status: mapped
+            pack_targets: [ansi_sql]
+            canonical_rules: [SQL.2, SQL.3]
+            reviewability_mix: [auto_review]
+            reason: Explicit join shape and predicate locality are canonicalized.
+          - source_atom_id: destructive_mutations
+            section_id: candidate_canonical_rule_groups
+            status: mapped
+            pack_targets: [project_sql]
+            canonical_rules: [SQL.PROJ.1, SQL.PROJ.2]
+            reviewability_mix: [auto_review]
+            reason: Missing-predicate mutation guidance is covered by strong rules.
+          - source_atom_id: dynamic_sql
+            section_id: candidate_canonical_rule_groups
+            status: mapped
+            pack_targets: [postgres_sql, project_sql]
+            canonical_rules: [SQL.PG.1, SQL.PG.2, SQL.PG.3, SQL.PROJ.3]
+            reviewability_mix: [auto_review]
+            reason: Dynamic SQL boundaries are canonicalized for both shared and PostgreSQL-heavy paths.
+          - source_atom_id: warehouse_modeling_and_readability
+            section_id: reference_only_guidance
+            status: reference_only
+            pack_targets: [ansi_sql, postgres_sql, project_sql]
+            canonical_rules: [SQL.REF.1, SQL.PG.4, SQL.PROJ.4]
+            reviewability_mix: [reference_only]
+            reason: Modeling and readability guidance remains intentionally advisory.
+          - source_atom_id: explicit_data_or_mutation_set_review_question
+            section_id: reference_only_guidance
+            status: reference_only
+            pack_targets: [ansi_sql, project_sql]
+            canonical_rules: [SQL.REF.1, SQL.PROJ.4]
+            reviewability_mix: [reference_only]
+            reason: The source review question is preserved as result-contract guidance.
+
+  - language_id: yaml
+    sources:
+      - rule_source_id: yaml.yaml_runtime_baseline
+        section_counts:
+          candidate_canonical_rule_groups: 4
+          reference_only_guidance: 2
+        atoms:
+          - source_atom_id: generic_configuration
+            section_id: candidate_canonical_rule_groups
+            status: mapped
+            pack_targets: [generic_yaml]
+            canonical_rules: [YAML.1, YAML.2, YAML.3]
+            reviewability_mix: [auto_review, reference_only]
+            reason: Generic schema-aligned configuration guidance is canonicalized in hybrid form.
+          - source_atom_id: kubernetes_security
+            section_id: candidate_canonical_rule_groups
+            status: mapped
+            pack_targets: [kubernetes_yaml]
+            canonical_rules: [YAML.K8S.1, YAML.K8S.2, YAML.K8S.3, YAML.K8S.4, YAML.K8S.5, YAML.K8S.6]
+            reviewability_mix: [auto_review]
+            reason: Kubernetes privilege and isolation boundaries are fully detector-backed.
+          - source_atom_id: ci_security_and_provenance
+            section_id: candidate_canonical_rule_groups
+            status: mapped
+            pack_targets: [ci_yaml]
+            canonical_rules: [YAML.CI.1, YAML.CI.2, YAML.CI.3, YAML.CI.4, YAML.CI.5, YAML.CI.REF.1]
+            reviewability_mix: [auto_review, reference_only]
+            reason: CI token-scope and provenance concerns are canonicalized with active and advisory coverage.
+          - source_atom_id: helm_values
+            section_id: candidate_canonical_rule_groups
+            status: mapped
+            pack_targets: [helm_values]
+            canonical_rules: [YAML.HELM.1, YAML.HELM.2, YAML.HELM.3]
+            reviewability_mix: [auto_review, reference_only]
+            reason: Helm value contracts now have dedicated canonical rules.
+          - source_atom_id: chart_ergonomics_and_schema_readability
+            section_id: reference_only_guidance
+            status: reference_only
+            pack_targets: [generic_yaml, helm_values]
+            canonical_rules: [YAML.3, YAML.HELM.1, YAML.HELM.3]
+            reviewability_mix: [reference_only]
+            reason: Broader chart ergonomics remains advisory by design.
+          - source_atom_id: consumer_and_privilege_boundary_review_question
+            section_id: reference_only_guidance
+            status: reference_only
+            pack_targets: [generic_yaml, ci_yaml]
+            canonical_rules: [YAML.3, YAML.CI.REF.1]
+            reviewability_mix: [reference_only]
+            reason: The source review question is preserved through schema- and workflow-aware guidance.
+
+  - language_id: dockerfile
+    sources:
+      - rule_source_id: dockerfile.dockerfile_runtime_baseline
+        section_counts:
+          candidate_canonical_rule_groups: 4
+          reference_only_guidance: 2
+        atoms:
+          - source_atom_id: base_image_reproducibility
+            section_id: candidate_canonical_rule_groups
+            status: mapped
+            pack_targets: [dockerfile_best_practices]
+            canonical_rules: [DOCKER.1, DOCKER.2, DOCKER.3, DOCKER.6]
+            reviewability_mix: [auto_review]
+            reason: Base-image pinning and apt-layer shape are fully canonicalized.
+          - source_atom_id: runtime_privilege
+            section_id: candidate_canonical_rule_groups
+            status: mapped
+            pack_targets: [dockerfile_best_practices, container_security]
+            canonical_rules: [DOCKER.SEC.1, DOCKER.SEC.3, DOCKER.REF.1]
+            reviewability_mix: [auto_review, reference_only]
+            reason: Runtime identity rules are active while stage-separation advice remains advisory.
+          - source_atom_id: build_context_hygiene
+            section_id: candidate_canonical_rule_groups
+            status: mapped
+            pack_targets: [dockerfile_best_practices, container_security]
+            canonical_rules: [DOCKER.4, DOCKER.SEC.2, DOCKER.SEC.4]
+            reviewability_mix: [auto_review]
+            reason: COPY-scope and context-hygiene guidance is fully active.
+          - source_atom_id: artifact_bootstrap
+            section_id: candidate_canonical_rule_groups
+            status: mapped
+            pack_targets: [dockerfile_best_practices, container_security]
+            canonical_rules: [DOCKER.5, DOCKER.SEC.5, DOCKER.SEC.6]
+            reviewability_mix: [auto_review]
+            reason: Remote fetch and pipe-to-shell build steps are fully canonicalized.
+          - source_atom_id: multi_stage_and_runtime_surface
+            section_id: reference_only_guidance
+            status: reference_only
+            pack_targets: [dockerfile_best_practices]
+            canonical_rules: [DOCKER.REF.1]
+            reviewability_mix: [reference_only]
+            reason: Multi-stage structure remains advisory unless the diff exposes a concrete hazard.
+          - source_atom_id: reproducible_artifact_and_privilege_review_question
+            section_id: reference_only_guidance
+            status: reference_only
+            pack_targets: [dockerfile_best_practices]
+            canonical_rules: [DOCKER.REF.1]
+            reviewability_mix: [reference_only]
+            reason: The source review question is preserved through stage- and runtime-surface guidance.

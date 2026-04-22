@@ -8,6 +8,9 @@ tier_order:
   - reference
 pack_weights:
   cpp_core: 0.72
+  project_cpp: 0.56
+  native_memory_shared: 0.54
+  shared_security: 0.96
 defaults:
   conflict_action: compatible
   default_pack_weight: 0.5

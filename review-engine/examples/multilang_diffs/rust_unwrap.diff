@@ -1,0 +1,5 @@
+@@ -1,3 +1,3 @@
+ fn load_value(input: Option<String>) -> String {
+-    input.unwrap_or_default()
++    input.unwrap()
+ }

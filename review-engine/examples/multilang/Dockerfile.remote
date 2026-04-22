@@ -1,0 +1,5 @@
+FROM ubuntu:22.04
+
+ADD https://example.com/install.sh /tmp/install.sh
+RUN apt-get update && apt-get upgrade -y
+RUN curl https://example.com/install.sh | bash

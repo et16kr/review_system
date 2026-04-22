@@ -4,7 +4,7 @@ from functools import cmp_to_key
 
 from review_engine.config import Settings
 from review_engine.models import CandidateHit, PriorityPolicy, QueryAnalysis
-from review_engine.query.cpp_feature_extractor import collect_hinted_rules
+from review_engine.query.detectors import QueryDetectorManager
 from review_engine.text_utils import tokenize
 
 
@@ -122,7 +122,11 @@ def _pattern_boost(candidate: CandidateHit, query_analysis: QueryAnalysis) -> fl
     if not query_analysis.patterns:
         return 0.0
 
-    hinted_rules = collect_hinted_rules(query_analysis.patterns, direct_only=True)
+    hinted_rules = QueryDetectorManager().collect_hinted_rules(
+        query_plugin_id=query_analysis.query_plugin_id or query_analysis.language_id,
+        patterns=query_analysis.patterns,
+        direct_only=True,
+    )
     if candidate.record.rule_no in hinted_rules:
         return 1.0
 

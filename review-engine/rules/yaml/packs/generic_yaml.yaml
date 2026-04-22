@@ -1,0 +1,44 @@
+schema_version: 1
+pack_id: generic_yaml
+namespace: public
+language_id: yaml
+source_kind: public_standard
+description: Generic YAML safety guidance.
+default_enabled: true
+default_priority_tier: default
+entries:
+  - rule_no: YAML.1
+    section: YAML
+    title: Prefer explicit, schema-aligned values over ambiguous defaults
+    summary: YAML is easy to parse but hard to validate mentally when type intent is implicit.
+    text: Configuration that relies on implicit truthiness, empty values, or magic keys is harder to review for correctness and often drifts from the consuming schema.
+    category: configuration
+    reviewability: reference_only
+    applies_to: [code, diff, docs]
+    false_positive_risk: medium
+    base_score: 0.56
+    severity_default: 0.56
+  - rule_no: YAML.2
+    section: YAML
+    title: Generic image references should avoid floating latest tags in reviewable config
+    summary: Mutable image tags weaken reproducibility even outside dedicated deployment manifests.
+    text: A generic YAML file that carries an image reference is easier to operate when the referenced version is explicit and can be traced back during rollback or incident analysis.
+    category: configuration
+    trigger_patterns: [latest_tag]
+    fix_guidance: Replace latest with an explicit version or digest that matches the release process for the referenced image.
+    base_score: 0.8
+    severity_default: 0.82
+    priority_tier: default
+    specificity: 0.78
+    false_positive_risk: medium
+  - rule_no: YAML.3
+    section: YAML
+    title: YAML review should stay anchored to the consuming schema and operational context
+    summary: A key is only meaningful once the reviewer knows which control plane or application interprets it.
+    text: This is generally better as reference-only guidance unless the changed field itself is a concrete high-risk signal such as privilege expansion or mutable provenance.
+    category: configuration
+    reviewability: reference_only
+    applies_to: [code, diff, docs]
+    false_positive_risk: medium
+    base_score: 0.55
+    severity_default: 0.55

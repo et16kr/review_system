@@ -1,0 +1,85 @@
+schema_version: 1
+pack_id: node_javascript
+namespace: public
+language_id: javascript
+source_kind: public_standard
+description: JavaScript async and runtime baseline.
+default_enabled: true
+default_priority_tier: high
+entries:
+  - rule_no: JS.NODE.1
+    section: JSNODE
+    title: Prefer explicit async error propagation over promise chains that hide failures
+    summary: Promise chains are acceptable, but they should not obscure the failure path or detach it from callers.
+    text: Review asynchronous JavaScript for where errors go next. A chain that logs, swallows, or never returns the promise often creates reliability problems that are hard to observe.
+    category: error_handling
+    trigger_patterns: [promise_without_await]
+    fix_guidance: Return or await the promise chain and keep one obvious error propagation path.
+    base_score: 0.8
+    severity_default: 0.82
+    priority_tier: high
+    specificity: 0.78
+    false_positive_risk: medium
+  - rule_no: JS.NODE.2
+    section: JSNODE
+    title: Prefer strict equality when coercion is not the point
+    summary: Loose equality often hides surprising coercion rules and weakens intent clarity.
+    text: The default comparison in maintainable code should avoid implicit coercion. If coercion is truly intended, the conversion should be explicit.
+    category: control_flow
+    trigger_patterns: [loose_equality]
+    fix_guidance: Use === or explicit normalization before comparing values from different sources.
+    base_score: 0.72
+    severity_default: 0.74
+    priority_tier: default
+    specificity: 0.7
+    false_positive_risk: medium
+  - rule_no: JS.NODE.3
+    section: JSNODE
+    title: Return or await promise chains so failures stay attached to the caller
+    summary: Detached asynchronous work is easy to miss in review and hard to observe in production.
+    text: A promise chain that is not returned, awaited, or otherwise joined creates uncertainty about where errors land and whether later work is accidentally racing ahead.
+    category: error_handling
+    trigger_patterns: [promise_without_await]
+    fix_guidance: Await the promise or return the chain so the next layer owns the success and failure contract.
+    base_score: 0.83
+    severity_default: 0.85
+    priority_tier: high
+    specificity: 0.81
+    false_positive_risk: medium
+  - rule_no: JS.NODE.4
+    section: JSNODE
+    title: Normalize values explicitly before comparison instead of relying on implicit coercion
+    summary: Type coercion is a hidden control-flow branch that reviewers should not have to simulate mentally.
+    text: Values that arrive from requests, storage, or the DOM often deserve parsing or normalization before comparison so the code communicates which representation is authoritative.
+    category: control_flow
+    trigger_patterns: [loose_equality]
+    fix_guidance: Convert the values deliberately and compare the normalized representation with strict equality.
+    base_score: 0.73
+    severity_default: 0.75
+    priority_tier: default
+    specificity: 0.71
+    false_positive_risk: medium
+  - rule_no: JS.NODE.5
+    section: JSNODE
+    title: String-based timer callbacks should be treated like dynamic execution
+    summary: setTimeout/setInterval with a string blurs the line between data and executable code.
+    text: String timer callbacks behave like mini eval boundaries and should be replaced with function references or explicit dispatch whenever possible.
+    category: security
+    trigger_patterns: [settimeout_string]
+    fix_guidance: Pass a function reference or a bounded dispatcher instead of executable text.
+    base_score: 0.95
+    severity_default: 0.96
+    priority_tier: high
+    specificity: 0.93
+    false_positive_risk: low
+  - rule_no: JS.NODE.REF.1
+    section: JSNODEREF
+    title: Async review should name who owns retries, rejection handling, and cancellation
+    summary: Promise-heavy patches often need reference guidance about ownership even when the local defect is not certain.
+    text: Use this when a change suggests detached async work or unclear error ownership but the full behavior depends on surrounding orchestration.
+    category: process
+    reviewability: reference_only
+    applies_to: [code, diff, docs]
+    false_positive_risk: medium
+    base_score: 0.56
+    severity_default: 0.56

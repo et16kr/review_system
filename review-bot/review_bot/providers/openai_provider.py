@@ -174,6 +174,8 @@ class OpenAIReviewCommentProvider(ReviewCommentProvider):
         file_context: str | None = None,
         language_id: str | None = None,
         profile_id: str | None = None,
+        context_id: str | None = None,
+        dialect_id: str | None = None,
         prompt_overlay_refs: list[str] | tuple[str, ...] | None = None,
         pr_title: str | None = None,
         pr_source_branch: str | None = None,
@@ -184,11 +186,19 @@ class OpenAIReviewCommentProvider(ReviewCommentProvider):
         candidate_line_text = ", ".join(str(n) for n in candidate_line_nos)
 
         agent_hint = _AGENT_HINTS.get(category or "", "")
-        base_prompt = self._prompt_composer.compose(
-            language_id=language_id or "cpp",
-            profile_id=profile_id or "default",
-            overlay_refs=list(prompt_overlay_refs or []),
-        )
+        try:
+            base_prompt = self._prompt_composer.compose(
+                language_id=language_id or "cpp",
+                profile_id=profile_id or "default",
+                context_id=context_id,
+                overlay_refs=list(prompt_overlay_refs or []),
+            )
+        except TypeError:
+            base_prompt = self._prompt_composer.compose(
+                language_id=language_id or "cpp",
+                profile_id=profile_id or "default",
+                overlay_refs=list(prompt_overlay_refs or []),
+            )
         system_prompt = (base_prompt or _BASE_SYSTEM_FALLBACK) + agent_hint
 
         pr_section = ""
@@ -221,6 +231,10 @@ class OpenAIReviewCommentProvider(ReviewCommentProvider):
             f"{similar_section}"
             f"[검토 파일]\n"
             f"파일: {file_path}\n"
+            f"언어: {language_id or ''}\n"
+            f"프로필: {profile_id or ''}\n"
+            f"컨텍스트: {context_id or ''}\n"
+            f"다이얼렉트: {dialect_id or ''}\n"
             f"변경 내용:\n{change_snippet or ''}\n\n"
             f"[적용 규칙]\n"
             f"분류: {category or ''}\n"
@@ -271,6 +285,8 @@ class OpenAIReviewCommentProvider(ReviewCommentProvider):
         file_context: str | None = None,
         language_id: str | None = None,
         profile_id: str | None = None,
+        context_id: str | None = None,
+        dialect_id: str | None = None,
         prompt_overlay_refs: list[str] | tuple[str, ...] | None = None,
         pr_title: str | None = None,
         pr_source_branch: str | None = None,
@@ -282,6 +298,8 @@ class OpenAIReviewCommentProvider(ReviewCommentProvider):
             file_context,
             language_id,
             profile_id,
+            context_id,
+            dialect_id,
             prompt_overlay_refs,
             pr_title,
             pr_source_branch,

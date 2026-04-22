@@ -1,0 +1,64 @@
+schema_version: 1
+pack_id: pep257_docstrings
+namespace: public
+language_id: python
+source_kind: public_standard
+description: Python docstring/reference guidance.
+default_enabled: true
+default_priority_tier: default
+entries:
+  - rule_no: PY.DOC.1
+    section: PYDOC
+    title: Public modules and APIs should explain their contract at the boundary
+    summary: External-facing Python APIs are easier to use when intent and side effects are documented where callers discover them.
+    text: Favor concise docstrings for public objects whose behavior, mutability, or side effects are not obvious from the signature alone.
+    category: documentation
+    reviewability: reference_only
+    applies_to: [code, docs]
+    false_positive_risk: medium
+    base_score: 0.58
+    severity_default: 0.58
+  - rule_no: PY.DOC.2
+    section: PYDOC
+    title: Public callables should document mutation, exceptions, or return shape when they are not obvious
+    summary: Boundary documentation matters most where the type signature alone does not communicate operational behavior.
+    text: Python callers benefit from short docstrings that spell out whether a function mutates inputs, raises domain-specific exceptions, or returns a non-obvious structure.
+    category: documentation
+    reviewability: reference_only
+    applies_to: [code, docs]
+    false_positive_risk: medium
+    base_score: 0.56
+    severity_default: 0.56
+  - rule_no: PY.DOC.3
+    section: PYDOC
+    title: Module-level docs should explain side effects and runtime expectations for entry points
+    summary: Operational scripts and package entry modules are easier to review when startup behavior is described where readers land first.
+    text: Favor concise module docstrings or adjacent documentation when importing the module triggers configuration, I O, network setup, or other non-obvious runtime behavior.
+    category: documentation
+    reviewability: reference_only
+    applies_to: [code, docs]
+    false_positive_risk: medium
+    base_score: 0.55
+    severity_default: 0.55
+  - rule_no: PY.DOC.4
+    section: PYDOC
+    title: Public APIs should document exception and validation contracts when the signature alone is not enough
+    summary: Reviewers and callers should not have to reverse-engineer boundary behavior from internal control flow.
+    text: Prefer concise docs for what inputs are validated, what exceptions can surface intentionally, and what mutation or ownership behavior callers need to know.
+    category: documentation
+    reviewability: reference_only
+    applies_to: [code, docs]
+    false_positive_risk: medium
+    base_score: 0.55
+    severity_default: 0.55
+  - rule_no: PY.DOC.5
+    section: PYDOC
+    title: Serialization, configuration, and plugin boundaries should document trusted-input assumptions
+    summary: Reference guidance helps when code crosses a parsing or loading boundary that depends on deployment context.
+    text: Use this when a patch changes loading or parsing behavior but the trust model is not explicit in the callable or module contract.
+    category: documentation
+    reviewability: reference_only
+    applies_to: [code, docs]
+    false_positive_risk: medium
+    base_score: 0.54
+    severity_default: 0.54

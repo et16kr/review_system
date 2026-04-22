@@ -84,12 +84,24 @@ class EngineClient:
         *,
         file_path: str | None = None,
         file_context: str | None = None,
+        language_id: str | None = None,
+        profile_id: str | None = None,
+        context_id: str | None = None,
+        dialect_id: str | None = None,
     ) -> dict[str, Any]:
         payload: dict[str, Any] = {"diff": diff, "top_k": top_k}
         if file_path:
             payload["file_path"] = file_path
         if file_context:
             payload["file_context"] = file_context[:4000]
+        if language_id:
+            payload["language_id"] = language_id
+        if profile_id:
+            payload["profile_id"] = profile_id
+        if context_id:
+            payload["context_id"] = context_id
+        if dialect_id:
+            payload["dialect_id"] = dialect_id
         if not _engine_circuit.allow_request():
             raise ReviewBotError(
                 "review-engine circuit breaker is OPEN — skipping request",

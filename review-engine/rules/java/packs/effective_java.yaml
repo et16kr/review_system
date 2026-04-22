@@ -1,0 +1,83 @@
+schema_version: 1
+pack_id: effective_java
+namespace: public
+language_id: java
+source_kind: public_standard
+description: Effective-Java-inspired resource and contract guidance.
+default_enabled: true
+default_priority_tier: high
+entries:
+  - rule_no: JAVA.1
+    section: JAVA
+    title: Bind closeable resources to try-with-resources when possible
+    summary: Explicitly opened resources should usually be owned by lexical scope.
+    text: Try-with-resources makes the cleanup path visible and reliable, especially when additional failure handling is added later.
+    category: resource_management
+    trigger_patterns: [try_without_resources]
+    fix_guidance: Wrap the resource-producing statement in try-with-resources unless ownership is intentionally transferred elsewhere.
+    base_score: 0.95
+    severity_default: 0.96
+    priority_tier: override
+    specificity: 0.94
+    false_positive_risk: low
+  - rule_no: JAVA.2
+    section: JAVA
+    title: Prefer explicit absence modeling over null returns
+    summary: Returning null weakens the contract at exactly the point the caller needs certainty.
+    text: Public Java APIs should prefer Optional, empty collections, exceptions, or documented sentinel objects when absence is part of the contract.
+    category: type_usage
+    trigger_patterns: [null_return]
+    fix_guidance: Return Optional or another explicit absence representation when callers can reasonably continue.
+    base_score: 0.8
+    severity_default: 0.82
+    priority_tier: high
+    specificity: 0.78
+    false_positive_risk: medium
+  - rule_no: JAVA.3
+    section: JAVA
+    title: Return empty collections or explicit optionals instead of nullable container contracts
+    summary: Absence is easier to consume when the API chooses one deliberate representation.
+    text: A method that sometimes returns null and sometimes returns a usable container pushes unnecessary uncertainty into every caller branch and encourages defensive clutter.
+    category: type_usage
+    trigger_patterns: [null_return]
+    fix_guidance: Prefer an empty collection, Optional, or another single absence contract that callers can handle consistently.
+    base_score: 0.81
+    severity_default: 0.83
+    priority_tier: high
+    specificity: 0.79
+    false_positive_risk: medium
+  - rule_no: JAVA.4
+    section: JAVA
+    title: Keep closeable ownership inside the smallest practical lexical scope
+    summary: Resource lifetime should be visible where the resource is opened, used, and released.
+    text: Java resource handling becomes harder to review when ownership is transferred across long methods or hidden behind later cleanup code instead of a nearby try-with-resources block.
+    category: resource_management
+    trigger_patterns: [try_without_resources]
+    fix_guidance: Open the resource in a small scope and bind it to try-with-resources unless a separate owner is part of the design.
+    base_score: 0.9
+    severity_default: 0.92
+    priority_tier: high
+    specificity: 0.88
+    false_positive_risk: low
+  - rule_no: JAVA.REF.1
+    section: JAVAREF
+    title: API boundaries should choose one absence contract and keep it consistent
+    summary: Null, Optional, empty collection, and exception-based absence models should not drift casually across similar APIs.
+    text: This is often better treated as reference guidance unless the patch shows an immediate caller hazard.
+    category: type_usage
+    reviewability: reference_only
+    applies_to: [code, diff, docs]
+    false_positive_risk: medium
+    base_score: 0.56
+    severity_default: 0.56
+  - rule_no: JAVA.REF.2
+    section: JAVAREF
+    title: Resource, concurrency, and null handling are part of the public API contract, not just internal implementation detail
+    summary: Java review often benefits from a contract-level note even when the patch alone cannot prove a direct defect.
+    text: Use reference guidance when the changed code suggests unclear boundary behavior but the correctness of the full contract depends on surrounding code.
+    category: process
+    reviewability: reference_only
+    applies_to: [code, diff, docs]
+    false_positive_risk: medium
+    base_score: 0.55
+    severity_default: 0.55

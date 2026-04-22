@@ -8,6 +8,9 @@ COPY pyproject.toml uv.lock README.md ./
 COPY review_engine ./review_engine
 COPY data ./data
 COPY examples ./examples
+COPY prompts ./prompts
+COPY rules ./rules
+COPY rule_sources ./rule_sources
 COPY tests ./tests
 
 RUN uv sync --frozen --extra dev

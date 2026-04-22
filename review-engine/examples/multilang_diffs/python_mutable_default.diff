@@ -1,0 +1,6 @@
+@@ -1,2 +1,3 @@
+-def append_item(item, bucket=None):
+-    return [item] if bucket is None else bucket + [item]
++def append_item(item, bucket=[]):
++    bucket.append(item)
++    return bucket

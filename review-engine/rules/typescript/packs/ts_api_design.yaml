@@ -1,0 +1,111 @@
+schema_version: 1
+pack_id: ts_api_design
+namespace: public
+language_id: typescript
+source_kind: public_standard
+description: TypeScript API design and validation rules.
+default_enabled: true
+default_priority_tier: high
+entries:
+  - rule_no: TS.API.1
+    section: TSAPI
+    title: Do not rely on @ts-ignore as a steady-state compatibility mechanism
+    summary: Type suppression comments tend to outlive the one-off migration they were introduced for.
+    text: A long-lived @ts-ignore hides real drift between the code and its types. It should be temporary, localized, and justified by a tracked limitation.
+    category: type_usage
+    trigger_patterns: [ts_ignore]
+    fix_guidance: Fix the type mismatch directly or isolate the unsafe boundary behind a typed helper with runtime validation.
+    base_score: 0.93
+    severity_default: 0.94
+    priority_tier: high
+    specificity: 0.9
+    false_positive_risk: low
+  - rule_no: TS.API.2
+    section: TSAPI
+    title: Validate untrusted JSON at runtime before trusting its shape
+    summary: Parsed JSON is data, not proof of a TypeScript contract.
+    text: JSON.parse returns unknown runtime data even when the code immediately casts it. The shape should be validated at the boundary before the rest of the system assumes a richer type.
+    category: security
+    trigger_patterns: [unsafe_json_parse]
+    fix_guidance: Validate parsed values with a schema or narrow them through explicit structural checks before use.
+    base_score: 0.9
+    severity_default: 0.92
+    priority_tier: high
+    specificity: 0.88
+    false_positive_risk: low
+  - rule_no: TS.API.3
+    section: TSAPI
+    title: Treat @ts-ignore as temporary debt with a local justification
+    summary: Suppression comments should have a bounded reason and a small blast radius.
+    text: Type suppression is easiest to manage when the unsafe boundary is localized, commented, and tracked as a compatibility exception instead of a normal coding pattern.
+    category: type_usage
+    trigger_patterns: [ts_ignore]
+    fix_guidance: Narrow the unsafe region, explain the incompatible boundary, and prefer a typed wrapper over repeated suppressions.
+    base_score: 0.92
+    severity_default: 0.93
+    priority_tier: high
+    specificity: 0.9
+    false_positive_risk: low
+  - rule_no: TS.API.4
+    section: TSAPI
+    title: Parsed JSON should stay unknown until validation proves the contract
+    summary: Runtime JSON is not made safe by an immediate cast.
+    text: Application boundaries are stronger when parsing and validation happen together, so the rest of the codebase can rely on a true checked type instead of unchecked assumptions.
+    category: security
+    trigger_patterns: [unsafe_json_parse]
+    fix_guidance: Parse into unknown and validate with a schema or explicit narrowing function before use.
+    base_score: 0.91
+    severity_default: 0.93
+    priority_tier: high
+    specificity: 0.89
+    false_positive_risk: low
+  - rule_no: TS.API.5
+    section: TSAPI
+    title: Avoid cast chains that combine any and parsed data at untrusted boundaries
+    summary: Unchecked parsing plus any erases both compile-time and runtime safety at once.
+    text: A boundary that receives external data should not immediately cast it through any into a rich application type without validation in between.
+    category: security
+    trigger_patterns: [any_type, unsafe_json_parse]
+    fix_guidance: Keep parsed data as unknown, validate its structure, and only then convert it into the richer domain type.
+    base_score: 0.94
+    severity_default: 0.95
+    priority_tier: override
+    specificity: 0.92
+    false_positive_risk: low
+  - rule_no: TS.API.6
+    section: TSAPI
+    title: Treat @ts-expect-error as temporary debt with a local explanation and blast-radius control
+    summary: Expect-error is safer than silent suppression only when the incompatible boundary remains explicit and short-lived.
+    text: "`@ts-expect-error` should live next to a known limitation and should not become a blanket compatibility mechanism for ordinary code evolution."
+    category: type_usage
+    trigger_patterns: [ts_expect_error]
+    fix_guidance: Keep the directive local, explain the incompatible edge, and prefer a typed wrapper or runtime validation boundary over repeated suppressions.
+    base_score: 0.9
+    severity_default: 0.91
+    priority_tier: high
+    specificity: 0.88
+    false_positive_risk: medium
+  - rule_no: TS.API.7
+    section: TSAPI
+    title: Double casts through unknown should be treated as missing validation until proven otherwise
+    summary: "`as unknown as T` often indicates that runtime data is being trusted without a real proof step."
+    text: A double cast can sometimes bridge library type gaps, but at untrusted boundaries it usually means the code is skipping the validation step that should justify the domain type.
+    category: security
+    trigger_patterns: [double_cast]
+    fix_guidance: Replace the double cast with a schema check, narrowing helper, or explicit boundary type that documents what has actually been validated.
+    base_score: 0.93
+    severity_default: 0.95
+    priority_tier: override
+    specificity: 0.91
+    false_positive_risk: low
+  - rule_no: TS.API.REF.1
+    section: TSAPIREF
+    title: Shared boundary helpers should centralize parse-plus-validate logic instead of repeating casts at call sites
+    summary: This is often reference guidance unless the patch proves a concrete unsafe cast path.
+    text: Prefer a small set of explicit parsing helpers or DTO gateways so reviewers do not have to rediscover the validation contract at each call site.
+    category: process
+    reviewability: reference_only
+    applies_to: [code, diff, docs]
+    false_positive_risk: medium
+    base_score: 0.55
+    severity_default: 0.55

@@ -1,0 +1,111 @@
+schema_version: 1
+pack_id: project_python
+namespace: public
+language_id: python
+source_kind: project_policy
+description: Project-facing Python runtime safety and typing rules.
+default_enabled: true
+default_priority_tier: high
+entries:
+  - rule_no: PY.PROJ.1
+    section: PY
+    title: Prefer context managers for file and process lifetime
+    summary: Resources that need closing should usually be bound to lexical scope.
+    text: Files, sockets, and similar resources are safer when their release is guaranteed by a context manager instead of depending on later cleanup code.
+    category: resource_management
+    trigger_patterns: [open_without_context]
+    fix_guidance: Use with-statements or an explicit context manager helper so cleanup is tied to scope exit.
+    base_score: 0.84
+    severity_default: 0.86
+    priority_tier: high
+    specificity: 0.82
+    false_positive_risk: medium
+  - rule_no: PY.PROJ.2
+    section: PY
+    title: Treat shell=True and eval/exec as high-trust-only operations
+    summary: Dynamic shell and code execution should be exceptional, tightly bounded, and clearly justified.
+    text: Dynamic execution crosses a strong trust boundary. It should not be the default mechanism for normal request handling or data transformation.
+    category: security
+    trigger_patterns: [subprocess_shell_true, eval_exec]
+    fix_guidance: Prefer structured subprocess argument lists, parsers, or dedicated dispatch tables over dynamic execution.
+    base_score: 0.97
+    severity_default: 0.98
+    priority_tier: override
+    specificity: 0.95
+    false_positive_risk: low
+  - rule_no: PY.PROJ.3
+    section: PY
+    title: File and socket lifetime should be bound immediately after acquisition
+    summary: Resource cleanup becomes fragile when ownership is deferred to later branches in the function.
+    text: Review Python I O so acquisition, ownership, and cleanup remain in the same small region. That pattern makes it harder for later edits to add a new exit path that leaks the resource.
+    category: resource_management
+    trigger_patterns: [open_without_context]
+    fix_guidance: Use a context manager or register the cleanup immediately after the successful open when ownership truly must escape.
+    base_score: 0.85
+    severity_default: 0.87
+    priority_tier: high
+    specificity: 0.83
+    false_positive_risk: medium
+  - rule_no: PY.PROJ.4
+    section: PY
+    title: Structured subprocess invocation should separate executable and validated arguments
+    summary: Shell-style command strings are a poor default boundary for automation code.
+    text: Python subprocess APIs are safest when the executable, arguments, and environment are all explicit values rather than one command string that shell parsing must reinterpret.
+    category: security
+    trigger_patterns: [subprocess_shell_true]
+    fix_guidance: Pass an argument list, validate untrusted fragments before inclusion, and reserve shell=True for tightly audited compatibility cases.
+    base_score: 0.96
+    severity_default: 0.97
+    priority_tier: override
+    specificity: 0.94
+    false_positive_risk: low
+  - rule_no: PY.PROJ.5
+    section: PY
+    title: Prefer parsers, schemas, or dispatch tables over eval and exec for normal control flow
+    summary: Dynamic code execution removes static review boundaries exactly where user data often enters the system.
+    text: Most configuration, transformation, and command selection problems have safer representations than evaluating text as code at runtime.
+    category: security
+    trigger_patterns: [eval_exec]
+    fix_guidance: Replace eval or exec with an explicit parser, a schema-driven conversion step, or a named dispatch map.
+    base_score: 0.98
+    severity_default: 0.99
+    priority_tier: override
+    specificity: 0.96
+    false_positive_risk: low
+  - rule_no: PY.PROJ.6
+    section: PY
+    title: Runtime validation and user-input checks should not depend on assert statements
+    summary: assert is a debug-time aid, not a durable contract for external input or production invariants.
+    text: Assertions can be stripped or reinterpreted by runtime configuration, so application correctness or input validation should not rely on them as the only enforcement boundary.
+    category: error_handling
+    trigger_patterns: [assert_usage]
+    fix_guidance: Replace assert-based validation with explicit guards, raised domain errors, or structured validation helpers for external input and runtime-critical invariants.
+    base_score: 0.84
+    severity_default: 0.86
+    priority_tier: high
+    specificity: 0.82
+    false_positive_risk: medium
+  - rule_no: PY.PROJ.7
+    section: PY
+    title: yaml.load should be treated as a trusted-input-only boundary
+    summary: Generic YAML loading can execute richer object construction semantics than many callers expect.
+    text: Unsafe YAML loading is a parsing trust decision, not just a data-format choice. In most application code, safer loaders should be the default unless the input is tightly controlled.
+    category: security
+    trigger_patterns: [yaml_unsafe_load]
+    fix_guidance: Prefer `yaml.safe_load` or another constrained loader unless the trusted-object construction contract is explicit and justified.
+    base_score: 0.97
+    severity_default: 0.98
+    priority_tier: override
+    specificity: 0.95
+    false_positive_risk: low
+  - rule_no: PY.PROJ.8
+    section: PY
+    title: Parsing, plugin, and serialization boundaries should state their trust model explicitly
+    summary: Python loading code often needs reference guidance even when the patch alone does not prove an exploit or bug.
+    text: Use this as reference guidance when configuration loaders, plugin hooks, or deserializers appear to rely on an implicit trusted-input convention.
+    category: process
+    reviewability: reference_only
+    applies_to: [code, diff, docs]
+    false_positive_risk: medium
+    base_score: 0.55
+    severity_default: 0.55

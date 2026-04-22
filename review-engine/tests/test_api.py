@@ -27,6 +27,8 @@ def test_review_code_api_shape(monkeypatch, fixture_settings) -> None:
     assert set(payload) == {
         "language_id",
         "profile_id",
+        "context_id",
+        "dialect_id",
         "prompt_overlay_refs",
         "query_text",
         "detected_patterns",
@@ -34,6 +36,8 @@ def test_review_code_api_shape(monkeypatch, fixture_settings) -> None:
     }
     assert payload["language_id"] == "cpp"
     assert payload["profile_id"] == "default"
+    assert payload["context_id"] is None
+    assert payload["dialect_id"] is None
     assert payload["prompt_overlay_refs"] == []
     assert isinstance(payload["results"], list)
     assert {
@@ -66,9 +70,13 @@ def test_rule_api_returns_legacy_and_canonical_metadata(monkeypatch, fixture_set
     assert payload["authority"] == "external"
     assert payload["conflict_policy"] == "authoritative"
     assert payload["pack_id"] == "cpp_core"
+    assert payload["rule_uid"] == "cpp:cpp_core:R.10"
+    assert payload["rule_pack"] == "cpp_core"
     assert payload["source_kind"] == "public_standard"
     assert payload["priority_tier"] == "override"
     assert payload["language_id"] == "cpp"
+    assert payload["context_id"] is None
+    assert payload["dialect_id"] is None
     assert payload["conflict_action"] == "compatible"
 
 
@@ -117,3 +125,16 @@ def test_codebase_index_accepts_configured_allowed_root(monkeypatch, tmp_path: P
     assert payload["indexed_files"] == 1
     assert payload["total_chunks"] >= 1
     assert indexed_chunks
+
+
+def test_search_service_auto_ingests_when_runtime_data_is_missing(fixture_settings) -> None:
+    service = GuidelineSearchService(fixture_settings)
+    diff_text = (fixture_settings.examples_dir / "manual_memory.diff").read_text(encoding="utf-8")
+
+    assert service.store.has_runtime_data("cpp") is False
+
+    response = service.review_diff(diff_text, top_k=3)
+
+    assert service.store.has_runtime_data("cpp") is True
+    assert response.language_id == "cpp"
+    assert response.results

@@ -3,8 +3,10 @@ profile_id: default
 language_id: cpp
 enabled_packs:
   - cpp_core
-shared_packs: []
+  - project_cpp
+  - native_memory_shared
+shared_packs:
+  - shared_security
 prompt_overlay_refs: []
-detector_refs:
-  - builtin:cpp
+detector_refs: []
 priority_policy_ref: cpp_default

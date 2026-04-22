@@ -1,0 +1,4 @@
+image: demo/app:latest
+replicaCount: 2
+service:
+  type: ClusterIP

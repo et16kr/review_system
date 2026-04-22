@@ -1,0 +1,98 @@
+schema_version: 1
+pack_id: shell_safety
+namespace: public
+language_id: bash
+source_kind: public_standard
+description: Shell execution and strict-mode safety guidance.
+default_enabled: true
+default_priority_tier: high
+entries:
+  - rule_no: BASH.SAFE.1
+    section: BASHSAFE
+    title: Prefer strict shell options for scripts that automate state changes
+    summary: Scripts are easier to reason about when unset variables and failed pipelines do not pass silently.
+    text: Strict shell options reduce a class of accidental success states, especially in CI or deployment-oriented scripts that make stateful changes.
+    category: error_handling
+    trigger_patterns: [set_e_missing]
+    fix_guidance: Enable the relevant strict options early or document the narrower failure semantics intentionally chosen for the script.
+    base_score: 0.8
+    severity_default: 0.82
+    priority_tier: default
+    specificity: 0.78
+    false_positive_risk: medium
+  - rule_no: BASH.SAFE.2
+    section: BASHSAFE
+    title: Do not pipe remote downloads directly into a shell interpreter
+    summary: Streaming remote content into execution removes the normal review and validation boundary.
+    text: Even trusted installation flows are safer when content is fetched, validated, and executed as a separate step instead of a single opaque pipeline.
+    category: security
+    trigger_patterns: [curl_pipe_shell]
+    fix_guidance: Download to a file, verify provenance or checksum, and execute in a separate explicitly reviewed step.
+    base_score: 0.99
+    severity_default: 0.99
+    priority_tier: override
+    specificity: 0.97
+    false_positive_risk: low
+  - rule_no: BASH.SAFE.3
+    section: BASHSAFE
+    title: Pipelines that change state should usually enable pipefail with fail-fast options
+    summary: Partial pipeline success can hide the step that actually failed.
+    text: Deployment and automation scripts should make pipeline failure semantics explicit. Without pipefail and related strict options, a later successful command can mask the upstream failure that mattered.
+    category: error_handling
+    trigger_patterns: [set_e_missing]
+    fix_guidance: Enable pipefail and the strict options the script can support, or document why a narrower failure model is intentional.
+    base_score: 0.82
+    severity_default: 0.84
+    priority_tier: high
+    specificity: 0.8
+    false_positive_risk: medium
+  - rule_no: BASH.SAFE.4
+    section: BASHSAFE
+    title: Remote installer flows should separate fetch, verify, and execute stages
+    summary: Combining download and execution into one pipeline removes the point where provenance can be checked.
+    text: An installation script is easier to review and safer to audit when the fetched artifact is visible, verifiable, and executed only after that verification step succeeds.
+    category: security
+    trigger_patterns: [curl_pipe_shell]
+    fix_guidance: Fetch to a temporary file, verify the source or checksum, and execute the reviewed artifact in a separate command.
+    base_score: 0.98
+    severity_default: 0.99
+    priority_tier: override
+    specificity: 0.96
+    false_positive_risk: low
+  - rule_no: BASH.SAFE.5
+    section: BASHSAFE
+    title: TLS verification bypass in curl should be exceptional and paired with an explicit trust story
+    summary: "`--insecure` or `-k` removes one of the few transport guarantees the script can easily rely on."
+    text: A script that disables TLS verification during artifact fetch should make the replacement trust mechanism explicit, because the default secure transport boundary has been removed.
+    category: security
+    trigger_patterns: [curl_insecure]
+    fix_guidance: Keep certificate verification enabled, or replace it with an explicit pinned trust mechanism such as a vetted CA, checksum, or signed artifact workflow.
+    base_score: 0.98
+    severity_default: 0.99
+    priority_tier: override
+    specificity: 0.96
+    false_positive_risk: low
+  - rule_no: BASH.SAFE.6
+    section: BASHSAFE
+    title: Privileged shell steps should be isolated from low-trust input shaping
+    summary: Shell privilege changes deserve a smaller and more reviewable execution boundary than ordinary script logic.
+    text: When a script mixes user-controlled values, path expansion, and sudo in the same flow, the review burden grows quickly and mistakes have a larger blast radius.
+    category: security
+    trigger_patterns: [sudo_usage, unquoted_variable]
+    fix_guidance: Separate privilege escalation from value construction, validate inputs before the boundary, and keep privileged commands narrow and explicit.
+    base_score: 0.94
+    severity_default: 0.95
+    priority_tier: high
+    specificity: 0.9
+    false_positive_risk: medium
+  - rule_no: BASH.SAFE.7
+    section: BASHSAFE
+    title: Stateful scripts should make cleanup ownership visible when temporary files or locks are involved
+    summary: Trap-based cleanup guidance is easier to follow when ownership is declared close to resource creation.
+    text: Shell cleanup is often best handled through simple trap patterns or tiny helpers, but this usually belongs in reference guidance unless the diff exposes a concrete leak or safety issue.
+    category: process
+    reviewability: reference_only
+    applies_to: [code, diff, docs]
+    false_positive_risk: medium
+    base_score: 0.56
+    severity_default: 0.56

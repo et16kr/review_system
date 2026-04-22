@@ -1,0 +1,98 @@
+schema_version: 1
+pack_id: project_java
+namespace: public
+language_id: java
+source_kind: project_policy
+description: Project-facing Java data-access and concurrency guidance.
+default_enabled: true
+default_priority_tier: high
+entries:
+  - rule_no: JAVA.PROJ.1
+    section: JAVA
+    title: Build SQL through prepared or parameterized paths
+    summary: String-concatenated SQL is hard to review for correctness and security.
+    text: When SQL is assembled through string concatenation, quoting rules and trust boundaries become difficult to verify and easy to regress.
+    category: security
+    trigger_patterns: [string_sql_concatenation]
+    fix_guidance: Prefer prepared statements or a query builder that separates structure from values.
+    base_score: 0.96
+    severity_default: 0.97
+    priority_tier: override
+    specificity: 0.95
+    false_positive_risk: low
+  - rule_no: JAVA.PROJ.2
+    section: JAVA
+    title: Be explicit about synchronized collection iteration guarantees
+    summary: A synchronized wrapper is not the same as holistic thread-safety.
+    text: Code that shares synchronized collections should still make iteration, compound actions, and external synchronization expectations obvious.
+    category: thread_safety
+    trigger_patterns: [synchronized_collection]
+    fix_guidance: Document or enforce the synchronization boundary for reads plus writes, not just individual calls.
+    base_score: 0.74
+    severity_default: 0.76
+    priority_tier: default
+    specificity: 0.72
+    false_positive_risk: medium
+  - rule_no: JAVA.PROJ.3
+    section: JAVA
+    title: Keep SQL structure parameterized even when optional clauses are involved
+    summary: String-built query variants tend to grow into correctness and injection problems over time.
+    text: Optional filters, ordering, and search criteria are common enough that ad hoc string concatenation looks convenient. The safer project default is still to keep values bound separately and structural choices narrowly controlled.
+    category: security
+    trigger_patterns: [string_sql_concatenation]
+    fix_guidance: Build the query through prepared statements or a constrained builder that keeps values parameterized.
+    base_score: 0.94
+    severity_default: 0.95
+    priority_tier: override
+    specificity: 0.92
+    false_positive_risk: low
+  - rule_no: JAVA.PROJ.4
+    section: JAVA
+    title: Synchronized wrappers still need explicit locking for iteration and compound actions
+    summary: Individual synchronized calls do not automatically make higher-level collection logic safe.
+    text: Iteration, check-then-act flows, and multi-step updates can still race even when the collection wrapper synchronizes single operations.
+    category: concurrency
+    trigger_patterns: [synchronized_collection]
+    fix_guidance: Guard the surrounding iteration or compound action with the correct lock or use a collection with semantics that match the access pattern.
+    base_score: 0.79
+    severity_default: 0.81
+    priority_tier: high
+    specificity: 0.77
+    false_positive_risk: medium
+  - rule_no: JAVA.PROJ.5
+    section: JAVA
+    title: Broad Exception catches should be justified by a real recovery boundary
+    summary: Catching Exception often hides cancellation, programming errors, or contract drift that callers should still see.
+    text: Application code should catch the narrowest exception family it can actually recover from. A broad catch belongs only at a boundary that can translate failures coherently.
+    category: error_handling
+    trigger_patterns: [catch_exception]
+    fix_guidance: Catch the specific exception types you intend to recover from, and rethrow or translate unexpected failures at a well-defined boundary.
+    base_score: 0.87
+    severity_default: 0.89
+    priority_tier: high
+    specificity: 0.85
+    false_positive_risk: medium
+  - rule_no: JAVA.PROJ.6
+    section: JAVA
+    title: Prefer managed executors or structured ownership over raw Thread creation in application code
+    summary: A new thread introduces lifetime, cancellation, and error-routing questions that should rarely be hidden in a local patch.
+    text: Direct thread creation is often a sign that concurrency ownership has not been integrated into the application's existing scheduling or shutdown model.
+    category: concurrency
+    trigger_patterns: [new_thread]
+    fix_guidance: Use an executor, a managed scheduler, or another application-owned concurrency boundary that makes lifecycle and error handling explicit.
+    base_score: 0.84
+    severity_default: 0.86
+    priority_tier: high
+    specificity: 0.82
+    false_positive_risk: medium
+  - rule_no: JAVA.PROJ.7
+    section: JAVA
+    title: Shared mutable collection contracts should name the synchronization owner and iteration boundary
+    summary: Concurrent collection guidance often needs wider design context than the local patch exposes.
+    text: Use this as reference guidance when the code suggests a mutable shared collection contract but the full synchronization story lives across multiple callers, threads, or lifecycle owners.
+    category: concurrency
+    reviewability: reference_only
+    applies_to: [code, diff, docs]
+    false_positive_risk: medium
+    base_score: 0.55
+    severity_default: 0.55

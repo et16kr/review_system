@@ -1,0 +1,11 @@
+schema_version: 1
+profile_id: default
+language_id: java
+enabled_packs:
+  - effective_java
+  - project_java
+shared_packs:
+  - shared_security
+prompt_overlay_refs: []
+detector_refs: []
+priority_policy_ref: java_default

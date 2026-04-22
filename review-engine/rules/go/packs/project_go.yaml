@@ -1,0 +1,161 @@
+schema_version: 1
+pack_id: project_go
+namespace: public
+language_id: go
+source_kind: project_policy
+description: Go baseline for cleanup, context propagation, and goroutine ownership.
+default_enabled: true
+default_priority_tier: high
+entries:
+  - rule_no: GO.1
+    section: GO
+    title: Close newly opened resources promptly and visibly
+    summary: Resource cleanup should usually be attached immediately after successful acquisition.
+    text: In Go, defer is most useful when it is placed immediately after the operation that acquires the resource. Delayed cleanup registration is easy to miss in review.
+    category: resource_management
+    trigger_patterns: [defer_close_missing]
+    fix_guidance: Register deferred cleanup immediately after checking acquisition success.
+    base_score: 0.92
+    severity_default: 0.94
+    priority_tier: high
+    specificity: 0.9
+    false_positive_risk: low
+  - rule_no: GO.2
+    section: GO
+    title: Propagate context through request-scoped work
+    summary: Request cancellation and deadlines should follow the work they govern.
+    text: Context propagation keeps cancellation, timeout, and traceability behavior coherent across concurrent and networked operations.
+    category: error_handling
+    trigger_patterns: [context_missing, goroutine_leak]
+    fix_guidance: Thread context into new work units or document why the new path is intentionally detached.
+    base_score: 0.86
+    severity_default: 0.88
+    priority_tier: high
+    specificity: 0.84
+    false_positive_risk: medium
+  - rule_no: GO.3
+    section: GO
+    title: Do not let error-returning calls disappear into unused control flow
+    summary: Go readability depends on checking and propagating errors consistently.
+    text: If an operation returns an error, reviewers should be able to see immediately whether it is handled, wrapped, or intentionally ignored.
+    category: error_handling
+    trigger_patterns: [ignored_error]
+    fix_guidance: Check the error directly after the call and return, wrap, or justify an ignore branch explicitly.
+    base_score: 0.9
+    severity_default: 0.92
+    priority_tier: high
+    specificity: 0.88
+    false_positive_risk: low
+  - rule_no: GO.4
+    section: GO
+    title: Every goroutine should have a clear owner, lifetime, and cancellation story
+    summary: Detached concurrent work becomes a leak when nothing defines when it should stop.
+    text: Goroutines are cheap enough to start casually and expensive enough to debug later when they outlive the request, worker, or channel assumptions that created them.
+    category: concurrency
+    trigger_patterns: [goroutine_leak]
+    fix_guidance: Tie goroutine lifetime to a context, channel closure, worker pool, or another explicit ownership boundary.
+    base_score: 0.91
+    severity_default: 0.93
+    priority_tier: high
+    specificity: 0.89
+    false_positive_risk: low
+  - rule_no: GO.5
+    section: GO
+    title: Preserve context across request-scoped outbound work
+    summary: Lost context breaks timeout, cancellation, and trace boundaries in exactly the places reviewers care about most.
+    text: Network calls, storage operations, and goroutine handoffs should usually inherit the context of the work they are serving unless the code is deliberately creating an independent background task.
+    category: error_handling
+    trigger_patterns: [context_missing]
+    fix_guidance: Thread the caller context into the next operation or document why the work is intentionally decoupled from request lifetime.
+    base_score: 0.88
+    severity_default: 0.9
+    priority_tier: high
+    specificity: 0.86
+    false_positive_risk: medium
+  - rule_no: GO.6
+    section: GO
+    title: Register deferred cleanup immediately after successful acquisition
+    summary: Delayed defer placement makes later edits more likely to skip cleanup on new exit paths.
+    text: Review Go resource management so the success check and deferred cleanup remain adjacent. That pattern is easier to maintain when more branches are added later.
+    category: resource_management
+    trigger_patterns: [defer_close_missing]
+    fix_guidance: Place the defer directly after the successful open, dial, or create call unless ownership is intentionally transferred elsewhere.
+    base_score: 0.89
+    severity_default: 0.91
+    priority_tier: high
+    specificity: 0.87
+    false_positive_risk: low
+  - rule_no: GO.7
+    section: GO
+    title: Wrap or surface errors with the operation context that failed
+    summary: Barely handled errors are hard to distinguish once they leave the local scope.
+    text: Go error handling is most useful when the next layer can tell which operation failed without reconstructing the path from logs or stack traces.
+    category: error_handling
+    trigger_patterns: [ignored_error]
+    fix_guidance: Return the error promptly and add the operation context needed to understand or recover from the failure.
+    base_score: 0.83
+    severity_default: 0.85
+    priority_tier: default
+    specificity: 0.81
+    false_positive_risk: medium
+  - rule_no: GO.8
+    section: GO
+    title: Detached background contexts should be exceptional in request-scoped code
+    summary: Replacing caller context with Background or TODO often discards exactly the cancellation and deadline semantics the caller expected.
+    text: A new root context is a lifecycle decision. In service and worker code it should usually be obvious why the work no longer belongs to the caller's cancellation boundary.
+    category: error_handling
+    trigger_patterns: [context_background]
+    fix_guidance: Prefer the incoming context unless the work is intentionally detached and that decision is documented through a dedicated background-work boundary.
+    base_score: 0.88
+    severity_default: 0.9
+    priority_tier: high
+    specificity: 0.86
+    false_positive_risk: medium
+  - rule_no: GO.9
+    section: GO
+    title: Panic should not replace typed error propagation in normal service or library paths
+    summary: A panic is a crash contract, not just a shorter error-handling syntax.
+    text: In Go, panic is easier to justify at process boundaries and invariant violations than in request or reusable library logic where callers expect errors.
+    category: error_handling
+    trigger_patterns: [panic_call]
+    fix_guidance: Return a typed error or convert the failure into a bounded error result unless the code is truly at a crash boundary or invariant check.
+    base_score: 0.92
+    severity_default: 0.94
+    priority_tier: high
+    specificity: 0.9
+    false_positive_risk: low
+  - rule_no: GO.10
+    section: GO
+    title: Anonymous goroutine launches still need an owner, stop condition, and error strategy
+    summary: Concurrency leaks are not safer just because the goroutine is written inline.
+    text: Inline goroutines can hide ownership and cancellation decisions from review, especially when they capture request-scoped values or channels implicitly.
+    category: error_handling
+    trigger_patterns: [goroutine_leak]
+    fix_guidance: Tie the goroutine to a context, worker abstraction, or explicit completion/error path that makes its lifetime visible.
+    base_score: 0.89
+    severity_default: 0.91
+    priority_tier: high
+    specificity: 0.87
+    false_positive_risk: medium
+  - rule_no: GO.REF.1
+    section: GOREF
+    title: Public Go APIs should make zero-value behavior and ownership expectations obvious
+    summary: Reference guidance helps when a patch suggests an ambiguous API contract but the defect is not provable from the changed lines alone.
+    text: Prefer package boundaries where the caller can see whether zero values are valid, whether results must be closed, and whether cancellation is owned by the caller.
+    category: process
+    reviewability: reference_only
+    applies_to: [code, diff, docs]
+    false_positive_risk: medium
+    base_score: 0.56
+    severity_default: 0.56
+  - rule_no: GO.REF.2
+    section: GOREF
+    title: Concurrency review should ask who owns the goroutine, channel, and cancellation path
+    summary: This is often a design-guidance question even when the patch does not reveal a concrete leak on its own.
+    text: Use this as reference guidance for worker pools, background loops, and channel orchestration that need more context than the patch provides.
+    category: concurrency
+    reviewability: reference_only
+    applies_to: [code, diff, docs]
+    false_positive_risk: medium
+    base_score: 0.56
+    severity_default: 0.56

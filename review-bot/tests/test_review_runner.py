@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, replace as dataclass_replace
+from dataclasses import dataclass, field, replace as dataclass_replace
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 
@@ -21,6 +21,7 @@ from review_bot.db.models import (
     DeadLetterRecord,
     FeedbackEvent,
     FindingDecision,
+    FindingEvidence,
     FindingLifecycleEvent,
     PublicationState,
     ReviewRun,
@@ -1111,6 +1112,207 @@ def test_review_runner_does_not_treat_plain_text_mentions_as_feedback_commands()
         session.close()
 
 
+def test_review_runner_skips_unreviewable_markdown_files() -> None:
+    _reset_db()
+
+    runner = ReviewRunner()
+    adapter = FakeAdapter()
+    key = runner._legacy_key(7191)  # noqa: SLF001
+    adapter.set_diff(key, path="docs/README.md", patch="@@ -1 +1 @@\n-Old\n+New\n")
+    runner.platform_client = adapter
+    runner.engine_client = EngineStub([_result("ALTI-MEM-007", category="memory")])
+    runner.provider = FixedProvider()
+
+    session = SessionLocal()
+    try:
+        review_run = runner.run_review(session, pr_id=7191, trigger="first")
+
+        assert review_run.status == "success"
+        assert adapter.upsert_requests == []
+        assert session.query(FindingEvidence).filter_by(review_run_id=review_run.id).count() == 0
+    finally:
+        session.close()
+
+
+def test_review_comment_includes_detected_language_metadata() -> None:
+    _reset_db()
+
+    runner = ReviewRunner()
+    adapter = FakeAdapter()
+    key = runner._legacy_key(7192)  # noqa: SLF001
+    adapter.set_diff(key, path="src/a.cpp", patch=_malloc_patch())
+    runner.platform_client = adapter
+    runner.engine_client = EngineStub([_result("ALTI-MEM-007", category="memory")])
+    runner.provider = FixedProvider()
+
+    session = SessionLocal()
+    try:
+        runner.run_review(session, pr_id=7192, trigger="first")
+
+        body = adapter.upsert_requests[0].body
+        assert "검토 언어: `cpp` (자동 분류)" in body
+        assert "프로필 `default`" in body
+        assert "@review-bot wrong-language <expected-language>" in body
+    finally:
+        session.close()
+
+
+def test_wrong_language_feedback_suppresses_future_candidate() -> None:
+    _reset_db()
+
+    runner = ReviewRunner()
+    adapter = FakeAdapter()
+    key = runner._legacy_key(7193)  # noqa: SLF001
+    adapter.set_diff(key, path="src/a.cpp", patch=_malloc_patch())
+    runner.platform_client = adapter
+    runner.engine_client = EngineStub([_result("ALTI-MEM-007", category="memory")])
+    runner.provider = FixedProvider()
+
+    session = SessionLocal()
+    try:
+        runner.run_review(session, pr_id=7193, trigger="first")
+        adapter.add_human_reply(
+            key,
+            "thread-1",
+            "@review-bot wrong-language markdown\n이 파일은 문서 리뷰 기준으로 봐야 합니다.",
+        )
+
+        review_run = runner.run_review(session, pr_id=7193, trigger="second")
+        current_findings = (
+            session.query(FindingDecision)
+            .filter_by(review_run_id=review_run.id)
+            .all()
+        )
+        feedback_event = (
+            session.query(FeedbackEvent)
+            .filter_by(adapter_thread_ref="thread-1", event_type="reply")
+            .one()
+        )
+
+        assert len(adapter.upsert_requests) == 1
+        assert current_findings[0].state == "suppressed"
+        assert current_findings[0].suppression_reason == "feedback:wrong_language"
+        assert feedback_event.payload["feedback_command"] == "wrong-language"
+        assert feedback_event.payload["expected_language_id"] == "markdown"
+    finally:
+        session.close()
+
+
+def test_review_runner_propagates_language_payload_per_file() -> None:
+    _reset_db()
+
+    runner = ReviewRunner()
+    adapter = FakeAdapter()
+    key = runner._legacy_key(7194)  # noqa: SLF001
+    adapter.set_files_diff(
+        key,
+        files=[
+            {
+                "path": ".github/workflows/build.yml",
+                "patch": "@@ -1 +1 @@\n-permissions: read-all\n+permissions: write-all\n",
+            },
+            {
+                "path": "warehouse/postgres/report.sql",
+                "patch": "@@ -1 +1 @@\n-select 1;\n+execute format('select * from reports order by %s', sort_col);\n",
+            },
+            {
+                "path": "docs/README.md",
+                "patch": "@@ -1 +1 @@\n-Old\n+New\n",
+            },
+        ],
+        head_sha="head-mixed",
+    )
+    adapter.set_file_content(
+        key,
+        ".github/workflows/build.yml",
+        "head-mixed",
+        "permissions: write-all\njobs:\n  build:\n    steps:\n      - uses: actions/checkout@main\n",
+    )
+    adapter.set_file_content(
+        key,
+        "warehouse/postgres/report.sql",
+        "head-mixed",
+        "execute format('select * from reports order by %s', sort_col);\n",
+    )
+    runner.platform_client = adapter
+    engine = EngineCaptureStub()
+    runner.engine_client = engine
+    runner.provider = FixedProvider()
+
+    session = SessionLocal()
+    try:
+        review_run = runner.run_review(session, pr_id=7194, trigger="first")
+        calls_by_path = {str(call["file_path"]): call for call in engine.review_calls}
+
+        assert review_run.status == "success"
+        assert sorted(calls_by_path) == [
+            ".github/workflows/build.yml",
+            "warehouse/postgres/report.sql",
+        ]
+        assert calls_by_path[".github/workflows/build.yml"]["language_id"] == "yaml"
+        assert calls_by_path[".github/workflows/build.yml"]["profile_id"] == "github_actions"
+        assert calls_by_path[".github/workflows/build.yml"]["context_id"] == "github_actions"
+        assert calls_by_path[".github/workflows/build.yml"]["dialect_id"] is None
+        assert "uses: actions/checkout@main" in str(
+            calls_by_path[".github/workflows/build.yml"]["file_context"]
+        )
+        assert calls_by_path["warehouse/postgres/report.sql"]["language_id"] == "sql"
+        assert calls_by_path["warehouse/postgres/report.sql"]["profile_id"] == "analytics_warehouse"
+        assert calls_by_path["warehouse/postgres/report.sql"]["context_id"] == "analytics"
+        assert calls_by_path["warehouse/postgres/report.sql"]["dialect_id"] == "postgresql"
+        assert "execute format" in str(calls_by_path["warehouse/postgres/report.sql"]["file_context"])
+    finally:
+        session.close()
+
+
+def test_review_runner_passes_language_metadata_to_provider_and_comment_body() -> None:
+    _reset_db()
+
+    runner = ReviewRunner()
+    adapter = FakeAdapter()
+    key = runner._legacy_key(7195)  # noqa: SLF001
+    adapter.set_diff(
+        key,
+        path="warehouse/postgres/report.sql",
+        patch="@@ -1 +1 @@\n-select 1;\n+execute format('select * from reports order by %s', sort_col);\n",
+        head_sha="head-sql",
+    )
+    adapter.set_file_content(
+        key,
+        "warehouse/postgres/report.sql",
+        "head-sql",
+        "execute format('select * from reports order by %s', sort_col);\n",
+    )
+    runner.platform_client = adapter
+    runner.engine_client = EngineCaptureStub(
+        results_by_path={
+            "warehouse/postgres/report.sql": [_result("SQL.PG.2", category="security")]
+        }
+    )
+    provider = CaptureProvider()
+    runner.provider = provider
+
+    session = SessionLocal()
+    try:
+        runner.run_review(session, pr_id=7195, trigger="first")
+
+        assert len(provider.build_calls) == 1
+        build_call = provider.build_calls[0]
+        body = adapter.upsert_requests[0].body
+
+        assert build_call["language_id"] == "sql"
+        assert build_call["profile_id"] == "analytics_warehouse"
+        assert build_call["context_id"] == "analytics"
+        assert build_call["dialect_id"] == "postgresql"
+        assert "execute format" in str(build_call["file_context"])
+        assert "검토 언어: `sql` (자동 분류)" in body
+        assert "프로필 `analytics_warehouse`" in body
+        assert "컨텍스트 `analytics`" in body
+        assert "다이얼렉트 `postgresql`" in body
+    finally:
+        session.close()
+
+
 def test_build_state_and_full_report_use_latest_created_run() -> None:
     _reset_db()
 
@@ -1399,8 +1601,19 @@ class EngineStub:
     results: list[dict[str, object]]
     detected_patterns: list[str] | None = None
 
-    def review_diff(self, diff: str, top_k: int = 8, *, file_path: str | None = None, file_context: str | None = None) -> dict[str, object]:
-        del diff, top_k, file_path, file_context
+    def review_diff(
+        self,
+        diff: str,
+        top_k: int = 8,
+        *,
+        file_path: str | None = None,
+        file_context: str | None = None,
+        language_id: str | None = None,
+        profile_id: str | None = None,
+        context_id: str | None = None,
+        dialect_id: str | None = None,
+    ) -> dict[str, object]:
+        del diff, top_k, file_path, file_context, language_id, profile_id, context_id, dialect_id
         return {
             "detected_patterns": list(self.detected_patterns or []),
             "results": [dict(result) for result in self.results],
@@ -1419,8 +1632,19 @@ class SequentialEngineStub:
     def __post_init__(self) -> None:
         self._index = 0
 
-    def review_diff(self, diff: str, top_k: int = 8, *, file_path: str | None = None, file_context: str | None = None) -> dict[str, object]:
-        del diff, top_k, file_path, file_context
+    def review_diff(
+        self,
+        diff: str,
+        top_k: int = 8,
+        *,
+        file_path: str | None = None,
+        file_context: str | None = None,
+        language_id: str | None = None,
+        profile_id: str | None = None,
+        context_id: str | None = None,
+        dialect_id: str | None = None,
+    ) -> dict[str, object]:
+        del diff, top_k, file_path, file_context, language_id, profile_id, context_id, dialect_id
         response_index = min(self._index, len(self.responses) - 1)
         self._index += 1
         return {
@@ -1460,6 +1684,46 @@ class FixedProvider(ReviewCommentProvider):
         )
 
 
+@dataclass
+class EngineCaptureStub:
+    results_by_path: dict[str, list[dict[str, object]]] = field(default_factory=dict)
+    detected_patterns: list[str] | None = None
+    review_calls: list[dict[str, object]] = field(default_factory=list)
+
+    def review_diff(
+        self,
+        diff: str,
+        top_k: int = 8,
+        *,
+        file_path: str | None = None,
+        file_context: str | None = None,
+        language_id: str | None = None,
+        profile_id: str | None = None,
+        context_id: str | None = None,
+        dialect_id: str | None = None,
+    ) -> dict[str, object]:
+        self.review_calls.append(
+            {
+                "diff": diff,
+                "top_k": top_k,
+                "file_path": file_path,
+                "file_context": file_context,
+                "language_id": language_id,
+                "profile_id": profile_id,
+                "context_id": context_id,
+                "dialect_id": dialect_id,
+            }
+        )
+        return {
+            "detected_patterns": list(self.detected_patterns or []),
+            "results": [dict(result) for result in self.results_by_path.get(str(file_path), [])],
+        }
+
+    def search_codebase(self, query: str, top_k: int = 3) -> list[dict]:
+        del query, top_k
+        return []
+
+
 class ScenarioProvider(ReviewCommentProvider):
     def __init__(self, mapping: dict[tuple[str, str], FindingDraft]) -> None:
         self.mapping = mapping
@@ -1474,6 +1738,21 @@ class ScenarioProvider(ReviewCommentProvider):
             severity=draft.severity,
             confidence=draft.confidence,
             should_publish=draft.should_publish,
+            line_no=kwargs.get("line_no"),
+        )
+
+
+class CaptureProvider(ReviewCommentProvider):
+    def __init__(self) -> None:
+        self.build_calls: list[dict[str, object]] = []
+
+    def build_draft(self, **kwargs) -> FindingDraft:
+        self.build_calls.append(dict(kwargs))
+        return FindingDraft(
+            title="언어 메타데이터 캡처",
+            summary="provider로 언어 메타데이터가 전달되었습니다.",
+            suggested_fix="전파 검증용 코멘트입니다.",
+            should_publish=True,
             line_no=kwargs.get("line_no"),
         )
 
@@ -1511,6 +1790,7 @@ class FakeAdapter:
         self.incremental_diff_by_key_and_base: dict[
             tuple[tuple[str, str, str], str], DiffPayload
         ] = {}
+        self.file_contents_by_key_and_ref: dict[tuple[tuple[str, str, str], str, str], str] = {}
         self.threads_by_key: dict[tuple[str, str, str], list[ThreadSnapshot]] = {}
         self.upsert_requests = []
         self.publish_checks = []
@@ -1615,6 +1895,23 @@ class FakeAdapter:
             if incremental is not None:
                 return incremental
         return self.diff_by_key[_key_tuple(key)]
+
+    def set_file_content(
+        self,
+        key: ReviewRequestKey,
+        path: str,
+        ref: str,
+        content: str,
+    ) -> None:
+        self.file_contents_by_key_and_ref[(_key_tuple(key), path, ref)] = content
+
+    def fetch_file_content(
+        self,
+        key: ReviewRequestKey,
+        path: str,
+        ref: str,
+    ) -> str | None:
+        return self.file_contents_by_key_and_ref.get((_key_tuple(key), path, ref))
 
     def list_threads(self, key: ReviewRequestKey) -> list[ThreadSnapshot]:
         return list(self.threads_by_key.get(_key_tuple(key), []))

@@ -1,0 +1,9 @@
+schema_version: 1
+language_id: bash
+pack_files:
+  - packs/project_bash.yaml
+  - packs/shell_safety.yaml
+profile_files:
+  - profiles/default.yaml
+policy_files:
+  - policies/bash_default.yaml

@@ -1,0 +1,98 @@
+schema_version: 1
+pack_id: dockerfile_best_practices
+namespace: public
+language_id: dockerfile
+source_kind: public_standard
+description: Dockerfile reproducibility and layer-hygiene guidance.
+default_enabled: true
+default_priority_tier: high
+entries:
+  - rule_no: DOCKER.1
+    section: DOCKER
+    title: Avoid mutable latest tags for base images
+    summary: Floating base images reduce reproducibility and complicate incident rollback.
+    text: A mutable base image tag means the same Dockerfile can build materially different outputs over time without a repository change.
+    category: configuration
+    trigger_patterns: [latest_tag]
+    fix_guidance: Pin the base image to an explicit version or digest appropriate for the release process.
+    base_score: 0.92
+    severity_default: 0.94
+    priority_tier: high
+    specificity: 0.9
+    false_positive_risk: low
+  - rule_no: DOCKER.2
+    section: DOCKER
+    title: Keep package index refresh and install in one layer
+    summary: Splitting update and install steps invites stale cache behavior.
+    text: Package manager metadata refresh is safest when it stays coupled to the package install in the same build step.
+    category: configuration
+    trigger_patterns: [apt_get_update_install_split]
+    fix_guidance: Combine update and install in a single RUN layer and clean package caches deliberately where appropriate.
+    base_score: 0.8
+    severity_default: 0.82
+    priority_tier: default
+    specificity: 0.78
+    false_positive_risk: medium
+  - rule_no: DOCKER.3
+    section: DOCKER
+    title: Pin base images tightly enough that rebuilds remain reproducible across release windows
+    summary: Image provenance is easier to audit when the base cannot drift under the same source revision.
+    text: A mutable tag can quietly change the operating system package set, runtime, or CVE surface beneath an otherwise unchanged application build.
+    category: configuration
+    trigger_patterns: [latest_tag]
+    fix_guidance: Prefer explicit version tags or digests that match the release and rollback process for the image.
+    base_score: 0.91
+    severity_default: 0.93
+    priority_tier: high
+    specificity: 0.89
+    false_positive_risk: low
+  - rule_no: DOCKER.4
+    section: DOCKER
+    title: Keep broad context copies late and minimal so layer reuse and review stay predictable
+    summary: Earlier broad COPY steps increase cache invalidation and make the image contract harder to inspect.
+    text: Docker builds are easier to reason about when dependency installation, tool bootstrap, and application source copies are separated deliberately instead of importing the entire tree too early.
+    category: container_hygiene
+    trigger_patterns: [copy_dot]
+    fix_guidance: Copy dependency manifests first, install dependencies, then copy only the application files required for the final stage.
+    base_score: 0.79
+    severity_default: 0.81
+    priority_tier: default
+    specificity: 0.77
+    false_positive_risk: medium
+  - rule_no: DOCKER.5
+    section: DOCKER
+    title: Avoid remote URL ADD so external fetches remain explicit, pinned, and reviewable
+    summary: Dockerfile syntax should not hide the point where the build acquires an external artifact.
+    text: Explicit fetch steps make version pinning, checksums, and provenance review easier than a remote ADD instruction that combines acquisition and layer creation.
+    category: configuration
+    trigger_patterns: [add_remote_url]
+    fix_guidance: Prefer a dedicated RUN fetch step with explicit versioning and verification, or copy in a vetted artifact from the build context.
+    base_score: 0.88
+    severity_default: 0.9
+    priority_tier: high
+    specificity: 0.86
+    false_positive_risk: medium
+  - rule_no: DOCKER.6
+    section: DOCKER
+    title: Full package upgrade inside image builds should be an intentional base-image ownership decision
+    summary: Unbounded distro upgrades reduce reproducibility and move responsibility away from the chosen base image contract.
+    text: When a Dockerfile runs a broad upgrade, reviewers should treat it as a supply and reproducibility choice rather than a routine install convenience.
+    category: configuration
+    trigger_patterns: [apt_upgrade]
+    fix_guidance: Prefer a fresher pinned base image or a tightly scoped package install over full in-image upgrades when possible.
+    base_score: 0.8
+    severity_default: 0.82
+    priority_tier: default
+    specificity: 0.78
+    false_positive_risk: medium
+  - rule_no: DOCKER.REF.1
+    section: DOCKERREF
+    title: Multi-stage builds should keep toolchain trust and runtime surface separated as clearly as possible
+    summary: Reference guidance is useful when an image still works but the stage boundary hides which tooling or artifacts become part of the runtime contract.
+    text: Use this when a patch suggests that build-time tools, package managers, or bootstrap artifacts may be leaking into the runtime image without a clearly intentional ownership boundary.
+    category: container_hygiene
+    reviewability: reference_only
+    applies_to: [code, diff, docs]
+    false_positive_risk: medium
+    base_score: 0.55
+    severity_default: 0.55

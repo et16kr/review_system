@@ -1,0 +1,70 @@
+schema_version: 1
+pack_id: native_memory_shared
+namespace: public
+language_id: c
+source_kind: public_standard
+description: Native memory baseline for C code that relies on explicit allocation.
+default_enabled: true
+default_priority_tier: high
+entries:
+  - rule_no: C.NM.1
+    section: C
+    title: Release ownership from exactly one place
+    summary: Multiple independent free paths make lifetime reasoning fragile.
+    text: Explicit free paths must remain centralized and mechanically verifiable. When cleanup is spread through many branches, later maintenance easily introduces leaks or double-free bugs.
+    category: memory
+    trigger_patterns: [malloc_free]
+    fix_guidance: Use one owner or one cleanup path for each allocation family.
+    base_score: 0.9
+    severity_default: 0.91
+    priority_tier: high
+    specificity: 0.9
+    false_positive_risk: low
+  - rule_no: C.NM.2
+    section: C
+    title: Check allocation results before first use and before dependent work proceeds
+    summary: Manual allocation should fail closed at the point where ownership begins.
+    text: In C, allocation failure is part of the contract. Review code so that newly allocated pointers are validated before dereference, initialization, or any follow-on work that assumes success.
+    category: memory
+    trigger_patterns: [malloc_free]
+    fix_guidance: Check the returned pointer immediately and route failure through the same structured cleanup or error path used elsewhere in the function.
+    base_score: 0.89
+    severity_default: 0.9
+    priority_tier: high
+    specificity: 0.87
+    false_positive_risk: low
+  - rule_no: C.NM.3
+    section: C
+    title: Reallocation paths should preserve rollback semantics for the original owner
+    summary: realloc-like ownership changes are risky when the old pointer can be lost on failure.
+    text: Manual memory resizing is easier to review when the code preserves the original owner until success is confirmed and the rollback path remains explicit.
+    category: memory
+    trigger_patterns: [malloc_free]
+    fix_guidance: Assign the resized allocation through a temporary pointer and update the owning variable only after success.
+    base_score: 0.88
+    severity_default: 0.9
+    priority_tier: high
+    specificity: 0.86
+    false_positive_risk: medium
+  - rule_no: C.NM.4
+    section: C
+    title: One allocation family should imply one cleanup family across the owning path
+    summary: Mixed ownership conventions are difficult to maintain even when the current code happens to work.
+    text: Native code review gets harder when the same logical owner mixes allocator families or cleanup conventions, because later edits can accidentally violate the hidden pairing contract.
+    category: memory
+    reviewability: reference_only
+    applies_to: [code, diff, docs]
+    false_positive_risk: medium
+    base_score: 0.57
+    severity_default: 0.57
+  - rule_no: C.NM.5
+    section: C
+    title: Document whether an output pointer transfers ownership, borrows storage, or aliases caller memory
+    summary: Reviewers should not need side knowledge to know what cleanup obligation a pointer creates.
+    text: Native pointer APIs often compress multiple contracts into the same type. Use reference guidance when the interface needs clearer ownership vocabulary but the diff alone does not prove a bug.
+    category: type_usage
+    reviewability: reference_only
+    applies_to: [code, diff, docs]
+    false_positive_risk: medium
+    base_score: 0.56
+    severity_default: 0.56

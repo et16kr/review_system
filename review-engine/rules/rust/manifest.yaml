@@ -1,0 +1,8 @@
+schema_version: 1
+language_id: rust
+pack_files:
+  - packs/project_rust.yaml
+profile_files:
+  - profiles/default.yaml
+policy_files:
+  - policies/rust_default.yaml

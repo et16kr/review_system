@@ -1,0 +1,43 @@
+---
+rule_source_id: go.go_runtime_baseline
+language_id: go
+dialect_id: null
+profile_hints: [default]
+pack_targets: [project_go]
+source_type: public_guideline_summary
+source_ref:
+  title: Go Runtime Review Baseline
+  url: https://go.dev/doc/effective_go
+chunking:
+  strategy: heading_sections
+  max_chars: 2200
+vector_ingest_tags: [go, errors, defer, context]
+status: drafted
+---
+
+# Go Runtime Baseline
+
+## Scope
+
+- This bundle covers Go request-scoped work, cleanup, goroutine ownership, and error propagation.
+- The review emphasis is on control over lifetime and failure visibility rather than purely stylistic Effective Go advice.
+
+## High-Signal Review Areas
+
+- Check errors directly and consistently.
+- Attach cleanup with `defer` as soon as the resource is acquired.
+- Propagate `context` through request-scoped work and reason about goroutine ownership.
+- Treat `context.Background()` or `context.TODO()` in service paths as an explicit ownership decision.
+- Review `panic` in request, worker, or library code as a crash-boundary decision that usually deserves typed errors instead.
+
+## Candidate Canonical Rule Groups
+
+- Error handling: ignored errors, wrapped errors, and operation context in returned failures.
+- Cleanup: prompt `defer`, response body closure, and lexical ownership.
+- Concurrency: goroutine launch ownership, cancellation, and anonymous goroutine behavior.
+- Context propagation: request cancellation, deadline inheritance, and detached work.
+
+## Reference-Only Guidance
+
+- Prefer API shapes that make zero values, ownership, and cancellation behavior obvious to callers.
+- Treat concurrency review as "who owns this work and when does it stop?" rather than only "is a goroutine present?"

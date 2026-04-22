@@ -1,0 +1,10 @@
+schema_version: 1
+profile_id: default
+language_id: go
+enabled_packs:
+  - project_go
+shared_packs:
+  - shared_security
+prompt_overlay_refs: []
+detector_refs: []
+priority_policy_ref: go_default

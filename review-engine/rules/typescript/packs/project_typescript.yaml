@@ -1,0 +1,96 @@
+schema_version: 1
+pack_id: project_typescript
+namespace: public
+language_id: typescript
+source_kind: project_policy
+description: TypeScript runtime and typing baseline.
+default_enabled: true
+default_priority_tier: high
+entries:
+  - rule_no: TS.1
+    section: TS
+    title: Avoid unsafe any escape hatches at API boundaries
+    summary: any erases the checker exactly where it is most useful for long-term maintenance.
+    text: Using any in boundary types removes the compiler's ability to defend interface contracts and makes downstream code rely on convention instead of proof.
+    category: type_usage
+    trigger_patterns: [any_type]
+    fix_guidance: Replace any with a narrower structural type, unknown plus validation, or a dedicated domain type.
+    base_score: 0.95
+    severity_default: 0.96
+    priority_tier: override
+    specificity: 0.94
+    false_positive_risk: low
+  - rule_no: TS.2
+    section: TS
+    title: Treat non-null assertions as proof obligations
+    summary: A non-null assertion should be a last resort, not the main way to silence control-flow uncertainty.
+    text: The non-null assertion operator moves correctness from the checker to human reasoning. Prefer explicit guards or type narrowing when values may actually be absent.
+    category: type_usage
+    trigger_patterns: [non_null_assertion]
+    fix_guidance: Add a guard, early return, or validation step so the type checker can prove the value is present.
+    base_score: 0.88
+    severity_default: 0.9
+    priority_tier: high
+    specificity: 0.86
+    false_positive_risk: medium
+  - rule_no: TS.3
+    section: TS
+    title: any should not cross public or persistence boundaries without validation
+    summary: The most expensive place to lose types is exactly where data enters or leaves the system.
+    text: Boundary code benefits most from TypeScript proof. Using any there makes downstream code depend on convention and defensive casting instead of a checked contract.
+    category: type_usage
+    trigger_patterns: [any_type]
+    fix_guidance: Replace any with unknown plus validation, a narrower interface, or a domain type that communicates the boundary contract.
+    base_score: 0.94
+    severity_default: 0.95
+    priority_tier: override
+    specificity: 0.92
+    false_positive_risk: low
+  - rule_no: TS.4
+    section: TS
+    title: Non-null assertions should follow a local guard or invariant the reader can verify
+    summary: Silencing the checker is acceptable only when the proof is visible in the same small region.
+    text: A non-null assertion is easier to trust when the code has just checked the value, constructed it locally, or otherwise established the invariant nearby.
+    category: type_usage
+    trigger_patterns: [non_null_assertion]
+    fix_guidance: Narrow the value with an if guard, assertion helper, or earlier return before using the non-null form.
+    base_score: 0.87
+    severity_default: 0.89
+    priority_tier: high
+    specificity: 0.85
+    false_positive_risk: medium
+  - rule_no: TS.5
+    section: TS
+    title: Async boundaries should preserve rejection handling and caller ownership
+    summary: Promise work that is neither awaited nor returned is difficult to reason about and easy to lose.
+    text: TypeScript async code stays maintainable when the call site makes it explicit whether work is fire-and-forget, joined, or propagated to the next layer.
+    category: error_handling
+    trigger_patterns: [promise_without_await]
+    fix_guidance: Return or await the promise, or document the intentionally detached background behavior in a dedicated helper.
+    base_score: 0.84
+    severity_default: 0.86
+    priority_tier: high
+    specificity: 0.82
+    false_positive_risk: medium
+  - rule_no: TS.REF.1
+    section: TSREF
+    title: Public DTO and boundary types should prefer explicit domain shapes over ad hoc casts
+    summary: Reference guidance is often more appropriate than an inline defect when the boundary contract depends on surrounding validation code.
+    text: Prefer API shapes where external data becomes a domain type only after a visible narrowing or schema step.
+    category: type_usage
+    reviewability: reference_only
+    applies_to: [code, diff, docs]
+    false_positive_risk: medium
+    base_score: 0.56
+    severity_default: 0.56
+  - rule_no: TS.REF.2
+    section: TSREF
+    title: Component and service boundaries should make nullability proofs local and legible
+    summary: Non-null assertions and cast-heavy code often hint at a proof obligation that belongs in API shape or earlier validation.
+    text: Use this as reference guidance when the patch suggests an unclear proof chain but does not expose a direct runtime failure on its own.
+    category: type_usage
+    reviewability: reference_only
+    applies_to: [code, diff, docs]
+    false_positive_risk: medium
+    base_score: 0.55
+    severity_default: 0.55

@@ -1,0 +1,8 @@
+schema_version: 1
+language_id: go
+pack_files:
+  - packs/project_go.yaml
+profile_files:
+  - profiles/default.yaml
+policy_files:
+  - policies/go_default.yaml

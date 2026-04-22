@@ -30,6 +30,7 @@ class PromptComposer:
         *,
         language_id: str = "cpp",
         profile_id: str = "default",
+        context_id: str | None = None,
         overlay_refs: list[str] | None = None,
     ) -> str:
         pieces: list[str] = []
@@ -41,6 +42,11 @@ class PromptComposer:
             content = self._load_first(relative)
             if content:
                 pieces.append(content)
+
+        if context_id:
+            context_content = self._load_first(Path("contexts") / f"{context_id}.md")
+            if context_content:
+                pieces.append(context_content)
 
         for ref in overlay_refs or []:
             content = self._load_overlay(ref)

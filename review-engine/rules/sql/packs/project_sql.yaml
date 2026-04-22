@@ -1,0 +1,59 @@
+schema_version: 1
+pack_id: project_sql
+namespace: public
+language_id: sql
+source_kind: project_policy
+description: Project-facing SQL safety and analytics guidance.
+default_enabled: true
+default_priority_tier: high
+entries:
+  - rule_no: SQL.PROJ.1
+    section: SQLPROJ
+    title: Treat UPDATE or DELETE without a filtering clause as a high-risk operation
+    summary: Broad data mutations deserve explicit review and usually require a scoped predicate.
+    text: Even when a full-table mutation is intentional, the query should make that decision unmistakable and be surrounded by operational safeguards.
+    category: security
+    trigger_patterns: [delete_without_where]
+    fix_guidance: Add a WHERE clause or document and isolate the full-table maintenance operation explicitly.
+    base_score: 0.99
+    severity_default: 0.99
+    priority_tier: override
+    specificity: 0.97
+    false_positive_risk: low
+  - rule_no: SQL.PROJ.2
+    section: SQLPROJ
+    title: Destructive maintenance statements should be isolated and operationally explicit
+    summary: A query that can rewrite or purge broad data sets should look exceptional in both code and review.
+    text: Full-table maintenance sometimes belongs in a migration or administrative path, but the code should make that boundary unmistakable instead of resembling routine application queries.
+    category: security
+    trigger_patterns: [delete_without_where]
+    fix_guidance: Move the statement behind an admin-only path, a migration, or an explicitly named maintenance operation with clear safeguards.
+    base_score: 0.97
+    severity_default: 0.98
+    priority_tier: override
+    specificity: 0.95
+    false_positive_risk: low
+  - rule_no: SQL.PROJ.3
+    section: SQLPROJ
+    title: Dynamic warehouse and reporting SQL should separate identifiers from bound values
+    summary: Analytical flexibility should not blur the boundary between structure and data.
+    text: Report builders and warehouse jobs often need controlled structural variation. They are safer when identifiers and optional clauses come from allow-listed choices while data continues to use bind parameters.
+    category: security
+    trigger_patterns: [dynamic_sql]
+    fix_guidance: Keep structural choices in a vetted map and bind the changing values through the database driver.
+    base_score: 0.92
+    severity_default: 0.94
+    priority_tier: high
+    specificity: 0.9
+    false_positive_risk: low
+  - rule_no: SQL.PROJ.4
+    section: SQLPROJ
+    title: Shared paging queries should make their ordering contract explicit
+    summary: Stable page boundaries usually depend on an explicit sort order, but this often needs surrounding product context to classify as a hard defect.
+    text: Use this as reference guidance when a query appears to page or limit results without clearly documenting the ordering guarantee it depends on.
+    category: sql_quality
+    reviewability: reference_only
+    applies_to: [code, diff, docs]
+    false_positive_risk: medium
+    base_score: 0.55
+    severity_default: 0.55

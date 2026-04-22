@@ -1,0 +1,12 @@
+schema_version: 1
+profile_id: production_runtime
+language_id: dockerfile
+enabled_packs:
+  - dockerfile_best_practices
+  - container_security
+shared_packs:
+  - shared_security
+prompt_overlay_refs:
+  - production_runtime
+detector_refs: []
+priority_policy_ref: dockerfile_default

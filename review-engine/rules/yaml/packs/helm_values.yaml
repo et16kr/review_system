@@ -1,0 +1,45 @@
+schema_version: 1
+pack_id: helm_values
+namespace: public
+language_id: yaml
+source_kind: public_standard
+description: Helm values guidance for release-safe configuration changes.
+default_enabled: true
+default_priority_tier: default
+context_id: helm_values
+entries:
+  - rule_no: YAML.HELM.1
+    section: YAMLHELM
+    title: Prefer values that are obviously consumed by chart schema or templates
+    summary: Helm values drift is expensive because unused keys often look valid until runtime.
+    text: Keep release values aligned with the chart's documented interface and avoid keys whose effect is unclear from the chart contract.
+    category: configuration
+    reviewability: reference_only
+    applies_to: [code, diff, docs]
+    false_positive_risk: medium
+    base_score: 0.55
+    severity_default: 0.55
+  - rule_no: YAML.HELM.2
+    section: YAMLHELM
+    title: Values files should pin image tags explicitly when chart behavior depends on image selection
+    summary: Release values become easier to diff and roll back when the image version is explicit in the values boundary.
+    text: Helm values often act as the deployment contract for an environment. Floating image tags in that contract make promotion, rollback, and provenance tracking much harder.
+    category: configuration
+    trigger_patterns: [latest_tag]
+    fix_guidance: Set the image tag or digest explicitly in values files used for deployable environments.
+    base_score: 0.82
+    severity_default: 0.84
+    priority_tier: high
+    specificity: 0.8
+    false_positive_risk: medium
+  - rule_no: YAML.HELM.3
+    section: YAMLHELM
+    title: Environment-specific values should keep deployable contract changes obvious and minimal
+    summary: Helm values often deserve reference guidance about environment drift even when no single changed key is independently defective.
+    text: Prefer values files where reviewers can tell which overrides affect image selection, resource identity, or secrets-handling behavior without cross-reading many templates.
+    category: configuration
+    reviewability: reference_only
+    applies_to: [code, diff, docs]
+    false_positive_risk: medium
+    base_score: 0.54
+    severity_default: 0.54

@@ -86,3 +86,17 @@ def test_review_diff_file_context_does_not_change_detected_patterns_or_applicabi
 
     assert with_context.detected_patterns == without_context.detected_patterns
     assert all(result.category != "error_handling" for result in with_context.results)
+
+
+def test_review_diff_returns_no_results_for_unreviewable_markdown_path(fixture_settings) -> None:
+    ingest_all_sources(fixture_settings)
+    service = GuidelineSearchService(fixture_settings)
+
+    response = service.review_diff(
+        "@@ -1 +1 @@\n-Old text\n+New text\n",
+        top_k=5,
+        file_path="docs/README.md",
+    )
+
+    assert response.language_id == "unknown"
+    assert response.results == []

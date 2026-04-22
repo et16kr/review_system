@@ -35,6 +35,7 @@ from review_bot.db.models import (
     ThreadSyncState,
 )
 from review_bot.errors import ReviewBotError
+from review_bot.language_registry import get_language_registry
 from review_bot.metrics import (
     detect_phase_duration_seconds,
     engine_call_duration_seconds,
@@ -59,8 +60,6 @@ from review_bot.providers.base import FindingDraft, VerifyDraftResult
 from review_bot.providers.factory import build_review_comment_provider
 from review_bot.review_systems.factory import build_review_system_adapter
 from review_bot.review_systems.base import render_general_note_purpose_marker
-
-CPP_EXTENSIONS = {".c", ".cc", ".cpp", ".cxx", ".h", ".hh", ".hpp", ".hxx"}
 HUNK_RE = re.compile(r"@@ -(?P<old>\d+)(?:,\d+)? \+(?P<new>\d+)(?:,\d+)? @@")
 MAX_LINES_PER_REVIEW_UNIT = 80
 MAX_COMMENT_BODY = 3800  # GitLab 4000자 제한 여유
@@ -172,9 +171,17 @@ class FeedbackSignal:
     unresolved_count: int = 0
     human_reply_count: int = 0
     ignore_requested: bool = False
+    wrong_language_requested: bool = False
     false_positive_requested: bool = False
     later_requested: bool = False
     allow_requested: bool = False
+    expected_language_id: str | None = None
+
+
+@dataclass(frozen=True)
+class ParsedFeedbackCommand:
+    command: str
+    expected_language_id: str | None = None
 
 
 @dataclass(frozen=True)
@@ -197,6 +204,7 @@ class RuleEffectivenessFingerprintState:
 class ReviewRunner:
     def __init__(self) -> None:
         self.settings = get_settings()
+        self.language_registry = get_language_registry()
         self.review_system = build_review_system_adapter()
         self.platform_client = self.review_system
         self.engine_client = EngineClient(
@@ -361,7 +369,8 @@ class ReviewRunner:
             seen_human_keys: set[str] = set()
             detect_t0 = __import__("time").monotonic()
             for file_item in diff_payload.files:
-                if not self._is_cpp_path(file_item.path):
+                language_match = self.language_registry.resolve(file_path=file_item.path)
+                if not language_match.reviewable:
                     continue
                 file_context = self._fetch_file_context(
                     adapter, key, file_item.path, review_run.head_sha
@@ -369,11 +378,15 @@ class ReviewRunner:
                 for review_unit in self._iter_review_units(file_item.patch):
                     top_k = _compute_top_k(review_unit.patch)
                     t0 = __import__("time").monotonic()
-                    review = self.engine_client.review_diff(
+                    review = self._engine_review_diff(
                         review_unit.patch,
                         top_k=top_k,
                         file_path=file_item.path,
                         file_context=file_context,
+                        language_id=language_match.language_id,
+                        profile_id=language_match.profile_id,
+                        context_id=language_match.context_id,
+                        dialect_id=language_match.dialect_id,
                     )
                     engine_call_duration_seconds.observe(__import__("time").monotonic() - t0)
                     detected_patterns = [str(item) for item in review.get("detected_patterns", [])]
@@ -383,9 +396,20 @@ class ReviewRunner:
                     )
                     for result in review.get("results", [])[:3]:
                         payload = dict(result)
-                        for runtime_key in ("language_id", "profile_id", "prompt_overlay_refs"):
+                        runtime_defaults = {
+                            "language_id": language_match.language_id,
+                            "profile_id": language_match.profile_id,
+                            "context_id": language_match.context_id,
+                            "dialect_id": language_match.dialect_id,
+                        }
+                        for runtime_key, fallback in runtime_defaults.items():
                             if review.get(runtime_key) is not None:
                                 payload[runtime_key] = review.get(runtime_key)
+                            elif fallback is not None:
+                                payload[runtime_key] = fallback
+                        if review.get("prompt_overlay_refs") is not None:
+                            payload["prompt_overlay_refs"] = review.get("prompt_overlay_refs")
+                        payload["language_match_source"] = language_match.match_source
                         if file_context:
                             payload[_FILE_CONTEXT_KEY] = file_context[:FILE_CONTEXT_MAX_CHARS]
                         if similar_code:
@@ -1413,6 +1437,9 @@ class ReviewRunner:
         elif feedback_signal.ignore_requested:
             state = "suppressed"
             suppression_reason = "feedback:ignore"
+        elif feedback_signal.wrong_language_requested:
+            state = "suppressed"
+            suppression_reason = "feedback:wrong_language"
         elif feedback_signal.false_positive_requested:
             state = "suppressed"
             suppression_reason = "feedback:false_positive"
@@ -1541,7 +1568,7 @@ class ReviewRunner:
         *,
         review_request: ReviewRequest,
         feedback_page: FeedbackPage,
-        ) -> None:
+    ) -> None:
         for event in feedback_page.events:
             exists = (
                 session.query(FeedbackEvent.id)
@@ -1550,6 +1577,14 @@ class ReviewRunner:
             )
             if exists:
                 continue
+            payload = dict(event.payload or {})
+            parsed_command: ParsedFeedbackCommand | None = None
+            if event.event_type == "reply" and event.actor_type == "human":
+                parsed_command = self._feedback_command_from_payload(payload)
+                if parsed_command is not None:
+                    payload["feedback_command"] = parsed_command.command
+                    if parsed_command.expected_language_id:
+                        payload["expected_language_id"] = parsed_command.expected_language_id
             session.add(
                 FeedbackEvent(
                     review_request_pk=review_request.id,
@@ -1562,15 +1597,12 @@ class ReviewRunner:
                     event_type=event.event_type,
                     actor_type=event.actor_type,
                     actor_ref=event.actor_ref,
-                    payload=event.payload,
+                    payload=payload,
                     occurred_at=event.occurred_at,
                 )
             )
-            if event.event_type == "reply" and event.actor_type == "human":
-                body = str((event.payload or {}).get("body") or "")
-                command = self._latest_feedback_command(body)
-                if command is not None:
-                    feedback_commands_total.labels(command=command).inc()
+            if parsed_command is not None:
+                feedback_commands_total.labels(command=parsed_command.command).inc()
 
     def _mark_fingerprint_resolved(
         self,
@@ -2246,6 +2278,7 @@ class ReviewRunner:
         unresolved_count = 0
         human_reply_count = 0
         latest_command: str | None = None
+        latest_expected_language_id: str | None = None
         latest_command_marker: tuple[datetime, str] | None = None
 
         for event in events:
@@ -2255,15 +2288,15 @@ class ReviewRunner:
                 unresolved_count += 1
             elif event.event_type == "reply" and event.actor_type == "human":
                 human_reply_count += 1
-                body = str((event.payload or {}).get("body") or "")
-                command = self._latest_feedback_command(body)
-                if command is not None:
+                parsed_command = self._feedback_command_from_payload(event.payload)
+                if parsed_command is not None:
                     marker = (
                         event.occurred_at or datetime.min.replace(tzinfo=UTC),
                         str(getattr(event, "event_key", "") or ""),
                     )
                     if latest_command_marker is None or marker >= latest_command_marker:
-                        latest_command = command
+                        latest_command = parsed_command.command
+                        latest_expected_language_id = parsed_command.expected_language_id
                         latest_command_marker = marker
 
         return FeedbackSignal(
@@ -2271,26 +2304,59 @@ class ReviewRunner:
             unresolved_count=unresolved_count,
             human_reply_count=human_reply_count,
             ignore_requested=latest_command == "ignore",
+            wrong_language_requested=latest_command == "wrong-language",
             false_positive_requested=latest_command == "false-positive",
             later_requested=latest_command == "later",
             allow_requested=latest_command == "allow",
+            expected_language_id=latest_expected_language_id,
         )
 
     def _contains_feedback_command(self, body: str, command: str) -> bool:
-        pattern = re.compile(
-            rf"(?im)^\s*(?:/)?(?:review-bot|bot)(?::|\s+)\s*{re.escape(command)}(?:\s|$)"
-        )
-        return bool(pattern.search(body))
+        return any(parsed.command == command for parsed in self._feedback_commands(body))
 
     def _latest_feedback_command(self, body: str) -> str | None:
-        pattern = re.compile(
-            r"(?im)^\s*(?:/)?(?:review-bot|bot)(?::|\s+)\s*"
-            r"(?P<command>ignore|false-positive|later|allow)(?:\s|$)"
-        )
-        latest: str | None = None
-        for match in pattern.finditer(body):
-            latest = str(match.group("command"))
+        latest = self._latest_feedback_command_details(body)
+        return latest.command if latest is not None else None
+
+    def _feedback_command_from_payload(
+        self,
+        payload: dict[str, Any] | None,
+    ) -> ParsedFeedbackCommand | None:
+        payload_dict = payload or {}
+        command = str(payload_dict.get("feedback_command") or "").strip()
+        if command:
+            expected_language_id = str(payload_dict.get("expected_language_id") or "").strip() or None
+            return ParsedFeedbackCommand(
+                command=command,
+                expected_language_id=expected_language_id,
+            )
+        return self._latest_feedback_command_details(str(payload_dict.get("body") or ""))
+
+    def _latest_feedback_command_details(self, body: str) -> ParsedFeedbackCommand | None:
+        latest: ParsedFeedbackCommand | None = None
+        for parsed in self._feedback_commands(body):
+            latest = parsed
         return latest
+
+    def _feedback_commands(self, body: str) -> list[ParsedFeedbackCommand]:
+        pattern = re.compile(
+            r"(?im)^\s*(?:@|/)?(?:review-bot|bot)(?::|\s+)\s*"
+            r"(?P<command>ignore|false-positive|later|allow|wrong-language)"
+            r"(?:\s+(?P<argument>[a-z0-9_.\\/-]+))?(?:\s|$)"
+        )
+        commands: list[ParsedFeedbackCommand] = []
+        for match in pattern.finditer(body):
+            command = str(match.group("command"))
+            expected_language_id = None
+            if command == "wrong-language":
+                expected_language_id = str(match.group("argument") or "").strip().lower() or None
+            commands.append(
+                ParsedFeedbackCommand(
+                    command=command,
+                    expected_language_id=expected_language_id,
+                )
+            )
+        return commands
 
     def _path_policy_adjustment(
         self,
@@ -2755,6 +2821,37 @@ class ReviewRunner:
             return "medium"
         return "low"
 
+    def _render_runtime_metadata(self, decision: FindingDecision) -> list[str]:
+        payload = dict(decision.evidence.raw_engine_payload or {}) if decision.evidence else {}
+        language_id = str(payload.get("language_id") or "unknown")
+        profile_id = str(payload.get("profile_id") or "default")
+        context_id = str(payload.get("context_id") or "").strip() or None
+        dialect_id = str(payload.get("dialect_id") or "").strip() or None
+        match_source = str(payload.get("language_match_source") or "").strip()
+        source_label = {
+            "explicit": "명시",
+            "classified": "자동 분류",
+            "default": "기본값",
+            "unmatched": "미분류",
+        }.get(match_source)
+
+        language_line = f"검토 언어: `{language_id}`"
+        if source_label:
+            language_line += f" ({source_label})"
+
+        detail_parts = [f"프로필 `{profile_id}`"]
+        if context_id:
+            detail_parts.append(f"컨텍스트 `{context_id}`")
+        if dialect_id:
+            detail_parts.append(f"다이얼렉트 `{dialect_id}`")
+
+        return [
+            language_line,
+            " / ".join(detail_parts),
+            "언어 판별이 잘못되었으면 이 스레드에 "
+            "`@review-bot wrong-language <expected-language>`를 남겨 주세요.",
+        ]
+
     def _render_comment(self, decision: FindingDecision) -> str:
         lines = [f"[봇 리뷰] {decision.title}", ""]
 
@@ -2772,6 +2869,7 @@ class ReviewRunner:
             suggestion_body = "\n".join(decision.auto_fix_lines)
             lines.extend(["", "```suggestion", suggestion_body, "```"])
 
+        lines.extend(["", "**검토 런타임**", *self._render_runtime_metadata(decision)])
         lines.extend(["", "---", "_이 코멘트는 자동 생성됩니다. 문제가 없다면 스레드를 Resolve 해주세요._"])
         return self._truncate_comment("\n".join(lines))
 
@@ -2784,6 +2882,7 @@ class ReviewRunner:
             lines.extend(["", decision.summary])
         if decision.suggested_fix:
             lines.extend(["", "**권장 수정**", decision.suggested_fix])
+        lines.extend(["", "**검토 런타임**", *self._render_runtime_metadata(decision)])
         lines.extend(["", "---", "_이 코멘트는 자동 생성됩니다. 문제가 없다면 스레드를 Resolve 해주세요._"])
         return self._truncate_comment("\n".join(lines))
 
@@ -3065,7 +3164,8 @@ class ReviewRunner:
             "- `@review-bot backlog` — 현재 MR에 남아 있는 backlog만 보여 줍니다.",
             "- `@review-bot help` — 이 도움말을 보여 줍니다.",
             "",
-            "스레드 댓글로 `bot:ignore`, `bot:false-positive`, `bot:later`, `bot:allow`를 작성하면",
+            "스레드 댓글로 `bot:ignore`, `bot:false-positive`, `bot:later`, `bot:allow`,",
+            "`@review-bot wrong-language <expected-language>`를 작성하면",
             "해당 finding에 대한 피드백으로 반영됩니다.",
             "",
             "멘션은 줄 시작에 있을 때만 인식됩니다. "
@@ -3095,7 +3195,40 @@ class ReviewRunner:
         }
 
     def _is_cpp_path(self, path: str) -> bool:
-        return any(path.endswith(ext) for ext in CPP_EXTENSIONS)
+        return self.language_registry.resolve(file_path=path).language_id == "cpp"
+
+    def _engine_review_diff(
+        self,
+        diff: str,
+        *,
+        top_k: int,
+        file_path: str | None,
+        file_context: str | None,
+        language_id: str | None,
+        profile_id: str | None,
+        context_id: str | None,
+        dialect_id: str | None,
+    ) -> dict[str, Any]:
+        try:
+            return self.engine_client.review_diff(
+                diff,
+                top_k=top_k,
+                file_path=file_path,
+                file_context=file_context,
+                language_id=language_id,
+                profile_id=profile_id,
+                context_id=context_id,
+                dialect_id=dialect_id,
+            )
+        except TypeError as exc:
+            if "unexpected keyword argument" not in str(exc):
+                raise
+            return self.engine_client.review_diff(
+                diff,
+                top_k=top_k,
+                file_path=file_path,
+                file_context=file_context,
+            )
 
     def _fetch_file_context(
         self,
@@ -3341,6 +3474,8 @@ class ReviewRunner:
                 file_context=file_context,
                 language_id=decision.evidence.raw_engine_payload.get("language_id"),
                 profile_id=decision.evidence.raw_engine_payload.get("profile_id"),
+                context_id=decision.evidence.raw_engine_payload.get("context_id"),
+                dialect_id=decision.evidence.raw_engine_payload.get("dialect_id"),
                 prompt_overlay_refs=decision.evidence.raw_engine_payload.get("prompt_overlay_refs"),
                 pr_title=review_request.title,
                 pr_source_branch=review_request.source_branch,
@@ -3464,6 +3599,8 @@ class ReviewRunner:
                 file_context=decision.evidence.raw_engine_payload.get(_FILE_CONTEXT_KEY),
                 language_id=decision.evidence.raw_engine_payload.get("language_id"),
                 profile_id=decision.evidence.raw_engine_payload.get("profile_id"),
+                context_id=decision.evidence.raw_engine_payload.get("context_id"),
+                dialect_id=decision.evidence.raw_engine_payload.get("dialect_id"),
                 prompt_overlay_refs=decision.evidence.raw_engine_payload.get("prompt_overlay_refs"),
                 pr_title=review_request.title,
                 pr_source_branch=review_request.source_branch,

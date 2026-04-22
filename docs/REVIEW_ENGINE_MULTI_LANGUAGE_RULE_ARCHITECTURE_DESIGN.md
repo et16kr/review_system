@@ -113,17 +113,18 @@
 
 예시:
 
-- `altibase_cpp`
+- `project_cpp`
 - `cpp_core`
 - `posix_c`
 - `pep8_python`
 - `project_python`
-- `typescript_project`
-- `javascript_project`
+- `project_typescript`
+- `project_javascript`
 - `effective_java`
-- `go_project`
-- `rust_project`
-- `bash_project`
+- `project_java`
+- `project_go`
+- `project_rust`
+- `project_bash`
 - `ansi_sql`
 - `project_sql`
 - `kubernetes_yaml`
@@ -146,8 +147,8 @@
 중요:
 
 - raw HTML/Markdown 파싱 결과가 canonical source가 아니다
-- 사람이 편집하는 YAML/JSON 문서가 canonical source다
-- raw import 결과는 provenance와 bootstrap용이다
+- 사람이 검토하고 편집하는 `rules/**/*.yaml`이 runtime canonical source다
+- `rule_sources/`와 raw import 결과는 provenance, bootstrap, import draft 생성용이다
 
 ## 제안 구조
 
@@ -165,18 +166,18 @@ rules/
   cpp/
     manifest.yaml
     packs/
-      altibase_cpp.yaml
+      project_cpp.yaml
       cpp_core.yaml
       native_memory_shared.yaml
     profiles/
       default.yaml
-      altibase_dbms.yaml
+      service_backend_cpp.yaml
     imports/
       cpp_core_import.yaml
   c/
     manifest.yaml
     packs/
-      altibase_c.yaml
+      project_c.yaml
       posix_c.yaml
       native_memory_shared.yaml
     profiles/
@@ -193,7 +194,7 @@ rules/
   typescript/
     manifest.yaml
     packs/
-      typescript_project.yaml
+      project_typescript.yaml
       ts_api_design.yaml
     profiles/
       default.yaml
@@ -201,7 +202,7 @@ rules/
   javascript/
     manifest.yaml
     packs/
-      javascript_project.yaml
+      project_javascript.yaml
       node_javascript.yaml
     profiles/
       default.yaml
@@ -273,6 +274,12 @@ rules/
 - `imports/*.yaml`
   - 외부 문서를 끌어올 때 provenance와 import 규칙을 정의
 
+중요:
+
+- 위 예시는 public canonical root 기준이다
+- organization-specific pack, profile, detector, prompt overlay는 public `rules/` 아래에 두지 않고 requirement 1의 extension root/package로 분리한다
+- project 성격의 일반 예시 pack은 이 문서에서 `project_<language>` 이름 규칙을 따른다
+
 ## Rule Document 포맷
 
 권장 포맷은 YAML이다.
@@ -311,6 +318,217 @@ rules:
     enabled: true
 ```
 
+## Raw Rule Source Document Bundle
+
+위의 canonical pack YAML과 별개로,
+새 환경에서 이 branch를 받아 바로 규칙 seed를 재구성할 수 있게 하려면
+`vector DB ingest`와 `import draft 생성`에 공통으로 쓸 raw rule source 문서 묶음이 필요하다.
+
+중요:
+
+- 이번 단계에서 각 언어별 raw rule source 문서를 실제로 작성하는 것은 실행 범위가 아니다
+- 이번 단계의 목표는 "어떤 구조로 둘 것인가"를 설계 문서에 고정하는 것이다
+- 실제 문서 작성과 pack 반영은 후속 execution phase에서 수행한다
+
+권장 구조:
+
+```text
+rule_sources/
+  manifest.yaml
+  shared/
+    shared_security_baseline.md
+    shared_review_process.md
+  cpp/
+    cpp_core_guidelines.md
+    native_memory_shared.md
+  c/
+    posix_c_safety.md
+    native_memory_shared.md
+  python/
+    pep8_style.md
+    pep257_docstrings.md
+    typing_guidance.md
+  typescript/
+    typescript_handbook.md
+    google_typescript_style.md
+  javascript/
+    mdn_javascript_guide.md
+    google_javascript_style.md
+  java/
+    effective_java_notes.md
+    project_java_api_design.md
+  go/
+    go_project_practices.md
+  rust/
+    rust_project_practices.md
+  bash/
+    shell_safety.md
+  sql/
+    sql_shared_style.md
+    postgresql_notes.md
+    analytics_sql_notes.md
+  yaml/
+    yaml_spec.md
+    github_actions_workflows.md
+    gitlab_ci_yaml.md
+    helm_values_best_practices.md
+    kubernetes_api_conventions.md
+    kubernetes_api_concepts.md
+  dockerfile/
+    dockerfile_reference.md
+    docker_image_best_practices.md
+```
+
+여기서 `rule_sources/`는 runtime pack과 역할이 다르다.
+
+- `rule_sources/*.md`
+  - 벡터 DB 적재, import seed, 사람 검토용 원천 규칙 문서
+  - canonical pack을 직접 대체하지 않는다
+- `rules/*/packs/*.yaml`
+  - 엔진 runtime이 직접 읽는 canonical normalized pack
+  - 유일한 runtime canonical source다
+
+즉, branch를 새로 clone한 환경에서도
+`rules/`만 있으면 runtime ingest를 다시 수행할 수 있어야 하고,
+`rule_sources/`가 있으면 raw chunking, vector ingest, import draft regeneration을 다시 수행할 수 있어야 한다.
+
+## Raw Rule Source 문서 메타데이터
+
+각 raw rule source 문서는 Markdown 본문 앞에 YAML front matter를 두는 방식을 권장한다.
+
+예시:
+
+```md
+---
+rule_source_id: python.pep8_style
+language_id: python
+dialect_id: null
+profile_hints: [default, service_backend_python]
+pack_targets: [pep8_python]
+source_type: public_guideline_summary
+source_ref:
+  title: PEP 8
+  url: https://peps.python.org/pep-0008/
+chunking:
+  strategy: heading_sections
+  max_chars: 2200
+vector_ingest_tags: [style, naming, imports, formatting]
+status: planned
+---
+
+# PEP 8 Style Seed
+...
+```
+
+권장 필드:
+
+- `rule_source_id`
+- `language_id`
+- `dialect_id`
+- `context_id`
+- `profile_hints`
+- `pack_targets`
+- `source_type`
+  - `public_guideline_summary | project_policy_summary | dialect_reference_summary`
+- `source_ref.title`
+- `source_ref.url`
+- `chunking.strategy`
+- `chunking.max_chars`
+- `vector_ingest_tags`
+- `status`
+  - `planned | drafted | validated | imported`
+
+이 메타데이터를 두면
+raw rule source를 바로 vector DB에 적재할 때도 쓰기 쉽고,
+나중에 import draft나 pack update proposal을 만들 때도 provenance를 잃지 않는다.
+
+## `rule_sources/manifest.yaml` 설계
+
+raw rule source 문서는 개별 Markdown 파일만 두는 것으로 끝내지 말고,
+최상단 manifest로 전체 bundle을 설명하는 것이 좋다.
+
+예시:
+
+```yaml
+schema_version: 1
+bundle_id: review_engine_multilanguage_seed_sources
+default_chunking:
+  strategy: heading_sections
+  max_chars: 2200
+languages:
+  - language_id: python
+    sources:
+      - rule_source_id: python.pep8_style
+        path: python/pep8_style.md
+        pack_targets: [pep8_python]
+      - rule_source_id: python.pep257_docstrings
+        path: python/pep257_docstrings.md
+        pack_targets: [pep257_docstrings]
+  - language_id: yaml
+    sources:
+      - rule_source_id: yaml.github_actions
+        path: yaml/github_actions_workflows.md
+        context_id: github_actions
+        pack_targets: [ci_yaml]
+```
+
+manifest가 담당할 역할:
+
+- branch를 새로 받은 환경에서 어떤 source 문서를 읽어야 하는지 안내
+- vector ingest 대상 목록 제공
+- source 문서와 canonical pack target의 연결 유지
+- language/profile/context/dialect 매핑을 한곳에서 확인
+
+## Branch 재구성 계약
+
+이 설계에서 branch 재구성이 가능하다는 뜻은 아래를 의미한다.
+
+1. 저장소 clone만으로 runtime canonical source와 raw bootstrap source를 모두 확인할 수 있다.
+2. 외부 hidden state 없이 `rules/`만으로 runtime ingest 준비가 가능하다.
+3. `rule_sources/manifest.yaml`이 있으면 bootstrap/import workflow도 같은 branch에서 재현할 수 있다.
+4. vector DB는 generated artifact이므로 커밋 대상이 아니다.
+5. 새 환경에서는 아래 두 흐름 중 필요한 경로를 재구성한다.
+
+```text
+runtime rebuild
+  -> read rules/**/manifest.yaml + packs + profiles
+  -> ingest runtime packs
+  -> rebuild language-specific collections
+
+bootstrap / import refresh
+  -> read rule_sources/manifest.yaml
+  -> chunk raw rule source documents
+  -> optional vector ingest for exploration / draft retrieval
+  -> generate import candidates / pack update proposals
+  -> human review
+  -> update rules/**/*.yaml
+```
+
+즉 source of truth는 vector DB가 아니라 `rules/`이고,
+`rule_sources/`는 reproducible bootstrap input이다.
+
+## Canonical Pack 과 Raw Source 분리 원칙
+
+두 저장 구조를 섞으면 운영이 다시 복잡해진다.
+
+분리 원칙은 아래와 같다.
+
+- `rule_sources/`
+  - 공개 guideline 요약, vendor reference 요약, 프로젝트 정책 요약
+  - vector ingest와 import 후보 생성용
+  - runtime canonical source가 아니다
+- `rules/`
+  - 사람이 검토한 normalized runtime pack
+  - profile/policy와 함께 실제 엔진이 읽는 데이터
+  - runtime의 유일한 canonical source다
+- `data/*.json`, vector collection, cache
+  - generated artifact
+  - canonical source가 아니다
+
+이 구조를 고정하면
+"새 branch를 받은 환경에서 raw source를 다시 적재"와
+"현재 runtime이 읽는 canonical pack과 dataset을 다시 구축"을 분리해서 다룰 수 있다.
+
 ## Rule Schema 제안
 
 현재 `GuidelineRecord`를 바로 버리기보다, 아래처럼 일반화한다.
@@ -323,7 +541,7 @@ rules:
 - `language_id`
   - `cpp`, `python`, `typescript`, `javascript`, `java`, `go`, `rust`, `bash`, `sql`, `yaml`, `dockerfile`, `shared`
 - `rule_pack`
-  - `cpp_core`, `altibase_cpp`, `shared_security`
+  - `cpp_core`, `project_cpp`, `shared_security`
 - `rule_no`
   - 사람이 보는 원래 번호
 - `title`
@@ -514,12 +732,14 @@ reviewable: true
 2. `LanguageRegistry.is_reviewable_file(file_path)` 사용
 3. detect phase에서 각 file마다 `language_id` 판별
 4. `review-engine` API 호출에 `language_id`, `profile_id`를 같이 넘김
-5. provider prompt도 `language_id`에 따라 template/hint를 바꿈
+5. provider prompt도 `language_id`와 `profile_id`에 따라 base + language + profile + optional extension overlay 조합으로 바꿈
+
+조직 특화 overlay는 requirement 1에서 정의한 extension prompt root/package 경로를 사용한다.
 
 예시:
 
 - `cpp`
-  - RAII, Altibase type system, wrapper usage
+  - RAII, resource ownership, wrapper usage, manual lifetime boundary
 - `python`
   - exception taxonomy, context manager, mutable default, typing discipline
 - `typescript`
@@ -550,18 +770,29 @@ reviewable: true
 
 - `language_id: str | null`
 - `profile_id: str | null`
+- `context_id: str | null`
+- `dialect_id: str | null`
 - `file_path: str | null`
 - `file_context: str | null`
 
 정책:
 
 - `language_id`가 오면 우선 사용
-- 없으면 `file_path`와 내용 기반으로 추론
+- `profile_id`, `context_id`, `dialect_id`가 오면 강한 힌트로 사용
+- 없으면 `file_path`, 내용, language registry 규칙 기반으로 추론
 - 둘 다 없으면 `shared` 또는 `unknown` fallback
+
+주의:
+
+- 현재 `review-bot` 흐름은 changed file 단위 호출을 기본으로 하므로 위 필드는 "현재 리뷰 중인 file"의 분류 결과를 뜻한다
+- mixed-language PR/MR도 엔진 호출은 file 단위 분류를 기본으로 한다
 
 ### `ReviewResult`
 
 - `language_id`
+- `profile_id`
+- `context_id`
+- `dialect_id`
 - `rule_pack`
 - `rule_uid`
 
@@ -621,11 +852,27 @@ UI는 canonical YAML 문서를 편집하는 frontend여야 한다.
 
 1. raw source fetch
 2. parser output 생성
-3. canonical YAML로 normalize
-4. pack/profile 정책 적용
-5. active/reference/excluded 생성
+3. import draft 또는 canonical patch proposal 생성
+4. 사람 검토 후 `rules/**/*.yaml` 반영
+5. pack/profile 정책 적용
+6. active/reference/excluded 생성
 
 즉, 외부 문서 변경과 내부 운영 rule 수정은 분리한다.
+
+여기서 raw rule source 문서의 위치는 아래처럼 잡는 것이 좋다.
+
+1. 외부 원문
+   - 공식 guideline, vendor reference, project policy
+2. raw rule source Markdown
+   - `rule_sources/**/*.md`
+3. canonical normalized pack
+   - `rules/*/packs/*.yaml`
+4. generated dataset / vector collections
+   - `data/*.json`, Chroma, 기타 캐시
+
+즉, requirement 2에서는
+"각 언어별 규칙 문서를 지금 바로 작성"하는 것이 아니라
+"나중에 어떤 단계로 raw source -> import draft -> canonical pack -> vector store로 갈지"를 설계 문서에 먼저 고정한다.
 
 예를 들면:
 
@@ -857,7 +1104,11 @@ build reproducibility, image size, runtime security를 함께 본다.
 
 - `rules/` 디렉터리 생성
 - `pack/profile/manifest` 스키마 정의
-- `cpp` 규칙을 새 구조로 migration
+- 기존 단일 C++ 규칙을 legacy path로 강등
+- `rule_sources/` 디렉터리와 manifest 구조를 설계
+- 각 언어별 raw rule source 문서는 후속 execution phase에서 작성
+- raw source는 import draft 생성 경로로만 연결
+- runtime canonical source는 `rules/**/*.yaml`로 고정
 
 ### Phase 3. Shared / C / Bash 도입
 
@@ -915,6 +1166,143 @@ canonical YAML이 안정화된 뒤에 붙인다.
   - [Dockerfile reference](https://docs.docker.com/reference/builder)
   - [Dockerfile overview](https://docs.docker.com/build/concepts/dockerfile/)
   - [Docker image best practices](https://docs.docker.com/build/building/best-practices/)
+
+## 언어별 Raw Rule Source 문서 구성 원칙
+
+아래는 실제 문서를 지금 만드는 것이 아니라,
+나중에 어떤 파일 세트로 구성할지 설계상 고정하는 목록이다.
+
+### Python
+
+- `python/pep8_style.md`
+- `python/pep257_docstrings.md`
+- `python/typing_guidance.md`
+
+### TypeScript
+
+- `typescript/typescript_handbook.md`
+- `typescript/google_typescript_style.md`
+
+### JavaScript
+
+- `javascript/mdn_javascript_guide.md`
+- `javascript/google_javascript_style.md`
+
+### YAML
+
+- `yaml/yaml_spec.md`
+- `yaml/github_actions_workflows.md`
+- `yaml/gitlab_ci_yaml.md`
+- `yaml/helm_values_best_practices.md`
+
+### Kubernetes YAML
+
+- `yaml/kubernetes_api_conventions.md`
+- `yaml/kubernetes_api_concepts.md`
+
+### Dockerfile
+
+- `dockerfile/dockerfile_reference.md`
+- `dockerfile/docker_image_best_practices.md`
+
+### SQL
+
+SQL은 단일 authoritative 공개 source가 약하므로 아래 3층으로 설계한다.
+
+- `sql/sql_shared_style.md`
+- `sql/postgresql_notes.md`
+- `sql/analytics_sql_notes.md`
+
+### Bash
+
+- `bash/shell_safety.md`
+
+### Java
+
+- `java/effective_java_notes.md`
+- `java/project_java_api_design.md`
+
+설계 의도:
+
+- 공개 best practice 요약과 프로젝트 API 설계 규칙을 분리한다
+- 객체 설계, 예외 처리, 컬렉션 사용, 불변성, 경계 계층 규칙을 pack으로 normalize 한다
+
+예상 pack target:
+
+- `effective_java`
+- `project_java`
+
+### Go
+
+- `go/go_project_practices.md`
+
+후속 execution phase에서 필요하면 아래처럼 분리 확장한다.
+
+- `go/concurrency_safety.md`
+- `go/api_and_package_design.md`
+
+설계 의도:
+
+- 초기에는 idiomatic Go, error handling, context 전달, package 경계, goroutine/channel 안전성 규칙을 하나의 seed 문서로 시작한다
+- 이후 concurrency와 API design 규칙을 독립 pack으로 분리 가능하게 둔다
+
+예상 pack target:
+
+- `project_go`
+- 필요 시 `go_concurrency`, `go_api_design`
+
+### Rust
+
+- `rust/rust_project_practices.md`
+
+후속 execution phase에서 필요하면 아래처럼 분리 확장한다.
+
+- `rust/error_handling.md`
+- `rust/unsafe_and_ffi.md`
+
+설계 의도:
+
+- ownership/borrowing, `Result` 처리, panic 제한, async 규칙을 기본 seed 문서에 담는다
+- `unsafe`, FFI, 고급 에러 처리 규칙은 별도 pack으로 확장 가능하게 둔다
+
+예상 pack target:
+
+- `project_rust`
+- 필요 시 `rust_error_handling`, `rust_unsafe_ffi`
+
+### C
+
+- `c/posix_c_safety.md`
+- `c/native_memory_shared.md`
+
+설계 의도:
+
+- C 전용 규칙과 C/C++ 공통 자원 관리 규칙을 분리한다
+- `malloc/free`, cleanup discipline, POSIX API 오류 처리, 버퍼 경계 규칙을 C 전용 문서에 둔다
+
+예상 pack target:
+
+- `posix_c`
+- `native_memory_shared`
+
+### C++
+
+- `cpp/cpp_core_guidelines.md`
+- `cpp/native_memory_shared.md`
+
+설계 의도:
+
+- C++ 전용 규칙과 C/C++ 공통 자원 관리 규칙을 분리한다
+- RAII, smart pointer, move semantics, ownership modeling, exception safety 규칙을 C++ 전용 문서에 둔다
+
+예상 pack target:
+
+- `cpp_core`
+- `native_memory_shared`
+
+즉 requirement 2 설계 범위에서는
+"파일 이름, 메타데이터, pack target 연결 방식"까지를 고정하고,
+실제 문서 작성은 별도 작업으로 분리한다.
 
 ## 테스트 전략
 
@@ -983,12 +1371,13 @@ review-engine/tests/languages/
 
 지금 당장 가장 좋은 출발점은 다음이다.
 
-1. `rules/` 디렉터리를 새 canonical 규칙 저장소로 채택한다.
-2. 먼저 `cpp` 규칙을 새 구조로 옮긴다.
-3. `language_id`, `rule_pack`, `rule_uid`를 데이터 모델에 추가한다.
-4. `cpp_feature_extractor`를 language plugin 구조로 일반화한다.
-5. 그 다음 `c`, `bash`, `python`, `typescript`, `javascript`, `sql`, `yaml`, `dockerfile`, `java`, `go`, `rust`를 순서대로 추가한다.
+1. `rule_sources/`와 `rules/`를 분리된 source layer로 고정한다.
+2. `rules/`를 runtime canonical source로 고정하고, `rule_sources/`는 bootstrap/import source로 분리한다.
+3. 이번 단계에서는 각 언어별 raw rule source 문서를 실제로 만들지 않고 구조와 메타데이터만 설계 문서에 고정한다.
+4. 다음 execution phase에서 언어별 raw rule source 문서를 작성하고 import draft를 거쳐 canonical pack으로 반영한다.
+5. 그 뒤 `language_id`, `rule_pack`, `rule_uid` 기반 ingest/runtime을 확장한다.
 6. 마지막에 웹 편집 UI를 붙인다.
 
-이 방식이면 현재 C++ 자산을 버리지 않으면서도,
-다중 언어 리뷰 엔진으로 확장 가능한 구조를 만들 수 있다.
+이 방식이면 새 branch를 받은 환경에서도
+어떤 raw source에서 규칙을 다시 만들고 vector DB를 다시 채워야 하는지 바로 알 수 있고,
+실제 execution 단계에서도 범위를 안전하게 나눌 수 있다.

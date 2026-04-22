@@ -1,0 +1,12 @@
+schema_version: 1
+profile_id: default
+language_id: python
+enabled_packs:
+  - pep8_python
+  - pep257_docstrings
+  - project_python
+shared_packs:
+  - shared_security
+prompt_overlay_refs: []
+detector_refs: []
+priority_policy_ref: python_default

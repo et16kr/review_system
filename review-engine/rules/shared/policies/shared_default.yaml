@@ -1,0 +1,23 @@
+schema_version: 1
+policy_id: shared_default
+language_id: shared
+tier_order:
+  - override
+  - high
+  - default
+  - reference
+pack_weights:
+  shared_security: 0.96
+  review_process: 0.5
+defaults:
+  conflict_action: compatible
+  default_pack_weight: 0.5
+tie_breakers:
+  - explicit_override
+  - higher_tier
+  - higher_specificity
+  - higher_base_score
+  - higher_pack_weight
+  - lexical_rule_id
+overrides: []
+exclusions: []

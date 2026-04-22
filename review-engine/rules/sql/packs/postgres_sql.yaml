@@ -1,0 +1,60 @@
+schema_version: 1
+pack_id: postgres_sql
+namespace: public
+language_id: sql
+source_kind: public_standard
+description: PostgreSQL-specific guidance.
+default_enabled: true
+default_priority_tier: default
+dialect_id: postgresql
+entries:
+  - rule_no: SQL.PG.1
+    section: SQLPG
+    title: Keep dynamic SQL structural fragments tightly bounded
+    summary: PostgreSQL is powerful enough that dynamic SQL often appears justified, but it still needs narrow control.
+    text: Dynamic SQL should stay constrained to a small set of structural alternatives. Value injection must remain parameterized even when table or clause selection is dynamic.
+    category: security
+    trigger_patterns: [dynamic_sql]
+    fix_guidance: Keep dynamic structure behind an allow-list and continue binding values separately.
+    base_score: 0.92
+    severity_default: 0.94
+    priority_tier: high
+    specificity: 0.9
+    false_positive_risk: low
+  - rule_no: SQL.PG.2
+    section: SQLPG
+    title: Dynamic PostgreSQL should allow-list identifiers and clauses, not just values
+    summary: Powerful SQL metaprogramming needs an explicit structural contract to remain reviewable.
+    text: Table names, sort clauses, and function calls can still create correctness and security problems even when scalar values are parameterized.
+    category: security
+    trigger_patterns: [dynamic_sql]
+    fix_guidance: Map user-visible options to a fixed set of vetted SQL fragments and keep all data values bound separately.
+    base_score: 0.93
+    severity_default: 0.95
+    priority_tier: high
+    specificity: 0.91
+    false_positive_risk: low
+  - rule_no: SQL.PG.3
+    section: SQLPG
+    title: Prefer typed database features over string-built SQL metaprogramming where practical
+    summary: PostgreSQL features are easiest to maintain when structure is explicit and data stays data.
+    text: Complex report or migration queries can tempt authors into building large SQL strings dynamically. Prefer server features, views, or constrained helper layers when they preserve clearer boundaries.
+    category: sql_quality
+    trigger_patterns: [dynamic_sql]
+    fix_guidance: Move repeated structural variation behind typed helpers, views, or a narrow query builder instead of composing large SQL strings ad hoc.
+    base_score: 0.8
+    severity_default: 0.82
+    priority_tier: default
+    specificity: 0.78
+    false_positive_risk: medium
+  - rule_no: SQL.PG.4
+    section: SQLPG
+    title: Dialect-specific power should stay behind bounded abstractions when query text becomes metaprogramming
+    summary: PostgreSQL features are valuable, but they should not force every caller to understand dynamic structure and safety constraints directly.
+    text: Use this as reference guidance when a patch hints that advanced PostgreSQL behavior belongs behind a clearer database abstraction.
+    category: sql_quality
+    reviewability: reference_only
+    applies_to: [code, diff, docs]
+    false_positive_risk: medium
+    base_score: 0.55
+    severity_default: 0.55

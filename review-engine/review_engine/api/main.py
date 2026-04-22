@@ -6,7 +6,7 @@ from pathlib import Path
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
-from review_engine.codebase.indexer import collect_cpp_files, extract_chunks
+from review_engine.codebase.indexer import collect_reviewable_files, extract_chunks
 from review_engine.codebase.store import CodebaseStore
 from review_engine.config import get_settings
 from review_engine.models import ReviewCodeRequest, ReviewDiffRequest
@@ -39,7 +39,16 @@ def ingest(force_refresh: bool = False):
 
 @app.post("/review/code")
 def review_code(request: ReviewCodeRequest):
-    return service.review_code(request.code, top_k=request.top_k).model_dump()
+    return service.review_code(
+        request.code,
+        top_k=request.top_k,
+        file_path=request.file_path,
+        file_context=request.file_context,
+        language_id=request.language_id,
+        profile_id=request.profile_id,
+        context_id=request.context_id,
+        dialect_id=request.dialect_id,
+    ).model_dump()
 
 
 @app.post("/review/diff")
@@ -49,12 +58,16 @@ def review_diff(request: ReviewDiffRequest):
         top_k=request.top_k,
         file_path=request.file_path,
         file_context=request.file_context,
+        language_id=request.language_id,
+        profile_id=request.profile_id,
+        context_id=request.context_id,
+        dialect_id=request.dialect_id,
     ).model_dump()
 
 
 @app.get("/rule/{rule_no}")
-def get_rule(rule_no: str):
-    rule = service.inspect_rule(rule_no)
+def get_rule(rule_no: str, language_id: str | None = None):
+    rule = service.inspect_rule(rule_no, language_id=language_id)
     if rule is None:
         raise HTTPException(status_code=404, detail=f"Rule not found: {rule_no}")
     return rule.model_dump()
@@ -65,7 +78,7 @@ def index_codebase(request: CodebaseIndexRequest):
     root_path = _resolve_codebase_root(request.root_path)
     if request.clear_first:
         _codebase_store.clear()
-    files = collect_cpp_files(str(root_path))
+    files = collect_reviewable_files(str(root_path))
     total_chunks = 0
     for path in files:
         try:

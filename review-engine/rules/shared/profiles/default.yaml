@@ -1,0 +1,10 @@
+schema_version: 1
+profile_id: default
+language_id: shared
+enabled_packs:
+  - shared_security
+  - review_process
+shared_packs: []
+prompt_overlay_refs: []
+detector_refs: []
+priority_policy_ref: shared_default

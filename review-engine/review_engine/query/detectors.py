@@ -7,7 +7,8 @@ from typing import Any, Protocol
 from review_engine.config import Settings, get_settings
 from review_engine.extensions import discover_extension_specs
 from review_engine.models import QueryPattern
-from review_engine.query.cpp_feature_extractor import extract_query_patterns
+from review_engine.query.languages import BUILTIN_QUERY_PLUGINS
+from review_engine.query.languages.common import deduplicate_patterns
 
 logger = logging.getLogger(__name__)
 
@@ -28,12 +29,12 @@ class QueryDetectorPlugin(Protocol):
 
 
 @dataclass
-class CppPatternDetector:
-    plugin_id: str = "builtin:cpp"
+class BuiltinLanguageDetector:
+    plugin_id: str
 
     def supports(self, *, language_id: str, profile_id: str | None) -> bool:
-        del profile_id
-        return language_id == "cpp"
+        del language_id, profile_id
+        return True
 
     def analyze(
         self,
@@ -44,20 +45,22 @@ class CppPatternDetector:
         code: str | None,
     ) -> list[QueryPattern]:
         del file_path, file_context
+        plugin = BUILTIN_QUERY_PLUGINS[self.plugin_id]
         source_text = code if code is not None else diff or ""
-        return extract_query_patterns(source_text)
+        return plugin.analyze(source_text)
 
 
 class QueryDetectorManager:
     def __init__(self, settings: Settings | None = None) -> None:
         self.settings = settings or get_settings()
-        self._plugins = self._load_plugins()
+        self._extension_plugins = self._load_extension_plugins()
 
     def analyze(
         self,
         *,
         language_id: str,
         profile_id: str,
+        query_plugin_id: str,
         detector_refs: list[str] | None,
         file_path: str | None,
         file_context: str | None,
@@ -66,7 +69,16 @@ class QueryDetectorManager:
     ) -> list[QueryPattern]:
         patterns: list[QueryPattern] = []
         allowed = set(detector_refs or [])
-        for plugin in self._plugins:
+        builtin = BuiltinLanguageDetector(query_plugin_id)
+        patterns.extend(
+            builtin.analyze(
+                file_path=file_path,
+                file_context=file_context,
+                diff=diff,
+                code=code,
+            )
+        )
+        for plugin in self._extension_plugins:
             if allowed and plugin.plugin_id not in allowed:
                 continue
             if not plugin.supports(language_id=language_id, profile_id=profile_id):
@@ -82,10 +94,39 @@ class QueryDetectorManager:
                 )
             except Exception as exc:
                 logger.warning("Detector plugin %s failed: %s", plugin.plugin_id, exc)
-        return _deduplicate_patterns(patterns)
+        return deduplicate_patterns(patterns)
 
-    def _load_plugins(self) -> list[QueryDetectorPlugin]:
-        plugins: list[QueryDetectorPlugin] = [CppPatternDetector()]
+    def build_query_text(
+        self,
+        *,
+        query_plugin_id: str,
+        input_kind: str,
+        patterns: list[QueryPattern],
+        profile_id: str,
+        context_id: str | None,
+        dialect_id: str | None,
+    ) -> str:
+        plugin = BUILTIN_QUERY_PLUGINS[query_plugin_id]
+        return plugin.build_query_text(
+            input_kind=input_kind,
+            patterns=patterns,
+            profile_id=profile_id,
+            context_id=context_id,
+            dialect_id=dialect_id,
+        )
+
+    def collect_hinted_rules(
+        self,
+        *,
+        query_plugin_id: str,
+        patterns: list[QueryPattern],
+        direct_only: bool = False,
+    ) -> set[str]:
+        plugin = BUILTIN_QUERY_PLUGINS[query_plugin_id]
+        return plugin.collect_hinted_rules(patterns, direct_only=direct_only)
+
+    def _load_extension_plugins(self) -> list[QueryDetectorPlugin]:
+        plugins: list[QueryDetectorPlugin] = []
         for spec in discover_extension_specs(self.settings):
             for item in spec.detectors:
                 plugin = _resolve_plugin(item)
@@ -100,12 +141,3 @@ def _resolve_plugin(item: Any) -> QueryDetectorPlugin | None:
         return candidate
     logger.warning("Ignoring invalid detector plugin payload: %r", item)
     return None
-
-
-def _deduplicate_patterns(patterns: list[QueryPattern]) -> list[QueryPattern]:
-    deduped: dict[str, QueryPattern] = {}
-    for pattern in patterns:
-        existing = deduped.get(pattern.name)
-        if existing is None or pattern.weight > existing.weight:
-            deduped[pattern.name] = pattern
-    return list(deduped.values())

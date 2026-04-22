@@ -263,3 +263,268 @@ entries:
     specificity: 0.78
     false_positive_risk: medium
     review_rank_default: 0.70
+  - rule_no: R.3
+    section: R
+    title: A raw pointer is non-owning by default
+    summary: Ownership should not be inferred from a bare T*.
+    text: Use raw pointers and references to model borrowing, not ownership transfer. When a pointer owns lifetime, the type should make that responsibility explicit.
+    category: ownership
+    trigger_patterns: [raw_new, manual_delete]
+    fix_guidance: Keep raw pointers borrow-only and move owning state into unique_ptr, shared_ptr, containers, or explicit owner wrappers.
+    base_score: 0.86
+    severity_default: 0.88
+    priority_tier: high
+    specificity: 0.84
+    false_positive_risk: medium
+    review_rank_default: 0.88
+  - rule_no: R.5
+    section: R
+    title: Prefer scoped objects and avoid heap allocation unless lifetime truly requires it
+    summary: Stack or scoped ownership is simpler than dynamic allocation when the lifetime is local.
+    text: Heap allocation should serve a real lifetime or polymorphism need. Otherwise, a scoped object or container is easier to reason about and harder to leak.
+    category: ownership
+    trigger_patterns: [raw_new]
+    fix_guidance: Prefer local objects, containers, or owning members when the lifetime does not need to escape the current scope.
+    base_score: 0.82
+    severity_default: 0.84
+    priority_tier: high
+    specificity: 0.8
+    false_positive_risk: medium
+    review_rank_default: 0.84
+  - rule_no: R.13
+    section: R
+    title: Perform at most one explicit resource allocation in a single expression
+    summary: Multiple manual allocations in one expression make rollback and exception safety harder to verify.
+    text: When more than one explicit allocation participates in a statement, reviewers must reason about partial construction and cleanup ordering. Smaller steps keep ownership visible.
+    category: ownership
+    trigger_patterns: [raw_new, malloc_free]
+    fix_guidance: Split allocation steps so each owner is established before the next resource is acquired.
+    base_score: 0.69
+    severity_default: 0.71
+    priority_tier: default
+    specificity: 0.55
+    false_positive_risk: medium
+    review_rank_default: 0.71
+  - rule_no: R.15
+    section: R
+    title: Always overload matched allocation and deallocation pairs together
+    summary: Custom allocation should preserve a clear and complete ownership pairing.
+    text: When a type or abstraction customizes allocation, the corresponding release behavior should stay just as explicit so ownership and cleanup remain symmetric.
+    category: ownership
+    trigger_patterns: [raw_new, manual_delete, malloc_free]
+    fix_guidance: Keep custom allocation and release behavior paired in the same abstraction and avoid mixing incompatible ownership families.
+    base_score: 0.68
+    severity_default: 0.7
+    priority_tier: default
+    specificity: 0.54
+    false_positive_risk: medium
+    review_rank_default: 0.7
+  - rule_no: R.22
+    section: R
+    title: Use make_shared to construct shared_ptr ownership
+    summary: Shared ownership should be established through the standard factory where practical.
+    text: make_shared keeps allocation and ownership formation together and reduces the chance of raw-pointer gaps between construction and management.
+    category: ownership
+    trigger_patterns: [raw_new]
+    fix_guidance: Prefer make_shared when the design truly requires shared ownership and no custom deleter or allocation constraint blocks it.
+    base_score: 0.78
+    severity_default: 0.8
+    priority_tier: default
+    specificity: 0.76
+    false_positive_risk: medium
+    review_rank_default: 0.80
+  - rule_no: R.23
+    section: R
+    title: Use make_unique to construct unique_ptr ownership
+    summary: Single-owner dynamic objects should usually become managed at the point they are created.
+    text: make_unique prevents a raw owning pointer from existing in the open and keeps construction plus ownership establishment in one visible step.
+    category: ownership
+    trigger_patterns: [raw_new]
+    fix_guidance: Prefer make_unique or a direct owning factory return instead of constructing a raw pointer and wrapping it later.
+    base_score: 0.86
+    severity_default: 0.88
+    priority_tier: high
+    specificity: 0.84
+    false_positive_risk: low
+    review_rank_default: 0.88
+  - rule_no: R.30
+    section: R
+    title: Take smart pointers as parameters only to express lifetime semantics explicitly
+    summary: Ownership-signaling parameters should be reserved for APIs that truly participate in ownership.
+    text: Borrowing interfaces are clearer with T* or T&. unique_ptr and shared_ptr parameters should mean something specific about transfer, sharing, or reseating.
+    category: api_contract
+    trigger_patterns: [raw_new]
+    fix_guidance: Use raw pointers or references for borrowing, and reserve smart-pointer parameters for ownership semantics the API intentionally enforces.
+    base_score: 0.79
+    severity_default: 0.81
+    priority_tier: default
+    specificity: 0.77
+    false_positive_risk: medium
+    review_rank_default: 0.81
+  - rule_no: R.32
+    section: R
+    title: Take a unique_ptr parameter to express ownership transfer
+    summary: unique_ptr in an interface should make the transfer boundary obvious.
+    text: If a function takes ownership, the type should say so directly rather than relying on comments, out-of-band conventions, or raw pointers that look borrowed.
+    category: api_contract
+    trigger_patterns: [raw_new]
+    fix_guidance: Model ownership transfer with a unique_ptr parameter or return type instead of a raw pointer handoff.
+    base_score: 0.82
+    severity_default: 0.84
+    priority_tier: high
+    specificity: 0.8
+    false_positive_risk: medium
+    review_rank_default: 0.84
+  - rule_no: R.33
+    section: R
+    title: Take a unique_ptr reference parameter only when the API is meant to reseat ownership
+    summary: An ownership-modifying interface should say whether it consumes, borrows, or reseats the owner.
+    text: APIs that manipulate owned objects are easier to review when the signature distinguishes between borrowing the pointee and replacing the owner itself.
+    category: api_contract
+    trigger_patterns: [raw_new]
+    fix_guidance: Use clear owner, borrower, and reseating interfaces instead of raw pointer parameters with implicit ownership side effects.
+    base_score: 0.77
+    severity_default: 0.79
+    priority_tier: default
+    specificity: 0.75
+    false_positive_risk: medium
+    review_rank_default: 0.79
+  - rule_no: R.37
+    section: R
+    title: Do not pass a pointer or reference obtained from an aliased smart pointer without clarifying lifetime
+    summary: Borrowed views should not silently outlive the owner that actually keeps the object alive.
+    text: When smart pointers share or transfer lifetime, extracting a raw pointer can hide the real lifetime boundary from the next call site.
+    category: ownership
+    trigger_patterns: [raw_new, manual_delete]
+    fix_guidance: Pass the owner when lifetime sharing matters or make the borrowing lifetime explicit in the surrounding API contract.
+    base_score: 0.76
+    severity_default: 0.78
+    priority_tier: default
+    specificity: 0.74
+    false_positive_risk: medium
+    review_rank_default: 0.78
+  - rule_no: I.12
+    section: I
+    title: Declare pointers that must not be null through an explicit non-null contract
+    summary: Nullable and non-null inputs should not share the same vague pointer type when the distinction matters.
+    text: An interface is easier to call and review when mandatory pointers are modeled as such instead of relying on comments or distant checks to explain the null contract.
+    category: api_contract
+    trigger_patterns: [raw_new]
+    fix_guidance: Use references, not_null-style wrappers, or an explicit checked boundary for inputs that must always be present.
+    base_score: 0.78
+    severity_default: 0.8
+    priority_tier: default
+    specificity: 0.76
+    false_positive_risk: medium
+    review_rank_default: 0.80
+  - rule_no: F.7
+    section: F
+    title: For general use, take T* or T& rather than smart pointers
+    summary: Borrowing APIs should not imply ownership semantics they do not actually need.
+    text: Passing smart pointers through layers that only need temporary access couples those layers to ownership policy and can obscure who really owns the object.
+    category: api_contract
+    trigger_patterns: [raw_new]
+    fix_guidance: Use references or raw pointers for borrowing APIs and keep ownership types at the actual transfer or sharing boundary.
+    base_score: 0.75
+    severity_default: 0.77
+    priority_tier: default
+    specificity: 0.73
+    false_positive_risk: medium
+    review_rank_default: 0.77
+  - rule_no: F.16
+    section: F
+    title: Pass cheaply copied types by value and other inputs by reference to const
+    summary: Parameter passing should communicate cost and intent instead of relying on incidental copies.
+    text: Primitive and small value types are often clearer by value, while larger objects should make borrowing explicit. Consistency here improves API readability and performance reasoning.
+    category: type_usage
+    trigger_patterns: [primitive_types]
+    fix_guidance: Prefer by-value for small scalar-like inputs and const references for larger objects whose data should not be copied.
+    base_score: 0.68
+    severity_default: 0.7
+    priority_tier: default
+    specificity: 0.66
+    false_positive_risk: medium
+    review_rank_default: 0.70
+  - rule_no: CP.21
+    section: CP
+    title: Use std::lock or std::scoped_lock to acquire multiple mutexes
+    summary: Coordinated lock acquisition should use standard deadlock-avoidance patterns instead of manual sequencing.
+    text: Manual multi-lock code is difficult to audit for ordering and exception safety. Standard coordinated locking primitives make the ownership story clearer.
+    category: wrapper_usage
+    trigger_patterns: [manual_lock_unlock]
+    fix_guidance: Prefer std::scoped_lock or std::lock with RAII guards when a scope needs more than one mutex.
+    base_score: 0.88
+    severity_default: 0.9
+    priority_tier: high
+    specificity: 0.86
+    false_positive_risk: low
+    review_rank_default: 0.90
+  - rule_no: CP.22
+    section: CP
+    title: Never call unknown or externally extensible code while holding a lock
+    summary: Lock scopes should stay small enough that blocking, reentry, and callback behavior remain predictable.
+    text: A lock held across callbacks, logging hooks, or external code increases deadlock and latency risk while making the concurrency contract much harder to review.
+    category: concurrency
+    trigger_patterns: [manual_lock_unlock]
+    fix_guidance: Narrow the locked region and move callbacks or other externally controlled work outside the lock when possible.
+    base_score: 0.84
+    severity_default: 0.86
+    priority_tier: high
+    specificity: 0.82
+    false_positive_risk: medium
+    review_rank_default: 0.86
+  - rule_no: CPP.REF.1
+    section: CPPREF
+    title: Prefer interfaces that carry size and ownership together instead of pointer-plus-convention pairs
+    summary: Pointer and count contracts are safer when modeled as one explicit view or owner type.
+    text: This is often a design-guidance issue rather than an inline defect unless the patch shows a concrete lifetime or bounds error.
+    category: api_contract
+    reviewability: reference_only
+    applies_to: [code, diff, docs]
+    false_positive_risk: medium
+    base_score: 0.58
+    severity_default: 0.58
+  - rule_no: CPP.REF.2
+    section: CPPREF
+    title: Prefer returning structured results over multi-out pointer conventions when the boundary can evolve
+    summary: Explicit result carriers make ownership and success semantics easier to review than parallel out parameters.
+    text: Use this as reference guidance when the patch hints at an awkward API shape but does not prove a defect in the changed lines alone.
+    category: api_contract
+    reviewability: reference_only
+    applies_to: [code, diff, docs]
+    false_positive_risk: medium
+    base_score: 0.57
+    severity_default: 0.57
+  - rule_no: CPP.REF.3
+    section: CPPREF
+    title: Keep borrow-only and owner-transferring pointer interfaces visually distinct
+    summary: Raw pointers are easier to review when the API vocabulary makes lifetime responsibility explicit.
+    text: This guidance is broader than a single bug pattern, so it belongs in reference form unless the diff demonstrates an actual ownership confusion.
+    category: api_contract
+    reviewability: reference_only
+    applies_to: [code, diff, docs]
+    false_positive_risk: medium
+    base_score: 0.57
+    severity_default: 0.57
+  - rule_no: CPP.REF.4
+    section: CPPREF
+    title: Prefer minimizing time in critical sections rather than growing lock scopes around unrelated work
+    summary: Concurrency design guidance is often most useful as a review reference unless the patch shows a concrete blocking or callback hazard.
+    text: Use this when the change suggests lock-scope drift, expensive work under a mutex, or ownership confusion around callbacks, but the patch alone does not prove deadlock.
+    category: concurrency
+    reviewability: reference_only
+    applies_to: [code, diff, docs]
+    false_positive_risk: medium
+    base_score: 0.58
+    severity_default: 0.58
+  - rule_no: CPP.REF.5
+    section: CPPREF
+    title: Prefer APIs that keep element count, lifetime, and mutability visible in one boundary shape
+    summary: Native interfaces are easier to review when size and ownership travel with the data instead of living in parallel conventions.
+    text: Keep this as reference guidance for API evolution when the patch hints at pointer-plus-size drift or hidden mutability, but the changed lines alone do not prove a concrete defect.
+    category: api_contract
+    reviewability: reference_only
+    applies_to: [code, diff, docs]
+    false_positive_risk: medium
+    base_score: 0.57
+    severity_default: 0.57

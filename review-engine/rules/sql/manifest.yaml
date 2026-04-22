@@ -1,0 +1,11 @@
+schema_version: 1
+language_id: sql
+pack_files:
+  - packs/ansi_sql.yaml
+  - packs/postgres_sql.yaml
+  - packs/project_sql.yaml
+profile_files:
+  - profiles/default.yaml
+  - profiles/analytics_warehouse.yaml
+policy_files:
+  - policies/sql_default.yaml

@@ -6,6 +6,7 @@ import yaml
 
 from review_engine.config import Settings
 from review_engine.extensions import discover_extension_specs
+from review_engine.languages import get_language_registry
 from review_engine.models import (
     GuidelineRecord,
     LoadedRuleContext,
@@ -18,14 +19,32 @@ from review_engine.models import (
 from review_engine.text_utils import extract_keywords
 
 
-def load_rule_runtime(settings: Settings) -> LoadedRuleContext:
-    public_root = (settings.public_rule_root or (settings.project_root / "rules" / "cpp")).resolve()
-    extension_rule_roots = [
+def load_rule_runtime(
+    settings: Settings,
+    *,
+    language_id: str | None = None,
+    profile_id: str | None = None,
+    context_id: str | None = None,
+    dialect_id: str | None = None,
+    include_all_packs: bool = False,
+) -> LoadedRuleContext:
+    registry = get_language_registry()
+    selected_language = language_id or settings.default_language_id
+    default_profile_id = profile_id or registry.get(selected_language).default_profile
+    public_root = (settings.public_rule_root or (settings.project_root / "rules")).resolve()
+    extension_root_bases = [
         root
         for spec in discover_extension_specs(settings)
         for root in spec.rule_roots
     ]
-    roots = [public_root, *extension_rule_roots]
+    roots = _dedupe_paths(
+        _resolve_roots_for_language(public_root, selected_language)
+        + [
+            resolved_root
+            for root in extension_root_bases
+            for resolved_root in _resolve_roots_for_language(root, selected_language)
+        ]
+    )
 
     pack_index: dict[str, tuple[RulePackManifest, Path]] = {}
     profile_candidates: list[ProfileConfig] = []
@@ -36,55 +55,124 @@ def load_rule_runtime(settings: Settings) -> LoadedRuleContext:
         for relative in manifest.pack_files:
             path = root / relative
             pack = RulePackManifest.model_validate(_load_yaml(path))
+            if pack.language_id not in {selected_language, "shared"}:
+                continue
             pack_index[pack.pack_id] = (pack, path)
         for relative in manifest.profile_files:
             path = root / relative
-            profile_candidates.append(ProfileConfig.model_validate(_load_yaml(path)))
+            profile = ProfileConfig.model_validate(_load_yaml(path))
+            if profile.language_id == selected_language:
+                profile_candidates.append(profile)
         for relative in manifest.policy_files:
             path = root / relative
             policy = PriorityPolicy.model_validate(_load_yaml(path))
-            policy_index[policy.policy_id] = policy
+            if policy.language_id in {selected_language, "shared"}:
+                policy_index[policy.policy_id] = policy
 
     profile = _merge_profiles(
-        [
-            candidate
-            for candidate in profile_candidates
-            if candidate.profile_id == settings.default_profile_id
-            and candidate.language_id == settings.default_language_id
-        ]
+        profile_id=default_profile_id,
+        language_id=selected_language,
+        context_id=context_id,
+        dialect_id=dialect_id,
+        candidates=profile_candidates,
     )
-    policy = policy_index[profile.priority_policy_ref]
+    policy = policy_index.get(profile.priority_policy_ref)
+    if policy is None:
+        policy = PriorityPolicy(policy_id=f"{selected_language}_default", language_id=selected_language)
 
-    selected_pack_ids = _dedupe(profile.enabled_packs + profile.shared_packs)
-    if not selected_pack_ids:
+    if include_all_packs:
         selected_pack_ids = [
             pack_id
             for pack_id, (pack, _path) in pack_index.items()
-            if pack.default_enabled and pack.language_id == settings.default_language_id
+            if pack.language_id in {selected_language, "shared"}
         ]
+    else:
+        selected_pack_ids = _dedupe(profile.enabled_packs + profile.shared_packs)
+        if not selected_pack_ids:
+            selected_pack_ids = [
+                pack_id
+                for pack_id, (pack, _path) in pack_index.items()
+                if pack.default_enabled and pack.language_id in {selected_language, "shared"}
+            ]
 
     all_records: list[GuidelineRecord] = []
     parsed_pack_counts: dict[str, int] = {}
     for pack_id in selected_pack_ids:
-        pack, source_path = pack_index[pack_id]
+        pack_and_path = pack_index.get(pack_id)
+        if pack_and_path is None:
+            continue
+        pack, source_path = pack_and_path
         parsed_pack_counts[pack_id] = len(pack.entries)
         for entry in pack.entries:
-            all_records.append(_build_record(pack, entry, source_path, policy))
+            if not entry.enabled:
+                continue
+            all_records.append(
+                _build_record(
+                    pack,
+                    entry,
+                    source_path,
+                    policy,
+                    context_id=context_id,
+                    dialect_id=dialect_id,
+                )
+            )
 
     resolved = _resolve_records(all_records, policy)
+    shared_pack_ids = [
+        pack_id
+        for pack_id in selected_pack_ids
+        if pack_index.get(pack_id, (None, None))[0] is not None
+        and pack_index[pack_id][0].language_id == "shared"
+    ]
     return LoadedRuleContext(
-        language_id=settings.default_language_id,
+        language_id=selected_language,
         profile=profile,
         policy=policy,
+        context_id=context_id,
+        dialect_id=dialect_id,
+        selected_pack_ids=selected_pack_ids,
+        shared_pack_ids=shared_pack_ids,
         active_records=resolved["active"],
         reference_records=resolved["reference"],
         excluded_records=resolved["excluded"],
         parsed_pack_counts=parsed_pack_counts,
         public_rule_root=str(public_root),
-        extension_rule_roots=[str(root) for root in extension_rule_roots],
+        extension_rule_roots=[str(root) for root in extension_root_bases],
         prompt_overlay_refs=list(profile.prompt_overlay_refs),
         detector_refs=list(profile.detector_refs),
     )
+
+
+def discover_rule_languages(settings: Settings) -> list[str]:
+    registry = get_language_registry()
+    discovered: set[str] = set()
+    public_root = (settings.public_rule_root or (settings.project_root / "rules")).resolve()
+    for language_id in registry.reviewable_languages():
+        if _resolve_roots_for_language(public_root, language_id):
+            discovered.add(language_id)
+    for spec in discover_extension_specs(settings):
+        for root in spec.rule_roots:
+            for language_id in registry.reviewable_languages():
+                if _resolve_roots_for_language(root, language_id):
+                    discovered.add(language_id)
+    return sorted(discovered)
+
+
+def _resolve_roots_for_language(root: Path, language_id: str) -> list[Path]:
+    resolved = root.expanduser().resolve()
+    direct_manifest = resolved / "manifest.yaml"
+    if direct_manifest.exists():
+        manifest = RuleRootManifest.model_validate(_load_yaml(direct_manifest))
+        if manifest.language_id in {language_id, "shared"}:
+            return [resolved]
+        return []
+
+    candidates: list[Path] = []
+    for name in ("shared", language_id):
+        candidate = resolved / name
+        if (candidate / "manifest.yaml").exists():
+            candidates.append(candidate.resolve())
+    return candidates
 
 
 def _load_rule_root_manifest(root: Path) -> RuleRootManifest:
@@ -95,11 +183,39 @@ def _load_yaml(path: Path) -> dict:
     return yaml.safe_load(path.read_text(encoding="utf-8"))
 
 
-def _merge_profiles(candidates: list[ProfileConfig]) -> ProfileConfig:
-    if not candidates:
-        raise ValueError("No profile config matched the selected runtime profile.")
-    merged = candidates[0].model_copy(deep=True)
-    for candidate in candidates[1:]:
+def _merge_profiles(
+    *,
+    profile_id: str,
+    language_id: str,
+    context_id: str | None,
+    dialect_id: str | None,
+    candidates: list[ProfileConfig],
+) -> ProfileConfig:
+    matching = [
+        candidate
+        for candidate in candidates
+        if candidate.profile_id == profile_id
+        and candidate.language_id == language_id
+        and (candidate.context_id in {None, context_id})
+        and (candidate.dialect_id in {None, dialect_id})
+    ]
+    if not matching:
+        return ProfileConfig(
+            profile_id=profile_id,
+            language_id=language_id,
+            context_id=context_id,
+            dialect_id=dialect_id,
+            priority_policy_ref=f"{language_id}_default",
+        )
+
+    matching.sort(
+        key=lambda item: (
+            1 if item.context_id else 0,
+            1 if item.dialect_id else 0,
+        )
+    )
+    merged = matching[0].model_copy(deep=True)
+    for candidate in matching[1:]:
         merged.enabled_packs = _dedupe(merged.enabled_packs + candidate.enabled_packs)
         merged.shared_packs = _dedupe(merged.shared_packs + candidate.shared_packs)
         merged.prompt_overlay_refs = _dedupe(
@@ -108,6 +224,10 @@ def _merge_profiles(candidates: list[ProfileConfig]) -> ProfileConfig:
         merged.detector_refs = _dedupe(merged.detector_refs + candidate.detector_refs)
         if candidate.priority_policy_ref:
             merged.priority_policy_ref = candidate.priority_policy_ref
+        if candidate.context_id:
+            merged.context_id = candidate.context_id
+        if candidate.dialect_id:
+            merged.dialect_id = candidate.dialect_id
     return merged
 
 
@@ -116,6 +236,9 @@ def _build_record(
     entry: RuleEntry,
     source_path: Path,
     policy: PriorityPolicy,
+    *,
+    context_id: str | None,
+    dialect_id: str | None,
 ) -> GuidelineRecord:
     keywords = entry.keywords or extract_keywords(
         f"{entry.rule_no} {entry.title} {entry.summary} {entry.text}"
@@ -126,17 +249,22 @@ def _build_record(
     pack_weight = float(policy.pack_weights.get(pack.pack_id, policy.defaults.default_pack_weight))
     return GuidelineRecord(
         id=f"{pack.pack_id}:{entry.rule_no}",
+        rule_uid=f"{pack.language_id}:{pack.pack_id}:{entry.rule_no}",
         rule_no=entry.rule_no,
         source=str(source_path),
         pack_id=pack.pack_id,
+        rule_pack=pack.pack_id,
         source_kind=pack.source_kind,
         language_id=pack.language_id,
+        context_id=entry.context_id or pack.context_id or context_id,
+        dialect_id=entry.dialect_id or pack.dialect_id or dialect_id,
         namespace=pack.namespace,
         section=entry.section,
         title=entry.title,
         text=entry.text,
         summary=entry.summary,
         keywords=keywords,
+        tags=entry.tags,
         base_score=base_score,
         priority_tier=priority_tier,
         pack_weight=pack_weight,
@@ -152,6 +280,8 @@ def _build_record(
         fix_guidance=entry.fix_guidance,
         review_rank_default=entry.review_rank_default if entry.review_rank_default is not None else base_score,
         conflict_reason=entry.rationale,
+        file_globs=entry.file_globs or pack.file_globs,
+        symbol_hints=entry.symbol_hints,
     )
 
 
@@ -216,6 +346,17 @@ def _matches(record: GuidelineRecord, selector) -> bool:
 def _dedupe(items: list[str]) -> list[str]:
     seen: set[str] = set()
     ordered: list[str] = []
+    for item in items:
+        if item in seen:
+            continue
+        seen.add(item)
+        ordered.append(item)
+    return ordered
+
+
+def _dedupe_paths(items: list[Path]) -> list[Path]:
+    seen: set[Path] = set()
+    ordered: list[Path] = []
     for item in items:
         if item in seen:
             continue

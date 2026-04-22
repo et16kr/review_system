@@ -1,0 +1,96 @@
+schema_version: 1
+pack_id: project_javascript
+namespace: public
+language_id: javascript
+source_kind: project_policy
+description: JavaScript baseline for runtime safety and web-facing trust boundaries.
+default_enabled: true
+default_priority_tier: high
+entries:
+  - rule_no: JS.1
+    section: JS
+    title: Avoid eval and other dynamic code execution paths
+    summary: Runtime code generation is hard to secure and hard to reason about in review.
+    text: eval and similar APIs erase the normal static boundaries around code loading. They should be avoided in regular application logic.
+    category: security
+    trigger_patterns: [eval_usage]
+    fix_guidance: Replace dynamic execution with explicit dispatch tables, parsers, or data-driven logic.
+    base_score: 0.99
+    severity_default: 0.99
+    priority_tier: override
+    specificity: 0.97
+    false_positive_risk: low
+  - rule_no: JS.2
+    section: JS
+    title: Treat innerHTML writes as an escaping boundary
+    summary: Rendering raw strings into the DOM should be exceptional and tightly controlled.
+    text: Direct innerHTML assignment bypasses safer DOM construction patterns and creates a strong XSS boundary that reviewers must verify carefully.
+    category: security
+    trigger_patterns: [innerhtml]
+    fix_guidance: Prefer DOM APIs, templating with safe escaping, or a sanitized and narrowly bounded HTML rendering path.
+    base_score: 0.97
+    severity_default: 0.98
+    priority_tier: override
+    specificity: 0.95
+    false_positive_risk: low
+  - rule_no: JS.3
+    section: JS
+    title: Prefer text-safe DOM APIs over raw HTML sinks for normal rendering
+    summary: HTML injection surfaces should be explicit exceptions, not the default rendering primitive.
+    text: Most UI updates only need text insertion or structured DOM creation. Using raw HTML assignment as the default rendering path widens the trust boundary unnecessarily.
+    category: security
+    trigger_patterns: [innerhtml]
+    fix_guidance: Use textContent, explicit element creation, or a rendering layer that escapes content by default.
+    base_score: 0.95
+    severity_default: 0.96
+    priority_tier: high
+    specificity: 0.93
+    false_positive_risk: low
+  - rule_no: JS.4
+    section: JS
+    title: Keep dynamic execution behind explicit dispatch or parsing boundaries
+    summary: Application logic should not need eval-like execution to choose behavior at runtime.
+    text: When behavior depends on external input or configurable actions, an explicit dispatch table or parser is easier to review, test, and secure than evaluating generated code.
+    category: security
+    trigger_patterns: [eval_usage]
+    fix_guidance: Replace dynamic execution with named handlers, schemas, or parsers that keep the executable surface bounded.
+    base_score: 0.98
+    severity_default: 0.99
+    priority_tier: override
+    specificity: 0.96
+    false_positive_risk: low
+  - rule_no: JS.5
+    section: JS
+    title: document.write should be treated as a raw HTML injection boundary
+    summary: document.write mixes rendering, parsing, and DOM mutation in a way that is difficult to constrain safely.
+    text: Modern application code rarely needs document.write. When it appears, reviewers should assume a strong XSS and rendering-integrity boundary until proven otherwise.
+    category: security
+    trigger_patterns: [document_write]
+    fix_guidance: Replace document.write with DOM construction, templating, or a safer rendering path that treats content as data by default.
+    base_score: 0.98
+    severity_default: 0.99
+    priority_tier: override
+    specificity: 0.96
+    false_positive_risk: low
+  - rule_no: JS.REF.1
+    section: JSREF
+    title: DOM update paths should make the escaping or sanitization boundary obvious
+    summary: Reference guidance is useful when the patch suggests risky rendering structure but the exact sink safety depends on surrounding framework guarantees.
+    text: Prefer render paths where the reviewer can tell whether text is escaped, sanitized, or treated as trusted HTML without reconstructing framework internals.
+    category: process
+    reviewability: reference_only
+    applies_to: [code, diff, docs]
+    false_positive_risk: medium
+    base_score: 0.56
+    severity_default: 0.56
+  - rule_no: JS.REF.2
+    section: JSREF
+    title: Module-side effects and listener ownership should be explicit when code manipulates global browser state
+    summary: This usually belongs in reference guidance unless the diff shows a concrete leak or integrity issue.
+    text: Use this when browser-facing code changes global listeners, timers, or page structure in ways that need broader application context to judge safely.
+    category: process
+    reviewability: reference_only
+    applies_to: [code, diff, docs]
+    false_positive_risk: medium
+    base_score: 0.55
+    severity_default: 0.55

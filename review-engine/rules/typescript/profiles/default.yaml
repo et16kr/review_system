@@ -1,0 +1,11 @@
+schema_version: 1
+profile_id: default
+language_id: typescript
+enabled_packs:
+  - project_typescript
+  - ts_api_design
+shared_packs:
+  - shared_security
+prompt_overlay_refs: []
+detector_refs: []
+priority_policy_ref: typescript_default

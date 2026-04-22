@@ -1,0 +1,12 @@
+schema_version: 1
+profile_id: frontend_strict
+language_id: typescript
+enabled_packs:
+  - project_typescript
+  - ts_api_design
+shared_packs:
+  - shared_security
+prompt_overlay_refs:
+  - frontend_strict
+detector_refs: []
+priority_policy_ref: typescript_default

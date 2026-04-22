@@ -1,12 +1,14 @@
 from __future__ import annotations
 
-from typing import Any, Literal
+from typing import Literal
 
 from pydantic import BaseModel, Field, model_validator
 
 
 PriorityTier = Literal["reference", "default", "high", "override"]
 ConflictAction = Literal["compatible", "overridden", "excluded", "reference_only"]
+Reviewability = Literal["auto_review", "manual_only", "reference_only"]
+AppliesTo = Literal["code", "diff", "comment", "docs"]
 
 
 def _legacy_authority(source_kind: str) -> str:
@@ -43,12 +45,16 @@ def _build_embedding_text(
     text: str,
     pack_id: str,
     language_id: str,
+    context_id: str | None,
+    dialect_id: str | None,
 ) -> str:
     return "\n".join(
         [
             f"rule_no: {rule_no}",
             f"pack_id: {pack_id}",
             f"language_id: {language_id}",
+            f"context_id: {context_id or ''}",
+            f"dialect_id: {dialect_id or ''}",
             f"section: {section}",
             f"title: {title}",
             f"summary: {summary}",
@@ -69,11 +75,14 @@ class RuleEntry(BaseModel):
     text: str
     summary: str
     keywords: list[str] = Field(default_factory=list)
+    tags: list[str] = Field(default_factory=list)
     category: str = "general"
-    reviewability: Literal["auto_review", "manual_only", "reference_only"] = "auto_review"
-    applies_to: list[str] = Field(default_factory=lambda: ["code", "diff"])
+    reviewability: Reviewability = "auto_review"
+    applies_to: list[AppliesTo] = Field(default_factory=lambda: ["code", "diff"])
     false_positive_risk: Literal["low", "medium", "high"] = "medium"
     trigger_patterns: list[str] = Field(default_factory=list)
+    symbol_hints: list[str] = Field(default_factory=list)
+    file_globs: list[str] = Field(default_factory=list)
     fix_guidance: str | None = None
     bot_comment_template: str | None = None
     review_rank_default: float | None = None
@@ -86,6 +95,9 @@ class RuleEntry(BaseModel):
     overrides: list[str] = Field(default_factory=list)
     excluded_by: list[str] = Field(default_factory=list)
     rationale: str | None = None
+    enabled: bool = True
+    context_id: str | None = None
+    dialect_id: str | None = None
 
 
 class RulePackManifest(BaseModel):
@@ -99,6 +111,9 @@ class RulePackManifest(BaseModel):
     default_priority_tier: PriorityTier = "default"
     profile_tags: list[str] = Field(default_factory=list)
     plugin_refs: list[str] = Field(default_factory=list)
+    context_id: str | None = None
+    dialect_id: str | None = None
+    file_globs: list[str] = Field(default_factory=list)
     entries: list[RuleEntry] = Field(default_factory=list)
 
 
@@ -111,6 +126,8 @@ class ProfileConfig(BaseModel):
     prompt_overlay_refs: list[str] = Field(default_factory=list)
     detector_refs: list[str] = Field(default_factory=list)
     priority_policy_ref: str = "cpp_default"
+    context_id: str | None = None
+    dialect_id: str | None = None
 
 
 class PriorityPolicyMatch(BaseModel):
@@ -167,12 +184,34 @@ class RuleRootManifest(BaseModel):
     policy_files: list[str] = Field(default_factory=list)
 
 
+class RuleSourceManifestEntry(BaseModel):
+    rule_source_id: str
+    path: str
+    pack_targets: list[str] = Field(default_factory=list)
+    context_id: str | None = None
+    dialect_id: str | None = None
+
+
+class RuleSourceLanguageManifest(BaseModel):
+    language_id: str
+    sources: list[RuleSourceManifestEntry] = Field(default_factory=list)
+
+
+class RuleSourceManifest(BaseModel):
+    schema_version: int = 1
+    bundle_id: str
+    default_chunking: dict[str, str | int] = Field(default_factory=dict)
+    languages: list[RuleSourceLanguageManifest] = Field(default_factory=list)
+
+
 class ParsedRule(BaseModel):
     rule_no: str
     source: str
     pack_id: str | None = None
     source_kind: str = "public_standard"
     language_id: str = "cpp"
+    context_id: str | None = None
+    dialect_id: str | None = None
     namespace: str | None = None
     source_family: str | None = None
     section: str
@@ -180,6 +219,7 @@ class ParsedRule(BaseModel):
     text: str
     summary: str
     keywords: list[str] = Field(default_factory=list)
+    tags: list[str] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def _sync_pack_and_legacy_source(self) -> ParsedRule:
@@ -192,6 +232,8 @@ class ParsedRule(BaseModel):
 
 class GuidelineRecord(ParsedRule):
     id: str | None = None
+    rule_uid: str | None = None
+    rule_pack: str | None = None
     base_score: float = 0.5
     priority_tier: PriorityTier = "default"
     pack_weight: float = 0.5
@@ -206,18 +248,22 @@ class GuidelineRecord(ParsedRule):
     overridden_by: list[str] = Field(default_factory=list)
     conflict_reason: str | None = None
     active: bool = True
-    reviewability: Literal["auto_review", "manual_only", "reference_only"] = "auto_review"
-    applies_to: list[str] = Field(default_factory=lambda: ["code", "diff"])
+    reviewability: Reviewability = "auto_review"
+    applies_to: list[AppliesTo] = Field(default_factory=lambda: ["code", "diff"])
     category: str = "general"
     false_positive_risk: Literal["low", "medium", "high"] = "medium"
     trigger_patterns: list[str] = Field(default_factory=list)
     bot_comment_template: str | None = None
     fix_guidance: str | None = None
     review_rank_default: float = 0.5
+    file_globs: list[str] = Field(default_factory=list)
+    symbol_hints: list[str] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def _sync_runtime_aliases(self) -> GuidelineRecord:
         self.id = self.id or f"{self.pack_id}:{self.rule_no}"
+        self.rule_uid = self.rule_uid or self.id
+        self.rule_pack = self.rule_pack or self.pack_id
         self.source_family = self.source_family or self.pack_id
         self.authority = self.authority or _legacy_authority(self.source_kind)
         self.priority = self.base_score if self.priority is None else self.priority
@@ -233,7 +279,7 @@ class GuidelineRecord(ParsedRule):
                 section=self.section,
                 title=self.title,
                 summary=self.summary,
-                keywords=self.keywords,
+                keywords=self.keywords + self.tags,
                 category=self.category,
                 reviewability=self.reviewability,
                 trigger_patterns=self.trigger_patterns,
@@ -241,16 +287,23 @@ class GuidelineRecord(ParsedRule):
                 text=self.text,
                 pack_id=self.pack_id or "unknown",
                 language_id=self.language_id,
+                context_id=self.context_id,
+                dialect_id=self.dialect_id,
             )
         return self
 
     def chroma_metadata(self) -> dict[str, float | int | str | bool]:
         return {
+            "id": self.id or "",
+            "rule_uid": self.rule_uid or "",
             "rule_no": self.rule_no,
             "source": self.source,
             "pack_id": self.pack_id or "",
+            "rule_pack": self.rule_pack or self.pack_id or "",
             "source_kind": self.source_kind,
             "language_id": self.language_id,
+            "context_id": self.context_id or "",
+            "dialect_id": self.dialect_id or "",
             "namespace": self.namespace or "",
             "source_family": self.source_family or "",
             "authority": self.authority or "",
@@ -259,6 +312,7 @@ class GuidelineRecord(ParsedRule):
             "summary": self.summary,
             "text": self.text,
             "keywords": ",".join(self.keywords),
+            "tags": ",".join(self.tags),
             "priority": self.priority if self.priority is not None else self.base_score,
             "base_score": self.base_score,
             "priority_tier": self.priority_tier,
@@ -279,6 +333,8 @@ class GuidelineRecord(ParsedRule):
             "bot_comment_template": self.bot_comment_template or "",
             "fix_guidance": self.fix_guidance or "",
             "review_rank_default": self.review_rank_default,
+            "file_globs": ",".join(self.file_globs),
+            "symbol_hints": ",".join(self.symbol_hints),
         }
 
 
@@ -293,6 +349,9 @@ class QueryAnalysis(BaseModel):
     input_kind: Literal["code", "diff"]
     language_id: str = "cpp"
     profile_id: str = "default"
+    context_id: str | None = None
+    dialect_id: str | None = None
+    query_plugin_id: str | None = None
     detector_refs: list[str] = Field(default_factory=list)
     query_text: str
     patterns: list[QueryPattern] = Field(default_factory=list)
@@ -309,6 +368,8 @@ class CandidateHit(BaseModel):
 
 class ReviewResult(BaseModel):
     rule_no: str
+    rule_uid: str | None = None
+    rule_pack: str | None = None
     source_family: str
     authority: str
     conflict_policy: str
@@ -326,12 +387,16 @@ class ReviewResult(BaseModel):
     priority_tier: str | None = None
     pack_weight: float | None = None
     language_id: str | None = None
+    context_id: str | None = None
+    dialect_id: str | None = None
     conflict_action: str | None = None
 
 
 class ReviewResponse(BaseModel):
     language_id: str = "cpp"
     profile_id: str = "default"
+    context_id: str | None = None
+    dialect_id: str | None = None
     prompt_overlay_refs: list[str] = Field(default_factory=list)
     query_text: str
     detected_patterns: list[str]
@@ -341,6 +406,12 @@ class ReviewResponse(BaseModel):
 class ReviewCodeRequest(BaseModel):
     code: str
     top_k: int = 10
+    file_path: str | None = None
+    file_context: str | None = None
+    language_id: str | None = None
+    profile_id: str | None = None
+    context_id: str | None = None
+    dialect_id: str | None = None
 
 
 class ReviewDiffRequest(BaseModel):
@@ -348,6 +419,10 @@ class ReviewDiffRequest(BaseModel):
     top_k: int = 10
     file_path: str | None = None
     file_context: str | None = None
+    language_id: str | None = None
+    profile_id: str | None = None
+    context_id: str | None = None
+    dialect_id: str | None = None
 
 
 class IngestionSummary(BaseModel):
@@ -367,6 +442,8 @@ class IngestionSummary(BaseModel):
     parsed_pack_counts: dict[str, int] = Field(default_factory=dict)
     public_rule_root: str | None = None
     extension_rule_roots: list[str] = Field(default_factory=list)
+    languages: dict[str, dict[str, int | str]] = Field(default_factory=dict)
+    dataset_paths: dict[str, dict[str, str]] = Field(default_factory=dict)
 
 
 class ConflictResolutionResult(BaseModel):
@@ -378,6 +455,10 @@ class ConflictResolutionResult(BaseModel):
 
 class RepoFileFinding(BaseModel):
     path: str
+    language_id: str | None = None
+    profile_id: str | None = None
+    context_id: str | None = None
+    dialect_id: str | None = None
     score: float
     pattern_count: int
     patterns: list[QueryPattern] = Field(default_factory=list)
@@ -395,6 +476,10 @@ class LoadedRuleContext(BaseModel):
     language_id: str
     profile: ProfileConfig
     policy: PriorityPolicy
+    context_id: str | None = None
+    dialect_id: str | None = None
+    selected_pack_ids: list[str] = Field(default_factory=list)
+    shared_pack_ids: list[str] = Field(default_factory=list)
     active_records: list[GuidelineRecord]
     reference_records: list[GuidelineRecord]
     excluded_records: list[GuidelineRecord]
@@ -403,3 +488,27 @@ class LoadedRuleContext(BaseModel):
     extension_rule_roots: list[str] = Field(default_factory=list)
     prompt_overlay_refs: list[str] = Field(default_factory=list)
     detector_refs: list[str] = Field(default_factory=list)
+
+
+class LanguageRegistryEntry(BaseModel):
+    language_id: str
+    display_name: str
+    query_plugin_id: str
+    default_profile: str = "default"
+    default_context_id: str | None = None
+    default_dialect_id: str | None = None
+    file_extensions: list[str] = Field(default_factory=list)
+    filenames: list[str] = Field(default_factory=list)
+    path_globs: list[str] = Field(default_factory=list)
+    shebangs: list[str] = Field(default_factory=list)
+    reviewable: bool = True
+
+
+class LanguageMatch(BaseModel):
+    language_id: str
+    profile_id: str
+    query_plugin_id: str
+    reviewable: bool = True
+    context_id: str | None = None
+    dialect_id: str | None = None
+    match_source: str = "default"

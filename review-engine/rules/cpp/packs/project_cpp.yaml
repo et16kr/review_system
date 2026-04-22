@@ -1,0 +1,120 @@
+schema_version: 1
+pack_id: project_cpp
+namespace: public
+language_id: cpp
+source_kind: project_policy
+description: General project-facing C++ review rules for API clarity and maintainability.
+default_enabled: true
+default_priority_tier: high
+entries:
+  - rule_no: CPP.PROJ.1
+    section: CPP
+    title: Keep ownership visible at allocation and handoff boundaries
+    summary: New resource-owning state should be wrapped or transferred immediately at the point it is created.
+    text: When ownership changes hands, the code should make that transfer obvious in the same local region. Hidden or delayed ownership transfer makes exception and early-return behavior harder to verify.
+    category: memory
+    trigger_patterns: [raw_new, ownership_ambiguity]
+    fix_guidance: Construct the owning wrapper immediately or return the owner type directly from the helper that creates the resource.
+    base_score: 0.72
+    severity_default: 0.74
+    priority_tier: default
+    specificity: 0.74
+    false_positive_risk: medium
+  - rule_no: CPP.PROJ.2
+    section: CPP
+    title: Prefer narrow compatibility wrappers around low-level platform APIs
+    summary: Platform-specific or low-level calls should be isolated instead of spreading through business logic.
+    text: Encapsulating low-level APIs behind a focused helper reduces call-site churn, keeps portability decisions central, and makes later testing easier.
+    category: wrapper_usage
+    trigger_patterns: [direct_system_call, direct_system_header]
+    fix_guidance: Move low-level interaction behind a helper or adapter with a smaller and more testable surface.
+    base_score: 0.58
+    severity_default: 0.6
+    priority_tier: default
+    specificity: 0.55
+    false_positive_risk: medium
+  - rule_no: CPP.PROJ.3
+    section: CPP
+    title: Do not let callbacks or extensibility points escape a manual lock boundary casually
+    summary: External work inside a lock makes concurrency reasoning much harder across the codebase.
+    text: Project code should keep lock scopes small and predictable. Calling out to callbacks, virtual hooks, or other extensibility points while a mutex is held can couple distant code to lock ordering and latency.
+    category: concurrency
+    trigger_patterns: [manual_lock_unlock]
+    fix_guidance: Narrow the locked region so externally controlled work happens after the guard is released whenever practical.
+    base_score: 0.83
+    severity_default: 0.85
+    priority_tier: high
+    specificity: 0.81
+    false_positive_risk: medium
+  - rule_no: CPP.PROJ.4
+    section: CPP
+    title: Keep C and OS boundary calls behind project-owned adapters
+    summary: Low-level APIs are safer when one layer defines the project contract for them.
+    text: Repeating direct fopen, open, close, printf, or platform-specific include patterns across business logic spreads policy, portability, and testing concerns too widely.
+    category: abstraction
+    trigger_patterns: [direct_system_call, direct_system_header]
+    fix_guidance: Route low-level behavior through a project adapter that defines ownership, error, and portability expectations once.
+    base_score: 0.57
+    severity_default: 0.59
+    priority_tier: default
+    specificity: 0.54
+    false_positive_risk: medium
+  - rule_no: CPP.PROJ.5
+    section: CPP
+    title: Prefer typed formatting helpers over ad hoc printf-style contracts in core code
+    summary: Repeated format strings spread fragile calling conventions and make future changes harder to audit.
+    text: Core application paths are easier to maintain when formatting lives behind typed helper interfaces instead of repeated format-string contracts with implicit argument expectations.
+    category: format_usage
+    trigger_patterns: [primitive_format_specifier, direct_system_call]
+    fix_guidance: Move repeated formatting behavior behind typed helpers or standard formatting facilities that make the call contract explicit.
+    base_score: 0.56
+    severity_default: 0.58
+    priority_tier: default
+    specificity: 0.53
+    false_positive_risk: medium
+  - rule_no: CPP.PROJ.6
+    section: CPP
+    title: Borrowing pointer parameters should communicate that they do not own lifetime
+    summary: Project APIs should not rely on comments alone to distinguish borrow-only pointers from owning ones.
+    text: Raw pointers appear throughout native code, but the boundary is easier to review when signatures, names, and nearby checks make the borrowing contract visible.
+    category: api_contract
+    trigger_patterns: [raw_new]
+    fix_guidance: Prefer references, explicit owner types, or locally documented borrow-only conventions that remain obvious at the API boundary.
+    base_score: 0.67
+    severity_default: 0.69
+    priority_tier: default
+    specificity: 0.74
+    false_positive_risk: medium
+  - rule_no: CPP.PROJ.7
+    section: CPP
+    title: Pointer-plus-size project interfaces should prefer spans, views, or explicit carrier types where ABI allows
+    summary: Reviewability improves when size, bounds, and borrowing travel together through one type.
+    text: This is usually a project API evolution guideline rather than a patch-local defect claim unless the changed code shows a real mismatch.
+    category: api_contract
+    reviewability: reference_only
+    applies_to: [code, diff, docs]
+    false_positive_risk: medium
+    base_score: 0.56
+    severity_default: 0.56
+  - rule_no: CPP.PROJ.8
+    section: CPP
+    title: Public native wrappers should centralize portability, allocation policy, and low-level error translation
+    summary: Project code is easier to review when business logic is not also deciding platform and ownership policy at every call site.
+    text: Prefer reference guidance for wrapper boundaries when the patch hints at spread-out policy but does not prove a defect in the changed lines alone.
+    category: abstraction
+    reviewability: reference_only
+    applies_to: [code, diff, docs]
+    false_positive_risk: medium
+    base_score: 0.55
+    severity_default: 0.55
+  - rule_no: CPP.PROJ.9
+    section: CPP
+    title: Lock ownership, callback ownership, and thread ownership should be explicit at the boundary where they meet
+    summary: Native concurrency guidance often needs surrounding design context, so it should be available as reference even when not promoted to an inline defect.
+    text: Use this to keep project reviews grounded in ownership boundaries across mutexes, callbacks, and threads without over-claiming from a partial patch.
+    category: concurrency
+    reviewability: reference_only
+    applies_to: [code, diff, docs]
+    false_positive_risk: medium
+    base_score: 0.56
+    severity_default: 0.56

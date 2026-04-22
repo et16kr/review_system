@@ -1,0 +1,19 @@
+schema_version: 1
+policy_id: java_default
+language_id: java
+pack_weights:
+  effective_java: 0.86
+  project_java: 0.88
+  shared_security: 0.96
+defaults:
+  conflict_action: compatible
+  default_pack_weight: 0.5
+tie_breakers:
+  - explicit_override
+  - higher_tier
+  - higher_specificity
+  - higher_base_score
+  - higher_pack_weight
+  - lexical_rule_id
+overrides: []
+exclusions: []

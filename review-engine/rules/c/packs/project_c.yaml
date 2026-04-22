@@ -1,0 +1,70 @@
+schema_version: 1
+pack_id: project_c
+namespace: public
+language_id: c
+source_kind: project_policy
+description: Project-oriented C guidance for API contracts and cleanup consistency.
+default_enabled: true
+default_priority_tier: high
+entries:
+  - rule_no: C.PROJ.1
+    section: C
+    title: Surface ownership and capacity in function signatures
+    summary: C interfaces should make caller responsibilities obvious through parameters and naming.
+    text: When a function consumes, fills, or frees caller-provided state, the signature and naming should make that responsibility explicit instead of relying on side knowledge.
+    category: type_usage
+    trigger_patterns: [malloc_free, unsafe_string_api]
+    fix_guidance: Pass buffer size, ownership flags, or dedicated owner structs explicitly instead of encoding them implicitly in comments.
+    base_score: 0.8
+    severity_default: 0.82
+    priority_tier: high
+    specificity: 0.78
+    false_positive_risk: medium
+  - rule_no: C.PROJ.2
+    section: C
+    title: API boundaries should expose writable buffer size and nullability expectations
+    summary: Reviewers should be able to see whether a C function may write, own, or reject null directly from the boundary.
+    text: Hidden ownership and capacity conventions turn ordinary integration work into guesswork. Project APIs are safer when callers can see the write contract in the signature instead of relying on tribal knowledge.
+    category: api_contract
+    trigger_patterns: [unsafe_string_api, malloc_free]
+    fix_guidance: Add size parameters, ownership markers, or dedicated structs so the boundary communicates its contract explicitly.
+    base_score: 0.82
+    severity_default: 0.84
+    priority_tier: high
+    specificity: 0.8
+    false_positive_risk: medium
+  - rule_no: C.PROJ.3
+    section: C
+    title: Keep printf-style formatting centralized and typed at the boundary
+    summary: Free-form format strings spread correctness risk across the codebase.
+    text: Project code is easier to review when formatting behavior is isolated behind narrow helpers instead of repeated ad hoc format strings with varying assumptions.
+    category: format_usage
+    trigger_patterns: [primitive_format_specifier]
+    fix_guidance: Route repeated formatting through helper APIs that define the contract for arguments, truncation, and buffer ownership.
+    base_score: 0.78
+    severity_default: 0.8
+    priority_tier: default
+    specificity: 0.76
+    false_positive_risk: medium
+  - rule_no: C.PROJ.4
+    section: C
+    title: Return-code and errno contracts should be documented where callers discover the API
+    summary: Error handling in C becomes guesswork when the meaning of failure values lives outside the boundary.
+    text: Reference guidance is appropriate when the patch suggests a weak error contract but the defect cannot be proven from the changed code alone.
+    category: process
+    reviewability: reference_only
+    applies_to: [code, diff, docs]
+    false_positive_risk: medium
+    base_score: 0.56
+    severity_default: 0.56
+  - rule_no: C.PROJ.5
+    section: C
+    title: Interfaces that fill caller buffers should state null-termination and partial-write behavior explicitly
+    summary: Buffer-writing APIs are easier to review when the caller can see what success, truncation, and failure mean.
+    text: This guidance often belongs in reference form because the changed code may show only one side of the interface, not the full contract.
+    category: api_contract
+    reviewability: reference_only
+    applies_to: [code, diff, docs]
+    false_positive_risk: medium
+    base_score: 0.56
+    severity_default: 0.56

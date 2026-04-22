@@ -1,0 +1,86 @@
+schema_version: 1
+pack_id: review_process
+namespace: public
+language_id: shared
+source_kind: public_standard
+description: Shared review-process guidance that is mostly reference-oriented.
+default_enabled: true
+default_priority_tier: default
+entries:
+  - rule_no: PROC.1
+    section: PROC
+    title: Prefer findings with direct evidence from the changed code
+    summary: Publish only when the patch itself provides concrete evidence of the issue.
+    text: Review findings should stay tightly grounded in the changed code. When a concern depends on missing repository context or multiple speculative assumptions, keep it as reference-only guidance instead of an inline defect claim.
+    category: process
+    reviewability: reference_only
+    applies_to: [diff, comment]
+    false_positive_risk: low
+    base_score: 0.6
+    severity_default: 0.6
+  - rule_no: PROC.2
+    section: PROC
+    title: Keep fix guidance actionable and bounded
+    summary: Suggested fixes should be concrete enough for the author to act on without guessing the intended direction.
+    text: A good review comment explains the failure mode and points to a safe repair direction. Avoid vague suggestions that force the author to infer the missing design.
+    category: process
+    reviewability: reference_only
+    applies_to: [comment]
+    false_positive_risk: low
+    base_score: 0.58
+    severity_default: 0.58
+  - rule_no: PROC.3
+    section: PROC
+    title: Findings should name the boundary that was crossed, not just the smell that was noticed
+    summary: Review comments are more actionable when they describe the concrete contract or trust boundary at risk.
+    text: Prefer review language that ties the concern to ownership, resource lifetime, input trust, concurrency, or another explicit boundary instead of only naming a generic anti-pattern.
+    category: process
+    reviewability: reference_only
+    applies_to: [comment]
+    false_positive_risk: low
+    base_score: 0.57
+    severity_default: 0.57
+  - rule_no: PROC.4
+    section: PROC
+    title: Security comments should identify the untrusted input and safer construction pattern
+    summary: A useful security finding explains both the boundary and the safer way to build the code.
+    text: When raising a security issue, point to the specific untrusted input, privilege boundary, or executable surface involved and suggest the construction pattern that would narrow it.
+    category: process
+    reviewability: reference_only
+    applies_to: [comment]
+    false_positive_risk: low
+    base_score: 0.59
+    severity_default: 0.59
+  - rule_no: PROC.5
+    section: PROC
+    title: Escalate uncertainty as guidance when repository-wide proof is missing
+    summary: Reference guidance is better than a false inline defect claim when the patch alone cannot prove the bug.
+    text: Keep defect findings grounded in changed-code evidence. When a concern depends on unshown configuration, runtime state, or external call patterns, phrase it as bounded guidance instead of a hard defect assertion.
+    category: process
+    reviewability: reference_only
+    applies_to: [diff, comment]
+    false_positive_risk: low
+    base_score: 0.58
+    severity_default: 0.58
+  - rule_no: PROC.6
+    section: PROC
+    title: Findings should explain the safer reconstruction pattern, not only name the smell
+    summary: Authors move faster when the comment points to the safer boundary shape instead of only criticizing the current line.
+    text: This guidance is shared across languages and is best kept as reference-only process policy rather than an inline defect rule.
+    category: process
+    reviewability: reference_only
+    applies_to: [comment]
+    false_positive_risk: low
+    base_score: 0.57
+    severity_default: 0.57
+  - rule_no: PROC.7
+    section: PROC
+    title: When context is partial, prefer bounded guidance over speculative system-wide claims
+    summary: High-confidence review depends on staying close to what the patch itself proves.
+    text: Use this process rule to keep large multi-language reviews useful and trustworthy even when only one changed file of a broader system is visible.
+    category: process
+    reviewability: reference_only
+    applies_to: [diff, comment]
+    false_positive_risk: low
+    base_score: 0.57
+    severity_default: 0.57

@@ -1,0 +1,10 @@
+schema_version: 1
+language_id: c
+pack_files:
+  - packs/posix_c.yaml
+  - packs/project_c.yaml
+  - packs/native_memory_shared.yaml
+profile_files:
+  - profiles/default.yaml
+policy_files:
+  - policies/c_default.yaml

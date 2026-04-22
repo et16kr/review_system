@@ -1,0 +1,19 @@
+schema_version: 1
+policy_id: javascript_default
+language_id: javascript
+pack_weights:
+  project_javascript: 0.9
+  node_javascript: 0.8
+  shared_security: 0.96
+defaults:
+  conflict_action: compatible
+  default_pack_weight: 0.5
+tie_breakers:
+  - explicit_override
+  - higher_tier
+  - higher_specificity
+  - higher_base_score
+  - higher_pack_weight
+  - lexical_rule_id
+overrides: []
+exclusions: []

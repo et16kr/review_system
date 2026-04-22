@@ -1,0 +1,96 @@
+schema_version: 1
+pack_id: project_bash
+namespace: public
+language_id: bash
+source_kind: project_policy
+description: Bash baseline for safe execution and explicit failure modes.
+default_enabled: true
+default_priority_tier: high
+entries:
+  - rule_no: BASH.1
+    section: BASH
+    title: Quote variable expansions unless deliberate word splitting is the point
+    summary: Unquoted expansions are a frequent source of path, glob, and whitespace bugs.
+    text: In shell, expansion rules are powerful but easy to trigger accidentally. Most script variables should remain quoted so inputs are handled as one logical value.
+    category: security
+    trigger_patterns: [unquoted_variable]
+    fix_guidance: Wrap expansions in double quotes or replace the shell string path with an explicit array form when multiple arguments are intended.
+    base_score: 0.9
+    severity_default: 0.92
+    priority_tier: high
+    specificity: 0.88
+    false_positive_risk: medium
+  - rule_no: BASH.2
+    section: BASH
+    title: Keep destructive filesystem commands behind validated paths
+    summary: Recursive delete and broad globs deserve explicit guarding.
+    text: Scripts that mutate or delete filesystem state should validate the target path and make empty or malformed inputs impossible to interpret as a broader target.
+    category: security
+    trigger_patterns: [rm_rf_glob]
+    fix_guidance: Validate the target, quote it, and guard against empty or root-like values before destructive operations.
+    base_score: 0.97
+    severity_default: 0.98
+    priority_tier: override
+    specificity: 0.95
+    false_positive_risk: low
+  - rule_no: BASH.3
+    section: BASH
+    title: Build command arguments so expansions stay one logical value by default
+    summary: Shell variables should not silently turn into multiple arguments unless the script makes that intent explicit.
+    text: Most bash values represent one path, token, or user input. Leaving the expansion unquoted delegates too much behavior to shell word splitting and globbing rules.
+    category: script_safety
+    trigger_patterns: [unquoted_variable]
+    fix_guidance: Quote expansions by default or switch to arrays when the script truly intends to pass multiple arguments.
+    base_score: 0.84
+    severity_default: 0.86
+    priority_tier: high
+    specificity: 0.82
+    false_positive_risk: medium
+  - rule_no: BASH.4
+    section: BASH
+    title: Destructive path operations should reject empty and root-like values before expansion
+    summary: Filesystem mutation is safer when the guardrail exists before the shell interprets the path.
+    text: A defensive shell script treats rm, mv, and similar operations as trust boundaries. Empty variables, unexpected prefixes, or accidental globs should fail closed instead of broadening the target set.
+    category: security
+    trigger_patterns: [rm_rf_glob, unquoted_variable]
+    fix_guidance: Guard for empty strings, slash-like roots, and unsafe prefixes before running the destructive command.
+    base_score: 0.98
+    severity_default: 0.99
+    priority_tier: override
+    specificity: 0.96
+    false_positive_risk: low
+  - rule_no: BASH.5
+    section: BASH
+    title: Checked-in automation should not casually depend on sudo-driven privilege escalation
+    summary: Privilege escalation inside normal script flow hides environment assumptions and expands failure modes.
+    text: A script that requires sudo should make that boundary explicit and narrow. Embedding sudo throughout routine control flow makes review, testing, and non-interactive execution harder to reason about.
+    category: security
+    trigger_patterns: [sudo_usage]
+    fix_guidance: Isolate privileged steps behind a dedicated boundary or document the explicit operator/runbook contract instead of scattering sudo through normal script logic.
+    base_score: 0.9
+    severity_default: 0.92
+    priority_tier: high
+    specificity: 0.88
+    false_positive_risk: medium
+  - rule_no: BASH.6
+    section: BASH
+    title: Prefer array-backed argv construction once a shell command has multiple dynamic parts
+    summary: Larger command lines become safer when the script models arguments as values rather than as one shell string.
+    text: As a command grows, the review burden shifts from syntax to trust boundaries. Arrays or small helper wrappers keep argument boundaries explicit and reduce quoting accidents.
+    category: command_design
+    reviewability: reference_only
+    applies_to: [code, diff, docs]
+    false_positive_risk: medium
+    base_score: 0.58
+    severity_default: 0.58
+  - rule_no: BASH.7
+    section: BASH
+    title: Scripts that mutate state should make filesystem, environment, and argv assumptions obvious near the top
+    summary: Shell code stays reviewable when the dangerous assumptions are declared before the control flow branches.
+    text: Prefer an explicit setup section for required environment variables, working directories, and trusted paths so later shell expansions do not rely on hidden global state.
+    category: process
+    reviewability: reference_only
+    applies_to: [code, diff, docs]
+    false_positive_risk: medium
+    base_score: 0.57
+    severity_default: 0.57

@@ -1,0 +1,111 @@
+schema_version: 1
+pack_id: shared_security
+namespace: public
+language_id: shared
+source_kind: public_standard
+description: Shared security baseline rules applied across reviewable languages.
+default_enabled: true
+default_priority_tier: high
+entries:
+  - rule_no: SEC.1
+    section: SEC
+    title: Do not hardcode secrets or long-lived credentials
+    summary: Secret-like literals should live in secret management or deployment configuration, not in source.
+    text: Hardcoded tokens, passwords, API keys, and similar credentials create rotation, exposure, and audit problems. Prefer runtime-provided secrets with narrowly scoped access.
+    category: security
+    trigger_patterns: [hardcoded_secret]
+    fix_guidance: Move the secret into environment-backed configuration or a secret manager and inject it at runtime.
+    base_score: 0.98
+    severity_default: 0.99
+    priority_tier: override
+    specificity: 0.96
+    false_positive_risk: low
+  - rule_no: SEC.2
+    section: SEC
+    title: Build shell commands from trusted primitives, not concatenated strings
+    summary: Shell execution paths should not interpolate untrusted fragments into a command string.
+    text: Command construction through string concatenation is fragile and exposes injection risk. Prefer argument vectors, explicit allow-lists, or dedicated APIs.
+    category: security
+    trigger_patterns: [shell_injection]
+    fix_guidance: Use structured subprocess or exec APIs that separate the executable from validated arguments.
+    base_score: 0.96
+    severity_default: 0.97
+    priority_tier: override
+    specificity: 0.94
+    false_positive_risk: low
+  - rule_no: SEC.3
+    section: SEC
+    title: Parameterize SQL instead of composing query text dynamically
+    summary: Query text built from variables is difficult to reason about and easy to misuse.
+    text: SQL should be parameterized through the database driver's bind facilities or a higher-level abstraction. Dynamic text assembly should be reserved for carefully controlled structural clauses.
+    category: security
+    trigger_patterns: [sql_injection, dynamic_sql]
+    fix_guidance: Bind values separately from the SQL string and constrain structural query changes through allow-listed fragments.
+    base_score: 0.95
+    severity_default: 0.96
+    priority_tier: override
+    specificity: 0.92
+    false_positive_risk: low
+  - rule_no: SEC.4
+    section: SEC
+    title: Do not leave fallback secrets or test credentials in production code paths
+    summary: Backup credentials often become the least-audited credential in the system.
+    text: Even when intended only for local development or bootstrap, embedded fallback secrets create a second and weaker trust path that is easy to forget during incident response or key rotation.
+    category: security
+    trigger_patterns: [hardcoded_secret]
+    fix_guidance: Remove embedded fallback credentials and require runtime configuration or a dedicated local-only development path instead.
+    base_score: 0.97
+    severity_default: 0.98
+    priority_tier: override
+    specificity: 0.95
+    false_positive_risk: low
+  - rule_no: SEC.5
+    section: SEC
+    title: Keep command execution APIs structured so the executable and arguments remain distinct
+    summary: Security review is much stronger when command construction never depends on ad hoc shell parsing.
+    text: Separating the executable from validated arguments narrows the injection surface and makes the trust boundary visible in code review across languages and runtimes.
+    category: security
+    trigger_patterns: [shell_injection]
+    fix_guidance: Use structured process APIs, validate each argument according to its contract, and avoid passing shell fragments through string concatenation.
+    base_score: 0.95
+    severity_default: 0.96
+    priority_tier: override
+    specificity: 0.93
+    false_positive_risk: low
+  - rule_no: SEC.6
+    section: SEC
+    title: Dynamic query structure should stay allow-listed even when values are parameterized
+    summary: Parameter binding protects values, not uncontrolled structural SQL changes.
+    text: ORDER BY fragments, table identifiers, and optional clauses can still create injection or correctness risk when the allowed structures are not tightly bounded.
+    category: security
+    trigger_patterns: [dynamic_sql]
+    fix_guidance: Keep structural variation behind a small allow-list and continue binding values separately from the SQL text.
+    base_score: 0.93
+    severity_default: 0.95
+    priority_tier: high
+    specificity: 0.91
+    false_positive_risk: low
+  - rule_no: SEC.7
+    section: SEC
+    title: Example, bootstrap, and fallback credentials in committed code should be treated as real secrets unless clearly impossible to activate
+    summary: '"Test" or "dev" labels do not remove rotation, misuse, or confusion risk once credentials are committed.'
+    text: Backup and bootstrap secrets often become the least-audited authentication path in a system because everyone assumes they are temporary or unreachable.
+    category: security
+    trigger_patterns: [hardcoded_secret]
+    fix_guidance: Remove committed fallback credentials or move them into an isolated local-only development path that cannot ship as a production default.
+    base_score: 0.97
+    severity_default: 0.98
+    priority_tier: override
+    specificity: 0.95
+    false_positive_risk: low
+  - rule_no: SEC.REF.1
+    section: SECREF
+    title: Security findings should identify the trust boundary and the safer construction pattern together
+    summary: Shared security guidance is more useful when it teaches reconstruction, not just detection.
+    text: Keep this as reference-only policy so cross-language security comments stay actionable without forcing a defect claim when system context is incomplete.
+    category: process
+    reviewability: reference_only
+    applies_to: [comment]
+    false_positive_risk: low
+    base_score: 0.57
+    severity_default: 0.57

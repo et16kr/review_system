@@ -1,0 +1,71 @@
+schema_version: 1
+bundle_id: review_engine_multilanguage_seed_sources
+default_chunking:
+  strategy: heading_sections
+  max_chars: 2200
+languages:
+  - language_id: shared
+    sources:
+      - rule_source_id: shared.shared_security_baseline
+        path: shared/shared_security_baseline.md
+        pack_targets: [shared_security, review_process]
+  - language_id: cpp
+    sources:
+      - rule_source_id: cpp.cpp_core_guidelines
+        path: cpp/cpp_core_guidelines.md
+        pack_targets: [cpp_core, project_cpp, native_memory_shared]
+  - language_id: c
+    sources:
+      - rule_source_id: c.posix_c_safety
+        path: c/posix_c_safety.md
+        pack_targets: [posix_c, project_c, native_memory_shared]
+  - language_id: python
+    sources:
+      - rule_source_id: python.python_runtime_baseline
+        path: python/python_runtime_baseline.md
+        pack_targets: [pep8_python, pep257_docstrings, project_python]
+  - language_id: typescript
+    sources:
+      - rule_source_id: typescript.typescript_runtime_baseline
+        path: typescript/typescript_runtime_baseline.md
+        pack_targets: [project_typescript, ts_api_design]
+  - language_id: javascript
+    sources:
+      - rule_source_id: javascript.javascript_runtime_baseline
+        path: javascript/javascript_runtime_baseline.md
+        pack_targets: [project_javascript, node_javascript]
+  - language_id: java
+    sources:
+      - rule_source_id: java.java_runtime_baseline
+        path: java/java_runtime_baseline.md
+        pack_targets: [effective_java, project_java]
+  - language_id: go
+    sources:
+      - rule_source_id: go.go_runtime_baseline
+        path: go/go_runtime_baseline.md
+        pack_targets: [project_go]
+  - language_id: rust
+    sources:
+      - rule_source_id: rust.rust_runtime_baseline
+        path: rust/rust_runtime_baseline.md
+        pack_targets: [project_rust]
+  - language_id: bash
+    sources:
+      - rule_source_id: bash.shell_safety
+        path: bash/shell_safety.md
+        pack_targets: [project_bash, shell_safety]
+  - language_id: sql
+    sources:
+      - rule_source_id: sql.sql_runtime_baseline
+        path: sql/sql_runtime_baseline.md
+        pack_targets: [ansi_sql, postgres_sql, project_sql]
+  - language_id: yaml
+    sources:
+      - rule_source_id: yaml.yaml_runtime_baseline
+        path: yaml/yaml_runtime_baseline.md
+        pack_targets: [generic_yaml, kubernetes_yaml, ci_yaml, helm_values]
+  - language_id: dockerfile
+    sources:
+      - rule_source_id: dockerfile.dockerfile_runtime_baseline
+        path: dockerfile/dockerfile_runtime_baseline.md
+        pack_targets: [dockerfile_best_practices, container_security]

@@ -1,0 +1,9 @@
+schema_version: 1
+language_id: shared
+pack_files:
+  - packs/shared_security.yaml
+  - packs/review_process.yaml
+profile_files:
+  - profiles/default.yaml
+policy_files:
+  - policies/shared_default.yaml

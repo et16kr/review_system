@@ -1,0 +1,85 @@
+schema_version: 1
+pack_id: posix_c
+namespace: public
+language_id: c
+source_kind: public_standard
+description: POSIX/C safety baseline.
+default_enabled: true
+default_priority_tier: high
+entries:
+  - rule_no: C.POSIX.1
+    section: C
+    title: Avoid unsafe C string APIs on variable-length input
+    summary: Unbounded copy and formatting APIs are easy to misuse and hide buffer assumptions.
+    text: Functions such as strcpy, strcat, sprintf, and gets do not communicate destination capacity strongly enough for review and maintenance.
+    category: security
+    trigger_patterns: [unsafe_string_api]
+    fix_guidance: Prefer size-aware interfaces and make destination capacity explicit at the call site.
+    base_score: 0.98
+    severity_default: 0.99
+    priority_tier: override
+    specificity: 0.96
+    false_positive_risk: low
+  - rule_no: C.POSIX.2
+    section: C
+    title: Manual cleanup jumps must keep all acquired resources in one structured path
+    summary: goto-based cleanup can be acceptable, but only when it stays centralized and exhaustive.
+    text: In C, cleanup labels are sometimes necessary, but the pattern stays safe only when acquisition order and cleanup order remain obvious and single-sourced.
+    category: memory
+    trigger_patterns: [manual_cleanup_goto, malloc_free]
+    fix_guidance: Keep cleanup labels centralized and ordered, and avoid multiple partially overlapping release branches.
+    base_score: 0.84
+    severity_default: 0.86
+    priority_tier: high
+    specificity: 0.82
+    false_positive_risk: medium
+  - rule_no: C.POSIX.3
+    section: C
+    title: Size-sensitive copy and formatting calls should carry destination capacity in the same local context
+    summary: String and format operations are safer when the destination bound is obvious at the call site.
+    text: Reviewers should not have to infer buffer size from distant declarations or comments. The call pattern should make capacity and truncation expectations visible where data crosses into the destination buffer.
+    category: api_contract
+    trigger_patterns: [unsafe_string_api, primitive_format_specifier]
+    fix_guidance: Prefer bounded APIs and pass the destination size through the same local block that performs the write.
+    base_score: 0.93
+    severity_default: 0.95
+    priority_tier: high
+    specificity: 0.9
+    false_positive_risk: low
+  - rule_no: C.POSIX.4
+    section: C
+    title: Cleanup labels should release resources in reverse acquisition order
+    summary: Structured goto cleanup stays understandable when ownership unwinds in one predictable direction.
+    text: A cleanup ladder is only maintainable when each label clearly corresponds to a prefix of acquired resources and teardown proceeds in reverse order without side paths.
+    category: memory
+    trigger_patterns: [manual_cleanup_goto, malloc_free]
+    fix_guidance: Keep one cleanup ladder and unwind resources in reverse acquisition order so later additions remain safe.
+    base_score: 0.85
+    severity_default: 0.87
+    priority_tier: high
+    specificity: 0.83
+    false_positive_risk: medium
+  - rule_no: C.POSIX.5
+    section: C
+    title: Size-aware APIs still need an explicit truncation and null-termination contract
+    summary: Choosing a bounded API is only the first step; callers and maintainers still need to know what happens at the boundary.
+    text: Even "safer" string and formatting functions can hide truncation, missing terminators, or silently altered output unless the surrounding code makes the expected outcome explicit.
+    category: format_usage
+    trigger_patterns: [unsafe_string_api, primitive_format_specifier]
+    fix_guidance: Pair size-aware APIs with a visible destination-size contract and an explicit decision about truncation or failure handling.
+    base_score: 0.86
+    severity_default: 0.88
+    priority_tier: high
+    specificity: 0.84
+    false_positive_risk: medium
+  - rule_no: C.POSIX.6
+    section: C
+    title: Cleanup labels should model one-way unwinding, not ordinary business logic branches
+    summary: goto-based error cleanup is reviewable only when it remains a narrow ownership tool.
+    text: Once cleanup labels start doing normal work, recovery decisions, or side effects, reviewers can no longer reason about them as simple unwinding stages.
+    category: control_flow
+    reviewability: reference_only
+    applies_to: [code, diff, docs]
+    false_positive_risk: medium
+    base_score: 0.57
+    severity_default: 0.57

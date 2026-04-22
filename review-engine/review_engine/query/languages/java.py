@@ -1,0 +1,64 @@
+from __future__ import annotations
+
+from review_engine.query.languages.base import LanguageQueryPlugin, PatternSpec
+
+
+PLUGIN = LanguageQueryPlugin(
+    plugin_id="java",
+    display_name="Java",
+    default_focus="resource ownership, null handling, thread safety, and API contract clarity",
+    pattern_specs=(
+        PatternSpec(
+            "try_without_resources",
+            r"new\s+(?:FileInputStream|FileOutputStream|BufferedReader|BufferedWriter|Socket)\(",
+            "Explicit resource construction detected; review whether try-with-resources should own it.",
+            1.0,
+        ),
+        PatternSpec(
+            "null_return",
+            r"return\s+null\s*;",
+            "Null return detected; review API contract clarity and caller burden.",
+            0.8,
+        ),
+        PatternSpec(
+            "synchronized_collection",
+            r"Collections\.synchronized\w+\(",
+            "Synchronized collection wrapper detected; review iteration and thread-safety assumptions.",
+            0.74,
+        ),
+        PatternSpec(
+            "string_sql_concatenation",
+            r"(?i)(SELECT|UPDATE|DELETE|INSERT).*(\+)",
+            "String-based SQL construction detected; review prepared statements and injection risk.",
+            0.96,
+        ),
+        PatternSpec(
+            "catch_exception",
+            r"catch\s*\(\s*Exception\b",
+            "Broad Exception catch detected; review recoverability, cancellation, and error contract clarity.",
+            0.84,
+        ),
+        PatternSpec(
+            "new_thread",
+            r"new\s+Thread\s*\(",
+            "Direct Thread construction detected; review executor ownership, cancellation, and lifecycle control.",
+            0.78,
+        ),
+    ),
+    hinted_rules={
+        "try_without_resources": ("JAVA.1", "JAVA.4"),
+        "null_return": ("JAVA.2", "JAVA.3"),
+        "synchronized_collection": ("JAVA.PROJ.2", "JAVA.PROJ.4"),
+        "string_sql_concatenation": ("JAVA.PROJ.1", "JAVA.PROJ.3"),
+        "catch_exception": ("JAVA.PROJ.5",),
+        "new_thread": ("JAVA.PROJ.6",),
+    },
+    direct_hint_patterns={
+        "try_without_resources",
+        "null_return",
+        "synchronized_collection",
+        "string_sql_concatenation",
+        "catch_exception",
+        "new_thread",
+    },
+)

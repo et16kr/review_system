@@ -1,0 +1,12 @@
+schema_version: 1
+profile_id: default
+language_id: c
+enabled_packs:
+  - posix_c
+  - project_c
+  - native_memory_shared
+shared_packs:
+  - shared_security
+prompt_overlay_refs: []
+detector_refs: []
+priority_policy_ref: c_default

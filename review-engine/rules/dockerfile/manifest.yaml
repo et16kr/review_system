@@ -1,0 +1,10 @@
+schema_version: 1
+language_id: dockerfile
+pack_files:
+  - packs/dockerfile_best_practices.yaml
+  - packs/container_security.yaml
+profile_files:
+  - profiles/default.yaml
+  - profiles/production_runtime.yaml
+policy_files:
+  - policies/dockerfile_default.yaml

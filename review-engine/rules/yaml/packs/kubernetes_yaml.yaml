@@ -1,0 +1,88 @@
+schema_version: 1
+pack_id: kubernetes_yaml
+namespace: public
+language_id: yaml
+source_kind: public_standard
+description: Kubernetes manifest guidance.
+default_enabled: true
+default_priority_tier: high
+context_id: kubernetes
+entries:
+  - rule_no: YAML.K8S.1
+    section: YAMLK8S
+    title: Avoid privileged containers unless the workload truly requires host-level access
+    summary: "`privileged: true` expands the container trust boundary dramatically."
+    text: Privileged containers bypass many of the normal isolation expectations around a Kubernetes workload and should be exceptional.
+    category: security
+    trigger_patterns: [privileged_true]
+    fix_guidance: Drop privilege escalation or isolate the workload behind the narrowest capability set it actually needs.
+    base_score: 0.99
+    severity_default: 0.99
+    priority_tier: override
+    specificity: 0.97
+    false_positive_risk: low
+  - rule_no: YAML.K8S.2
+    section: YAMLK8S
+    title: Avoid running application containers as root by default
+    summary: Root in a manifest should be a conscious exception, not the baseline.
+    text: A root runtime identity increases the blast radius of an application compromise and makes least-privilege reasoning harder.
+    category: security
+    trigger_patterns: [run_as_root]
+    fix_guidance: Configure a non-root user and align file ownership or init behavior so the workload does not depend on UID 0.
+    base_score: 0.95
+    severity_default: 0.96
+    priority_tier: high
+    specificity: 0.93
+    false_positive_risk: low
+  - rule_no: YAML.K8S.3
+    section: YAMLK8S
+    title: Privileged pods should justify the exact host capability boundary they require
+    summary: privileged true is rarely the smallest permission set that solves the workload need.
+    text: Kubernetes manifests are easier to secure when a workload asks only for the capabilities it truly needs instead of inheriting near-host-level privilege.
+    category: security
+    trigger_patterns: [privileged_true]
+    fix_guidance: Replace privileged mode with the smallest set of capabilities, mounts, or node-level isolation the workload actually requires.
+    base_score: 0.98
+    severity_default: 0.99
+    priority_tier: override
+    specificity: 0.96
+    false_positive_risk: low
+  - rule_no: YAML.K8S.4
+    section: YAMLK8S
+    title: Root runtime identity should be an exception with an explicit deployment rationale
+    summary: Running as UID 0 should stand out as an intentional security tradeoff.
+    text: A manifest that sets runAsUser 0 makes the workload harder to contain after compromise and deserves a clear justification or a redesign toward non-root execution.
+    category: security
+    trigger_patterns: [run_as_root]
+    fix_guidance: Prefer a non-root user and adjust init, volume ownership, or image build steps so the container no longer requires UID 0.
+    base_score: 0.94
+    severity_default: 0.95
+    priority_tier: high
+    specificity: 0.92
+    false_positive_risk: low
+  - rule_no: YAML.K8S.5
+    section: YAMLK8S
+    title: allowPrivilegeEscalation should be exceptional and tied to a narrowly justified workload need
+    summary: Privilege escalation widens the runtime attack surface even when the container is not fully privileged.
+    text: A manifest that enables privilege escalation deserves the same least-privilege scrutiny as other securityContext exceptions because it changes what post-compromise execution can do.
+    category: security
+    trigger_patterns: [allow_privilege_escalation]
+    fix_guidance: Disable privilege escalation by default and add only the minimal capability or runtime exception the workload truly requires.
+    base_score: 0.97
+    severity_default: 0.98
+    priority_tier: override
+    specificity: 0.95
+    false_positive_risk: low
+  - rule_no: YAML.K8S.6
+    section: YAMLK8S
+    title: hostNetwork should be treated as a strong isolation-boundary exception
+    summary: Sharing the node network namespace changes the workload's blast radius and operational assumptions.
+    text: "`hostNetwork: true` should stand out as an architectural exception because it couples pod behavior to node networking and reduces the normal isolation reviewers expect from Kubernetes."
+    category: security
+    trigger_patterns: [host_network_true]
+    fix_guidance: Prefer ordinary pod networking unless host-level networking is explicitly required and documented as part of the workload contract.
+    base_score: 0.95
+    severity_default: 0.96
+    priority_tier: high
+    specificity: 0.93
+    false_positive_risk: low

@@ -1,0 +1,20 @@
+schema_version: 1
+policy_id: sql_default
+language_id: sql
+pack_weights:
+  ansi_sql: 0.86
+  postgres_sql: 0.84
+  project_sql: 0.9
+  shared_security: 0.96
+defaults:
+  conflict_action: compatible
+  default_pack_weight: 0.5
+tie_breakers:
+  - explicit_override
+  - higher_tier
+  - higher_specificity
+  - higher_base_score
+  - higher_pack_weight
+  - lexical_rule_id
+overrides: []
+exclusions: []

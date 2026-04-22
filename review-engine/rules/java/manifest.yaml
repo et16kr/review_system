@@ -1,0 +1,9 @@
+schema_version: 1
+language_id: java
+pack_files:
+  - packs/effective_java.yaml
+  - packs/project_java.yaml
+profile_files:
+  - profiles/default.yaml
+policy_files:
+  - policies/java_default.yaml

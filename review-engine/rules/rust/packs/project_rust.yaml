@@ -1,0 +1,159 @@
+schema_version: 1
+pack_id: project_rust
+namespace: public
+language_id: rust
+source_kind: project_policy
+description: Rust baseline for panic boundaries and unsafe containment.
+default_enabled: true
+default_priority_tier: high
+entries:
+  - rule_no: RUST.1
+    section: RUST
+    title: Keep unsafe blocks small and justified by a local invariant
+    summary: unsafe should isolate the minimum surface that truly needs extra invariants.
+    text: Unsafe Rust is easier to review when the boundary is tiny, the invariant is local, and the surrounding safe API explains what remains guaranteed to callers.
+    category: security
+    trigger_patterns: [unsafe_block]
+    fix_guidance: Move the unsafe operation into a dedicated helper and document the invariant it relies on.
+    base_score: 0.98
+    severity_default: 0.99
+    priority_tier: override
+    specificity: 0.97
+    false_positive_risk: low
+  - rule_no: RUST.2
+    section: RUST
+    title: Treat unwrap and expect as explicit panic contracts
+    summary: A panic path is acceptable only when the caller contract or program phase truly guarantees the value.
+    text: unwrap and expect simplify code, but they also define a hard crash boundary. That tradeoff should be obvious and intentional.
+    category: error_handling
+    trigger_patterns: [unwrap_usage]
+    fix_guidance: Prefer Result propagation or explicit recovery when the failure can occur in normal operation.
+    base_score: 0.9
+    severity_default: 0.92
+    priority_tier: high
+    specificity: 0.88
+    false_positive_risk: medium
+  - rule_no: RUST.3
+    section: RUST
+    title: Remove todo and unimplemented from production paths
+    summary: Placeholder panics are useful during development but unsafe as steady-state runtime behavior.
+    text: Review todo! and unimplemented! as hard failure points that should not reach production request or worker paths without a clear migration plan.
+    category: error_handling
+    trigger_patterns: [todo_macro, panic_macro]
+    fix_guidance: Replace placeholders with explicit error handling or keep them behind clearly bounded experimental code paths.
+    base_score: 0.88
+    severity_default: 0.9
+    priority_tier: high
+    specificity: 0.86
+    false_positive_risk: low
+  - rule_no: RUST.4
+    section: RUST
+    title: Prefer recoverable error propagation over panic in library and request paths
+    summary: Panic is a crash contract and should not be the default answer to ordinary runtime failure.
+    text: Rust makes it easy to distinguish recoverable failures from impossible states. Production request paths benefit when that distinction remains visible in the type system.
+    category: error_handling
+    trigger_patterns: [panic_macro, unwrap_usage]
+    fix_guidance: Return Result or convert the failure into a typed error when the caller can plausibly recover or report it cleanly.
+    base_score: 0.91
+    severity_default: 0.93
+    priority_tier: high
+    specificity: 0.89
+    false_positive_risk: low
+  - rule_no: RUST.5
+    section: RUST
+    title: expect messages should document the invariant, not restate the operation
+    summary: If a panic is intentional, reviewers need the reason the value must exist here.
+    text: An expect call is easier to audit when the message explains the program invariant or phase assumption that makes failure unreachable in normal operation.
+    category: error_handling
+    trigger_patterns: [unwrap_usage]
+    fix_guidance: Replace generic expect text with the invariant being relied on, or return a recoverable error if the condition can legitimately fail.
+    base_score: 0.78
+    severity_default: 0.8
+    priority_tier: default
+    specificity: 0.76
+    false_positive_risk: medium
+  - rule_no: RUST.6
+    section: RUST
+    title: Unsafe code should keep the unchecked invariant local and reviewable
+    summary: The unsafest part of the program should be the easiest part to explain precisely.
+    text: Unsafe blocks stay maintainable when they are small, hidden behind a safe API, and accompanied by the invariant that justifies them.
+    category: security
+    trigger_patterns: [unsafe_block]
+    fix_guidance: Shrink the unsafe region, document the invariant it relies on, and expose the smallest safe API that preserves it.
+    base_score: 0.97
+    severity_default: 0.98
+    priority_tier: override
+    specificity: 0.95
+    false_positive_risk: low
+  - rule_no: RUST.7
+    section: RUST
+    title: Temporary panic placeholders should not survive in runtime-critical paths
+    summary: todo and unimplemented are development markers, not durable operational behavior.
+    text: A leftover placeholder macro becomes a production outage once the path is exercised. Review these macros as explicit unfinished work that needs a release decision.
+    category: error_handling
+    trigger_patterns: [todo_macro]
+    fix_guidance: Replace the placeholder with real logic or an explicit recoverable error before the path becomes part of normal runtime behavior.
+    base_score: 0.89
+    severity_default: 0.91
+    priority_tier: high
+    specificity: 0.87
+    false_positive_risk: low
+  - rule_no: RUST.8
+    section: RUST
+    title: dbg! should not survive in runtime-critical or library output paths
+    summary: Temporary debugging output can leak data and alter runtime behavior assumptions.
+    text: "`dbg!` is a development aid. In reviewed runtime code it usually indicates unfinished cleanup or an output contract that is being bypassed."
+    category: error_handling
+    trigger_patterns: [dbg_macro]
+    fix_guidance: Remove temporary debug output or replace it with structured logging or tests that capture the intended inspection behavior.
+    base_score: 0.8
+    severity_default: 0.82
+    priority_tier: default
+    specificity: 0.78
+    false_positive_risk: medium
+  - rule_no: RUST.9
+    section: RUST
+    title: unsafe fn should document the caller invariant at the signature boundary
+    summary: The existence of unsafe fn tells the caller that part of the safety proof moved out of the callee.
+    text: An unsafe function boundary is only reviewable when the caller contract is stated clearly enough that downstream use can preserve the required invariant.
+    category: security
+    trigger_patterns: [unsafe_fn]
+    fix_guidance: Document the exact caller obligations and keep the unsafe surface as small and specific as possible.
+    base_score: 0.91
+    severity_default: 0.93
+    priority_tier: high
+    specificity: 0.89
+    false_positive_risk: low
+  - rule_no: RUST.REF.1
+    section: RUSTREF
+    title: Library and service boundaries should make panic vs Result behavior obvious to callers
+    summary: Rust review often benefits from reference guidance on boundary contracts even when the patch does not prove a specific bug.
+    text: Prefer APIs where callers can tell whether failure is represented as `Result`, panic, or an invariant requirement that must already hold.
+    category: process
+    reviewability: reference_only
+    applies_to: [code, diff, docs]
+    false_positive_risk: medium
+    base_score: 0.56
+    severity_default: 0.56
+  - rule_no: RUST.REF.2
+    section: RUSTREF
+    title: Safe wrappers around unsafe internals should carry the invariant in their API shape or docs
+    summary: Reference guidance is appropriate when unsafe containment quality depends on module-level context not visible in the patch.
+    text: Use this when a change suggests a widening unsafe boundary but the full safety story depends on surrounding API design.
+    category: process
+    reviewability: reference_only
+    applies_to: [code, diff, docs]
+    false_positive_risk: medium
+    base_score: 0.55
+    severity_default: 0.55
+  - rule_no: RUST.REF.3
+    section: RUSTREF
+    title: Error and ownership contracts should stay visible when abstractions hide allocation or synchronization details
+    summary: This is a good reference rule when the patch hints at a contract boundary but not a concrete misuse.
+    text: Prefer reference guidance where ownership, panic behavior, or synchronization expectations depend on abstractions outside the changed lines.
+    category: process
+    reviewability: reference_only
+    applies_to: [code, diff, docs]
+    false_positive_risk: medium
+    base_score: 0.55
+    severity_default: 0.55

@@ -109,10 +109,12 @@ def test_public_ingest_uses_canonical_yaml_without_internal_markdown(fixture_set
 
     summary = ingest_all_sources(settings)
 
-    assert summary.total_parsed == summary.cpp_core_records
+    assert summary.total_parsed >= summary.cpp_core_records
     assert summary.active_records > 0
     assert Path(summary.active_dataset_path).exists()
-    assert summary.public_rule_root.endswith("/rules/cpp")
+    assert summary.public_rule_root.endswith("/rules")
+    assert "cpp" in summary.languages
+    assert "python" in summary.languages
 
 
 def test_extension_rule_root_can_override_and_exclude_public_rules(
@@ -270,9 +272,9 @@ def test_prompt_composer_stacks_public_layers_and_extension_overlay(
 
     prompt = composer.compose(language_id="cpp", profile_id="default", overlay_refs=["org"])
 
-    assert "공개 C++ 가이드라인" in prompt
+    assert "공개 멀티 랭귀지 가이드라인" in prompt
     assert "RAII와 표준 라이브러리 기반 자원 관리" in prompt
-    assert "기본 프로필은 공개 `cpp_core` pack만 사용합니다." in prompt
+    assert "shared_security" in prompt
     assert "조직 overlay" in prompt
 
 

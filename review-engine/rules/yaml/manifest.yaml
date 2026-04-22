@@ -1,0 +1,15 @@
+schema_version: 1
+language_id: yaml
+pack_files:
+  - packs/generic_yaml.yaml
+  - packs/kubernetes_yaml.yaml
+  - packs/ci_yaml.yaml
+  - packs/helm_values.yaml
+profile_files:
+  - profiles/default.yaml
+  - profiles/kubernetes_manifests.yaml
+  - profiles/github_actions.yaml
+  - profiles/gitlab_ci.yaml
+  - profiles/helm_values.yaml
+policy_files:
+  - policies/yaml_default.yaml

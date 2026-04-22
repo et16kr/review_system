@@ -1,0 +1,4 @@
+@@ -1,2 +1,2 @@
+ #!/usr/bin/env bash
+-rm -rf "$TARGET_DIR"
++rm -rf $TARGET_DIR

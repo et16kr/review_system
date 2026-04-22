@@ -1,0 +1,85 @@
+schema_version: 1
+pack_id: ci_yaml
+namespace: public
+language_id: yaml
+source_kind: public_standard
+description: CI workflow YAML safety guidance.
+default_enabled: true
+default_priority_tier: high
+entries:
+  - rule_no: YAML.CI.1
+    section: YAMLCI
+    title: Avoid broad workflow token permissions when narrower scopes are sufficient
+    summary: CI credentials should default to the least privilege required for the workflow.
+    text: Broad automation token scopes make accidental misuse and supply-chain fallout larger than necessary.
+    category: security
+    trigger_patterns: [permissions_write_all]
+    fix_guidance: Declare only the permissions the workflow step needs and keep write scopes limited to the jobs that truly require them.
+    base_score: 0.98
+    severity_default: 0.99
+    priority_tier: override
+    specificity: 0.96
+    false_positive_risk: low
+  - rule_no: YAML.CI.2
+    section: YAMLCI
+    title: Pin or version-sensitive CI images and actions deliberately
+    summary: Mutable execution images reduce reproducibility and complicate rollback analysis.
+    text: CI definitions should make their execution environment explicit enough that failures and rollbacks can be traced to a concrete version set.
+    category: configuration
+    trigger_patterns: [latest_tag]
+    fix_guidance: Prefer pinned image tags or action revisions over floating latest-like defaults.
+    base_score: 0.84
+    severity_default: 0.86
+    priority_tier: high
+    specificity: 0.82
+    false_positive_risk: medium
+  - rule_no: YAML.CI.3
+    section: YAMLCI
+    title: Broad workflow token permissions should be scoped to the smallest set of jobs possible
+    summary: Defaulting the entire pipeline to write-all expands the blast radius of one compromised step.
+    text: CI jobs vary in privilege needs. Review workflow permissions so elevated scopes appear only on the jobs that truly require them instead of the whole pipeline.
+    category: security
+    trigger_patterns: [permissions_write_all]
+    fix_guidance: Move elevated permissions to the narrowest workflow or job scope that still supports the required action.
+    base_score: 0.97
+    severity_default: 0.98
+    priority_tier: override
+    specificity: 0.95
+    false_positive_risk: low
+  - rule_no: YAML.CI.4
+    section: YAMLCI
+    title: Mutable CI runtime images should be treated as provenance and rollback risk
+    summary: latest-like tags make it harder to explain why the same workflow changed behavior.
+    text: A floating execution image can change toolchains, package sets, and dependency graphs without a repository diff, which complicates debugging and incident response.
+    category: configuration
+    trigger_patterns: [latest_tag]
+    fix_guidance: Pin the image or action revision tightly enough that the workflow environment remains traceable and repeatable.
+    base_score: 0.83
+    severity_default: 0.85
+    priority_tier: high
+    specificity: 0.81
+    false_positive_risk: medium
+  - rule_no: YAML.CI.5
+    section: YAMLCI
+    title: Branch-ref GitHub Actions should be treated as mutable execution dependencies
+    summary: "`@main` or `@master` makes workflow behavior drift without a repository change in the caller."
+    text: CI action references are part of the build's executable supply chain. Branch refs weaken provenance, rollback, and incident reconstruction compared to tagged or SHA-pinned refs.
+    category: security
+    trigger_patterns: [uses_branch_ref]
+    fix_guidance: Pin actions to a vetted immutable ref, ideally a commit SHA or another organization-approved immutable release boundary.
+    base_score: 0.93
+    severity_default: 0.95
+    priority_tier: high
+    specificity: 0.91
+    false_positive_risk: low
+  - rule_no: YAML.CI.REF.1
+    section: YAMLCIREF
+    title: Workflow trust boundaries should be obvious at the job that consumes privileged tokens or mutable dependencies
+    summary: Reference guidance helps when the patch hints at a risky workflow boundary but the full security model spans multiple jobs or external actions.
+    text: Prefer job-local clarity about which step consumes write permissions, secrets, or mutable external actions so provenance review does not depend on reconstructing the whole pipeline mentally.
+    category: process
+    reviewability: reference_only
+    applies_to: [code, diff, docs]
+    false_positive_risk: medium
+    base_score: 0.55
+    severity_default: 0.55
