@@ -70,7 +70,7 @@ services:
       REVIEW_SYSTEM_BASE_URL: ${REVIEW_SYSTEM_BASE_URL:-http://review-platform:18080}
       PLATFORM_BASE_URL: ${REVIEW_SYSTEM_BASE_URL:-http://review-platform:18080}
       ENGINE_BASE_URL: http://review-engine:8000
-      BOT_BATCH_SIZE: 10
+      BOT_BATCH_SIZE: ${BOT_BATCH_SIZE:-10}
       BOT_PROVIDER: ${BOT_PROVIDER:-stub}
       BOT_FALLBACK_PROVIDER: ${BOT_FALLBACK_PROVIDER:-stub}
       BOT_QUEUE_DETECT_NAME: ${BOT_QUEUE_DETECT_NAME:-review-detect}
@@ -101,7 +101,7 @@ services:
       REVIEW_SYSTEM_BASE_URL: ${REVIEW_SYSTEM_BASE_URL:-http://review-platform:18080}
       PLATFORM_BASE_URL: ${REVIEW_SYSTEM_BASE_URL:-http://review-platform:18080}
       ENGINE_BASE_URL: http://review-engine:8000
-      BOT_BATCH_SIZE: 10
+      BOT_BATCH_SIZE: ${BOT_BATCH_SIZE:-10}
       BOT_PROVIDER: ${BOT_PROVIDER:-stub}
       BOT_FALLBACK_PROVIDER: ${BOT_FALLBACK_PROVIDER:-stub}
       BOT_QUEUE_DETECT_NAME: ${BOT_QUEUE_DETECT_NAME:-review-detect}

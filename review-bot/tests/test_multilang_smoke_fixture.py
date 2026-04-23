@@ -15,6 +15,20 @@ WORKSPACE_ROOT = Path(__file__).resolve().parents[2]
 SCRIPT_PATH = WORKSPACE_ROOT / "ops" / "scripts" / "smoke_local_gitlab_multilang_review.py"
 
 
+def _bot_discussion(*, path: str, line: int, body: str) -> dict:
+    return {
+        "notes": [
+            {
+                "body": body,
+                "position": {
+                    "new_path": path,
+                    "new_line": line,
+                },
+            }
+        ]
+    }
+
+
 def _load_smoke_script():
     scripts_dir = SCRIPT_PATH.parent
     if str(scripts_dir) not in sys.path:
@@ -74,6 +88,18 @@ def test_smoke_fixture_contract_requires_engine_rule_paths_to_be_required() -> N
         script.validate_fixture_contract(replace(fixture, expected=expected))
 
 
+def test_smoke_fixture_contract_rejects_invalid_density_contract() -> None:
+    script = _load_smoke_script()
+    fixture = script.load_smoke_fixture("synthetic-mixed-language")
+    expected = dict(fixture.expected)
+    expected["density_contract"] = {
+        "maximum_review_comments": "many",
+    }
+
+    with pytest.raises(SystemExit, match="maximum_review_comments must be a positive integer"):
+        script.validate_fixture_contract(replace(fixture, expected=expected))
+
+
 def test_smoke_comment_contract_reports_missing_and_forbidden_tags() -> None:
     script = _load_smoke_script()
     fixture = script.load_smoke_fixture("synthetic-mixed-language")
@@ -94,6 +120,78 @@ def test_smoke_comment_contract_reports_missing_and_forbidden_tags() -> None:
                 "[봇 리뷰][yaml] YAML issue",
                 "[봇 리뷰][sql] SQL issue",
                 "[봇 리뷰][yaml] Another YAML issue",
+            ],
+            fixture.expected,
+        )
+    with pytest.raises(RuntimeError, match="Expected at most"):
+        script.validate_bot_comments(
+            [
+                "[봇 리뷰][yaml] YAML issue",
+                "[봇 리뷰][sql] SQL issue",
+                "[봇 리뷰][python] Python issue",
+                "[봇 리뷰][yaml] Another YAML issue",
+                "[봇 리뷰][sql] Another SQL issue",
+                "[봇 리뷰][python] Another Python issue",
+            ],
+            fixture.expected,
+        )
+
+
+def test_smoke_discussion_contract_reports_density_paths() -> None:
+    script = _load_smoke_script()
+    fixture = script.load_smoke_fixture("synthetic-mixed-language")
+
+    validation = script.validate_bot_discussions(
+        [
+            _bot_discussion(
+                path=".gitlab-ci.yml",
+                line=5,
+                body="[봇 리뷰][yaml] YAML issue",
+            ),
+            _bot_discussion(
+                path="warehouse/daily_rollup.sql",
+                line=10,
+                body="[봇 리뷰][sql] SQL issue",
+            ),
+            _bot_discussion(
+                path="api/routes/items.py",
+                line=20,
+                body="[봇 리뷰][python] Python issue",
+            ),
+        ],
+        fixture.expected,
+    )
+
+    assert validation["density_contract"]["distinct_comment_paths"] == 3
+    assert validation["density_contract"]["comment_paths"] == {
+        ".gitlab-ci.yml": 1,
+        "api/routes/items.py": 1,
+        "warehouse/daily_rollup.sql": 1,
+    }
+
+
+def test_smoke_discussion_contract_rejects_single_file_density() -> None:
+    script = _load_smoke_script()
+    fixture = script.load_smoke_fixture("synthetic-mixed-language")
+
+    with pytest.raises(RuntimeError, match="Expected comments across at least"):
+        script.validate_bot_discussions(
+            [
+                _bot_discussion(
+                    path=".gitlab-ci.yml",
+                    line=5,
+                    body="[봇 리뷰][yaml] YAML issue",
+                ),
+                _bot_discussion(
+                    path=".gitlab-ci.yml",
+                    line=6,
+                    body="[봇 리뷰][sql] SQL issue",
+                ),
+                _bot_discussion(
+                    path=".gitlab-ci.yml",
+                    line=7,
+                    body="[봇 리뷰][python] Python issue",
+                ),
             ],
             fixture.expected,
         )

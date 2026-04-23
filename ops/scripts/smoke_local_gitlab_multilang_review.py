@@ -193,6 +193,25 @@ def validate_fixture_contract(fixture: SmokeFixture) -> None:
             f"{fixture.fixture_id} minimum_review_comments={minimum_review_comments} "
             f"is lower than expected_language_tags={len(expected_language_tags)}"
         )
+    try:
+        density_contract = _as_density_contract(
+            fixture.expected.get("density_contract"),
+            context=f"{fixture.fixture_id} density_contract",
+        )
+    except ValueError as exc:
+        raise SystemExit(str(exc)) from exc
+    maximum_review_comments = density_contract.get("maximum_review_comments")
+    if maximum_review_comments is not None and maximum_review_comments < minimum_review_comments:
+        raise SystemExit(
+            f"{fixture.fixture_id} maximum_review_comments={maximum_review_comments} "
+            f"is lower than minimum_review_comments={minimum_review_comments}"
+        )
+    minimum_distinct_paths = density_contract.get("minimum_distinct_comment_paths")
+    if minimum_distinct_paths is not None and minimum_distinct_paths > len(required_paths):
+        raise SystemExit(
+            f"{fixture.fixture_id} minimum_distinct_comment_paths={minimum_distinct_paths} "
+            f"is higher than required_paths={len(required_paths)}"
+        )
 
     wrong_language_feedback = fixture.expected.get("wrong_language_feedback")
     if wrong_language_feedback is None:
@@ -403,13 +422,28 @@ def _fetch_wrong_language_feedback(*, project_ref: str, window: str = "28d") -> 
 
 
 def _bot_note_bodies(discussions: list[dict]) -> list[str]:
-    bodies: list[str] = []
+    return [str(record["body"]) for record in _bot_note_records(discussions)]
+
+
+def _bot_note_records(discussions: list[dict]) -> list[dict[str, object]]:
+    records: list[dict[str, object]] = []
     for discussion in discussions:
         for note in discussion.get("notes") or []:
             body = str(note.get("body") or "")
             if "[봇 리뷰]" in body:
-                bodies.append(body)
-    return bodies
+                position = note.get("position") or discussion.get("position") or {}
+                if not isinstance(position, dict):
+                    position = {}
+                records.append(
+                    {
+                        "body": body,
+                        "file_path": str(
+                            position.get("new_path") or position.get("old_path") or ""
+                        ),
+                        "line_no": position.get("new_line") or position.get("old_line"),
+                    }
+                )
+    return records
 
 
 def _find_discussion_by_language(discussions: list[dict], language_id: str) -> dict | None:
@@ -438,6 +472,34 @@ def _as_rule_expectations(value: object) -> dict[str, list[str]]:
     }
 
 
+def _as_density_contract(
+    value: object,
+    *,
+    context: str = "density_contract",
+) -> dict[str, int]:
+    if value is None:
+        return {}
+    if not isinstance(value, dict):
+        raise ValueError(f"{context} must be an object when set.")
+    contract: dict[str, int] = {}
+    for key in (
+        "maximum_review_comments",
+        "minimum_distinct_comment_paths",
+        "maximum_comments_per_path",
+    ):
+        raw_value = value.get(key)
+        if raw_value is None:
+            continue
+        try:
+            numeric_value = int(raw_value)
+        except (TypeError, ValueError):
+            raise ValueError(f"{context}.{key} must be a positive integer.") from None
+        if numeric_value <= 0:
+            raise ValueError(f"{context}.{key} must be a positive integer.")
+        contract[key] = numeric_value
+    return contract
+
+
 def _changed_fixture_paths(fixture: SmokeFixture) -> list[str]:
     return sorted(
         path
@@ -454,10 +516,16 @@ def validate_bot_comments(bot_bodies: list[str], expected: dict) -> dict:
     missing_tags = [tag for tag in required_tags if not any(tag in body for body in bot_bodies)]
     unexpected_tags = [tag for tag in forbidden_tags if any(tag in body for body in bot_bodies)]
     minimum_review_comments = int(expected.get("minimum_review_comments") or 0)
+    density_contract = _as_density_contract(expected.get("density_contract"))
+    maximum_review_comments = density_contract.get("maximum_review_comments")
 
     if len(bot_bodies) < minimum_review_comments:
         raise RuntimeError(
             f"Expected at least {minimum_review_comments} bot comments, got {len(bot_bodies)}."
+        )
+    if maximum_review_comments is not None and len(bot_bodies) > maximum_review_comments:
+        raise RuntimeError(
+            f"Expected at most {maximum_review_comments} bot comments, got {len(bot_bodies)}."
         )
     if missing_tags:
         raise RuntimeError(f"Missing expected language-tagged comments: {missing_tags}")
@@ -470,8 +538,48 @@ def validate_bot_comments(bot_bodies: list[str], expected: dict) -> dict:
         "required_tags": required_tags,
         "forbidden_tags": forbidden_tags,
         "minimum_review_comments": minimum_review_comments,
+        "maximum_review_comments": maximum_review_comments,
         "bot_comment_count": len(bot_bodies),
     }
+
+
+def validate_bot_discussions(discussions: list[dict], expected: dict) -> dict:
+    bot_records = _bot_note_records(discussions)
+    validation = validate_bot_comments(
+        [str(record["body"]) for record in bot_records],
+        expected,
+    )
+    density_contract = _as_density_contract(expected.get("density_contract"))
+    path_counts: dict[str, int] = {}
+    for record in bot_records:
+        file_path = str(record.get("file_path") or "").strip()
+        if file_path:
+            path_counts[file_path] = path_counts.get(file_path, 0) + 1
+
+    minimum_distinct_paths = density_contract.get("minimum_distinct_comment_paths")
+    if minimum_distinct_paths is not None and len(path_counts) < minimum_distinct_paths:
+        raise RuntimeError(
+            f"Expected comments across at least {minimum_distinct_paths} paths, "
+            f"got {len(path_counts)}: {sorted(path_counts)}."
+        )
+
+    maximum_per_path = density_contract.get("maximum_comments_per_path")
+    if maximum_per_path is not None:
+        overloaded_paths = {
+            path: count for path, count in path_counts.items() if count > maximum_per_path
+        }
+        if overloaded_paths:
+            raise RuntimeError(
+                f"Expected at most {maximum_per_path} comments per path, "
+                f"got {overloaded_paths}."
+            )
+
+    validation["density_contract"] = {
+        "comment_paths": path_counts,
+        "distinct_comment_paths": len(path_counts),
+        **density_contract,
+    }
+    return validation
 
 
 def main() -> int:
@@ -554,8 +662,7 @@ def main() -> int:
             project_ref=project_ref,
             mr_iid=int(merge_request["iid"]),
         )
-        bot_bodies = _bot_note_bodies(discussions)
-        comment_validation = validate_bot_comments(bot_bodies, fixture.expected)
+        comment_validation = validate_bot_discussions(discussions, fixture.expected)
 
         after_sync_state = None
         telemetry: dict = {"top_language_pairs": [], "triage_candidates": []}

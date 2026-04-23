@@ -9,6 +9,8 @@ repo-local fixture를 둔다.
 - 각 fixture는 `base/`, `feature/`, `expected_smoke.json`, `manifest.yaml`을 가진다.
 - `base/`와 `feature/`는 GitLab MR의 target/source branch를 재현한다.
 - `expected_smoke.json`은 daily smoke에서 검증할 최소 contract만 담는다.
+- `density_contract`는 local GitLab smoke의 first batch가 너무 커지거나 한 파일에 몰리는
+  회귀를 잡기 위한 comment 수/path 분산 기준이다.
 - 외부-derived fixture를 추가할 때는 `external_sources.yaml`에 source repo, pinned ref,
   license, imported path, transformation을 먼저 남긴다.
 

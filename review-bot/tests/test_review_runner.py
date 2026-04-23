@@ -2367,6 +2367,7 @@ def test_review_runner_suppresses_same_line_same_category_variants_before_batch_
         assert review_run.status == "success"
         assert len(adapter.upsert_requests) == 1
         assert [finding.state for finding in findings] == ["published", "suppressed"]
+        assert findings[0].rule_no == "ES.77"
         assert findings[1].suppression_reason == "publish_batch_same_line_category"
     finally:
         session.close()

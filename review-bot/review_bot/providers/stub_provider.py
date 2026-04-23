@@ -563,6 +563,46 @@ def _build_guideline_backed_draft(
             confidence=0.76,
         )
 
+    if language_id == "cuda":
+        if "grid.sync" in combined or "cooperative launch" in combined:
+            return FindingDraft(
+                title="grid.sync()의 cooperative launch 계약을 드러내 주세요",
+                summary=(
+                    "`grid.sync()`는 cooperative launch, residency, grid 크기 계약이 이미 "
+                    "호출 경계에서 보장될 때만 안전합니다. 이 변경은 그 소유권이 local patch에서 "
+                    "충분히 보이지 않습니다."
+                    f"{excerpt_hint}"
+                ),
+                suggested_fix=cleaned_fix_guidance
+                or (
+                    "cooperative launch 요구사항과 grid residency 가정을 launch boundary 근처에 "
+                    "명시하거나, 해당 계약을 소유한 abstraction에 문서화해 주세요."
+                ),
+                severity="high",
+                confidence=0.84,
+            )
+        if (
+            "stream 0" in combined
+            or "default-stream" in combined
+            or "cudamemcpyasync" in combined
+        ):
+            return FindingDraft(
+                title="CUDA stream 0 사용이 async 순서를 숨깁니다",
+                summary=(
+                    "`cudaMemcpyAsync`가 `stream 0`을 직접 사용하면 async처럼 보여도 "
+                    "NULL-stream ordering에 묶일 수 있습니다. 호출자가 기대하는 overlap과 "
+                    "completion 소유권이 코드에서 분명해야 합니다."
+                    f"{excerpt_hint}"
+                ),
+                suggested_fix=cleaned_fix_guidance
+                or (
+                    "overlap이 필요한 작업은 명시적으로 소유한 CUDA stream에 연결하고, "
+                    "stream 0 sequencing이 의도라면 그 ordering 계약을 남겨 주세요."
+                ),
+                severity="high",
+                confidence=0.85,
+            )
+
     if category == "security" and language_id in {"java", "javascript", "typescript", "rust", "go"}:
         return FindingDraft(
             title="신뢰 경계에서 입력 검증을 더 직접적으로 드러내 주세요",

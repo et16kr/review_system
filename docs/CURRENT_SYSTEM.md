@@ -78,6 +78,8 @@
 - `auto_review`와 `reference_only`는 의도적으로 분리한다.
 - language/profile/context/dialect routing은 registry와 query detector가 담당한다.
 - provider prompt는 C++ 고정 가정 없이 language/profile/context hint를 사용한다.
+- Provider quality gate는 packaged corpus와 `python -m review_bot.cli.evaluate_provider_quality --provider stub` 기준으로 network 없이 실행할 수 있다.
+- Provider quality corpus는 YAML CI, FastAPI, SQL, CUDA async stream, CUDA cooperative groups regression case를 포함한다.
 - Markdown 문서는 명시적 unreviewable `markdown`으로 분류한다.
 - 마지막 점검 기준 rule count는 public/shared seed 기준 `344`개다.
 - extension rule root, prompt overlay, entry point, detector plugin hook, strict loading 골격은 구현되어 있다.
@@ -144,6 +146,9 @@ Adapter V2 capability는 [API_CONTRACTS.md](/home/et16/work/review_system/docs/A
   - `ops/fixtures/review_smoke/synthetic-mixed-language`
   - `ops/fixtures/review_smoke/curated-polyglot`
   - `ops/fixtures/review_smoke/cuda-targeted`
+- `expected_smoke.json`은 language/rule/routing contract와 함께 density contract를 가진다.
+  현재 density contract는 기본 local GitLab smoke batch cap `5`, 최소 comment path 분산 `2`,
+  path별 최대 comment 수 `2`를 검증한다.
 - 일부 smoke fixture는 telemetry flow 검증을 위해 intentional `wrong_language_feedback` reply를 만든다. 이 이벤트는 `provenance=smoke`, `triage_cause=synthetic_smoke`로 분리되며 detector blind spot으로 바로 해석하지 않는다.
 - Standard local GitLab smoke:
   - `ops/scripts/smoke_local_gitlab_lifecycle_review.sh`

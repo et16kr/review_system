@@ -45,7 +45,7 @@ BOT_QUEUE_SYNC_NAME=review-sync
 BOT_ENGINE_TIMEOUT_SECONDS=30
 BOT_ENGINE_MAX_RETRIES=2
 BOT_ENGINE_RETRY_BACKOFF_SECONDS=0.5
-BOT_BATCH_SIZE=10
+BOT_BATCH_SIZE=5
 BOT_GITLAB_API_TIMEOUT_SECONDS=30
 BOT_GITLAB_API_MAX_RETRIES=2
 BOT_GITLAB_API_RETRY_BACKOFF_SECONDS=0.5
@@ -140,7 +140,8 @@ BOT_AUTHOR_NAME=review-bot
 
 - `GITLAB_PROJECT_ID`는 더 이상 사용하지 않는다.
 - project identity는 webhook payload의 `project.path_with_namespace`가 canonical source다.
-- 기본 batch cap은 `10`이다. 따라서 충분한 finding이 있으면 한 번의 run에서 최대 10개의 리뷰 댓글이 보인다.
+- 코드 default batch cap은 `10`이지만 `ops/.env.example`과 local GitLab smoke 기본값은 `5`다.
+  따라서 기본 smoke fixture의 density contract도 first batch 최대 `5`개를 기준으로 검증한다.
 
 ### GitLab webhook 등록
 
@@ -417,7 +418,41 @@ bash ops/scripts/smoke_local_gitlab_multilang_review.sh \
 - mixed-language smoke는 comment/tag/routing 검증을 안정적으로 하기 위해 실행 중에 provider를 일시적으로 `stub/stub`로 전환한다.
 - 기본 경로는 smoke 종료 시 원래 provider env로 복구한다.
 - 디버깅 중에는 `--skip-provider-restore`를 써서 반복 rebuild 비용을 줄일 수 있다.
+- fixture의 `density_contract`는 bot comment 총량, 최소 distinct file path 수, path별 최대 comment 수를 검증한다.
 - fixture의 `wrong_language_feedback`은 의도적으로 human reply를 추가해 analytics loop를 검증한다. 이 결과를 운영 detector miss로 바로 분류하지 않는다.
+
+provider quality gate:
+
+```bash
+cd /home/et16/work/review_system/review-bot
+uv run python -m review_bot.cli.evaluate_provider_quality \
+  --provider stub
+```
+
+provider/ranking/density baseline을 남길 때는 provider quality gate 결과와 smoke fixture density
+contract 검증 결과를 함께 기록한다.
+
+```bash
+cd /home/et16/work/review_system/review-bot
+uv run pytest tests/test_multilang_smoke_fixture.py tests/test_provider_quality.py -q
+uv run python -m review_bot.cli.evaluate_provider_quality \
+  --provider stub \
+  --output ../docs/baselines/review_bot/provider_quality_stub_$(date -u +%F).md
+cd /home/et16/work/review_system
+bash ops/scripts/smoke_local_gitlab_multilang_review.sh \
+  --fixture synthetic-mixed-language \
+  --json-output /tmp/review-bot-multilang-smoke.json
+```
+
+OpenAI provider 비교 artifact가 필요하면 API key가 있는 환경에서만 실행한다.
+`OPENAI_API_KEY`가 없으면 명령은 `skipped` report를 출력하고 성공 종료한다.
+
+```bash
+cd /home/et16/work/review_system/review-bot
+OPENAI_API_KEY=... uv run python -m review_bot.cli.evaluate_provider_quality \
+  --provider openai \
+  --output ../docs/baselines/review_bot/provider_quality_openai_$(date -u +%F).md
+```
 
 선택적으로 첫 open bot thread에 human reply / resolve / sync까지 포함할 수 있다.
 

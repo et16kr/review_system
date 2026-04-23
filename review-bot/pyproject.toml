@@ -36,7 +36,7 @@ build-backend = "setuptools.build_meta"
 include = ["review_bot*"]
 
 [tool.setuptools.package-data]
-review_bot = ["py.typed"]
+review_bot = ["py.typed", "quality/*.json"]
 
 [tool.ruff]
 line-length = 100

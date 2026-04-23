@@ -11,6 +11,11 @@
   },
   "forbidden_language_tags": ["cpp", "sql", "python"],
   "minimum_review_comments": 1,
+  "density_contract": {
+    "maximum_review_comments": 5,
+    "minimum_distinct_comment_paths": 2,
+    "maximum_comments_per_path": 2
+  },
   "required_paths": [
     "kernels/stream_ops.cu",
     ".gitlab-ci.yml"

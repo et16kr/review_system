@@ -195,6 +195,17 @@ bash /home/et16/work/review_system/ops/scripts/smoke_local_gitlab_multilang_revi
 
 이 smoke는 `markdown + yaml + sql + FastAPI` 조합에서 compact language tag와
 wrong-language feedback loop를 함께 검증합니다.
+각 fixture의 `expected_smoke.json`은 first batch density contract도 검증합니다.
+
+provider quality gate:
+
+```bash
+cd /home/et16/work/review_system/review-bot
+uv run python -m review_bot.cli.evaluate_provider_quality --provider stub
+```
+
+OpenAI comparison은 `OPENAI_API_KEY`가 있을 때만 opt-in으로 실행하고,
+키가 없으면 `skipped` report로 성공 종료합니다.
 
 CUDA targeted smoke:
 
@@ -302,6 +313,7 @@ curl "http://127.0.0.1:18081/internal/analytics/wrong-language-feedback?window=2
 - `review-bot` 핵심 테스트 4종
 - `review-platform` 테스트
 - `ops/scripts/smoke_local_gitlab_lifecycle_review.sh`
+- `review-bot` provider quality gate
 - `ops/scripts/smoke_local_gitlab_multilang_review.sh --fixture synthetic-mixed-language`
 - 필요 시 `ops/scripts/smoke_local_gitlab_multilang_review.sh --fixture curated-polyglot`
 - 필요 시 `ops/scripts/smoke_local_gitlab_multilang_review.sh --fixture cuda-targeted`
