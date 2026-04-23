@@ -1426,7 +1426,7 @@ languages:
             pack_targets: [dockerfile_best_practices]
             canonical_rules: [DOCKER.1, DOCKER.2, DOCKER.3, DOCKER.6]
             reviewability_mix: [auto_review]
-            reason: Base-image pinning and apt-layer shape are fully canonicalized.
+            reason: Latest-tag drift, tag-without-digest drift, and apt-layer shape are covered by active reproducibility rules.
           - source_atom_id: runtime_privilege
             section_id: candidate_canonical_rule_groups
             status: mapped

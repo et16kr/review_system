@@ -159,6 +159,10 @@
     "expected_rules": ["DOCKER.1", "DOCKER.SEC.1"]
   },
   {
+    "input": "examples/multilang/Dockerfile.digest_pinning",
+    "expected_rules": ["DOCKER.3"]
+  },
+  {
     "input": "examples/multilang/Dockerfile.remote",
     "expected_rules": ["DOCKER.5", "DOCKER.SEC.5"]
   },
@@ -288,6 +292,11 @@
     "input": "examples/multilang_diffs/Dockerfile.diff",
     "review_path": "examples/multilang/Dockerfile",
     "expected_rules": ["DOCKER.1"]
+  },
+  {
+    "input": "examples/multilang_diffs/Dockerfile.digest_pinning.diff",
+    "review_path": "examples/multilang/Dockerfile.digest_pinning",
+    "expected_rules": ["DOCKER.3"]
   },
   {
     "input": "examples/multilang_diffs/workflow.yml.diff",

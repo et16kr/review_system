@@ -36,16 +36,16 @@ entries:
   - rule_no: DOCKER.3
     section: DOCKER
     title: Pin base images tightly enough that rebuilds remain reproducible across release windows
-    summary: Image provenance is easier to audit when the base cannot drift under the same source revision.
-    text: A mutable tag can quietly change the operating system package set, runtime, or CVE surface beneath an otherwise unchanged application build.
+    summary: Version tags without immutable digests can still drift under the same source revision.
+    text: A semver-looking or distro-flavored base image tag can still be retargeted by the publisher. Digest pinning keeps the exact runtime input stable enough for rebuild explanation, rollback analysis, and supply-chain review.
     category: configuration
-    trigger_patterns: [latest_tag]
-    fix_guidance: Prefer explicit version tags or digests that match the release and rollback process for the image.
+    trigger_patterns: [latest_tag, base_tag_without_digest]
+    fix_guidance: Prefer an immutable base reference such as `image:tag@sha256:...` when the build needs stable provenance and repeatable rebuild behavior.
     base_score: 0.91
     severity_default: 0.93
     priority_tier: high
     specificity: 0.89
-    false_positive_risk: low
+    false_positive_risk: medium
   - rule_no: DOCKER.4
     section: DOCKER
     title: Keep broad context copies late and minimal so layer reuse and review stay predictable

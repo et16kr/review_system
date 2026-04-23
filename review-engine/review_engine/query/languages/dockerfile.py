@@ -15,6 +15,12 @@ PLUGIN = LanguageQueryPlugin(
             0.92,
         ),
         PatternSpec(
+            "base_tag_without_digest",
+            r"(?im)^[+-]?\s*FROM\s+(?:--platform=\S+\s+)?(?!\S+@sha256:)(?!\S+:latest(?:\s|$))\S+:[^\s@]+(?:\s+AS\s+\S+)?\s*$",
+            "Version-tagged base image without an immutable digest detected; review reproducibility and supply-chain traceability.",
+            0.86,
+        ),
+        PatternSpec(
             "root_user",
             r"(?im)^[+-]?\s*USER\s+root\s*$",
             "Container configured to run as root; review least-privilege runtime expectations.",
@@ -59,6 +65,7 @@ PLUGIN = LanguageQueryPlugin(
     ),
     hinted_rules={
         "latest_tag": ("DOCKER.1", "DOCKER.3"),
+        "base_tag_without_digest": ("DOCKER.3",),
         "root_user": ("DOCKER.SEC.1", "DOCKER.SEC.3"),
         "apt_get_update_install_split": ("DOCKER.2",),
         "copy_dot": ("DOCKER.SEC.2", "DOCKER.SEC.4", "DOCKER.4"),
@@ -69,6 +76,7 @@ PLUGIN = LanguageQueryPlugin(
     },
     direct_hint_patterns={
         "latest_tag",
+        "base_tag_without_digest",
         "root_user",
         "apt_get_update_install_split",
         "copy_dot",

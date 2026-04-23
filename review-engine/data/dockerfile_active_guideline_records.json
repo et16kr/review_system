@@ -570,21 +570,21 @@
     "source_family": "dockerfile_best_practices",
     "section": "DOCKER",
     "title": "Pin base images tightly enough that rebuilds remain reproducible across release windows",
-    "text": "A mutable tag can quietly change the operating system package set, runtime, or CVE surface beneath an otherwise unchanged application build.",
-    "summary": "Image provenance is easier to audit when the base cannot drift under the same source revision.",
+    "text": "A semver-looking or distro-flavored base image tag can still be retargeted by the publisher. Digest pinning keeps the exact runtime input stable enough for rebuild explanation, rollback analysis, and supply-chain review.",
+    "summary": "Version tags without immutable digests can still drift under the same source revision.",
     "keywords": [
       "base",
+      "enough",
+      "can",
+      "still",
       "docker.3",
       "pin",
       "images",
       "tightly",
-      "enough",
       "rebuilds",
       "remain",
       "reproducible",
-      "across",
-      "release",
-      "windows"
+      "across"
     ],
     "tags": [],
     "id": "dockerfile_best_practices:DOCKER.3",
@@ -600,7 +600,7 @@
     "severity_default": 0.93,
     "conflict_action": "compatible",
     "conflict_policy": "compatible",
-    "embedding_text": "rule_no: DOCKER.3\npack_id: dockerfile_best_practices\nlanguage_id: dockerfile\ncontext_id: \ndialect_id: \nsection: DOCKER\ntitle: Pin base images tightly enough that rebuilds remain reproducible across release windows\nsummary: Image provenance is easier to audit when the base cannot drift under the same source revision.\nkeywords: base, docker.3, pin, images, tightly, enough, rebuilds, remain, reproducible, across, release, windows\ncategory: configuration\nreviewability: auto_review\ntrigger_patterns: latest_tag\nfix_guidance: Prefer explicit version tags or digests that match the release and rollback process for the image.\ntext: A mutable tag can quietly change the operating system package set, runtime, or CVE surface beneath an otherwise unchanged application build.",
+    "embedding_text": "rule_no: DOCKER.3\npack_id: dockerfile_best_practices\nlanguage_id: dockerfile\ncontext_id: \ndialect_id: \nsection: DOCKER\ntitle: Pin base images tightly enough that rebuilds remain reproducible across release windows\nsummary: Version tags without immutable digests can still drift under the same source revision.\nkeywords: base, enough, can, still, docker.3, pin, images, tightly, rebuilds, remain, reproducible, across\ncategory: configuration\nreviewability: auto_review\ntrigger_patterns: latest_tag, base_tag_without_digest\nfix_guidance: Prefer an immutable base reference such as `image:tag@sha256:...` when the build needs stable provenance and repeatable rebuild behavior.\ntext: A semver-looking or distro-flavored base image tag can still be retargeted by the publisher. Digest pinning keeps the exact runtime input stable enough for rebuild explanation, rollback analysis, and supply-chain review.",
     "overridden_by": [],
     "conflict_reason": null,
     "active": true,
@@ -610,12 +610,13 @@
       "diff"
     ],
     "category": "configuration",
-    "false_positive_risk": "low",
+    "false_positive_risk": "medium",
     "trigger_patterns": [
-      "latest_tag"
+      "latest_tag",
+      "base_tag_without_digest"
     ],
     "bot_comment_template": null,
-    "fix_guidance": "Prefer explicit version tags or digests that match the release and rollback process for the image.",
+    "fix_guidance": "Prefer an immutable base reference such as `image:tag@sha256:...` when the build needs stable provenance and repeatable rebuild behavior.",
     "review_rank_default": 0.91,
     "file_globs": [],
     "symbol_hints": []

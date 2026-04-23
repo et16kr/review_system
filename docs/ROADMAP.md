@@ -121,6 +121,17 @@
   다시 실행했고 통과했다.
 - 이번 단위는 `review-engine` rule/retrieval 변경만 포함하므로 `review-bot` regression,
   provider quality gate, local GitLab smoke는 다시 돌리지 않았다.
+- `2026-04-23`: Dockerfile digest/provenance under-trigger gap을 `DOCKER.3`에
+  흡수했다. `base_tag_without_digest` detector hint를 추가하고,
+  code/diff retrieval example `Dockerfile.digest_pinning`을 더해 version-tag
+  without digest 경로를 deterministic retrieval로 고정했다.
+- Validation은 `ingest_guidelines`, `evaluate_examples`,
+  `evaluate_diff_contracts`,
+  `pytest review-engine/tests/test_query_conversion.py review-engine/tests/test_source_coverage_matrix.py review-engine/tests/test_expected_examples.py -q`
+  를 통과했다. 이 환경에서는 `uv run`이 read-only cache 때문에 실패해 같은
+  baseline을 `review-engine/.venv/bin/python`으로 등가 실행했다.
+- 이번 단위도 `review-engine` rule/retrieval 변경만 포함하므로 `review-bot`
+  regression, provider quality gate, local GitLab smoke는 다시 돌리지 않았다.
 
 남은 작업:
 
@@ -131,7 +142,7 @@
 우선 후보:
 
 - Go: HTTP handler boundary validation, transaction/resource cleanup.
-- Dockerfile: digest/provenance 세분화, multi-stage runtime hardening.
+- Dockerfile: multi-stage runtime hardening.
 
 완료 기준:
 

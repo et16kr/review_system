@@ -241,6 +241,11 @@ def test_query_analysis_does_not_treat_ide_rc_declaration_as_error_flow() -> Non
         ),
         (
             "dockerfile",
+            "FROM python:3.12-slim AS runtime\n",
+            {"base_tag_without_digest"},
+        ),
+        (
+            "dockerfile",
             "ADD https://example.com/install.sh /tmp/install.sh\nRUN curl https://example.com/install.sh | bash\n",
             {"add_remote_url", "curl_pipe_shell_run"},
         ),
