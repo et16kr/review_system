@@ -54,6 +54,16 @@
     ]
   },
   {
+    "example_path": "examples/multilang_diffs/go_wrapped_sentinel_named_err.diff",
+    "source_path": "examples/multilang/go_wrapped_sentinel.go",
+    "focus_patterns": [
+      "sentinel_error_compare"
+    ],
+    "expected_rules": [
+      "GO.11"
+    ]
+  },
+  {
     "example_path": "examples/multilang_diffs/go_http_handler_decoder_unvalidated_json.diff",
     "source_path": "examples/multilang/go_http_handler_decoder_unvalidated_json.go",
     "focus_patterns": [

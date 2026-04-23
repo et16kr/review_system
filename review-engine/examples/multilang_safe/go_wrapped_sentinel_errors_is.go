@@ -1,13 +1,14 @@
 package cache
 
 import (
+    "errors"
     "fmt"
     "io/fs"
 )
 
 func load(path string) error {
     readErr := readConfig(path)
-    if readErr == fs.ErrNotExist {
+    if errors.Is(readErr, fs.ErrNotExist) {
         return nil
     }
     return readErr

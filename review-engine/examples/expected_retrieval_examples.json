@@ -257,6 +257,11 @@
     "expected_rules": ["GO.1"]
   },
   {
+    "input": "examples/multilang_diffs/go_wrapped_sentinel_named_err.diff",
+    "review_path": "examples/multilang/go_wrapped_sentinel.go",
+    "expected_rules": ["GO.11"]
+  },
+  {
     "input": "examples/multilang_diffs/go_http_handler_unvalidated_json.diff",
     "review_path": "examples/multilang/go_http_handler_unvalidated_json.go",
     "expected_rules": ["GO.13"]

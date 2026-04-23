@@ -952,7 +952,7 @@ languages:
             pack_targets: [project_go]
             canonical_rules: [GO.11]
             reviewability_mix: [auto_review]
-            reason: Wrapper-aware sentinel matching now has an explicit active rule for direct `err == ErrX` branches.
+            reason: Wrapper-aware sentinel matching now has an explicit active rule for direct sentinel comparisons, including renamed local error variables such as `readErr == fs.ErrNotExist`.
           - source_atom_id: cleanup
             section_id: candidate_canonical_rule_groups
             status: mapped

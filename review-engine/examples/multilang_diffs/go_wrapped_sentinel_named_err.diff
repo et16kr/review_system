@@ -1,0 +1,17 @@
+diff --git a/examples/multilang/go_wrapped_sentinel.go b/examples/multilang/go_wrapped_sentinel.go
+index 1111111..2222222 100644
+--- a/examples/multilang/go_wrapped_sentinel.go
++++ b/examples/multilang/go_wrapped_sentinel.go
+@@ -6,9 +6,9 @@ import (
+ )
+ 
+ func load(path string) error {
+-    err := readConfig(path)
+-    if err == fs.ErrNotExist {
++    readErr := readConfig(path)
++    if readErr == fs.ErrNotExist {
+         return nil
+     }
+-    return err
++    return readErr
+ }

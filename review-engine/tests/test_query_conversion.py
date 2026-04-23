@@ -54,7 +54,7 @@ def test_query_analysis_does_not_treat_ide_rc_declaration_as_error_flow() -> Non
         ),
         (
             "go",
-            "if err == fs.ErrNotExist {\n    return nil\n}\n",
+            "if readErr == fs.ErrNotExist {\n    return nil\n}\n",
             {"sentinel_error_compare"},
         ),
         (
@@ -313,6 +313,17 @@ def test_query_analysis_detects_multilang_patterns(
     names = {pattern.name for pattern in analysis.patterns}
 
     assert expected_patterns <= names
+
+
+def test_go_errors_is_does_not_trigger_direct_sentinel_compare_pattern() -> None:
+    analysis = build_query_analysis(
+        "if errors.Is(readErr, fs.ErrNotExist) {\n    return nil\n}\n",
+        input_kind="code",
+        language_id="go",
+    )
+    names = {pattern.name for pattern in analysis.patterns}
+
+    assert "sentinel_error_compare" not in names
 
 
 def test_dockerfile_safe_index_url_does_not_trigger_authenticated_secret_pattern() -> None:

@@ -140,11 +140,11 @@ entries:
   - rule_no: GO.11
     section: GO
     title: Sentinel error branches should stay stable when errors gain wrapping context
-    summary: Direct `err == ErrX` checks are brittle once helpers start returning wrapped errors.
-    text: Go code often adds context with `%w` or passes errors across package boundaries. `errors.Is` and `errors.As` keep sentinel and typed-error branches working when the original error is wrapped on the way back to the caller.
+    summary: Direct sentinel comparisons on local error variables are brittle once helpers start returning wrapped errors.
+    text: Go code often adds context with `%w` or passes errors across package boundaries. Direct checks such as `err == ErrX` or `readErr == fs.ErrNotExist` stop matching once the original error is wrapped on the way back to the caller, while `errors.Is` and `errors.As` keep sentinel and typed-error branches stable.
     category: error_handling
     trigger_patterns: [sentinel_error_compare]
-    fix_guidance: Replace direct sentinel comparisons with `errors.Is` or `errors.As` when the error may be wrapped or returned across helper layers.
+    fix_guidance: Replace direct sentinel comparisons on local error variables with `errors.Is` or `errors.As` when the error may be wrapped or returned across helper layers.
     base_score: 0.84
     severity_default: 0.86
     priority_tier: default

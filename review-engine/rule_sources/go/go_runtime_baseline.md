@@ -25,7 +25,7 @@ status: drafted
 ## High-Signal Review Areas
 
 - Check errors directly and consistently.
-- Prefer `errors.Is` or `errors.As` when sentinel or typed errors may cross wrapping boundaries.
+- Prefer `errors.Is` or `errors.As` when sentinel or typed errors may cross wrapping boundaries, even if the local error variable has been renamed away from `err`.
 - Attach cleanup with `defer` as soon as the resource is acquired.
 - Propagate `context` through request-scoped work and reason about goroutine ownership.
 - Make HTTP request decoding and validation boundaries visible before handler code reaches domain work.
@@ -35,7 +35,7 @@ status: drafted
 ## Candidate Canonical Rule Groups
 
 - Error handling: ignored errors, wrapped errors, and operation context in returned failures.
-- Sentinel error matching: `errors.Is` / `errors.As` for wrapper-aware branches on typed or sentinel failures.
+- Sentinel error matching: `errors.Is` / `errors.As` for wrapper-aware branches on typed or sentinel failures, including direct comparisons on renamed local error variables.
 - Cleanup: prompt `defer`, response body closure, and lexical ownership.
 - Transaction cleanup: `Begin` / `Commit` paths should keep rollback ownership visible from the start.
 - HTTP handler validation boundaries: raw JSON decoding or framework JSON binding, including retained decoder variables, should be followed by an explicit request contract check before domain use.

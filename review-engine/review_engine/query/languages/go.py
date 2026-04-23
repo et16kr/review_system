@@ -16,7 +16,7 @@ PLUGIN = LanguageQueryPlugin(
         ),
         PatternSpec(
             "sentinel_error_compare",
-            r"\berr\s*(?:==|!=)\s*(?!nil\b)[A-Za-z_][\w\.]*",
+            r"\b(?:err|[A-Za-z_]\w*Err)\s*(?:==|!=)\s*(?!nil\b)[A-Za-z_][\w\.]*",
             "Sentinel error comparison detected; review whether errors.Is/errors.As is needed if wrappers can appear.",
             0.8,
         ),

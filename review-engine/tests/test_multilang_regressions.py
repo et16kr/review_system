@@ -30,6 +30,12 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
             None,
         ),
         (
+            "examples/multilang_safe/go_wrapped_sentinel_errors_is.go",
+            {"GO.11"},
+            "go",
+            None,
+        ),
+        (
             "examples/multilang_safe/go_http_handler_validated.go",
             {"GO.13"},
             "go",
