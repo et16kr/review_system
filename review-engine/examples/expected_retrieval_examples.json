@@ -40,6 +40,10 @@
     "expected_rules": ["GO.13"]
   },
   {
+    "input": "examples/multilang/go_http_handler_decoder_unvalidated_json.go",
+    "expected_rules": ["GO.13"]
+  },
+  {
     "input": "examples/multilang/java_concat_sql.java",
     "expected_rules": ["JAVA.PROJ.1"]
   },

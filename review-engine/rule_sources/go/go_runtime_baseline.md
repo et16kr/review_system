@@ -38,7 +38,7 @@ status: drafted
 - Sentinel error matching: `errors.Is` / `errors.As` for wrapper-aware branches on typed or sentinel failures.
 - Cleanup: prompt `defer`, response body closure, and lexical ownership.
 - Transaction cleanup: `Begin` / `Commit` paths should keep rollback ownership visible from the start.
-- HTTP handler validation boundaries: raw JSON decoding should be followed by an explicit request contract check before domain use.
+- HTTP handler validation boundaries: raw JSON decoding, including retained decoder variables, should be followed by an explicit request contract check before domain use.
 - Concurrency: goroutine launch ownership, cancellation, and anonymous goroutine behavior.
 - Context propagation: request cancellation, deadline inheritance, and detached work.
 

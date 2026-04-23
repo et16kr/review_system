@@ -39,6 +39,12 @@ PLUGIN = LanguageQueryPlugin(
             0.9,
         ),
         PatternSpec(
+            "http_handler_json_decoder_variable_without_validation",
+            r"(?is)func\s+(?:\([^)]*\)\s*)?\w+\s*\([^)]*http\.ResponseWriter[^)]*\*http\.Request[^)]*\)\s*\{[\s\S]{0,700}(?:(?!\bDisallowUnknownFields\s*\().)*?\b(?P<decoder>[A-Za-z_]\w*)\s*:?=\s*json\.NewDecoder\(\s*[A-Za-z_]\w*\.Body\s*\)(?:(?!\bDisallowUnknownFields\s*\().){0,180}\b(?P=decoder)\.Decode\(\s*&(?P<payload>[A-Za-z_]\w+)\s*\)(?:(?!\b(?:[A-Za-z_]\w*\.)?(?:Validate|Struct)\s*\().){0,220}\b(?:(?P=payload)\.(?!Validate\b)[A-Za-z_]\w+|(?!Validate\b|Struct\b)[A-Za-z_]\w+\([^)]*\b(?P=payload)\b)",
+            "net/http handler keeps a JSON decoder variable, decodes request input, and uses it without a visible validation step; review the boundary contract.",
+            0.89,
+        ),
+        PatternSpec(
             "context_missing",
             r"http\.NewRequest\(",
             "Request construction detected; review whether context propagation should be explicit.",
@@ -69,6 +75,7 @@ PLUGIN = LanguageQueryPlugin(
         "defer_close_missing": ("GO.1", "GO.6"),
         "transaction_commit_without_rollback": ("GO.12",),
         "http_handler_json_decode_without_validation": ("GO.13",),
+        "http_handler_json_decoder_variable_without_validation": ("GO.13",),
         "context_missing": ("GO.2", "GO.5"),
         "goroutine_leak": ("GO.4", "GO.10"),
         "context_background": ("GO.8",),
@@ -80,6 +87,7 @@ PLUGIN = LanguageQueryPlugin(
         "defer_close_missing",
         "transaction_commit_without_rollback",
         "http_handler_json_decode_without_validation",
+        "http_handler_json_decoder_variable_without_validation",
         "context_missing",
         "goroutine_leak",
         "context_background",

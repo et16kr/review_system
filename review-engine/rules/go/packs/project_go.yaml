@@ -166,10 +166,10 @@ entries:
   - rule_no: GO.13
     section: GO
     title: net/http handlers that decode JSON should make boundary validation visible immediately
-    summary: Raw request-body decoding in an HTTP handler leaves transport trust rules implicit unless validation is reintroduced right away.
-    text: In Go HTTP handlers, `json.Decoder` turns user-controlled input into typed values before the rest of the request path runs. Struct fields alone rarely show required-field checks, enum constraints, or unknown-field policy, so reviewers should be able to see the validation boundary before domain work starts.
+    summary: Raw request-body decoding in an HTTP handler, whether chained or via a retained decoder, leaves transport trust rules implicit unless validation is reintroduced right away.
+    text: In Go HTTP handlers, `json.Decoder` turns user-controlled input into typed values before the rest of the request path runs, regardless of whether the code decodes inline or keeps a decoder variable around first. Struct fields alone rarely show required-field checks, enum constraints, or unknown-field policy, so reviewers should be able to see the validation boundary before domain work starts.
     category: security
-    trigger_patterns: [http_handler_json_decode_without_validation]
+    trigger_patterns: [http_handler_json_decode_without_validation, http_handler_json_decoder_variable_without_validation]
     fix_guidance: Keep decoding at the HTTP boundary and follow it immediately with explicit request validation or another visible contract check before passing the payload into domain logic.
     base_score: 0.91
     severity_default: 0.93

@@ -32,5 +32,15 @@
     "expected_rules": [
       "GO.13"
     ]
+  },
+  {
+    "example_path": "examples/multilang_diffs/go_http_handler_decoder_unvalidated_json.diff",
+    "source_path": "examples/multilang/go_http_handler_decoder_unvalidated_json.go",
+    "focus_patterns": [
+      "http_handler_json_decoder_variable_without_validation"
+    ],
+    "expected_rules": [
+      "GO.13"
+    ]
   }
 ]

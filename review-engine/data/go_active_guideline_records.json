@@ -1191,21 +1191,21 @@
     "source_family": "project_go",
     "section": "GO",
     "title": "net/http handlers that decode JSON should make boundary validation visible immediately",
-    "text": "In Go HTTP handlers, `json.Decoder` turns user-controlled input into typed values before the rest of the request path runs. Struct fields alone rarely show required-field checks, enum constraints, or unknown-field policy, so reviewers should be able to see the validation boundary before domain work starts.",
-    "summary": "Raw request-body decoding in an HTTP handler leaves transport trust rules implicit unless validation is reintroduced right away.",
+    "text": "In Go HTTP handlers, `json.Decoder` turns user-controlled input into typed values before the rest of the request path runs, regardless of whether the code decodes inline or keeps a decoder variable around first. Struct fields alone rarely show required-field checks, enum constraints, or unknown-field policy, so reviewers should be able to see the validation boundary before domain work starts.",
+    "summary": "Raw request-body decoding in an HTTP handler, whether chained or via a retained decoder, leaves transport trust rules implicit unless validation is reintroduced right away.",
     "keywords": [
       "http",
       "validation",
       "handlers",
       "should",
       "boundary",
+      "whether",
+      "decoder",
       "before",
       "go.13",
       "net",
       "decode",
-      "json",
-      "make",
-      "visible"
+      "json"
     ],
     "tags": [],
     "id": "project_go:GO.13",
@@ -1221,7 +1221,7 @@
     "severity_default": 0.93,
     "conflict_action": "compatible",
     "conflict_policy": "compatible",
-    "embedding_text": "rule_no: GO.13\npack_id: project_go\nlanguage_id: go\ncontext_id: \ndialect_id: \nsection: GO\ntitle: net/http handlers that decode JSON should make boundary validation visible immediately\nsummary: Raw request-body decoding in an HTTP handler leaves transport trust rules implicit unless validation is reintroduced right away.\nkeywords: http, validation, handlers, should, boundary, before, go.13, net, decode, json, make, visible\ncategory: security\nreviewability: auto_review\ntrigger_patterns: http_handler_json_decode_without_validation\nfix_guidance: Keep decoding at the HTTP boundary and follow it immediately with explicit request validation or another visible contract check before passing the payload into domain logic.\ntext: In Go HTTP handlers, `json.Decoder` turns user-controlled input into typed values before the rest of the request path runs. Struct fields alone rarely show required-field checks, enum constraints, or unknown-field policy, so reviewers should be able to see the validation boundary before domain work starts.",
+    "embedding_text": "rule_no: GO.13\npack_id: project_go\nlanguage_id: go\ncontext_id: \ndialect_id: \nsection: GO\ntitle: net/http handlers that decode JSON should make boundary validation visible immediately\nsummary: Raw request-body decoding in an HTTP handler, whether chained or via a retained decoder, leaves transport trust rules implicit unless validation is reintroduced right away.\nkeywords: http, validation, handlers, should, boundary, whether, decoder, before, go.13, net, decode, json\ncategory: security\nreviewability: auto_review\ntrigger_patterns: http_handler_json_decode_without_validation, http_handler_json_decoder_variable_without_validation\nfix_guidance: Keep decoding at the HTTP boundary and follow it immediately with explicit request validation or another visible contract check before passing the payload into domain logic.\ntext: In Go HTTP handlers, `json.Decoder` turns user-controlled input into typed values before the rest of the request path runs, regardless of whether the code decodes inline or keeps a decoder variable around first. Struct fields alone rarely show required-field checks, enum constraints, or unknown-field policy, so reviewers should be able to see the validation boundary before domain work starts.",
     "overridden_by": [],
     "conflict_reason": null,
     "active": true,
@@ -1233,7 +1233,8 @@
     "category": "security",
     "false_positive_risk": "medium",
     "trigger_patterns": [
-      "http_handler_json_decode_without_validation"
+      "http_handler_json_decode_without_validation",
+      "http_handler_json_decoder_variable_without_validation"
     ],
     "bot_comment_template": null,
     "fix_guidance": "Keep decoding at the HTTP boundary and follow it immediately with explicit request validation or another visible contract check before passing the payload into domain logic.",

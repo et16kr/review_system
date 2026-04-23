@@ -973,7 +973,7 @@ languages:
             pack_targets: [project_go]
             canonical_rules: [GO.13]
             reviewability_mix: [auto_review]
-            reason: Direct net/http JSON decoding without a visible request-contract check now maps to an active handler-boundary rule.
+            reason: net/http JSON decoding without a visible request-contract check, including retained decoder variables, now maps to an active handler-boundary rule.
           - source_atom_id: concurrency
             section_id: candidate_canonical_rule_groups
             status: mapped

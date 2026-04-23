@@ -98,6 +98,14 @@
 
 상태: `partial`
 
+최근 완료:
+
+- `GO.13`이 direct chained `json.NewDecoder(...).Decode(...)`뿐 아니라
+  `decoder := json.NewDecoder(...)` 뒤 `decoder.Decode(...)` 경로까지 잡도록 넓어졌다.
+- `GO.13` bundled code/diff example과 safe regression이 retained decoder shape를 포함하도록 갱신됐다.
+- 이번 slice의 deterministic release gate는 `review-engine` ingest/examples/diff contracts만 다시 돌렸고,
+  `review-bot`/`review-platform`, GitLab lifecycle smoke, mixed-language smoke, direct OpenAI/provider validation은 범위 밖으로 유지했다.
+
 최근에 정리된 gap:
 
 - `DOCKER.SEC.7` build-time secret handling
@@ -105,14 +113,14 @@
 - `DOCKER.7` runtime prefix copy rule
 - `GO.11` sentinel error matching
 - `GO.12` transaction rollback visibility
-- `GO.13` net/http handler raw JSON decode boundary validation
+- `GO.13` net/http handler framework binding follow-up
 
 다음 작업:
 
 1. telemetry나 smoke에서 남아 있는 under-trigger gap 하나를 고른다.
 2. source atom 또는 source 문서, detector/rule/example을 같은 단위에서 갱신한다.
 3. `review-engine`만 바뀌면 rule/retrieval baseline만 다시 돌리고, `review-bot`이나 lifecycle 영향이 생기면 그에 맞는 regression과 smoke 범위를 추가한다.
-4. 같은 Go handler family에서 under-trigger가 남아 있으면 direct chained `json.NewDecoder(...).Decode(...)` 밖의 shape(`decoder := json.NewDecoder(...)`, framework binding)를 별도 slice로 넓힐지 결정한다.
+4. 같은 Go handler family에서 under-trigger가 남아 있으면 framework binding path를 별도 slice로 넓힐지 결정한다.
 
 검증 메모:
 
@@ -125,7 +133,7 @@
 
 현재 1순위 후보:
 
-- Go: HTTP handler boundary validation follow-up (`decoder := json.NewDecoder(...)` / framework binding path widening 여부 재판단)
+- Go: HTTP handler boundary validation framework binding follow-up
 
 완료 기준:
 
@@ -172,15 +180,15 @@
 ## Suggested Next Step
 
 현재 가장 자연스러운 다음 작업은 `Targeted Rule Expansion`의
-Go HTTP handler boundary validation follow-up 범위를 재판단하는 것이다.
+Go HTTP handler boundary validation에서 framework binding path를 별도 slice로 넓힐지 판단하는 것이다.
 
 이유:
 
 - `Provider Runtime Guardrails`는 watch 상태로 내려갔고 남은 실행 단위가 없다.
 - `Targeted Rule Expansion`은 여전히 source/rule/detector/example/validation을 한 번에 닫을 수 있는
   가장 작은 product-facing 실행 단위를 유지하고 있다.
-- `GO.13` 최소 slice가 direct chained `json.NewDecoder(...).Decode(...)` case를 닫았으므로,
-  다음에는 같은 family를 더 넓힐지 아니면 다른 under-trigger gap으로 넘어갈지를 telemetry 기준으로 바로 결정할 수 있다.
+- `GO.13`이 direct chained decode와 retained decoder variable path를 모두 닫았으므로,
+  다음에는 framework binding을 같은 family의 다음 slice로 볼지 아니면 다른 under-trigger gap으로 넘어갈지를 telemetry 기준으로 바로 결정할 수 있다.
 
 ## Queued After Main Roadmap
 

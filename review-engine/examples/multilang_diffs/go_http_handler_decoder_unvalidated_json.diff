@@ -1,0 +1,41 @@
+diff --git a/handlers/users.go b/handlers/users.go
+new file mode 100644
+index 0000000..1111111
+--- /dev/null
++++ b/handlers/users.go
+@@ -0,0 +1,32 @@
++package api
++
++import (
++    "encoding/json"
++    "net/http"
++)
++
++type createUserRequest struct {
++    Email string `json:"email"`
++    Role  string `json:"role"`
++}
++
++type userService interface {
++    CreateUser(email string, role string) error
++}
++
++type handler struct {
++    service userService
++}
++
++func (h handler) createUser(w http.ResponseWriter, r *http.Request) {
++    var req createUserRequest
++    decoder := json.NewDecoder(r.Body)
++    if err := decoder.Decode(&req); err != nil {
++        http.Error(w, "bad request", http.StatusBadRequest)
++        return
++    }
++
++    if err := h.service.CreateUser(req.Email, req.Role); err != nil {
++        http.Error(w, "failed to create user", http.StatusInternalServerError)
++        return
++    }
++
++    w.WriteHeader(http.StatusCreated)
++}
