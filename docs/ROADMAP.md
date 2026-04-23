@@ -155,6 +155,21 @@ provider provenance / config fail-fast 정리다.
 - fallback lifecycle과 direct provider를 문서상 분리해 둔 현재 구조를 실제 운영 데이터까지 맞출 수 있다.
 - 설정 오타에 의한 `stub` false green 리스크를 작은 범위에서 바로 줄일 수 있다.
 
+## Ready After Main Roadmap
+
+main `ROADMAP.md`를 다 돌린 뒤에도 바로 착수할 만한 deferred 작업은 아래 세 가지다.
+
+1. roadmap automation blocked artifact standardization
+- 이유: 연속 실행 스크립트가 이미 유용하게 돌아가고 있어, blocked skip 결과를 영속 artifact로 남기면 바로 운영 가치가 생긴다.
+
+2. minimal rule lifecycle CLI
+- 범위: `list`, `show`, `disable`, `enable`
+- 이유: full manual editor/UI보다 훨씬 작고, 현재 YAML/Git 기반 rule 운영에 직접 도움이 된다.
+
+3. OpenAI-compatible local LLM backend
+- 이유: direct OpenAI quota blocker와 별개로 착수 가능한 provider 확장 후보다.
+- 주의: 위 두 항목보다 범위가 크므로 작은 deferred 작업을 먼저 닫은 뒤 시작하는 편이 안전하다.
+
 ## Not Now
 
 지금 당장 잡지 않는 대표 항목은 아래와 같다.
