@@ -613,6 +613,7 @@ class ReviewRunner:
                 noop_existing_count=len(noop_existing_candidates),
                 backlog_counts=backlog_counts,
                 suppressed_feedback_counts=suppressed_feedback_counts,
+                **self._provider_runtime_log_fields(review_run),
             )
 
             for candidate in candidates:
@@ -855,6 +856,7 @@ class ReviewRunner:
                 head_sha=review_run.head_sha,
                 selected_count=len(selected),
                 publication_failures=publication_failures,
+                **self._provider_runtime_log_fields(review_run),
             )
         except Exception as exc:
             error_category, retryable = self._classify_error(exc)
@@ -3152,10 +3154,11 @@ class ReviewRunner:
             "fallback_reason": runtime.fallback_reason,
         }
 
-    def _state_provider_runtime(self, review_run: ReviewRun | None) -> dict[str, object] | None:
-        if review_run is None:
-            return None
-        payload = dict(review_run.provider_runtime or {})
+    def _normalize_provider_runtime_payload(
+        self,
+        payload: dict[str, object] | None,
+    ) -> dict[str, object] | None:
+        payload = dict(payload or {})
         configured_provider = str(payload.get("configured_provider") or "").strip()
         effective_provider = str(payload.get("effective_provider") or "").strip()
         fallback_reason = str(payload.get("fallback_reason") or "").strip() or None
@@ -3176,6 +3179,55 @@ class ReviewRunner:
             "effective_provider": effective_provider,
             "fallback_used": fallback_used,
             "fallback_reason": fallback_reason,
+        }
+
+    def _state_provider_runtime(self, review_run: Any | None) -> dict[str, object] | None:
+        if review_run is None:
+            return None
+        if isinstance(review_run, dict):
+            payload = review_run
+        else:
+            payload = getattr(review_run, "provider_runtime", None)
+        return self._normalize_provider_runtime_payload(payload)
+
+    def _provider_runtime_summary(self, payload: dict[str, object] | None) -> str | None:
+        normalized = self._normalize_provider_runtime_payload(payload)
+        if normalized is None:
+            return None
+        configured_provider = str(normalized["configured_provider"])
+        effective_provider = str(normalized["effective_provider"])
+        fallback_used = bool(normalized["fallback_used"])
+        fallback_reason = normalized["fallback_reason"]
+        if configured_provider == "unknown" and effective_provider == "unknown" and not fallback_used:
+            return None
+        if fallback_used:
+            summary = (
+                f"configured `{configured_provider}`, effective `{effective_provider}` "
+                "(stub fallback path)"
+            )
+            if fallback_reason:
+                summary += f", reason `{fallback_reason}`"
+            return summary
+        if effective_provider == "stub":
+            return (
+                f"configured `{configured_provider}`, effective `{effective_provider}` "
+                "(deterministic stub path)"
+            )
+        if configured_provider == effective_provider:
+            return (
+                f"configured `{configured_provider}`, effective `{effective_provider}` "
+                "(live provider path)"
+            )
+        return f"configured `{configured_provider}`, effective `{effective_provider}`"
+
+    def _provider_runtime_log_fields(self, review_run: ReviewRun) -> dict[str, Any]:
+        provider_runtime = self._state_provider_runtime(review_run)
+        provider_runtime_summary = self._provider_runtime_summary(provider_runtime)
+        if provider_runtime is None or provider_runtime_summary is None:
+            return {}
+        return {
+            "provider_runtime": provider_runtime,
+            "provider_runtime_summary": provider_runtime_summary,
         }
 
     def _record_provider_runtime(
@@ -3470,6 +3522,11 @@ class ReviewRunner:
                 "---",
                 f"총 **{len(published_candidates)}개** 항목이 게시되었습니다.",
             ]
+            provider_runtime_summary = self._provider_runtime_summary(
+                self._state_provider_runtime(review_run)
+            )
+            if provider_runtime_summary:
+                lines.append(f"이번 run provider: {provider_runtime_summary}.")
             if backlog_counts:
                 backlog_existing = backlog_counts.get("existing_open_thread", 0)
                 backlog_resolved = backlog_counts.get("resolved_unchanged", 0)

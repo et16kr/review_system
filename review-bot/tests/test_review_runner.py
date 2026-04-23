@@ -3,7 +3,9 @@ from __future__ import annotations
 from dataclasses import dataclass, field, replace as dataclass_replace
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
+from unittest.mock import patch
 
+from review_bot.bot import review_runner as review_runner_module
 from review_bot.analytics.wrong_language import (
     classify_wrong_language_cause,
     classify_wrong_language_provenance,
@@ -181,6 +183,93 @@ def test_review_runner_persists_fallback_provider_runtime_metadata() -> None:
         }
         assert evidence.raw_engine_payload["provider_runtime"] == stored_run.provider_runtime
         assert state["provider_runtime"] == stored_run.provider_runtime
+    finally:
+        session.close()
+
+
+def test_pr_summary_includes_live_provider_runtime_provenance() -> None:
+    _reset_db()
+
+    class NamedProvider(FixedProvider):
+        provider_name = "openai"
+
+    runner = ReviewRunner()
+    adapter = FakeAdapter()
+    key = runner._legacy_key(305)  # noqa: SLF001
+    adapter.set_diff(key, path="src/a.cpp", patch=_malloc_patch())
+    runner.platform_client = adapter
+    runner.engine_client = EngineStub([_result("R.10", category="memory")])
+    runner.provider = NamedProvider()
+
+    session = SessionLocal()
+    try:
+        runner.run_review(session, pr_id=305, trigger="provider-summary-live")
+
+        assert len(adapter.general_notes) == 1
+        assert (
+            "이번 run provider: configured `openai`, effective `openai` "
+            "(live provider path)."
+        ) in adapter.general_notes[0]
+    finally:
+        session.close()
+
+
+def test_publish_logs_and_summary_include_fallback_provider_runtime_provenance() -> None:
+    _reset_db()
+
+    class BuildFailingProvider(FixedProvider):
+        provider_name = "openai"
+
+        def build_draft(self, **kwargs):  # type: ignore[override]
+            del kwargs
+            raise RuntimeError("openai unavailable")
+
+    class NamedFallbackProvider(FixedProvider):
+        provider_name = "stub"
+
+    runner = ReviewRunner()
+    adapter = FakeAdapter()
+    key = runner._legacy_key(306)  # noqa: SLF001
+    adapter.set_diff(key, path="src/a.cpp", patch=_malloc_patch())
+    runner.platform_client = adapter
+    runner.engine_client = EngineStub([_result("R.10", category="memory")])
+    runner.provider = FallbackReviewCommentProvider(
+        primary=BuildFailingProvider(),
+        fallback=NamedFallbackProvider(),
+    )
+
+    session = SessionLocal()
+    try:
+        with patch.object(review_runner_module.logger, "info") as mock_info:
+            runner.run_review(session, pr_id=306, trigger="provider-summary-fallback")
+
+        expected_summary = (
+            "configured `openai`, effective `stub` (stub fallback path), "
+            "reason `build_draft_error:RuntimeError`"
+        )
+        assert len(adapter.general_notes) == 1
+        assert f"이번 run provider: {expected_summary}." in adapter.general_notes[0]
+
+        review_run_events = [
+            call.kwargs["extra"]["review_run_event"]
+            for call in mock_info.call_args_list
+            if call.args and call.args[0] == "review_run_event"
+        ]
+        candidates_built = next(
+            event for event in review_run_events if event["event"] == "publish_candidates_built"
+        )
+        publish_completed = next(
+            event for event in review_run_events if event["event"] == "publish_completed"
+        )
+
+        for event in (candidates_built, publish_completed):
+            assert event["provider_runtime"] == {
+                "configured_provider": "openai",
+                "effective_provider": "stub",
+                "fallback_used": True,
+                "fallback_reason": "build_draft_error:RuntimeError",
+            }
+            assert event["provider_runtime_summary"] == expected_summary
     finally:
         session.close()
 
