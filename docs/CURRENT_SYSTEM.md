@@ -131,7 +131,8 @@ Adapter V2 capability는 [API_CONTRACTS.md](/home/et16/work/review_system/docs/A
 - adapter가 지원하면 head 파일 내용을 일부 가져와 file context로 쓴다.
 - `review-engine` codebase index/search가 있으면 similar code를 evidence/provider input에 넣을 수 있다.
 - AST 기반 syntax-aware split, project-scoped memory, `.review-bot.yaml`, `ask`/`summarize` command는 아직 없다.
-- provider 설정값은 현재 문자열 환경 변수 기반이고, unknown provider fail-fast는 아직 없다.
+- provider 설정값은 문자열 환경 변수 기반이며,
+  `BOT_PROVIDER`, `BOT_FALLBACK_PROVIDER`는 `openai`/`stub` allowlist로 startup fail-fast 검증한다.
 
 ## Security And Retention
 

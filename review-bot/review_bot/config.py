@@ -5,6 +5,8 @@ from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
 
+SUPPORTED_PROVIDER_NAMES = frozenset({"openai", "stub"})
+
 
 @dataclass(frozen=True)
 class Settings:
@@ -49,6 +51,14 @@ class Settings:
     verify_score_band: float
 
 
+def _load_provider_name(env_name: str, default: str) -> str:
+    value = str(os.getenv(env_name, default) or "").strip().lower()
+    if value in SUPPORTED_PROVIDER_NAMES:
+        return value
+    supported = ", ".join(sorted(SUPPORTED_PROVIDER_NAMES))
+    raise ValueError(f"{env_name} must be one of: {supported}")
+
+
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
     project_root = Path(__file__).resolve().parents[1]
@@ -65,8 +75,8 @@ def get_settings() -> Settings:
         engine_max_retries=int(os.getenv("BOT_ENGINE_MAX_RETRIES", "2")),
         engine_retry_backoff_seconds=float(os.getenv("BOT_ENGINE_RETRY_BACKOFF_SECONDS", "0.5")),
         batch_size=int(os.getenv("BOT_BATCH_SIZE", "10")),
-        provider_name=os.getenv("BOT_PROVIDER", "openai"),
-        fallback_provider_name=os.getenv("BOT_FALLBACK_PROVIDER", "stub"),
+        provider_name=_load_provider_name("BOT_PROVIDER", "openai"),
+        fallback_provider_name=_load_provider_name("BOT_FALLBACK_PROVIDER", "stub"),
         openai_model=os.getenv("BOT_OPENAI_MODEL", "gpt-4o"),
         openai_timeout_seconds=float(os.getenv("BOT_OPENAI_TIMEOUT_SECONDS", "30")),
         openai_max_retries=int(os.getenv("BOT_OPENAI_MAX_RETRIES", "2")),

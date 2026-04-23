@@ -59,17 +59,20 @@
 
 - `GET /internal/review/requests/{review_system}/{project_ref}/{review_request_id}` current-state API가
   마지막 run의 `provider_runtime`(configured/effective provider, fallback 여부/사유)를 직접 반환한다.
+- `BOT_PROVIDER`, `BOT_FALLBACK_PROVIDER`를 `openai`/`stub` allowlist로 검증하고,
+  unsupported 값은 settings/provider factory에서 startup fail-fast 한다.
 
 검증 메모:
 
-- 이번 slice는 current-state/API surfacing만 바꿨으므로 focused `review-bot` regression만 다시 돌리고,
-  local GitLab lifecycle smoke와 direct OpenAI smoke는 건너뛴다.
+- 이번 slice는 provider config allowlist/startup guardrail만 바꿨으므로
+  `review-bot/tests/test_config.py`, `review-bot/tests/test_provider_quality.py`
+  focused deterministic regression만 다시 돌린다.
+- local GitLab lifecycle smoke와 direct OpenAI smoke는 건너뛴다.
 
 다음 작업:
 
 1. summary/log에서도 이번 run이 live provider였는지 stub fallback이었는지 바로 읽히게 만든다.
-2. `BOT_PROVIDER`, `BOT_FALLBACK_PROVIDER`를 allowlist로 검증해 unknown value는 startup에서 fail-fast 하게 만든다.
-3. direct smoke 스크립트의 root/env loading 경로를 더 명시적으로 정리해 운영 변형에 덜 취약하게 만든다.
+2. direct smoke 스크립트의 root/env loading 경로를 더 명시적으로 정리해 운영 변형에 덜 취약하게 만든다.
 
 완료 기준:
 
@@ -157,13 +160,13 @@
 ## Suggested Next Step
 
 현재 가장 자연스러운 다음 작업은 `Provider Runtime Guardrails`의
-provider config allowlist fail-fast 정리다.
+summary/log provenance surfacing 정리다.
 
 이유:
 
-- 외부 API blocker 없이 바로 닫을 수 있다.
-- 설정 오타에 의한 `stub` false green 리스크를 작은 범위에서 바로 줄일 수 있다.
-- 방금 들어간 current-state API provenance surfacing과 같은 영역이라 이어서 닫기 좋다.
+- 방금 current-state API와 provider config fail-fast를 닫았으므로 같은 provenance 축을 바로 이어서 마무리하기 좋다.
+- 외부 API blocker 없이 `review-bot` 내부 surfacing과 focused regression으로 닫을 수 있다.
+- direct smoke 스크립트 정리보다 사용자 가시성이 먼저 좋아진다.
 
 ## Queued After Main Roadmap
 
