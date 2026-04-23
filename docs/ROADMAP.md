@@ -6,7 +6,7 @@
 현재 구현 상세는 [CURRENT_SYSTEM.md](/home/et16/work/review_system/docs/CURRENT_SYSTEM.md:1)에 두고,
 로드맵에는 완료된 기반 요약과 남은 실행 단위만 남긴다.
 
-마지막 코드 상태 점검일: `2026-04-23`
+마지막 코드 상태 점검일: `2026-04-24`
 
 상태 표기:
 
@@ -27,145 +27,80 @@
 | Smoke fixture baseline | lifecycle smoke, mixed-language, curated polyglot, CUDA targeted fixture |
 | Wrong-language telemetry loop | provenance/cause/actionability 분리, smoke event와 detector backlog 분리 |
 | Provider quality / comparison / density gate | packaged provider quality corpus, deterministic `stub` gate, OpenAI opt-in skip path, provider comparison CLI, fixture `density_contract` |
+| Provider-direct smoke split | lifecycle fallback smoke와 direct OpenAI smoke를 별도 신호로 분리 |
 
-## Execution Order
+## Work Split
 
-### 1. Provider / Ranking / Density Tuning
+바로 할 일과 나중에 할 일을 아래처럼 나눈다.
 
-상태: `active`
+### Do Now
 
-현재 진행:
+- external API quota나 별도 권한 없이 닫을 수 있는 작업만 잡는다.
+- 한 commit에서 source/rule/detector/example/validation까지 닫히는 단위를 우선한다.
+- deterministic release gate로 먼저 검증 가능한 작업을 우선한다.
 
-- `2026-04-23`: `stub` provider quality artifact, OpenAI skipped artifact, comparison artifact,
-  decision artifact를 남겼다. 현재 환경에는 `OPENAI_API_KEY`가 없어 실제 OpenAI
-  case 비교는 `defer` 상태다.
-- Self review에서 provider comparison의 missing comparable case가 human review로
-  잡히도록 regression을 추가했다.
+### Do Later
 
-남은 작업:
+아래 항목은 blocker, 선행 조건, 작업 성격에 따라 별도 문서로 분리한다.
 
-1. `OPENAI_API_KEY`가 있는 환경에서 실제 OpenAI comparison artifact를 재수집한다.
-2. OpenAI와 `stub` 결과의 title/summary/fix guidance 길이, claim strength, evidence anchoring을 사람이 검토한다.
-3. `prompt_tune`, `ranking_tune`, `rule_gap`, `defer` 판정을 decision artifact에 남긴다.
-4. ranking weight를 조정해야 할 경우 먼저 deterministic regression을 추가하고, rule expansion보다 앞서 고정한다.
-5. project-local feedback이 필요한지 판단하고, 필요하면 전역 `rule_no` weight와 분리하는 설계를 만든다.
+- [Deferred Provider And Model Work](/home/et16/work/review_system/docs/deferred/provider_and_model_work.md:1)
+- [Deferred Rule Authoring And Editor Work](/home/et16/work/review_system/docs/deferred/rule_authoring_and_editor.md:1)
+- [Deferred Platform Expansion](/home/et16/work/review_system/docs/deferred/platform_expansion.md:1)
+- [Deferred Automation Work](/home/et16/work/review_system/docs/deferred/automation_work.md:1)
+
+## Now
+
+### 1. Provider Runtime Guardrails
+
+상태: `partial`
+
+다음 작업:
+
+1. review run과 finding에 `configured_provider`, `effective_provider`, `fallback_used`, `fallback_reason`를 남길 위치를 정한다.
+2. summary/log/API 중 최소 하나에서 이번 run이 live provider였는지 stub fallback이었는지 바로 읽히게 만든다.
+3. `BOT_PROVIDER`, `BOT_FALLBACK_PROVIDER`를 allowlist로 검증해 unknown value는 startup에서 fail-fast 하게 만든다.
+4. direct smoke 스크립트의 root/env loading 경로를 더 명시적으로 정리해 운영 변형에 덜 취약하게 만든다.
 
 완료 기준:
 
-- provider별 phrasing 편차와 과한 단정이 baseline에서 추적된다.
-- density 관련 회귀가 deterministic test 또는 smoke contract에서 잡힌다.
-- ranking 변경은 baseline diff와 함께 설명 가능하다.
+- live provider와 fallback publication provenance를 current-state/API/log에서 재구성할 수 있다.
+- provider 설정 오타가 조용히 `stub` false green으로 내려가지 않는다.
+- direct provider smoke의 경로/환경 전제가 문서와 구현에서 더 명확히 맞는다.
 
 ### 2. Smoke And Evaluation Hardening
 
 상태: `watch`
 
-현재 진행:
+운영 원칙:
 
-- `2026-04-23`: Validation Baseline과 운영 문서에서 deterministic `release gate`,
-  local GitLab `pre-release smoke`, direct OpenAI provider 확인 경로를 분리했다.
-  이 단위는 문서 정리 작업이라 local GitLab smoke는 다시 돌리지 않았다.
-- `2026-04-23`: regular baseline checkpoint 절차를 canonical 문서에 고정했다.
-  retained artifact는 `docs/baselines/review_bot/` 아래
-  `lifecycle_smoke_YYYY-MM-DD.json`,
-  `multilang_smoke_<fixture_id>_YYYY-MM-DD.json`,
-  `wrong_language_28d_YYYY-MM-DD.md`,
-  `wrong_language_backlog_28d_YYYY-MM-DD.md` 형식으로 남긴다.
-  이번 단위는 docs-only 작업이라 deterministic 검증과 local GitLab smoke는 재실행하지 않았다.
-- `2026-04-23`: fixture `density_contract`를 reviewable signal 기준으로 세분화했다.
-  `synthetic-mixed-language`와 `curated-polyglot`은 최소 distinct comment path `3`,
-  `cuda-targeted`는 `2`를 요구한다. 이 단위는 deterministic contract 조정이라
-  `test_multilang_smoke_fixture`, `test_provider_quality`, `stub` provider quality gate만
-  실행했고 local GitLab smoke는 다시 돌리지 않았다.
-- `2026-04-23`: wrong-language telemetry snapshot/backlog renderer를 deterministic
-  regression으로 고정했다. synthetic smoke candidate는 telemetry note와 dedicated
-  backlog section으로만 남고 detector fix candidate에는 섞이지 않는다. 이 단위는
-  snapshot hardening이라
-  `uv run --project review-bot pytest review-bot/tests/test_wrong_language_baseline_scripts.py -q`
-  만 실행했고 local GitLab smoke는 다시 돌리지 않았다.
+- `release gate`와 `pre-release smoke`는 이미 분리됐다.
+- wrong-language telemetry/backlog snapshot은 정기 checkpoint로만 관찰한다.
 
-남은 작업:
+남은 구현 작업:
 
-- 없음. 정기 checkpoint에서는 wrong-language telemetry/backlog artifact를 계속 관찰만 한다.
-
-완료 기준:
-
-- network 없는 deterministic gate와 local GitLab smoke의 책임이 문서/명령에서 분리된다.
-- routing, expected rule, density, wrong-language telemetry contract가 fixture별로 검증된다.
-- local GitLab smoke는 adapter/lifecycle 변경 시 표준 검증으로 유지된다.
+- 없음
 
 ### 3. Targeted Rule Expansion
 
 상태: `partial`
 
-현재 진행:
+최근에 정리된 gap:
 
-- `2026-04-23`: Go transaction rollback visibility under-trigger gap을 `GO.12`로
-  canonicalize했다. `transaction_cleanup` source atom, detector hint
-  `transaction_commit_without_rollback`, retrieval example
-  `go_tx_commit_without_rollback.go`, safe regression
-  `go_tx_deferred_rollback.go`를 추가했다.
-- Validation은 `ingest_guidelines`, `evaluate_examples`,
-  `evaluate_diff_contracts`,
-  `pytest review-engine/tests/test_query_conversion.py review-engine/tests/test_source_coverage_matrix.py review-engine/tests/test_expected_examples.py review-engine/tests/test_multilang_regressions.py -q`
-  를 통과했다. 이 환경에서는 `uv run`이 build dependency 해석 중 network를 요구해
-  같은 baseline을 `review-engine/.venv/bin/python`으로 등가 실행했다.
-- 이번 단위도 `review-engine` rule/retrieval 변경만 포함하므로 `review-bot`
-  regression, provider quality gate, local GitLab smoke는 다시 돌리지 않았다.
-- `2026-04-23`: Go wrapped sentinel error matching gap을 `GO.11`로
-  canonicalize했다. `sentinel_error_matching` source atom,
-  `sentinel_error_compare` detector hint, retrieval example
-  `go_wrapped_sentinel.go`, applicability gate를 추가했다.
-- Validation은 `ingest_guidelines`, `evaluate_examples`,
-  `evaluate_diff_contracts`,
-  `pytest review-engine/tests/test_query_conversion.py review-engine/tests/test_source_coverage_matrix.py review-engine/tests/test_expected_examples.py -q`
-  를 통과했다. 이 환경에서는 `uv run`이 read-only cache와 network 제한 때문에
-  실패해 같은 baseline을 `review-engine/.venv`의 직접 Python 실행으로 등가 검증했다.
-- 이번 단위도 `review-engine` rule/retrieval 변경만 포함하므로 `review-bot`
-  regression, provider quality gate, local GitLab smoke는 다시 돌리지 않았다.
-- `2026-04-23`: Dockerfile build-time secret handling gap을 `DOCKER.SEC.7`로
-  canonicalize했다. `build_time_secret_handling` source atom, `build_secret_arg_env`
-  detector hint, code/diff retrieval example을 추가했다.
-- Validation은 `ingest_guidelines`, `evaluate_diff_contracts`,
-  `pytest review-engine/tests/test_query_conversion.py review-engine/tests/test_expected_examples.py -q`
-  를 통과했다. 기본 `evaluate_examples` CLI는 로컬 persistent Chroma metadata가
-  `Nothing found on disk`를 반환해 같은 spec를 fresh temp store에서 등가 검증으로
-  다시 실행했고 통과했다.
-- 이번 단위는 `review-engine` rule/retrieval 변경만 포함하므로 `review-bot` regression,
-  provider quality gate, local GitLab smoke는 다시 돌리지 않았다.
-- `2026-04-23`: Dockerfile digest/provenance under-trigger gap을 `DOCKER.3`에
-  흡수했다. `base_tag_without_digest` detector hint를 추가하고,
-  code/diff retrieval example `Dockerfile.digest_pinning`을 더해 version-tag
-  without digest 경로를 deterministic retrieval로 고정했다.
-- Validation은 `ingest_guidelines`, `evaluate_examples`,
-  `evaluate_diff_contracts`,
-  `pytest review-engine/tests/test_query_conversion.py review-engine/tests/test_source_coverage_matrix.py review-engine/tests/test_expected_examples.py -q`
-  를 통과했다. 이 환경에서는 `uv run`이 read-only cache 때문에 실패해 같은
-  baseline을 `review-engine/.venv/bin/python`으로 등가 실행했다.
-- 이번 단위도 `review-engine` rule/retrieval 변경만 포함하므로 `review-bot`
-  regression, provider quality gate, local GitLab smoke는 다시 돌리지 않았다.
-- `2026-04-23`: Dockerfile multi-stage runtime hardening under-trigger gap을
-  `DOCKER.7`로 canonicalize했다. broad builder-prefix copy hazard
-  `COPY --from=... /usr/local /usr/local`를 concrete rule로 승격하고,
-  `copy_from_builder_usr_local` detector hint, code/diff retrieval example
-  `Dockerfile.runtime_prefix_copy`, safe regression gate를 추가했다.
-- Validation은 `ingest_guidelines`, `evaluate_examples`,
-  `evaluate_diff_contracts`,
-  `pytest review-engine/tests/test_query_conversion.py review-engine/tests/test_source_coverage_matrix.py review-engine/tests/test_expected_examples.py review-engine/tests/test_multilang_regressions.py -q`
-  를 통과했다. 이 환경에서는 `uv run`이 read-only cache 때문에 실패해 같은
-  baseline을 `review-engine/.venv/bin/python`으로 등가 실행했다.
-- 이번 단위도 `review-engine` rule/retrieval 변경만 포함하므로 `review-bot`
-  regression, provider quality gate, local GitLab smoke는 다시 돌리지 않았다.
+- `DOCKER.SEC.7` build-time secret handling
+- `DOCKER.3` digestless base tag retrieval hardening
+- `DOCKER.7` runtime prefix copy rule
+- `GO.11` sentinel error matching
+- `GO.12` transaction rollback visibility
 
-남은 작업:
+다음 작업:
 
-1. telemetry나 smoke에서 남아 있는 under-trigger 얇은 gap 하나를 더 고른다.
-2. 다음 gap에 맞는 source atom 또는 source 문서와 detector/rule/example을 같은 단위로 갱신한다.
-3. `review-engine` 변경만이면 rule/retrieval baseline을 다시 돌리고, `review-bot`이나 lifecycle 영향이 생기면 그에 맞는 deterministic regression과 smoke 범위를 추가한다.
+1. telemetry나 smoke에서 남아 있는 under-trigger gap 하나를 고른다.
+2. source atom 또는 source 문서, detector/rule/example을 같은 단위에서 갱신한다.
+3. `review-engine`만 바뀌면 rule/retrieval baseline만 다시 돌리고, `review-bot`이나 lifecycle 영향이 생기면 그에 맞는 regression과 smoke 범위를 추가한다.
 
-우선 후보:
+현재 1순위 후보:
 
-- Go: HTTP handler boundary validation.
+- Go: HTTP handler boundary validation
 
 완료 기준:
 
@@ -176,12 +111,12 @@
 
 상태: `partial`
 
-남은 작업:
+다음 작업:
 
 1. hunk 기반 review unit split의 한계를 측정하고 syntax-aware split이 필요한 언어를 고른다.
 2. related file retrieval과 project-scoped codebase index를 분리 설계한다.
 3. `full-report`/`backlog` note에 “왜 이 항목이 보였는가” 설명을 작게 추가한다.
-4. project-local feedback이 global rule quality를 왜곡하지 않도록 learned weight granularity를 정한다.
+4. project-local feedback이 global quality metric을 왜곡하지 않도록 learned weight granularity를 정한다.
 5. `.review-bot.yaml`, `summarize`, `ask`, walkthrough note의 우선순위를 재평가한다.
 
 완료 기준:
@@ -194,7 +129,7 @@
 
 상태: `partial`
 
-남은 작업:
+다음 작업:
 
 1. 실제 private extension 샘플 root를 하나 만든다.
 2. CI에서 public-only와 private-enabled 경로를 분리한다.
@@ -209,46 +144,33 @@
 - private rule priority가 retrieval/rerank/prompt/detector에서 일관된다.
 - public/private 경계가 깨지면 CI에서 잡힌다.
 
-### 6. Multi-SCM Adapter Expansion
+## Suggested Next Step
 
-상태: `not_started`
+현재 가장 자연스러운 다음 작업은 `Provider Runtime Guardrails`의
+provider provenance / config fail-fast 정리다.
 
-남은 작업:
+이유:
 
-1. GitHub PR adapter를 `ReviewSystemAdapterV2`에 맞춰 설계한다.
-2. GitHub metadata/diff/thread/status/check mapping을 구현한다.
-3. GitHub smoke 또는 replay fixture를 최소 하나 만든다.
-4. GitLab과 GitHub가 같은 lifecycle analytics schema를 공유하는지 검증한다.
-5. GitHub 안정화 뒤 Gerrit patchset 모델을 별도 설계한다.
+- 외부 API blocker 없이 바로 닫을 수 있다.
+- fallback lifecycle과 direct provider를 문서상 분리해 둔 현재 구조를 실제 운영 데이터까지 맞출 수 있다.
+- 설정 오타에 의한 `stub` false green 리스크를 작은 범위에서 바로 줄일 수 있다.
 
-완료 기준:
+## Not Now
 
-- GitHub PR review lifecycle이 GitLab과 같은 bot runner를 공유한다.
-- adapter 차이는 `ReviewSystemAdapterV2` 경계 안에 머문다.
-- GitHub smoke가 최소 happy path를 검증한다.
+지금 당장 잡지 않는 대표 항목은 아래와 같다.
 
-### 7. Automation
-
-상태: `not_started`
-
-남은 작업:
-
-1. `@review-bot apply`를 하기 전에 low-risk fix class와 권한 모델을 정의한다.
-2. patch 생성, audit, rollback, reviewer approval 경계를 설계한다.
-3. provider `auto_fix_lines` payload를 실제 patch application flow와 연결할지 결정한다.
-4. multi-reviewer parallel agent나 IDE 실시간 리뷰는 trust metric이 안정된 뒤 재평가한다.
-
-재평가 조건:
-
-- `fix_conversion_rate_28d`가 2 phase 이상 plateau.
-- verify/ranking/provider tuning만으로 false-positive 저감이 정체.
-- low-risk fix class가 충분히 반복되고 reviewer trust가 안정됨.
-
-완료 기준:
-
-- 자동 수정은 low-risk class로 제한된다.
-- 사람이 승인하기 전에는 기존 Git review UI의 mergeable state를 바꾸지 않는다.
-- audit/rollback 경로가 명확하다.
+- provider / ranking / density direct tuning
+  - 이유: direct OpenAI path가 현재 `insufficient_quota`로 막혀 있다.
+- OpenAI-compatible local LLM backend
+  - 이유: provider abstraction, quality bar, fallback policy를 먼저 정해야 한다.
+- manual rule editor / lifecycle CLI expansion
+  - 이유: 현재는 YAML/Git 기반 수동 편집 토대는 있지만 editor/UI와 lifecycle CLI를 바로 넣을 시점은 아니다.
+- multi-SCM adapter expansion
+  - 이유: GitHub/Gerrit adapter는 설계/fixture/smoke까지 한 단위가 커서 현재 우선순위보다 뒤다.
+- review-bot apply / auto-fix automation
+  - 이유: trust metric, low-risk fix class, audit/rollback 경계가 선행 조건이다.
+- roadmap automation blocked artifact standardization
+  - 이유: 자동화 자체는 이미 유용하게 돌아가고 있어, 다음 자동화 정리 단계에서 audit artifact를 추가하는 편이 좋다.
 
 ## Validation Baseline
 
@@ -304,8 +226,7 @@ bash ops/scripts/smoke_local_gitlab_multilang_review.sh --fixture cuda-targeted 
 direct provider / comparison artifact:
 
 - deterministic release gate와 별개로 본다.
-- `evaluate_provider_quality --provider openai`는 `OPENAI_API_KEY`가 없으면 `skipped`
-  artifact를 남기고 성공 종료할 수 있다.
+- `evaluate_provider_quality --provider openai`는 `OPENAI_API_KEY`가 없으면 `skipped` artifact를 남기고 성공 종료할 수 있다.
 - fallback이 켜져 있으면 lifecycle smoke만으로 live OpenAI direct 성공을 증명할 수 없다.
 
 ```bash
@@ -315,5 +236,4 @@ uv run --project review-bot python -m review_bot.cli.evaluate_provider_quality \
 uv run --project review-bot python -m review_bot.cli.compare_provider_quality \
   --stub-json /tmp/provider_quality_stub.json \
   --openai-json /tmp/provider_quality_openai.json
-bash ops/scripts/smoke_openai_provider_direct.sh
 ```

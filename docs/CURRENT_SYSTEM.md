@@ -82,9 +82,12 @@
 - Provider quality corpus는 YAML CI, FastAPI, SQL, CUDA async stream, CUDA cooperative groups regression case를 포함한다.
 - Provider comparison artifact는 `python -m review_bot.cli.compare_provider_quality`로 생성한다.
   OpenAI API key가 없으면 `openai_status=skipped` baseline으로 남길 수 있다.
+- lifecycle smoke와 direct OpenAI smoke는 다른 신호로 취급한다.
+  fallback이 켜져 있으면 lifecycle smoke만으로 live OpenAI 성공을 증명하지 않는다.
 - Markdown 문서는 명시적 unreviewable `markdown`으로 분류한다.
 - 마지막 점검 기준 rule count는 public/shared seed 기준 `344`개다.
 - extension rule root, prompt overlay, entry point, detector plugin hook, strict loading 골격은 구현되어 있다.
+- 다만 review run/current-state에 effective provider 또는 fallback provenance를 직접 남기는 운영 관측성은 아직 약하다.
 
 현재 주요 지원 축:
 
@@ -126,6 +129,7 @@ Adapter V2 capability는 [API_CONTRACTS.md](/home/et16/work/review_system/docs/A
 - adapter가 지원하면 head 파일 내용을 일부 가져와 file context로 쓴다.
 - `review-engine` codebase index/search가 있으면 similar code를 evidence/provider input에 넣을 수 있다.
 - AST 기반 syntax-aware split, project-scoped memory, `.review-bot.yaml`, `ask`/`summarize` command는 아직 없다.
+- provider 설정값은 현재 문자열 환경 변수 기반이고, unknown provider fail-fast는 아직 없다.
 
 ## Security And Retention
 
