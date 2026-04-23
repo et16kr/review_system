@@ -53,6 +53,11 @@ def test_query_analysis_does_not_treat_ide_rc_declaration_as_error_flow() -> Non
             {"context_background", "goroutine_leak", "panic_call"},
         ),
         (
+            "go",
+            "if err == fs.ErrNotExist {\n    return nil\n}\n",
+            {"sentinel_error_compare"},
+        ),
+        (
             "java",
             "try {\n    work();\n} catch (Exception ex) {\n    log(ex);\n}\nnew Thread(() -> work()).start();\n",
             {"catch_exception", "new_thread"},

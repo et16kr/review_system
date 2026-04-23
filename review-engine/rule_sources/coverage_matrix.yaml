@@ -936,7 +936,7 @@ languages:
     sources:
       - rule_source_id: go.go_runtime_baseline
         section_counts:
-          candidate_canonical_rule_groups: 4
+          candidate_canonical_rule_groups: 5
           reference_only_guidance: 2
         atoms:
           - source_atom_id: error_handling
@@ -946,6 +946,13 @@ languages:
             canonical_rules: [GO.3, GO.7]
             reviewability_mix: [auto_review]
             reason: Ignored and context-free errors are covered by active rules.
+          - source_atom_id: sentinel_error_matching
+            section_id: candidate_canonical_rule_groups
+            status: mapped
+            pack_targets: [project_go]
+            canonical_rules: [GO.11]
+            reviewability_mix: [auto_review]
+            reason: Wrapper-aware sentinel matching now has an explicit active rule for direct `err == ErrX` branches.
           - source_atom_id: cleanup
             section_id: candidate_canonical_rule_groups
             status: mapped

@@ -20,6 +20,7 @@ DIRECT_CATEGORY_SIGNALS: dict[str, set[str]] = {
         "except_exception",
         "promise_without_await",
         "ignored_error",
+        "sentinel_error_compare",
         "context_missing",
         "context_background",
         "goroutine_leak",

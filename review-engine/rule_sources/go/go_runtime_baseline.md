@@ -25,6 +25,7 @@ status: drafted
 ## High-Signal Review Areas
 
 - Check errors directly and consistently.
+- Prefer `errors.Is` or `errors.As` when sentinel or typed errors may cross wrapping boundaries.
 - Attach cleanup with `defer` as soon as the resource is acquired.
 - Propagate `context` through request-scoped work and reason about goroutine ownership.
 - Treat `context.Background()` or `context.TODO()` in service paths as an explicit ownership decision.
@@ -33,6 +34,7 @@ status: drafted
 ## Candidate Canonical Rule Groups
 
 - Error handling: ignored errors, wrapped errors, and operation context in returned failures.
+- Sentinel error matching: `errors.Is` / `errors.As` for wrapper-aware branches on typed or sentinel failures.
 - Cleanup: prompt `defer`, response body closure, and lexical ownership.
 - Concurrency: goroutine launch ownership, cancellation, and anonymous goroutine behavior.
 - Context propagation: request cancellation, deadline inheritance, and detached work.

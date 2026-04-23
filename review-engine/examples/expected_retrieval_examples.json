@@ -28,6 +28,10 @@
     "expected_rules": ["GO.8", "GO.9"]
   },
   {
+    "input": "examples/multilang/go_wrapped_sentinel.go",
+    "expected_rules": ["GO.11"]
+  },
+  {
     "input": "examples/multilang/java_concat_sql.java",
     "expected_rules": ["JAVA.PROJ.1"]
   },

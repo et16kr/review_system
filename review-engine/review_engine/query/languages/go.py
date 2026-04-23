@@ -15,6 +15,12 @@ PLUGIN = LanguageQueryPlugin(
             0.82,
         ),
         PatternSpec(
+            "sentinel_error_compare",
+            r"\berr\s*(?:==|!=)\s*(?!nil\b)[A-Za-z_][\w\.]*",
+            "Sentinel error comparison detected; review whether errors.Is/errors.As is needed if wrappers can appear.",
+            0.8,
+        ),
+        PatternSpec(
             "defer_close_missing",
             r"os\.Open\(|http\.Get\(",
             "Resource-opening call detected; review whether close cleanup is paired promptly.",
@@ -47,6 +53,7 @@ PLUGIN = LanguageQueryPlugin(
     ),
     hinted_rules={
         "ignored_error": ("GO.3", "GO.7"),
+        "sentinel_error_compare": ("GO.11",),
         "defer_close_missing": ("GO.1", "GO.6"),
         "context_missing": ("GO.2", "GO.5"),
         "goroutine_leak": ("GO.4", "GO.10"),
@@ -55,6 +62,7 @@ PLUGIN = LanguageQueryPlugin(
     },
     direct_hint_patterns={
         "ignored_error",
+        "sentinel_error_compare",
         "defer_close_missing",
         "context_missing",
         "goroutine_leak",

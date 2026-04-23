@@ -100,6 +100,17 @@
 
 현재 진행:
 
+- `2026-04-23`: Go wrapped sentinel error matching gap을 `GO.11`로
+  canonicalize했다. `sentinel_error_matching` source atom,
+  `sentinel_error_compare` detector hint, retrieval example
+  `go_wrapped_sentinel.go`, applicability gate를 추가했다.
+- Validation은 `ingest_guidelines`, `evaluate_examples`,
+  `evaluate_diff_contracts`,
+  `pytest review-engine/tests/test_query_conversion.py review-engine/tests/test_source_coverage_matrix.py review-engine/tests/test_expected_examples.py -q`
+  를 통과했다. 이 환경에서는 `uv run`이 read-only cache와 network 제한 때문에
+  실패해 같은 baseline을 `review-engine/.venv`의 직접 Python 실행으로 등가 검증했다.
+- 이번 단위도 `review-engine` rule/retrieval 변경만 포함하므로 `review-bot`
+  regression, provider quality gate, local GitLab smoke는 다시 돌리지 않았다.
 - `2026-04-23`: Dockerfile build-time secret handling gap을 `DOCKER.SEC.7`로
   canonicalize했다. `build_time_secret_handling` source atom, `build_secret_arg_env`
   detector hint, code/diff retrieval example을 추가했다.
@@ -113,15 +124,13 @@
 
 남은 작업:
 
-1. telemetry나 smoke에서 under-trigger가 확인된 얇은 gap 하나를 고른다.
-2. source atom 또는 source 문서를 추가한다.
-3. coverage matrix, pack/profile/policy, detector hinted rule을 함께 갱신한다.
-4. expected example 또는 targeted diff contract를 추가한다.
-5. ingest, engine evaluation, bot regression, 관련 smoke 영향을 같은 작업 범위에서 검증한다.
+1. telemetry나 smoke에서 남아 있는 under-trigger 얇은 gap 하나를 더 고른다.
+2. 다음 gap에 맞는 source atom 또는 source 문서와 detector/rule/example을 같은 단위로 갱신한다.
+3. `review-engine` 변경만이면 rule/retrieval baseline을 다시 돌리고, `review-bot`이나 lifecycle 영향이 생기면 그에 맞는 deterministic regression과 smoke 범위를 추가한다.
 
 우선 후보:
 
-- Go: sentinel error, `errors.Is/As`, HTTP handler boundary validation, transaction/resource cleanup.
+- Go: HTTP handler boundary validation, transaction/resource cleanup.
 - Dockerfile: digest/provenance 세분화, multi-stage runtime hardening.
 
 완료 기준:
