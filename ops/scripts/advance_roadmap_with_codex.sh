@@ -8,6 +8,7 @@ SANDBOX="${CODEX_SANDBOX:-workspace-write}"
 MODEL="${CODEX_MODEL:-}"
 COMMIT_PREFIX="${COMMIT_PREFIX:-Advance roadmap item}"
 OPENAI_DIRECT_SMOKE="${OPENAI_DIRECT_SMOKE:-0}"
+UNTIL_DONE=0
 NO_COMMIT=0
 
 usage() {
@@ -17,11 +18,13 @@ Usage: ops/scripts/advance_roadmap_with_codex.sh [options]
 Run Codex in one-commit roadmap advancement loops.
 
 Options:
-  --max-iters N      Maximum completed commits to create. Default: MAX_ITERS or 1.
+  --max-iters N      Maximum completed roadmap units (usually commits) to create.
+                     Default: MAX_ITERS or 1.
   --max-blocked-skips N
                      Maximum blocked roadmap units to skip in one run. Default: MAX_BLOCKED_SKIPS or 10.
   --model NAME       Pass a model to codex exec. Default: CODEX_MODEL or Codex default.
   --sandbox MODE     Sandbox for codex exec. Default: CODEX_SANDBOX or workspace-write.
+  --until-done       Continue until Codex reports ROADMAP_COMPLETE.
   --enable-openai-direct-smoke
                      Run provider-direct smoke preflight before each iteration.
   --skip-openai-direct-smoke
@@ -59,6 +62,10 @@ while [[ $# -gt 0 ]]; do
       SANDBOX="${2:?missing value for --sandbox}"
       shift 2
       ;;
+    --until-done)
+      UNTIL_DONE=1
+      shift
+      ;;
     --enable-openai-direct-smoke)
       OPENAI_DIRECT_SMOKE=1
       shift
@@ -90,6 +97,11 @@ fi
 
 if ! [[ "$MAX_BLOCKED_SKIPS" =~ ^[0-9]+$ ]]; then
   echo "MAX_BLOCKED_SKIPS must be a non-negative integer: $MAX_BLOCKED_SKIPS" >&2
+  exit 2
+fi
+
+if ! [[ "$UNTIL_DONE" =~ ^[01]$ ]]; then
+  echo "UNTIL_DONE must be 0 or 1: $UNTIL_DONE" >&2
   exit 2
 fi
 
@@ -169,7 +181,7 @@ attempt=0
 blocked_skips=0
 completed=0
 
-while [[ "$completed" -lt "$MAX_ITERS" ]]; do
+while [[ "$UNTIL_DONE" == "1" || "$completed" -lt "$MAX_ITERS" ]]; do
   attempt=$((attempt + 1))
   require_clean_tree
 
