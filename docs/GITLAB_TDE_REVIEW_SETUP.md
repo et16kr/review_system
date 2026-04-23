@@ -115,13 +115,15 @@ python3 /home/et16/work/review_system/ops/scripts/replay_local_gitlab_tde_review
 ## 표준 smoke 검증
 
 ```bash
-bash /home/et16/work/review_system/ops/scripts/smoke_local_gitlab_tde_review.sh
+bash /home/et16/work/review_system/ops/scripts/smoke_local_gitlab_lifecycle_review.sh
 ```
 
 이 wrapper는 baseline reset/reseed, default incremental replay, human reply, resolve, `/sync`, smoke invariant 검증을 한 번에 수행합니다.
+기존 `smoke_local_gitlab_tde_review.sh`도 compatibility wrapper로 유지합니다.
 
 mixed-language smoke:
 
 ```bash
-bash /home/et16/work/review_system/ops/scripts/smoke_local_gitlab_multilang_review.sh
+bash /home/et16/work/review_system/ops/scripts/smoke_local_gitlab_multilang_review.sh \
+  --fixture synthetic-mixed-language
 ```

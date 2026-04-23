@@ -12,10 +12,12 @@
 - `scripts/attach_local_gitlab_bot.py`
 - `scripts/replay_local_gitlab_tde_review.py`
 - `scripts/smoke_local_gitlab_tde_review.sh`
+- `scripts/smoke_local_gitlab_lifecycle_review.sh`
 - `scripts/smoke_local_gitlab_multilang_review.sh`
 - `scripts/capture_review_bot_baseline.py`
 - `scripts/capture_wrong_language_telemetry.py`
 - `scripts/build_wrong_language_backlog.py`
+- `fixtures/review_smoke/`
 - `review-bot-policy.example.json`
 
 초기 실행:
@@ -54,8 +56,10 @@ python3 /home/et16/work/review_system/ops/scripts/replay_local_gitlab_tde_review
 표준 smoke 시나리오를 한 번에 재생하고, 실패 시 non-zero exit code를 받으려면:
 
 ```bash
-bash /home/et16/work/review_system/ops/scripts/smoke_local_gitlab_tde_review.sh
+bash /home/et16/work/review_system/ops/scripts/smoke_local_gitlab_lifecycle_review.sh
 ```
+
+기존 `smoke_local_gitlab_tde_review.sh`는 compatibility wrapper로 계속 사용할 수 있습니다.
 
 Phase A baseline snapshot을 남기려면:
 
@@ -82,7 +86,26 @@ mixed-language smoke를 돌리려면:
 
 ```bash
 bash /home/et16/work/review_system/ops/scripts/smoke_local_gitlab_multilang_review.sh \
+  --fixture synthetic-mixed-language \
   --json-output /tmp/review-bot-multilang-smoke.json
 ```
 
 이 smoke는 `markdown + yaml + sql + framework file` 조합에서 language tag와 wrong-language telemetry 흐름까지 함께 검증합니다.
+
+CUDA targeted fixture를 별도 project ref로 돌리려면:
+
+```bash
+bash /home/et16/work/review_system/ops/scripts/smoke_local_gitlab_multilang_review.sh \
+  --fixture cuda-targeted \
+  --project-ref root/review-system-cuda-smoke \
+  --json-output /tmp/review-bot-cuda-smoke.json
+```
+
+curated polyglot fixture를 돌리려면:
+
+```bash
+bash /home/et16/work/review_system/ops/scripts/smoke_local_gitlab_multilang_review.sh \
+  --fixture curated-polyglot \
+  --project-ref root/review-system-curated-polyglot-smoke \
+  --json-output /tmp/review-bot-curated-polyglot-smoke.json
+```

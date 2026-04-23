@@ -2,9 +2,18 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from pathlib import Path
 
+from review_engine.config import get_settings
 from review_engine.retrieve.search import GuidelineSearchService
+
+
+def _resolve_repo_path(path_value: str, *, project_root: Path) -> Path:
+    path = Path(path_value)
+    if path.is_absolute() or path.exists():
+        return path
+    return project_root / path
 
 
 def main() -> None:
@@ -24,18 +33,25 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    spec_path = Path(args.spec)
+    settings = get_settings()
+    spec_path = _resolve_repo_path(args.spec, project_root=settings.project_root)
     cases = json.loads(spec_path.read_text(encoding="utf-8"))
-    service = GuidelineSearchService()
+    service = GuidelineSearchService(settings)
     report: list[dict[str, object]] = []
 
     for case in cases:
-        input_path = Path(case["input"])
+        input_path = _resolve_repo_path(str(case["input"]), project_root=settings.project_root)
+        review_path = case.get("review_path") or case.get("source_path")
         payload = input_path.read_text(encoding="utf-8")
         if input_path.suffix == ".diff":
-            response = service.review_diff(payload, top_k=args.top_k)
+            kwargs = {"file_path": str(review_path)} if review_path else {}
+            response = service.review_diff(payload, top_k=args.top_k, **kwargs)
         else:
-            response = service.review_code(payload, top_k=args.top_k)
+            response = service.review_code(
+                payload,
+                top_k=args.top_k,
+                file_path=str(review_path or case["input"]),
+            )
 
         returned_rules = [result.rule_no for result in response.results]
         expected_rules = list(case["expected_rules"])
@@ -59,6 +75,8 @@ def main() -> None:
         "cases": report,
     }
     print(json.dumps(summary, indent=2))
+    if summary["failed"]:
+        sys.exit(1)
 
 
 if __name__ == "__main__":

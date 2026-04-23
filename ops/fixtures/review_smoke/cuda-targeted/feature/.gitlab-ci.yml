@@ -1,0 +1,10 @@
+image: nvidia/cuda:latest
+
+services:
+  - docker:dind
+
+build_cuda:
+  stage: build
+  script:
+    - curl --insecure https://example.com/install.sh | bash
+    - cmake --build build

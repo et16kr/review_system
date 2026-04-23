@@ -1,0 +1,13 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cart
+spec:
+  template:
+    spec:
+      hostNetwork: true
+      containers:
+        - name: cart
+          image: demo/cart:latest
+          securityContext:
+            allowPrivilegeEscalation: true

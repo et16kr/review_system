@@ -1,0 +1,17 @@
+fixture_id: cuda-targeted
+display_name: CUDA targeted smoke
+source_type: repo-local-synthetic
+smoke_tier: targeted
+description: >
+  Targeted fixture covering CUDA profile routing together with GitLab CI YAML
+  and markdown non-reviewable routing.
+expected_languages:
+  - cuda
+  - yaml
+non_reviewable_languages:
+  - markdown
+expected_contexts:
+  - cuda_async_runtime
+  - gitlab_ci
+transformations:
+  - original minimal CUDA/YAML smoke fixture

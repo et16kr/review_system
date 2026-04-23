@@ -5,9 +5,10 @@ import argparse
 import json
 import shutil
 import subprocess
-from uuid import uuid4
+from dataclasses import dataclass
 from pathlib import Path
 from urllib import parse, request
+from uuid import uuid4
 
 from attach_local_gitlab_bot import (
     ENV_PATH,
@@ -27,8 +28,8 @@ from bootstrap_local_gitlab_tde_review import (
     wait_for_gitlab,
 )
 from replay_local_gitlab_tde_review import (
-    attach_bot,
     add_human_reply,
+    attach_bot,
     list_discussions,
     trigger_sync,
     wait_for_feedback_change,
@@ -36,48 +37,17 @@ from replay_local_gitlab_tde_review import (
 
 ROOT = Path("/home/et16/work/review_system")
 WORKTREE_ROOT = ROOT / "ops" / ".tmp" / "multilang-smoke-repo"
-
-BASE_MARKDOWN = """# Release Notes
-
-- Safe baseline document for mixed-language smoke.
-"""
-
-FEATURE_MARKDOWN = """# Release Notes
-
-- Mixed-language smoke fixture
-- Markdown file should stay unreviewable.
-"""
-
-BASE_GITLAB_CI = """image: python:3.12
-
-deploy_job:
-  stage: deploy
-  script:
-    - ./deploy.sh
-"""
-
-BASE_SQL = """select
-  user_id,
-  date_trunc('day', created_at) as day_bucket,
-  count(*) as total_rows
-from events
-where created_at >= current_date - interval '7 day'
-group by 1, 2;
-"""
-
-BASE_FASTAPI = """import httpx
-from fastapi import APIRouter, Request
-
-router = APIRouter()
+FIXTURES_ROOT = ROOT / "ops" / "fixtures" / "review_smoke"
+DEFAULT_FIXTURE_ID = "synthetic-mixed-language"
 
 
-@router.post("/items")
-async def create_item(request: Request):
-    payload = await request.json()
-    async with httpx.AsyncClient(timeout=5) as client:
-        upstream = await client.get("https://example.com/health")
-    return {"ok": upstream.is_success, "payload": payload}
-"""
+@dataclass(frozen=True)
+class SmokeFixture:
+    fixture_id: str
+    root: Path
+    base_files: dict[str, str]
+    feature_files: dict[str, str]
+    expected: dict
 
 
 def run(cmd: list[str], *, cwd: Path, capture: bool = False) -> str:
@@ -101,14 +71,89 @@ def gitlab_base_url() -> str:
     return "http://127.0.0.1:18929"
 
 
+def _available_fixture_ids() -> list[str]:
+    if not FIXTURES_ROOT.exists():
+        return []
+    return sorted(
+        path.name
+        for path in FIXTURES_ROOT.iterdir()
+        if path.is_dir() and (path / "expected_smoke.json").exists()
+    )
+
+
+def _read_fixture_tree(root: Path) -> dict[str, str]:
+    if not root.exists():
+        raise SystemExit(f"Smoke fixture directory not found: {root}")
+    files: dict[str, str] = {}
+    for path in sorted(item for item in root.rglob("*") if item.is_file()):
+        files[path.relative_to(root).as_posix()] = path.read_text(encoding="utf-8")
+    if not files:
+        raise SystemExit(f"Smoke fixture directory is empty: {root}")
+    return files
+
+
+def load_smoke_fixture(fixture_id: str) -> SmokeFixture:
+    normalized_fixture_id = fixture_id.strip()
+    if normalized_fixture_id in {"default", "synthetic", "mixed-language"}:
+        normalized_fixture_id = DEFAULT_FIXTURE_ID
+
+    fixture_root = FIXTURES_ROOT / normalized_fixture_id
+    expected_path = fixture_root / "expected_smoke.json"
+    if not expected_path.exists():
+        available = ", ".join(_available_fixture_ids()) or "(none)"
+        raise SystemExit(
+            f"Unknown smoke fixture: {fixture_id}. Available fixtures: {available}"
+        )
+
+    expected = json.loads(expected_path.read_text(encoding="utf-8"))
+    expected_fixture_id = str(expected.get("fixture_id") or normalized_fixture_id)
+    if expected_fixture_id != normalized_fixture_id:
+        raise SystemExit(
+            f"Fixture id mismatch: directory={normalized_fixture_id}, "
+            f"expected_smoke.json={expected_fixture_id}"
+        )
+
+    return SmokeFixture(
+        fixture_id=normalized_fixture_id,
+        root=fixture_root,
+        base_files=_read_fixture_tree(fixture_root / "base"),
+        feature_files=_read_fixture_tree(fixture_root / "feature"),
+        expected=expected,
+    )
+
+
+def validate_fixture_contract(fixture: SmokeFixture) -> None:
+    required_paths = _as_string_list(fixture.expected.get("required_paths"))
+    missing_required_paths = [
+        path for path in required_paths if path not in fixture.feature_files
+    ]
+    if missing_required_paths:
+        raise SystemExit(
+            f"{fixture.fixture_id} missing required fixture paths: {missing_required_paths}"
+        )
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Run a mixed-language local GitLab smoke with markdown/yaml/sql/framework files."
+        description="Run a fixture-backed mixed-language local GitLab smoke."
     )
-    parser.add_argument("--project-ref", default="root/review-system-multilang-smoke")
+    parser.add_argument(
+        "--fixture",
+        default=DEFAULT_FIXTURE_ID,
+        help=f"Smoke fixture id under ops/fixtures/review_smoke (default: {DEFAULT_FIXTURE_ID}).",
+    )
+    parser.add_argument(
+        "--project-ref",
+        default=None,
+        help="GitLab project ref. Defaults to the selected fixture's default_project_ref.",
+    )
     parser.add_argument("--target-branch", default="smoke_base")
     parser.add_argument("--source-branch", default="smoke_feature")
-    parser.add_argument("--skip-start", action="store_true", help="Do not start local GitLab compose.")
+    parser.add_argument(
+        "--skip-start",
+        action="store_true",
+        help="Do not start local GitLab compose.",
+    )
     parser.add_argument(
         "--skip-reset-bot-state",
         action="store_true",
@@ -161,6 +206,7 @@ def _prepare_local_repo(
     repo_path: Path,
     target_branch: str,
     source_branch: str,
+    fixture: SmokeFixture,
 ) -> None:
     if repo_path.exists():
         shutil.rmtree(repo_path)
@@ -169,36 +215,14 @@ def _prepare_local_repo(
     run(["git", "config", "user.name", "Review Bot Smoke"], cwd=repo_path)
     run(["git", "config", "user.email", "review-bot-smoke@example.local"], cwd=repo_path)
 
-    _write_files(
-        repo_path,
-        {
-            "docs/release_notes.md": BASE_MARKDOWN,
-            ".gitlab-ci.yml": BASE_GITLAB_CI,
-            "warehouse/daily_rollup.sql": BASE_SQL,
-            "api/routes/items.py": BASE_FASTAPI,
-        },
-    )
+    _write_files(repo_path, fixture.base_files)
     run(["git", "add", "."], cwd=repo_path)
     run(["git", "commit", "-m", "seed safe baseline"], cwd=repo_path)
 
     run(["git", "checkout", "-b", source_branch], cwd=repo_path)
-    _write_files(
-        repo_path,
-        {
-            "docs/release_notes.md": FEATURE_MARKDOWN,
-            ".gitlab-ci.yml": (
-                ROOT / "review-engine" / "examples" / "multilang" / "gitlab_remote" / ".gitlab-ci.yml"
-            ).read_text(encoding="utf-8"),
-            "warehouse/daily_rollup.sql": (
-                ROOT / "review-engine" / "examples" / "multilang" / "warehouse" / "daily_rollup.sql"
-            ).read_text(encoding="utf-8"),
-            "api/routes/items.py": (
-                ROOT / "review-engine" / "examples" / "multilang" / "python_fastapi_service.py"
-            ).read_text(encoding="utf-8"),
-        },
-    )
+    _write_files(repo_path, fixture.feature_files)
     run(["git", "add", "."], cwd=repo_path)
-    run(["git", "commit", "-m", "add mixed-language review targets"], cwd=repo_path)
+    run(["git", "commit", "-m", f"add {fixture.fixture_id} review targets"], cwd=repo_path)
 
 
 def _push_fixture_branches(
@@ -210,8 +234,14 @@ def _push_fixture_branches(
     source_branch: str,
 ) -> None:
     _set_authenticated_remote(repo_path, repo_http_url, token)
-    run(["git", "push", "--force", "gitlab-local", f"{target_branch}:{target_branch}"], cwd=repo_path)
-    run(["git", "push", "--force", "gitlab-local", f"{source_branch}:{source_branch}"], cwd=repo_path)
+    run(
+        ["git", "push", "--force", "gitlab-local", f"{target_branch}:{target_branch}"],
+        cwd=repo_path,
+    )
+    run(
+        ["git", "push", "--force", "gitlab-local", f"{source_branch}:{source_branch}"],
+        cwd=repo_path,
+    )
 
 
 def _delete_open_merge_requests(
@@ -252,6 +282,7 @@ def _create_merge_request(
     project_id: int,
     source_branch: str,
     target_branch: str,
+    fixture: SmokeFixture,
 ) -> dict:
     return api_json(
         "POST",
@@ -260,9 +291,12 @@ def _create_merge_request(
         {
             "source_branch": source_branch,
             "target_branch": target_branch,
-            "title": "Mixed-language smoke review",
-            "description": (
-                "Mixed-language smoke fixture with markdown, GitLab CI YAML, analytics SQL, and FastAPI."
+            "title": str(
+                fixture.expected.get("merge_request_title") or "Mixed-language smoke review"
+            ),
+            "description": str(
+                fixture.expected.get("merge_request_description")
+                or "Fixture-backed mixed-language smoke review."
             ),
             "remove_source_branch": False,
         },
@@ -298,9 +332,47 @@ def _find_discussion_by_language(discussions: list[dict], language_id: str) -> d
     return None
 
 
+def _as_string_list(value: object) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    return [str(item) for item in value if str(item).strip()]
+
+
+def validate_bot_comments(bot_bodies: list[str], expected: dict) -> dict:
+    required_languages = _as_string_list(expected.get("expected_language_tags"))
+    forbidden_languages = _as_string_list(expected.get("forbidden_language_tags"))
+    required_tags = [f"[봇 리뷰][{language_id}]" for language_id in required_languages]
+    forbidden_tags = [f"[봇 리뷰][{language_id}]" for language_id in forbidden_languages]
+    missing_tags = [tag for tag in required_tags if not any(tag in body for body in bot_bodies)]
+    unexpected_tags = [tag for tag in forbidden_tags if any(tag in body for body in bot_bodies)]
+    minimum_review_comments = int(expected.get("minimum_review_comments") or 0)
+
+    if len(bot_bodies) < minimum_review_comments:
+        raise RuntimeError(
+            f"Expected at least {minimum_review_comments} bot comments, got {len(bot_bodies)}."
+        )
+    if missing_tags:
+        raise RuntimeError(f"Missing expected language-tagged comments: {missing_tags}")
+    if unexpected_tags:
+        raise RuntimeError(
+            f"Smoke fixture unexpectedly produced forbidden language tags: {unexpected_tags}"
+        )
+
+    return {
+        "required_tags": required_tags,
+        "forbidden_tags": forbidden_tags,
+        "minimum_review_comments": minimum_review_comments,
+        "bot_comment_count": len(bot_bodies),
+    }
+
+
 def main() -> int:
     args = parse_args()
-    project_ref = args.project_ref
+    fixture = load_smoke_fixture(args.fixture)
+    validate_fixture_contract(fixture)
+    project_ref = args.project_ref or str(
+        fixture.expected.get("default_project_ref") or "root/review-system-multilang-smoke"
+    )
     namespace_path, _, project_name = project_ref.rpartition("/")
     if not namespace_path or not project_name:
         raise SystemExit("project-ref must be in <namespace>/<project> form.")
@@ -326,6 +398,7 @@ def main() -> int:
         repo_path=WORKTREE_ROOT,
         target_branch=target_branch,
         source_branch=source_branch,
+        fixture=fixture,
     )
     _push_fixture_branches(
         repo_path=WORKTREE_ROOT,
@@ -347,6 +420,7 @@ def main() -> int:
         project_id=int(project["id"]),
         source_branch=source_branch,
         target_branch=target_branch,
+        fixture=fixture,
     )
 
     update_env(
@@ -373,45 +447,61 @@ def main() -> int:
             mr_iid=int(merge_request["iid"]),
         )
         bot_bodies = _bot_note_bodies(discussions)
-        required_tags = ["[봇 리뷰][yaml]", "[봇 리뷰][sql]", "[봇 리뷰][python]"]
-        missing_tags = [tag for tag in required_tags if not any(tag in body for body in bot_bodies)]
-        unexpected_cpp = any("[봇 리뷰][cpp]" in body for body in bot_bodies)
-        if missing_tags:
-            raise RuntimeError(f"Missing expected language-tagged comments: {missing_tags}")
-        if unexpected_cpp:
-            raise RuntimeError("Mixed-language smoke unexpectedly produced a cpp-tagged review comment.")
+        comment_validation = validate_bot_comments(bot_bodies, fixture.expected)
 
-        yaml_discussion = _find_discussion_by_language(discussions, "yaml")
-        if yaml_discussion is None:
-            raise RuntimeError("Could not find a yaml-tagged discussion for wrong-language feedback flow.")
+        after_sync_state = None
+        telemetry: dict = {"top_language_pairs": [], "triage_candidates": []}
+        wrong_language_feedback = fixture.expected.get("wrong_language_feedback")
+        if isinstance(wrong_language_feedback, dict):
+            detected_language_id = str(
+                wrong_language_feedback.get("detected_language_id") or ""
+            ).strip()
+            expected_language_id = str(
+                wrong_language_feedback.get("expected_language_id") or ""
+            ).strip()
+            if not detected_language_id or not expected_language_id:
+                raise RuntimeError(
+                    "wrong_language_feedback requires detected/expected language ids."
+                )
+            discussion = _find_discussion_by_language(discussions, detected_language_id)
+            if discussion is None:
+                raise RuntimeError(
+                    "Could not find a "
+                    f"{detected_language_id}-tagged discussion for wrong-language feedback flow."
+                )
 
-        before_sync_state = get_bot_state(project_ref, int(merge_request["iid"]))
-        add_human_reply(
-            base_url=base_url,
-            token=root_token,
-            project_ref=project_ref,
-            mr_iid=int(merge_request["iid"]),
-            discussion_id=str(yaml_discussion["id"]),
-            body="@review-bot wrong-language markdown\n이 스레드는 문서 예외 흐름 점검용입니다.",
-        )
-        trigger_sync(str(before_sync_state["last_review_run_id"]))
-        after_sync_state = wait_for_feedback_change(
-            project_ref=project_ref,
-            mr_iid=int(merge_request["iid"]),
-            previous_feedback_count=int(before_sync_state.get("feedback_event_count") or 0),
-            previous_open_thread_count=int(before_sync_state.get("open_thread_count") or 0),
-        )
-        telemetry = _fetch_wrong_language_feedback(project_ref=project_ref, window="28d")
-        if not any(
-            item.get("detected_language_id") == "yaml"
-            and item.get("expected_language_id") == "markdown"
-            for item in telemetry.get("top_language_pairs", [])
-        ):
-            raise RuntimeError(
-                "wrong-language telemetry did not record the expected yaml -> markdown pair."
+            before_sync_state = get_bot_state(project_ref, int(merge_request["iid"]))
+            add_human_reply(
+                base_url=base_url,
+                token=root_token,
+                project_ref=project_ref,
+                mr_iid=int(merge_request["iid"]),
+                discussion_id=str(discussion["id"]),
+                body=str(
+                    wrong_language_feedback.get("reply_body")
+                    or f"@review-bot wrong-language {expected_language_id}"
+                ),
             )
+            trigger_sync(str(before_sync_state["last_review_run_id"]))
+            after_sync_state = wait_for_feedback_change(
+                project_ref=project_ref,
+                mr_iid=int(merge_request["iid"]),
+                previous_feedback_count=int(before_sync_state.get("feedback_event_count") or 0),
+                previous_open_thread_count=int(before_sync_state.get("open_thread_count") or 0),
+            )
+            telemetry = _fetch_wrong_language_feedback(project_ref=project_ref, window="28d")
+            if not any(
+                item.get("detected_language_id") == detected_language_id
+                and item.get("expected_language_id") == expected_language_id
+                for item in telemetry.get("top_language_pairs", [])
+            ):
+                raise RuntimeError(
+                    "wrong-language telemetry did not record the expected "
+                    f"{detected_language_id} -> {expected_language_id} pair."
+                )
 
         result = {
+            "fixture_id": fixture.fixture_id,
             "project_ref": project_ref,
             "merge_request_iid": int(merge_request["iid"]),
             "merge_request_url": f"{project['web_url']}/-/merge_requests/{merge_request['iid']}",
@@ -420,8 +510,8 @@ def main() -> int:
             "deleted_merge_requests": deleted_mrs,
             "review_state": review_state,
             "after_sync_state": after_sync_state,
-            "required_tags": required_tags,
-            "bot_comment_count": len(bot_bodies),
+            "expected_smoke": fixture.expected,
+            **comment_validation,
             "wrong_language_pairs": telemetry.get("top_language_pairs", []),
             "triage_candidates": telemetry.get("triage_candidates", []),
         }
@@ -439,10 +529,7 @@ def main() -> int:
     finally:
         if (
             not args.skip_provider_restore
-            and (
-            original_provider != "stub"
-            or original_fallback_provider != "stub"
-            )
+            and (original_provider != "stub" or original_fallback_provider != "stub")
         ):
             update_env(
                 ENV_PATH,

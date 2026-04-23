@@ -1,0 +1,59 @@
+# External source registry for future pinned external-derived smoke fixtures.
+#
+# The daily smoke must not fetch these sources live. When a slice is imported,
+# pin source_ref to an immutable commit SHA and record every imported path and
+# transformation in the fixture-specific manifest.
+fixtures:
+  - fixture_id: curated-polyglot-otel-demo
+    status: planned
+    source_repo: https://github.com/open-telemetry/opentelemetry-demo
+    source_ref: null
+    license: Apache-2.0
+    imported_paths: []
+    stored_paths: []
+    transformations:
+      - planned minimal Docker/Kubernetes/service-code review diff
+    expected_languages:
+      - go
+      - yaml
+      - dockerfile
+    expected_contexts:
+      - kubernetes
+      - docker
+    smoke_tier: targeted
+  - fixture_id: curated-polyglot
+    status: repo-local-curated
+    source_repo: null
+    source_ref: null
+    license: project-local
+    imported_paths: []
+    stored_paths:
+      - ops/fixtures/review_smoke/curated-polyglot/
+    transformations:
+      - original minimal Go/Dockerfile/Kubernetes fixture
+      - shaped to match cloud-native polyglot review scenarios without live external fetch
+    expected_languages:
+      - go
+      - dockerfile
+      - yaml
+    expected_contexts:
+      - kubernetes
+      - docker
+    smoke_tier: targeted
+  - fixture_id: cuda-targeted
+    status: repo-local-synthetic
+    source_repo: null
+    source_ref: null
+    license: project-local
+    imported_paths: []
+    stored_paths:
+      - ops/fixtures/review_smoke/cuda-targeted/
+    transformations:
+      - original minimal CUDA/YAML smoke fixture
+    expected_languages:
+      - cuda
+      - yaml
+    expected_contexts:
+      - cuda_async_runtime
+      - gitlab_ci
+    smoke_tier: targeted

@@ -1,0 +1,19 @@
+fixture_id: synthetic-mixed-language
+display_name: Synthetic mixed-language smoke
+source_type: repo-local-synthetic
+smoke_tier: daily
+description: >
+  Baseline mixed-language fixture covering markdown non-reviewable routing,
+  GitLab CI YAML, analytics SQL, and FastAPI Python comments.
+expected_languages:
+  - yaml
+  - sql
+  - python
+non_reviewable_languages:
+  - markdown
+expected_contexts:
+  - gitlab_ci
+  - analytics
+  - fastapi_service
+transformations:
+  - moved inline smoke constants into repo-local base/feature fixture layout

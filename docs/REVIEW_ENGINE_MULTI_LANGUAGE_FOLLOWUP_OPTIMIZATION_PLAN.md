@@ -16,6 +16,12 @@ wrong-language analytics가 이미 닫힌 상태를 전제로,
 `docs/REVIEW_ENGINE_CUDA_NATIVE_CAPABILITY_EXPANSION_PLAN.md`
 에서 관리한다.
 
+언어별 rule 수를 더 늘리는 작업도 이 문서의 주 범위가 아니다.
+rule corpus expansion 여부와 언어별 보강 우선순위는
+`docs/REVIEW_ENGINE_RULE_EXPANSION_PLAN.md`에서 관리한다.
+이 최적화 문서는 이미 들어온 corpus의 ranking, provider phrasing,
+comment density, smoke 품질을 안정화하는 데 집중한다.
+
 현재는 `CUDA` capability expansion이 baseline + follow-up profile 단계까지
 이미 반영되었으므로,
 이 문서에서는 **기존 CUDA 축의 최적화 작업도 포함**한다.
@@ -40,6 +46,7 @@ wrong-language analytics가 이미 닫힌 상태를 전제로,
 이 문서에 포함되지 않는 것은 다음과 같다.
 
 - 새 `language_id` 추가
+- 새 rule source/corpus를 늘리는 broad expansion
 - 새 framework/profile/context/dialect 축 추가
 - current ecosystem 바깥 새 guideline source 도입
 - DB schema 변경
@@ -176,6 +183,11 @@ reference-only richness가 defect claim 품질을 해치지 않도록 하는 것
 목표는 현재 한 번 통과한 mixed-language 검증을
 지속 회귀로 굳히는 것이다.
 
+외부 GitHub 예제 후보 선정, pinned fixture manifest, lifecycle smoke rename,
+external-derived smoke tier 설계는 별도 문서인
+`docs/REVIEW_ENGINE_SMOKE_FIXTURE_EXPANSION_DESIGN.md`에서 관리한다.
+이 절에서는 그 설계를 실제 최적화 검증 루프로 흡수하는 작업만 추적한다.
+
 해야 할 일:
 
 - 현재 smoke를 유지하면서 framework/product/config 조합 fixture를 더 늘린다.
@@ -281,7 +293,9 @@ capability별 확인 포인트:
 - `cd review-engine && uv run pytest -q`
 - `cd review-bot && uv run pytest -q`
 - `cd review-platform && uv run pytest tests/test_pr_flow.py -q`
-- `bash ops/scripts/smoke_local_gitlab_multilang_review.sh --json-output /tmp/review-bot-multilang-smoke.json`
+- `bash ops/scripts/smoke_local_gitlab_multilang_review.sh --fixture synthetic-mixed-language --json-output /tmp/review-bot-multilang-smoke.json`
+- `bash ops/scripts/smoke_local_gitlab_multilang_review.sh --fixture curated-polyglot --project-ref root/review-system-curated-polyglot-smoke --json-output /tmp/review-bot-curated-polyglot-smoke.json`
+- `bash ops/scripts/smoke_local_gitlab_multilang_review.sh --fixture cuda-targeted --project-ref root/review-system-cuda-smoke --json-output /tmp/review-bot-cuda-smoke.json`
 - `python3 ops/scripts/build_wrong_language_backlog.py --project-ref <project> --window 28d --output <path>`
 
 최적화별 추가 검증은 아래를 권장한다.

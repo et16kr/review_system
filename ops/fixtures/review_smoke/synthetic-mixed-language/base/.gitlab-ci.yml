@@ -1,0 +1,6 @@
+image: python:3.12
+
+deploy_job:
+  stage: deploy
+  script:
+    - ./deploy.sh

@@ -1,0 +1,25 @@
+{
+  "fixture_id": "curated-polyglot",
+  "default_project_ref": "root/review-system-curated-polyglot-smoke",
+  "merge_request_title": "Curated polyglot smoke review",
+  "merge_request_description": "Curated polyglot smoke fixture with Go, Dockerfile, Kubernetes YAML, and markdown.",
+  "expected_language_tags": ["yaml"],
+  "expected_engine_languages": ["go", "dockerfile", "yaml"],
+  "expected_engine_rules": {
+    "services/cart/main.go": ["GO.1"],
+    "Dockerfile": ["DOCKER.5", "DOCKER.SEC.5"],
+    "deploy/k8s/deployment.yaml": ["YAML.K8S.5", "YAML.K8S.6"]
+  },
+  "forbidden_language_tags": ["cpp", "cuda", "python", "sql"],
+  "minimum_review_comments": 1,
+  "required_paths": [
+    "services/cart/main.go",
+    "Dockerfile",
+    "deploy/k8s/deployment.yaml"
+  ],
+  "wrong_language_feedback": {
+    "detected_language_id": "yaml",
+    "expected_language_id": "markdown",
+    "reply_body": "@review-bot wrong-language markdown\nCurated polyglot smoke의 YAML 스레드 오분류 telemetry 점검입니다."
+  }
+}

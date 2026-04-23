@@ -1,0 +1,25 @@
+{
+  "fixture_id": "synthetic-mixed-language",
+  "default_project_ref": "root/review-system-multilang-smoke",
+  "merge_request_title": "Mixed-language smoke review",
+  "merge_request_description": "Mixed-language smoke fixture with markdown, GitLab CI YAML, analytics SQL, and FastAPI.",
+  "expected_language_tags": ["yaml", "sql", "python"],
+  "expected_engine_languages": ["yaml", "sql", "python"],
+  "expected_engine_rules": {
+    ".gitlab-ci.yml": ["YAML.CI.6", "YAML.CI.7", "YAML.CI.8"],
+    "warehouse/daily_rollup.sql": ["SQL.WH.1", "SQL.WH.2"],
+    "api/routes/items.py": ["PY.FAPI.1", "PY.FAPI.2"]
+  },
+  "forbidden_language_tags": ["cpp", "cuda"],
+  "minimum_review_comments": 3,
+  "required_paths": [
+    ".gitlab-ci.yml",
+    "warehouse/daily_rollup.sql",
+    "api/routes/items.py"
+  ],
+  "wrong_language_feedback": {
+    "detected_language_id": "yaml",
+    "expected_language_id": "markdown",
+    "reply_body": "@review-bot wrong-language markdown\n이 스레드는 문서 예외 흐름 점검용입니다."
+  }
+}

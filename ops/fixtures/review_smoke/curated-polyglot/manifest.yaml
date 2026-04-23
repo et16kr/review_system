@@ -1,0 +1,20 @@
+fixture_id: curated-polyglot
+display_name: Curated polyglot smoke
+source_type: repo-local-curated
+smoke_tier: targeted
+description: >
+  Small polyglot fixture shaped like a cloud-native service change. It covers
+  Go service code, Dockerfile runtime hardening, Kubernetes manifest routing,
+  and markdown non-reviewable routing without fetching external sources at
+  smoke time.
+expected_languages:
+  - go
+  - dockerfile
+  - yaml
+non_reviewable_languages:
+  - markdown
+expected_contexts:
+  - kubernetes
+  - docker
+transformations:
+  - original minimal fixture; external-derived import can replace or extend this layout later

@@ -1,0 +1,23 @@
+{
+  "fixture_id": "cuda-targeted",
+  "default_project_ref": "root/review-system-cuda-smoke",
+  "merge_request_title": "CUDA targeted smoke review",
+  "merge_request_description": "CUDA targeted smoke fixture with CUDA runtime and GitLab CI YAML.",
+  "expected_language_tags": ["yaml"],
+  "expected_engine_languages": ["cuda", "yaml"],
+  "expected_engine_rules": {
+    ".gitlab-ci.yml": ["YAML.CI.6", "YAML.CI.7"],
+    "kernels/stream_ops.cu": ["CUDA.ASYNC.1", "CUDA.ASYNC.2", "CUDA.ASYNC.3"]
+  },
+  "forbidden_language_tags": ["cpp", "sql", "python"],
+  "minimum_review_comments": 1,
+  "required_paths": [
+    "kernels/stream_ops.cu",
+    ".gitlab-ci.yml"
+  ],
+  "wrong_language_feedback": {
+    "detected_language_id": "yaml",
+    "expected_language_id": "markdown",
+    "reply_body": "@review-bot wrong-language markdown\nCUDA targeted smoke의 YAML 스레드 오분류 telemetry 점검입니다."
+  }
+}
