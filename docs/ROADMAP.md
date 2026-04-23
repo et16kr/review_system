@@ -53,7 +53,7 @@
 
 ### 1. Provider Runtime Guardrails
 
-상태: `partial`
+상태: `watch`
 
 최근 완료:
 
@@ -63,23 +63,23 @@
   unsupported 값은 settings/provider factory에서 startup fail-fast 한다.
 - PR summary general note와 publish structured log가
   `provider_runtime_summary`를 함께 노출해 live provider path와 stub fallback path를 바로 읽을 수 있다.
+- `ops/scripts/smoke_openai_provider_direct.sh`가 스크립트 위치 기준으로 repo root를 기본 해석하고,
+  `REVIEW_SYSTEM_ROOT`, `REVIEW_SYSTEM_ENV_FILE` override와 resolved root/env provenance 출력을 지원한다.
+- `review-bot/tests/test_openai_provider_direct_smoke.py`가
+  relocated root와 explicit env override contract를 network stub으로 고정한다.
 
 검증 메모:
 
-- 이번 slice는 summary/log provenance surfacing만 바꿨으므로
-  `review-bot/tests/test_review_runner.py` focused deterministic regression만 다시 돌린다.
-- validation은 deterministic provider stub/fallback path만 사용한다.
-- local GitLab lifecycle smoke와 direct OpenAI smoke는 건너뛴다.
+- 이번 slice는 direct smoke script의 root/env loading contract만 바꿨으므로
+  `uv run --project review-bot pytest review-bot/tests/test_openai_provider_direct_smoke.py -q`와
+  `bash -n ops/scripts/smoke_openai_provider_direct.sh`만 다시 돌린다.
+- deterministic validation은 live direct OpenAI나 lifecycle stub fallback을 쓰지 않고
+  script-level network stub만 사용한다.
+- local GitLab lifecycle smoke와 live direct OpenAI smoke는 건너뛴다.
 
-다음 작업:
+남은 구현 작업:
 
-1. direct smoke 스크립트의 root/env loading 경로를 더 명시적으로 정리해 운영 변형에 덜 취약하게 만든다.
-
-완료 기준:
-
-- live provider와 fallback publication provenance를 current-state/API/log에서 재구성할 수 있다.
-- provider 설정 오타가 조용히 `stub` false green으로 내려가지 않는다.
-- direct provider smoke의 경로/환경 전제가 문서와 구현에서 더 명확히 맞는다.
+- 없음
 
 ### 2. Smoke And Evaluation Hardening
 
@@ -160,14 +160,16 @@
 
 ## Suggested Next Step
 
-현재 가장 자연스러운 다음 작업은 `Provider Runtime Guardrails`의
-direct smoke 스크립트 root/env loading 경로 정리다.
+현재 가장 자연스러운 다음 작업은 `Targeted Rule Expansion`의
+Go HTTP handler boundary validation gap을 닫는 것이다.
 
 이유:
 
-- current-state/API/summary/log provenance surfacing이 닫혔으므로 이 축에서 남은 구현은 direct smoke 운영 경로 정리뿐이다.
-- smoke script는 외부 live 호출 자체와 별개로 root/env loading contract를 더 명확히 만들 수 있다.
-- lifecycle fallback smoke와 direct OpenAI smoke를 다른 신호로 다루는 운영 문맥과도 바로 맞닿아 있다.
+- `Provider Runtime Guardrails`는 watch 상태로 내려갔고 남은 실행 단위가 없다.
+- `Targeted Rule Expansion`은 source/rule/detector/example/validation을 한 번에 닫을 수 있는
+  가장 작은 product-facing 실행 단위를 아직 갖고 있다.
+- 현재 1순위 후보가 이미 `Go: HTTP handler boundary validation`으로 좁혀져 있어
+  다음 slice 선택 비용이 가장 낮다.
 
 ## Queued After Main Roadmap
 

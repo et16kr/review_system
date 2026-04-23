@@ -99,6 +99,13 @@ OPENAI_API_KEY=...
 bash /home/et16/work/review_system/ops/scripts/smoke_openai_provider_direct.sh
 ```
 
+운영 변형에서 경로를 명시해야 하면 아래 override를 쓸 수 있다.
+
+- `REVIEW_SYSTEM_ROOT`
+  - repo root를 스크립트 위치 대신 명시적으로 지정한다.
+- `REVIEW_SYSTEM_ENV_FILE`
+  - 기본 `ops/.env` 대신 다른 env 파일을 직접 지정한다.
+
 이 smoke는 아래를 구분해서 보여준다.
 
 - OpenAI API `/v1/models` 도달 여부

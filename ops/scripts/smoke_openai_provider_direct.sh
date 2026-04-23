@@ -1,8 +1,18 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT="/home/et16/work/review_system"
-ENV_FILE="$ROOT/ops/.env"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+DEFAULT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd -P)"
+ROOT_SOURCE="script_dir"
+ENV_FILE_SOURCE="ops_default"
+ROOT="${REVIEW_SYSTEM_ROOT:-$DEFAULT_ROOT}"
+if [[ -n "${REVIEW_SYSTEM_ROOT:-}" ]]; then
+  ROOT_SOURCE="env"
+fi
+ENV_FILE="${REVIEW_SYSTEM_ENV_FILE:-$ROOT/ops/.env}"
+if [[ -n "${REVIEW_SYSTEM_ENV_FILE:-}" ]]; then
+  ENV_FILE_SOURCE="env"
+fi
 MODEL_OVERRIDE="${BOT_OPENAI_MODEL_OVERRIDE:-}"
 EXPECT_LIVE_OPENAI=0
 
@@ -19,6 +29,11 @@ Exit codes:
 - 0: probe completed; live OpenAI may still be unavailable if summary says insufficient_quota
 - 1: usage or assertion failure
 - 2: live OpenAI was required but direct provider call did not succeed
+
+Environment overrides:
+- REVIEW_SYSTEM_ROOT: repository root. Default resolves from this script path.
+- REVIEW_SYSTEM_ENV_FILE: env file to load. Default: $REVIEW_SYSTEM_ROOT/ops/.env
+- BOT_OPENAI_MODEL_OVERRIDE: model override if --model is not provided.
 EOF
 }
 
@@ -45,7 +60,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [[ ! -f "$ENV_FILE" ]]; then
-  echo "ops/.env not found: $ENV_FILE" >&2
+  echo "Env file not found: $ENV_FILE" >&2
   exit 1
 fi
 
@@ -58,6 +73,11 @@ while IFS= read -r line || [[ -n "$line" ]]; do
 done <"$ENV_FILE"
 
 MODEL="${MODEL_OVERRIDE:-${BOT_OPENAI_MODEL:-gpt-5.2}}"
+
+printf '%s\n' "repo_root=$ROOT"
+printf '%s\n' "repo_root_source=$ROOT_SOURCE"
+printf '%s\n' "env_file=$ENV_FILE"
+printf '%s\n' "env_file_source=$ENV_FILE_SOURCE"
 
 if [[ -z "${OPENAI_API_KEY:-}" ]]; then
   echo "OPENAI_API_KEY is not set." >&2
