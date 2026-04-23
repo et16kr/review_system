@@ -1468,7 +1468,7 @@ languages:
             pack_targets: [container_security]
             canonical_rules: [DOCKER.SEC.7]
             reviewability_mix: [auto_review]
-            reason: Credential-bearing ARG/ENV usage now maps to a dedicated BuildKit secret-mount guidance rule.
+            reason: Credential-bearing ARG/ENV usage, including inline authenticated URLs, now maps to a dedicated BuildKit secret-mount guidance rule.
           - source_atom_id: artifact_bootstrap
             section_id: candidate_canonical_rule_groups
             status: mapped

@@ -100,6 +100,11 @@
 
 최근 완료:
 
+- `DOCKER.SEC.7`이 secret-shaped `ARG`/`ENV` 이름뿐 아니라
+  authenticated package/artifact URL을 `ARG`/`ENV`에 직접 싣는 경로까지 잡도록 넓어졌다.
+- `DOCKER.SEC.7` source/rule wording이 inline authenticated URL leakage까지 같은 hazard family로 설명하도록 갱신됐다.
+- `DOCKER.SEC.7` bundled code/diff example과 diff contract spec가
+  authenticated URL shape를 포함하도록 갱신됐다.
 - `GO.13`이 direct chained `json.NewDecoder(...).Decode(...)`뿐 아니라
   `decoder := json.NewDecoder(...)` 뒤 `decoder.Decode(...)` 경로까지 잡도록 넓어졌다.
 - `GO.13` bundled code/diff example과 safe regression이 retained decoder shape를 포함하도록 갱신됐다.
@@ -109,9 +114,8 @@
   관련 targeted pytest만 다시 돌렸고,
   `review-bot`/`review-platform`, GitLab lifecycle smoke, mixed-language smoke, direct OpenAI/provider validation은 범위 밖으로 유지했다.
 
-최근에 정리된 gap:
+남아 있는 우선 gap:
 
-- `DOCKER.SEC.7` build-time secret handling
 - `DOCKER.3` digestless base tag retrieval hardening
 - `DOCKER.7` runtime prefix copy rule
 - `GO.11` sentinel error matching
@@ -126,7 +130,7 @@
 
 검증 메모:
 
-- 이번 slice는 `review-engine` source/rule/detector/example만 변경했다.
+- 이번 slice는 `review-engine` source/rule/detector/example/diff contract만 변경했다.
 - rerun:
   - `uv run --project review-engine pytest review-engine/tests/test_query_conversion.py review-engine/tests/test_expected_examples.py review-engine/tests/test_multilang_regressions.py -q`
   - `uv run --project review-engine python -m review_engine.cli.ingest_guidelines`
@@ -136,7 +140,7 @@
 
 현재 1순위 후보:
 
-- Dockerfile: build-time secret handling under-trigger gap
+- Dockerfile: digestless base tag retrieval hardening
 
 완료 기준:
 
@@ -183,15 +187,15 @@
 ## Suggested Next Step
 
 현재 가장 자연스러운 다음 작업은 `Targeted Rule Expansion`의
-`DOCKER.SEC.7` build-time secret handling under-trigger gap을 source/rule/example 단위로 닫는 것이다.
+`DOCKER.3` digestless base tag retrieval hardening gap을 source/rule/example 단위로 닫는 것이다.
 
 이유:
 
 - `Provider Runtime Guardrails`는 watch 상태로 내려갔고 남은 실행 단위가 없다.
 - `Targeted Rule Expansion`은 여전히 source/rule/detector/example/validation을 한 번에 닫을 수 있는
   가장 작은 product-facing 실행 단위를 유지하고 있다.
-- `GO.13`의 framework binding follow-up이 Gin JSON binding까지 닫혔으므로,
-  다음에는 남아 있는 under-trigger gap 중 Dockerfile 쪽처럼 detector와 diff contract를 같이 갱신하기 쉬운 항목으로 넘어가는 편이 작다.
+- `DOCKER.SEC.7` build-time secret handling gap이 닫혔으므로,
+  다음에는 남아 있는 Dockerfile family under-trigger 중 digest pinning 쪽처럼 detector와 diff contract를 같이 갱신하기 쉬운 항목으로 넘어가는 편이 작다.
 
 ## Queued After Main Roadmap
 

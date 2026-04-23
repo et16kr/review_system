@@ -88,10 +88,10 @@ entries:
   - rule_no: DOCKER.SEC.7
     section: DOCKERSEC
     title: Build-time credentials should not ride through ARG or ENV when BuildKit secret mounts are available
-    summary: Credential-bearing ARG and ENV values are easier to leak through image history, layer metadata, and downstream reuse.
-    text: Docker build credentials should stay out of the normal Dockerfile variable surface when a secret mount or another external secret injection path can provide them only to the step that needs them.
+    summary: Credential-bearing ARG and ENV values, including inline authenticated URLs, are easier to leak through image history, layer metadata, and downstream reuse.
+    text: Docker build credentials should stay out of the normal Dockerfile variable surface, including authenticated URLs assigned through ARG or ENV, when a secret mount or another external secret injection path can provide them only to the step that needs them.
     category: security
-    trigger_patterns: [build_secret_arg_env]
+    trigger_patterns: [build_secret_arg_env, build_secret_arg_env_authenticated_url]
     fix_guidance: Pass the credential through a BuildKit `RUN --mount=type=secret` step or another external secret injection path instead of baking it into ARG or ENV.
     base_score: 0.94
     severity_default: 0.95

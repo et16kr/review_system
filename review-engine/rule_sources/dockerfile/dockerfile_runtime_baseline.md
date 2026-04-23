@@ -27,7 +27,7 @@ status: drafted
 - Pin base images deliberately, and treat tag-only references as still mutable unless a digest locks the exact artifact; keep package index refresh coupled to install steps.
 - Avoid root runtime defaults unless the workload explicitly requires them.
 - Keep COPY scopes narrow enough to reduce cache churn and accidental secret inclusion.
-- Keep build-time credentials out of `ARG`/`ENV` when BuildKit secret mounts or external secret injection can carry them without ending up in image history.
+- Keep build-time credentials out of `ARG`/`ENV`, including authenticated package or artifact URLs, when BuildKit secret mounts or external secret injection can carry them without ending up in image history.
 - Treat remote downloads, remote URL `ADD`, and shell-piped bootstrap inside image builds as high-trust exceptions.
 - Review full distribution upgrades in images as a reproducibility decision, not just a convenience command.
 
@@ -37,7 +37,7 @@ status: drafted
 - Runtime privilege: `USER root`, build-vs-runtime separation, and least-privilege final stages.
 - Build context hygiene: `COPY . .`, `.dockerignore`, and secret or cache bleed-through.
 - Multi-stage runtime surface: broad `COPY --from=... /usr/local /usr/local` patterns should be treated as a concrete runtime-surface leak, not just an advisory stage-structure question.
-- Build-time secret handling: credential-bearing `ARG`/`ENV`, secret mounts, and image-history exposure.
+- Build-time secret handling: credential-bearing `ARG`/`ENV`, authenticated URLs assigned through them, secret mounts, and image-history exposure.
 - Artifact bootstrap: remote URL `ADD`, `curl | sh`, provenance checks, and explicit version pinning.
 
 ## Reference-Only Guidance

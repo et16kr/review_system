@@ -280,6 +280,11 @@ def test_query_analysis_does_not_treat_ide_rc_declaration_as_error_flow() -> Non
             {"build_secret_arg_env"},
         ),
         (
+            "dockerfile",
+            "ENV PIP_EXTRA_INDEX_URL=https://build-user:${PIP_PASSWORD}@packages.example.com/simple\n",
+            {"build_secret_arg_env_authenticated_url"},
+        ),
+        (
             "sql",
             "select user_id, count(*) from events group by 1 limit 10;\n",
             {"group_by_ordinal", "limit_without_order"},
@@ -308,3 +313,15 @@ def test_query_analysis_detects_multilang_patterns(
     names = {pattern.name for pattern in analysis.patterns}
 
     assert expected_patterns <= names
+
+
+def test_dockerfile_safe_index_url_does_not_trigger_authenticated_secret_pattern() -> None:
+    analysis = build_query_analysis(
+        "ENV PIP_EXTRA_INDEX_URL=https://packages.example.com/simple\n",
+        input_kind="code",
+        language_id="dockerfile",
+    )
+    names = {pattern.name for pattern in analysis.patterns}
+
+    assert "build_secret_arg_env" not in names
+    assert "build_secret_arg_env_authenticated_url" not in names
