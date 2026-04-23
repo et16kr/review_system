@@ -28,6 +28,7 @@
 | Wrong-language telemetry loop | provenance/cause/actionability 분리, smoke event와 detector backlog 분리 |
 | Provider quality / comparison / density gate | packaged provider quality corpus, deterministic `stub` gate, OpenAI opt-in skip path, provider comparison CLI, fixture `density_contract` |
 | Provider-direct smoke split | lifecycle fallback smoke와 direct OpenAI smoke를 별도 신호로 분리 |
+| Provider runtime provenance persistence | `ReviewRun.provider_runtime`와 finding payload `provider_runtime` 저장 위치 고정 |
 
 ## Work Split
 
@@ -56,10 +57,9 @@
 
 다음 작업:
 
-1. review run과 finding에 `configured_provider`, `effective_provider`, `fallback_used`, `fallback_reason`를 남길 위치를 정한다.
-2. summary/log/API 중 최소 하나에서 이번 run이 live provider였는지 stub fallback이었는지 바로 읽히게 만든다.
-3. `BOT_PROVIDER`, `BOT_FALLBACK_PROVIDER`를 allowlist로 검증해 unknown value는 startup에서 fail-fast 하게 만든다.
-4. direct smoke 스크립트의 root/env loading 경로를 더 명시적으로 정리해 운영 변형에 덜 취약하게 만든다.
+1. summary/log/API 중 최소 하나에서 이번 run이 live provider였는지 stub fallback이었는지 바로 읽히게 만든다.
+2. `BOT_PROVIDER`, `BOT_FALLBACK_PROVIDER`를 allowlist로 검증해 unknown value는 startup에서 fail-fast 하게 만든다.
+3. direct smoke 스크립트의 root/env loading 경로를 더 명시적으로 정리해 운영 변형에 덜 취약하게 만든다.
 
 완료 기준:
 
@@ -147,12 +147,12 @@
 ## Suggested Next Step
 
 현재 가장 자연스러운 다음 작업은 `Provider Runtime Guardrails`의
-provider provenance / config fail-fast 정리다.
+provider provenance surfacing / config fail-fast 정리다.
 
 이유:
 
 - 외부 API blocker 없이 바로 닫을 수 있다.
-- fallback lifecycle과 direct provider를 문서상 분리해 둔 현재 구조를 실제 운영 데이터까지 맞출 수 있다.
+- 저장된 provider provenance를 state/API/log 중 최소 하나에 바로 surfacing 하면 운영 가시성이 생긴다.
 - 설정 오타에 의한 `stub` false green 리스크를 작은 범위에서 바로 줄일 수 있다.
 
 ## Queued After Main Roadmap

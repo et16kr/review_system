@@ -107,6 +107,80 @@ def test_review_runner_keeps_distinct_findings_per_hunk() -> None:
         session.close()
 
 
+def test_review_runner_persists_provider_runtime_metadata_on_run_and_finding() -> None:
+    _reset_db()
+
+    class NamedProvider(FixedProvider):
+        provider_name = "openai"
+
+    runner = ReviewRunner()
+    adapter = FakeAdapter()
+    key = runner._legacy_key(303)  # noqa: SLF001
+    adapter.set_diff(key, path="src/a.cpp", patch=_malloc_patch())
+    runner.platform_client = adapter
+    runner.engine_client = EngineStub([_result("R.10", category="memory")])
+    runner.provider = NamedProvider()
+
+    session = SessionLocal()
+    try:
+        review_run = runner.run_review(session, pr_id=303, trigger="provider-runtime")
+        stored_run = session.get(ReviewRun, review_run.id)
+        evidence = session.query(FindingEvidence).filter_by(review_run_id=review_run.id).one()
+
+        assert stored_run is not None
+        assert stored_run.provider_runtime == {
+            "configured_provider": "openai",
+            "effective_provider": "openai",
+            "fallback_used": False,
+            "fallback_reason": None,
+        }
+        assert evidence.raw_engine_payload["provider_runtime"] == stored_run.provider_runtime
+    finally:
+        session.close()
+
+
+def test_review_runner_persists_fallback_provider_runtime_metadata() -> None:
+    _reset_db()
+
+    class BuildFailingProvider(FixedProvider):
+        provider_name = "openai"
+
+        def build_draft(self, **kwargs):  # type: ignore[override]
+            del kwargs
+            raise RuntimeError("openai unavailable")
+
+    class NamedFallbackProvider(FixedProvider):
+        provider_name = "stub"
+
+    runner = ReviewRunner()
+    adapter = FakeAdapter()
+    key = runner._legacy_key(304)  # noqa: SLF001
+    adapter.set_diff(key, path="src/a.cpp", patch=_malloc_patch())
+    runner.platform_client = adapter
+    runner.engine_client = EngineStub([_result("R.10", category="memory")])
+    runner.provider = FallbackReviewCommentProvider(
+        primary=BuildFailingProvider(),
+        fallback=NamedFallbackProvider(),
+    )
+
+    session = SessionLocal()
+    try:
+        review_run = runner.run_review(session, pr_id=304, trigger="provider-fallback")
+        stored_run = session.get(ReviewRun, review_run.id)
+        evidence = session.query(FindingEvidence).filter_by(review_run_id=review_run.id).one()
+
+        assert stored_run is not None
+        assert stored_run.provider_runtime == {
+            "configured_provider": "openai",
+            "effective_provider": "stub",
+            "fallback_used": True,
+            "fallback_reason": "build_draft_error:RuntimeError",
+        }
+        assert evidence.raw_engine_payload["provider_runtime"] == stored_run.provider_runtime
+    finally:
+        session.close()
+
+
 def test_full_rerun_does_not_reply_again_to_unchanged_open_thread_by_default() -> None:
     _reset_db()
 

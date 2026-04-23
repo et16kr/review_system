@@ -65,7 +65,7 @@ from review_bot.providers.change_analysis import (
     requires_direct_signal,
     select_candidate_line,
 )
-from review_bot.providers.base import FindingDraft, VerifyDraftResult
+from review_bot.providers.base import FindingDraft, ProviderRuntimeMetadata, VerifyDraftResult
 from review_bot.providers.factory import build_review_comment_provider
 from review_bot.review_systems.factory import build_review_system_adapter
 from review_bot.review_systems.base import render_general_note_purpose_marker
@@ -314,6 +314,7 @@ class ReviewRunner:
             base_sha=requested_base_sha,
             start_sha=requested_start_sha,
             head_sha=requested_head_sha,
+            provider_runtime=self._default_provider_runtime(),
             created_at=datetime.now(UTC),
         )
         session.add(review_run)
@@ -3129,6 +3130,42 @@ class ReviewRunner:
             )
             return
 
+    def _default_provider_runtime(self) -> dict[str, object]:
+        configured_provider = str(self.settings.provider_name or "").strip() or "unknown"
+        return {
+            "configured_provider": configured_provider,
+            "effective_provider": configured_provider,
+            "fallback_used": False,
+            "fallback_reason": None,
+        }
+
+    def _provider_runtime_payload(
+        self,
+        runtime: ProviderRuntimeMetadata,
+    ) -> dict[str, object]:
+        return {
+            "configured_provider": runtime.configured_provider,
+            "effective_provider": runtime.effective_provider,
+            "fallback_used": bool(runtime.fallback_used),
+            "fallback_reason": runtime.fallback_reason,
+        }
+
+    def _record_provider_runtime(
+        self,
+        *,
+        review_run: ReviewRun,
+        decision: FindingDecision,
+        runtime: ProviderRuntimeMetadata,
+    ) -> None:
+        payload = self._provider_runtime_payload(runtime)
+        evidence_payload = dict(decision.evidence.raw_engine_payload or {})
+        evidence_payload["provider_runtime"] = payload
+        decision.evidence.raw_engine_payload = evidence_payload
+
+        current_run_payload = dict(review_run.provider_runtime or {})
+        if runtime.fallback_used or not bool(current_run_payload.get("fallback_used")):
+            review_run.provider_runtime = payload
+
     def _ensure_review_request(
         self,
         session: Session,
@@ -3906,7 +3943,7 @@ class ReviewRunner:
         for decision in decisions:
             file_context = decision.evidence.raw_engine_payload.get(_FILE_CONTEXT_KEY)
             similar_code = decision.evidence.raw_engine_payload.get(_SIMILAR_CODE_KEY)
-            draft = self.provider.build_draft(
+            draft_result = self.provider.build_draft_with_runtime(
                 file_path=decision.file_path,
                 rule_no=decision.rule_no,
                 title=str(decision.evidence.raw_engine_payload.get("title") or decision.rule_no),
@@ -3928,6 +3965,12 @@ class ReviewRunner:
                 pr_target_branch=review_request.target_branch,
                 similar_code=similar_code,
             )
+            self._record_provider_runtime(
+                review_run=review_run,
+                decision=decision,
+                runtime=draft_result.runtime,
+            )
+            draft = draft_result.draft
             if not draft.should_publish:
                 decision.state = "suppressed"
                 decision.suppression_reason = "provider_should_not_publish"

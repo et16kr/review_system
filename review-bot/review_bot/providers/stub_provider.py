@@ -13,6 +13,8 @@ from review_bot.providers.change_analysis import (
 
 
 class StubReviewCommentProvider(ReviewCommentProvider):
+    provider_name = "stub"
+
     def build_draft(
         self,
         *,

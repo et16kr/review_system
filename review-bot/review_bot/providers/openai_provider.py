@@ -325,6 +325,8 @@ def _normalize_evidence_snippet(value: str | None) -> str | None:
 
 
 class OpenAIReviewCommentProvider(ReviewCommentProvider):
+    provider_name = "openai"
+
     def __init__(self) -> None:
         settings = get_settings()
         self.model = settings.openai_model

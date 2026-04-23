@@ -62,6 +62,7 @@ class ReviewRun(Base):
     base_sha: Mapped[str | None] = mapped_column(String(64), nullable=True)
     start_sha: Mapped[str | None] = mapped_column(String(64), nullable=True)
     head_sha: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    provider_runtime: Mapped[dict[str, object]] = mapped_column(JSON, default=dict)
     error_category: Mapped[str | None] = mapped_column(String(64), nullable=True)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

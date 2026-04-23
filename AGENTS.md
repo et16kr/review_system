@@ -37,7 +37,7 @@
    - [docs/API_CONTRACTS.md](/home/et16/work/review_system/docs/API_CONTRACTS.md:1)
    - [docs/OPERATIONS_RUNBOOK.md](/home/et16/work/review_system/docs/OPERATIONS_RUNBOOK.md:1)
 3. DB schema를 건드리면 Alembic head를 확인
-   - current head: `20260421_000004`
+   - current head: `20260424_000005`
 4. GitLab webhook / adapter / thread sync를 건드리면 local GitLab smoke까지 돌릴 준비를 한다
 5. local compose를 쓸지, 단위 테스트만 쓸지 먼저 결정한다
 
