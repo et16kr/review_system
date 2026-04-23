@@ -3,10 +3,11 @@ set -euo pipefail
 
 ROOT="${REVIEW_SYSTEM_ROOT:-/home/et16/work/review_system}"
 MAX_ITERS="${MAX_ITERS:-1}"
+MAX_BLOCKED_SKIPS="${MAX_BLOCKED_SKIPS:-10}"
 SANDBOX="${CODEX_SANDBOX:-workspace-write}"
 MODEL="${CODEX_MODEL:-}"
 COMMIT_PREFIX="${COMMIT_PREFIX:-Advance roadmap item}"
-OPENAI_DIRECT_SMOKE="${OPENAI_DIRECT_SMOKE:-1}"
+OPENAI_DIRECT_SMOKE="${OPENAI_DIRECT_SMOKE:-0}"
 NO_COMMIT=0
 
 usage() {
@@ -17,20 +18,25 @@ Run Codex in one-commit roadmap advancement loops.
 
 Options:
   --max-iters N      Maximum completed commits to create. Default: MAX_ITERS or 1.
+  --max-blocked-skips N
+                     Maximum blocked roadmap units to skip in one run. Default: MAX_BLOCKED_SKIPS or 10.
   --model NAME       Pass a model to codex exec. Default: CODEX_MODEL or Codex default.
   --sandbox MODE     Sandbox for codex exec. Default: CODEX_SANDBOX or workspace-write.
+  --enable-openai-direct-smoke
+                     Run provider-direct smoke preflight before each iteration.
   --skip-openai-direct-smoke
-                     Do not run provider-direct smoke preflight before each iteration.
+                     Explicitly disable provider-direct smoke preflight.
   --no-commit        Leave changes uncommitted after one completed iteration.
   -h, --help         Show this help.
 
 Environment:
   REVIEW_SYSTEM_ROOT Repository root. Default: /home/et16/work/review_system.
   MAX_ITERS          Same as --max-iters.
+  MAX_BLOCKED_SKIPS  Same as --max-blocked-skips.
   CODEX_MODEL        Same as --model.
   CODEX_SANDBOX      Same as --sandbox.
   OPENAI_DIRECT_SMOKE
-                     Set to 0 to skip provider-direct smoke preflight.
+                     Set to 1 to enable provider-direct smoke preflight.
   COMMIT_PREFIX      Commit message fallback prefix.
 EOF
 }
@@ -41,6 +47,10 @@ while [[ $# -gt 0 ]]; do
       MAX_ITERS="${2:?missing value for --max-iters}"
       shift 2
       ;;
+    --max-blocked-skips)
+      MAX_BLOCKED_SKIPS="${2:?missing value for --max-blocked-skips}"
+      shift 2
+      ;;
     --model)
       MODEL="${2:?missing value for --model}"
       shift 2
@@ -48,6 +58,10 @@ while [[ $# -gt 0 ]]; do
     --sandbox)
       SANDBOX="${2:?missing value for --sandbox}"
       shift 2
+      ;;
+    --enable-openai-direct-smoke)
+      OPENAI_DIRECT_SMOKE=1
+      shift
       ;;
     --skip-openai-direct-smoke)
       OPENAI_DIRECT_SMOKE=0
@@ -71,6 +85,11 @@ done
 
 if ! [[ "$MAX_ITERS" =~ ^[1-9][0-9]*$ ]]; then
   echo "MAX_ITERS must be a positive integer: $MAX_ITERS" >&2
+  exit 2
+fi
+
+if ! [[ "$MAX_BLOCKED_SKIPS" =~ ^[0-9]+$ ]]; then
+  echo "MAX_BLOCKED_SKIPS must be a non-negative integer: $MAX_BLOCKED_SKIPS" >&2
   exit 2
 fi
 
@@ -114,6 +133,16 @@ parse_commit_message() {
   fi
 }
 
+append_blocked_summary() {
+  local output_file="$1"
+  local blocked_file="$2"
+  {
+    printf '--- blocked unit ---\n'
+    sed -n '1,220p' "$output_file"
+    printf '\n'
+  } >>"$blocked_file"
+}
+
 collect_openai_direct_smoke() {
   local output_file="$1"
   local smoke_script="$ROOT/ops/scripts/smoke_openai_provider_direct.sh"
@@ -135,13 +164,18 @@ collect_openai_direct_smoke() {
 
 tmpdir="$(mktemp -d)"
 trap 'rm -rf "$tmpdir"' EXIT
+blocked_units="$tmpdir/blocked-units.txt"
+attempt=0
+blocked_skips=0
+completed=0
 
-for iteration in $(seq 1 "$MAX_ITERS"); do
+while [[ "$completed" -lt "$MAX_ITERS" ]]; do
+  attempt=$((attempt + 1))
   require_clean_tree
 
-  prompt="$tmpdir/prompt-$iteration.md"
-  output="$tmpdir/output-$iteration.md"
-  openai_smoke="$tmpdir/openai-direct-smoke-$iteration.txt"
+  prompt="$tmpdir/prompt-$attempt.md"
+  output="$tmpdir/output-$attempt.md"
+  openai_smoke="$tmpdir/openai-direct-smoke-$attempt.txt"
 
   collect_openai_direct_smoke "$openai_smoke"
 
@@ -152,6 +186,7 @@ Follow AGENTS.md and the repository's existing validation guidance.
 
 Perform exactly one smallest executable roadmap unit:
 1. Read docs/ROADMAP.md and pick the next executable item in roadmap order.
+1a. If this run already encountered blocked roadmap units, do not pick them again. Move to the next executable item after those blocked units.
 2. Before editing, decide whether the item is blocked by missing credentials, external services, human review, local GitLab state, ambiguous product decisions, or unsafe scope.
 3. If blocked, do not edit files. Explain the blocker and finish with STATUS: BLOCKED.
 4. If executable, create the temporary design note at docs/ROADMAP_AUTOMATION_DESIGN.md.
@@ -181,6 +216,11 @@ STATUS: ROADMAP_COMPLETE
 EOF
 
   {
+    if [[ -s "$blocked_units" ]]; then
+      printf '\n[Previously Blocked Units In This Run]\n'
+      cat "$blocked_units"
+      printf '\n'
+    fi
     printf '\n[OpenAI Direct Smoke Preflight]\n'
     cat "$openai_smoke"
     printf '\n'
@@ -191,7 +231,7 @@ EOF
     codex_cmd+=(-m "$MODEL")
   fi
 
-  echo "Starting roadmap iteration $iteration/$MAX_ITERS..."
+  echo "Starting roadmap iteration attempt $attempt (completed $completed/$MAX_ITERS, skipped $blocked_skips/$MAX_BLOCKED_SKIPS)..."
   if ! "${codex_cmd[@]}" <"$prompt"; then
     echo "codex exec failed. Leaving any changes uncommitted for inspection." >&2
     exit 1
@@ -212,9 +252,21 @@ EOF
       exit 0
       ;;
     BLOCKED)
-      echo "Roadmap iteration blocked. Leaving any changes uncommitted for inspection."
-      sed -n '1,220p' "$output"
-      exit 2
+      if has_changes; then
+        echo "Roadmap iteration blocked after producing changes. Leaving changes uncommitted for inspection."
+        sed -n '1,220p' "$output"
+        exit 2
+      fi
+      if [[ "$blocked_skips" -ge "$MAX_BLOCKED_SKIPS" ]]; then
+        echo "Roadmap iteration blocked and MAX_BLOCKED_SKIPS=$MAX_BLOCKED_SKIPS reached."
+        sed -n '1,220p' "$output"
+        exit 2
+      fi
+      blocked_skips=$((blocked_skips + 1))
+      append_blocked_summary "$output" "$blocked_units"
+      echo "Skipping blocked roadmap unit $blocked_skips/$MAX_BLOCKED_SKIPS and continuing."
+      sed -n '1,120p' "$output"
+      continue
       ;;
     COMPLETED)
       ;;
@@ -246,7 +298,8 @@ EOF
   commit_message="$(parse_commit_message "$output")"
   git add -A
   git commit -m "$commit_message"
-  echo "Committed roadmap iteration $iteration: $commit_message"
+  completed=$((completed + 1))
+  echo "Committed roadmap iteration $completed/$MAX_ITERS: $commit_message"
 done
 
 echo "Reached MAX_ITERS=$MAX_ITERS."
