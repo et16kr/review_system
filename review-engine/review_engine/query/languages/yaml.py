@@ -100,7 +100,7 @@ PLUGIN = LanguageQueryPlugin(
         ),
     ),
     hinted_rules={
-        "latest_tag": ("YAML.CI.2", "YAML.CI.4", "YAML.2", "YAML.HELM.2"),
+        "latest_tag": ("YAML.CI.2", "YAML.CI.4", "YAML.K8S.7", "YAML.2", "YAML.HELM.2"),
         "privileged_true": ("YAML.K8S.1", "YAML.K8S.3"),
         "permissions_write_all": ("YAML.CI.1", "YAML.CI.3"),
         "run_as_root": ("YAML.K8S.2", "YAML.K8S.4"),

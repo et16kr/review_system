@@ -219,6 +219,10 @@
     "expected_rules": ["YAML.K8S.5", "YAML.K8S.6"]
   },
   {
+    "input": "examples/multilang/k8s/deployment_latest.yaml",
+    "expected_rules": ["YAML.K8S.7"]
+  },
+  {
     "input": "examples/multilang/charts/app/values-prod.yaml",
     "expected_rules": ["YAML.HELM.2"]
   },
@@ -369,6 +373,11 @@
     "input": "examples/multilang_diffs/gitlab_remote.diff",
     "review_path": "examples/multilang/gitlab_remote/.gitlab-ci.yml",
     "expected_rules": ["YAML.CI.6", "YAML.CI.7", "YAML.CI.8"]
+  },
+  {
+    "input": "examples/multilang_diffs/k8s_deployment_latest.diff",
+    "review_path": "examples/multilang/k8s/deployment.yaml",
+    "expected_rules": ["YAML.K8S.7"]
   },
   {
     "input": "examples/multilang_diffs/warehouse_daily_rollup.diff",

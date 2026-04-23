@@ -25,7 +25,7 @@ status: drafted
 ## High-Signal Review Areas
 
 - Review YAML through the schema and operational context, not syntax alone.
-- Kubernetes manifests should default to least privilege.
+- Kubernetes manifests should default to least privilege and pin deployable workload images deliberately.
 - CI workflows should minimize token scope and pin mutable runtime images deliberately.
 - Treat privilege-expanding fields such as `privileged`, `allowPrivilegeEscalation`, `hostNetwork`, and `runAsUser: 0` as strong security signals.
 - Treat branch-ref action usage and mutable runtime images as provenance and rollback concerns in CI.
@@ -33,7 +33,7 @@ status: drafted
 ## Candidate Canonical Rule Groups
 
 - Generic configuration: schema-aligned values, explicit image tags, and contract clarity.
-- Kubernetes security: privileged mode, root identity, privilege escalation, and host network sharing.
+- Kubernetes runtime boundaries: privileged mode, root identity, privilege escalation, host network sharing, and mutable workload image tags.
 - CI security and provenance: token scope, mutable images, and unpinned action refs.
 - Helm values: deployable image versioning, environment contracts, and chart-input clarity.
 

@@ -158,6 +158,12 @@ def test_safe_multilang_examples_do_not_trigger_high_signal_findings(
             "YAML.HELM.2",
             "ci_yaml",
         ),
+        (
+            "deploy/k8s/deployment.yaml",
+            "apiVersion: apps/v1\nkind: Deployment\nspec:\n  template:\n    spec:\n      containers:\n        - name: api\n          image: demo/api:latest\n",
+            "YAML.K8S.7",
+            "ci_yaml",
+        ),
     ],
 )
 def test_yaml_context_specific_rules_do_not_leak_across_profiles(
@@ -255,6 +261,24 @@ def test_ci_deepening_rules_apply_to_gitlab_ci_context(
     assert response.profile_id == "gitlab_ci"
     assert response.context_id == "gitlab_ci"
     assert {"YAML.CI.6", "YAML.CI.7", "YAML.CI.8"} <= returned_rules
+
+
+def test_kubernetes_latest_image_rule_applies_to_kubernetes_context(
+    real_search_service,
+) -> None:
+    response = real_search_service.review_code(
+        "apiVersion: apps/v1\nkind: Deployment\nspec:\n  template:\n    spec:\n      containers:\n        - name: api\n          image: demo/api:latest\n",
+        top_k=10,
+        file_path="deploy/k8s/deployment.yaml",
+    )
+
+    returned_rules = {result.rule_no for result in response.results}
+
+    assert response.language_id == "yaml"
+    assert response.profile_id == "kubernetes_manifests"
+    assert response.context_id == "kubernetes"
+    assert "YAML.K8S.7" in returned_rules
+    assert not any(rule.startswith("YAML.CI.") for rule in returned_rules)
 
 
 def test_typescript_react_rules_apply_to_tsx_files(

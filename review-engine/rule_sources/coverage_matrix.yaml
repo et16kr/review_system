@@ -1292,13 +1292,13 @@ languages:
             canonical_rules: [YAML.1, YAML.2, YAML.3]
             reviewability_mix: [auto_review, reference_only]
             reason: Generic schema-aligned configuration guidance is canonicalized in hybrid form.
-          - source_atom_id: kubernetes_security
+          - source_atom_id: kubernetes_runtime_boundaries
             section_id: candidate_canonical_rule_groups
             status: mapped
             pack_targets: [kubernetes_yaml]
-            canonical_rules: [YAML.K8S.1, YAML.K8S.2, YAML.K8S.3, YAML.K8S.4, YAML.K8S.5, YAML.K8S.6]
+            canonical_rules: [YAML.K8S.1, YAML.K8S.2, YAML.K8S.3, YAML.K8S.4, YAML.K8S.5, YAML.K8S.6, YAML.K8S.7]
             reviewability_mix: [auto_review]
-            reason: Kubernetes privilege and isolation boundaries are fully detector-backed.
+            reason: Kubernetes privilege, isolation, and rollout provenance boundaries are fully detector-backed.
           - source_atom_id: ci_security_and_provenance
             section_id: candidate_canonical_rule_groups
             status: mapped

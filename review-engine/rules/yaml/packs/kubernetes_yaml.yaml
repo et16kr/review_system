@@ -86,3 +86,16 @@ entries:
     priority_tier: high
     specificity: 0.93
     false_positive_risk: low
+  - rule_no: YAML.K8S.7
+    section: YAMLK8S
+    title: Kubernetes workload images should avoid floating latest tags
+    summary: Mutable workload image tags make rollout provenance drift even when the manifest itself is unchanged.
+    text: A Kubernetes manifest is part of the deployment contract for a workload. Floating `latest` image tags weaken rollback, incident reconstruction, and release explainability because the same manifest revision can point at materially different container contents over time.
+    category: configuration
+    trigger_patterns: [latest_tag]
+    fix_guidance: Pin the workload image to an explicit version or digest so the rollout input remains traceable and reproducible.
+    base_score: 0.91
+    severity_default: 0.92
+    priority_tier: high
+    specificity: 0.89
+    false_positive_risk: medium
