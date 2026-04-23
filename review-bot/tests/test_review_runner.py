@@ -3563,8 +3563,71 @@ def test_post_full_report_note_posts_backlog_overview() -> None:
         assert "### 요약" in note
         assert "`bot:later` 보류: 1개" in note
         assert "src/b.cpp" in note
+        assert (
+            "왜 보였나: 사용자가 `bot:later`를 남겨 현재 backlog에서 보류 상태로 유지됩니다."
+            in note
+        )
     finally:
         session.close()
+
+
+def test_render_full_report_note_includes_surfacing_reason_detail_for_suppressed_items() -> None:
+    runner = ReviewRunner()
+    key = runner._legacy_key(800344)  # noqa: SLF001
+    report = runner._empty_full_report(key)  # noqa: SLF001
+    report["review_request_title"] = "이유 설명"
+    report["last_review_run_id"] = "run-1"
+    report["last_status"] = "success"
+    report["last_head_sha"] = "head-1"
+    report["report_review_run_id"] = "run-1"
+    report["report_status"] = "success"
+    report["report_head_sha"] = "head-1"
+    report["counts"]["pending_batch"] = 1
+    report["pending_batch"] = [
+        {
+            "fingerprint": "fp-pending",
+            "file_path": "src/pending.cpp",
+            "line_no": 12,
+            "rule_no": "TEST.PENDING.001",
+            "severity": "medium",
+            "title": "배치 대기 finding",
+            "summary": "현재 batch 대기 상태입니다.",
+            "state": "eligible",
+            "disposition": "pending_batch",
+            "reason": None,
+            "score_final": 0.6,
+            "thread_ref": None,
+        }
+    ]
+    report["counts"]["suppressed_other"] = 1
+    report["suppressed_other"] = [
+        {
+            "fingerprint": "fp-suppressed",
+            "file_path": "src/suppressed.cpp",
+            "line_no": 20,
+            "rule_no": "TEST.SUPPRESSED.001",
+            "severity": "medium",
+            "title": "verify suppress",
+            "summary": "verify가 suppress한 항목입니다.",
+            "state": "suppressed",
+            "disposition": "suppressed_other",
+            "reason": "verify:not_a_real_bug",
+            "score_final": 0.5,
+            "thread_ref": None,
+        }
+    ]
+
+    note = runner._render_full_report_note(report)  # noqa: SLF001
+
+    assert (
+        "왜 보였나: 이번 run에서 감지됐지만 현재 batch limit 때문에 아직 inline으로 게시되지 않았습니다."
+        in note
+    )
+    assert (
+        "왜 보였나: verify 단계에서 실제 이슈로 보기 어렵다고 판정되어 이번 run에서 suppress되었습니다."
+        in note
+    )
+    assert "reason: `verify:not_a_real_bug`" in note
 
 
 def test_full_report_prefers_latest_completed_run_while_showing_in_flight_run() -> None:
@@ -3888,6 +3951,10 @@ def test_post_backlog_note_posts_backlog_only_view() -> None:
         assert "이번 run에서 inline으로 게시된 항목" not in note
         assert "기존 open thread backlog" in note
         assert "src/a.cpp" in note
+        assert (
+            "왜 보였나: 현재 MR에 같은 finding의 open thread가 남아 있어 backlog로 집계됐습니다."
+            in note
+        )
 
         backlog_report = runner.build_full_report(session, key=key, view="backlog")
         assert backlog_report["counts"]["published_inline"] == 0

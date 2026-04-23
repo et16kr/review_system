@@ -154,12 +154,12 @@
 남아 있는 우선 gap:
 
 - 명시된 1순위 gap은 없음
-- 다음 후보는 telemetry나 smoke에 남아 있는 under-trigger evidence를 다시 추려서 정한다
+- 다음 후보를 고르려면 repo-local telemetry/smoke checkpoint artifact를 먼저 확보해야 한다
 
 다음 작업:
 
-1. telemetry나 smoke에서 남아 있는 under-trigger gap 하나를 고른다.
-2. source atom 또는 source 문서, detector/rule/example을 같은 단위에서 갱신한다.
+1. fresh telemetry 또는 smoke checkpoint를 repo 안에 남기고 다음 under-trigger 근거를 고정한다.
+2. 그 evidence에서 under-trigger gap 하나만 골라 source atom 또는 source 문서, detector/rule/example을 같은 단위에서 갱신한다.
 3. `review-engine`만 바뀌면 rule/retrieval baseline만 다시 돌리고, `review-bot`이나 lifecycle 영향이 생기면 그에 맞는 regression과 smoke 범위를 추가한다.
 4. 같은 family에 under-trigger가 더 남아 있어도 이번 slice 밖이면 다음 roadmap unit로 분리한다.
 
@@ -177,7 +177,7 @@
 
 현재 1순위 후보:
 
-- telemetry나 smoke에서 다시 고를 다음 under-trigger gap
+- fresh telemetry/smoke checkpoint를 남긴 뒤 다시 고를 다음 under-trigger gap
 
 완료 기준:
 
@@ -188,13 +188,24 @@
 
 상태: `partial`
 
+최근 완료:
+
+- `full-report`/`backlog` general note가 각 항목의 `disposition`/`reason`을 짧은 한국어 surfacing reason으로 함께 보여 주도록 바뀌었다.
+- raw `reason` 코드는 그대로 유지해 운영자가 machine-readable state를 잃지 않으면서도, note만 읽는 사용자는 왜 backlog/suppress/pending 상태인지 바로 볼 수 있다.
+
 다음 작업:
 
 1. hunk 기반 review unit split의 한계를 측정하고 syntax-aware split이 필요한 언어를 고른다.
 2. related file retrieval과 project-scoped codebase index를 분리 설계한다.
-3. `full-report`/`backlog` note에 “왜 이 항목이 보였는가” 설명을 작게 추가한다.
-4. project-local feedback이 global quality metric을 왜곡하지 않도록 learned weight granularity를 정한다.
-5. `.review-bot.yaml`, `summarize`, `ask`, walkthrough note의 우선순위를 재평가한다.
+3. project-local feedback이 global quality metric을 왜곡하지 않도록 learned weight granularity를 정한다.
+4. `.review-bot.yaml`, `summarize`, `ask`, walkthrough note의 우선순위를 재평가한다.
+
+검증 메모:
+
+- 이번 slice는 `review-bot` note rendering과 그 회귀 테스트만 바꿨다.
+- rerun:
+  - `env UV_CACHE_DIR=/tmp/uv-cache uv run --project review-bot pytest review-bot/tests/test_review_runner.py::test_post_full_report_note_posts_backlog_overview review-bot/tests/test_review_runner.py::test_render_full_report_note_includes_surfacing_reason_detail_for_suppressed_items review-bot/tests/test_review_runner.py::test_post_backlog_note_posts_backlog_only_view -q`
+- broader `review-bot` pytest, GitLab lifecycle smoke, multilang smoke, direct OpenAI/provider validation은 adapter/lifecycle/provider path 비변경으로 생략했다.
 
 완료 기준:
 
@@ -223,17 +234,17 @@
 
 ## Suggested Next Step
 
-현재 가장 자연스러운 다음 작업은 `Targeted Rule Expansion`에서
-telemetry나 smoke에 남아 있는 다음 under-trigger gap 하나를 다시 골라
-같은 source/rule/example 단위로 닫는 것이다.
+현재 가장 자연스러운 다음 작업은 `Targeted Rule Expansion`용
+fresh telemetry/smoke checkpoint artifact를 먼저 남긴 뒤,
+그 evidence에서 다음 under-trigger gap 하나를 다시 골라 같은 source/rule/example 단위로 닫는 것이다.
 
 이유:
 
 - `Provider Runtime Guardrails`는 watch 상태로 내려갔고 남은 실행 단위가 없다.
 - `Targeted Rule Expansion`은 여전히 source/rule/detector/example/validation을 한 번에 닫을 수 있는
   가장 작은 product-facing 실행 단위를 유지하고 있다.
-- 방금 Kubernetes deployment latest-tag under-trigger gap이 닫혔으므로,
-  다음 순서는 큰 새 기능으로 넘어가기보다 남아 있는 evidence를 다시 추려 같은 단위 크기를 유지하는 편이 안전하다.
+- 다만 현재 repo-local checkpoint artifact가 없으므로,
+  근거 없이 임의 rule slice를 고르지 않도록 evidence refresh를 다음 선행 조건으로 둔다.
 
 ## Queued After Main Roadmap
 

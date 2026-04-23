@@ -115,6 +115,37 @@ _FULL_REPORT_SECTION_SUMMARY_LABELS = {
     "suppressed_other": "기타 suppress",
     "failed_publication": "게시 실패",
 }
+_REPORT_ITEM_WHY_BY_DISPOSITION = {
+    "published_inline": "이번 run에서 inline으로 새로 게시된 항목입니다.",
+    "already_open": "같은 finding이 이미 열린 thread에 있어 이번 run에서는 다시 게시하지 않았습니다.",
+    "pending_batch": "이번 run에서 감지됐지만 현재 batch limit 때문에 아직 inline으로 게시되지 않았습니다.",
+    "backlog_existing_open": "현재 MR에 같은 finding의 open thread가 남아 있어 backlog로 집계됐습니다.",
+    "backlog_resolved_unchanged": "스레드는 resolve됐지만 최신 기준에서도 같은 항목이 남아 있어 backlog로 유지됩니다.",
+    "backlog_feedback_later": "사용자가 `bot:later`를 남겨 현재 backlog에서 보류 상태로 유지됩니다.",
+    "suppressed_feedback_ignore": "사용자가 `bot:ignore`를 남겨 이번 run에서는 다시 게시하지 않았습니다.",
+    "suppressed_feedback_false_positive": "사용자가 `bot:false-positive`를 남겨 이번 run에서는 다시 게시하지 않았습니다.",
+    "failed_publication": "이번 run에서 후보로 선정됐지만 게시 단계가 실패해 inline으로 올리지 못했습니다.",
+}
+_REPORT_ITEM_WHY_BY_REASON = {
+    "feedback:wrong_language": "사용자가 wrong-language 피드백을 남겨 이번 run에서는 다시 게시하지 않았습니다.",
+    "feedback:human_reply_history": "사람 답글 이력이 있어 자동 재게시를 멈추고 상태만 유지했습니다.",
+    "policy:suppressed_rule": "프로젝트 정책에서 이 rule이 suppress되어 상태만 기록했습니다.",
+    "policy:path_rule_suppressed": "현재 파일 경로가 path policy 예외에 걸려 자동 게시하지 않았습니다.",
+    "reviewability:manual_only": "이 finding은 수동 검토 전용으로 분류되어 자동 게시하지 않았습니다.",
+    "weak_anchor": "안정적인 inline anchor를 만들기 어려워 자동 게시하지 않았습니다.",
+    "below_threshold": "현재 점수가 게시 threshold 아래라 자동 게시하지 않았습니다.",
+    "publish_batch_duplicate": "같은 batch의 중복 finding이라 대표 항목만 남기고 나머지는 suppress했습니다.",
+    "publish_batch_same_line_category": "같은 줄과 category에 몰린 finding을 줄이기 위해 대표 항목만 남겼습니다.",
+    "inline_anchor_unavailable": "현재 diff에 게시 가능한 inline anchor가 없어 suppress되었습니다.",
+    "provider_should_not_publish": "provider가 게시 비대상으로 판정해 자동 게시하지 않았습니다.",
+    "incremental_out_of_scope": "이번 incremental run의 변경 범위 밖이라 자동 게시하지 않았습니다.",
+}
+_REPORT_ITEM_WHY_BY_REASON_PREFIX = (
+    (
+        "verify:",
+        "verify 단계에서 실제 이슈로 보기 어렵다고 판정되어 이번 run에서 suppress되었습니다.",
+    ),
+)
 _BACKLOG_ONLY_SECTION_ORDER = (
     "backlog_existing_open",
     "backlog_resolved_unchanged",
@@ -3644,6 +3675,8 @@ class ReviewRunner:
                 lines.append(f"- `{location}` [{severity}] {title}")
                 if item.get("summary"):
                     lines.append(f"  - {item['summary']}")
+                if why := self._report_item_why(item):
+                    lines.append(f"  - 왜 보였나: {why}")
                 if item.get("reason"):
                     lines.append(f"  - reason: `{item['reason']}`")
             if len(items) > 20:
@@ -3708,6 +3741,8 @@ class ReviewRunner:
                 lines.append(f"{prefix}[{severity}] {title}")
                 if item.get("summary"):
                     lines.append(f"  - {item['summary']}")
+                if why := self._report_item_why(item):
+                    lines.append(f"  - 왜 보였나: {why}")
                 if item.get("reason"):
                     lines.append(f"  - reason: `{item['reason']}`")
             if len(items) > 20:
@@ -3720,6 +3755,22 @@ class ReviewRunner:
             ]
         )
         return self._truncate_general_note("\n".join(lines))
+
+    def _report_item_why(self, item: dict[str, Any]) -> str | None:
+        disposition = str(item.get("disposition") or "").strip()
+        if disposition:
+            if detail := _REPORT_ITEM_WHY_BY_DISPOSITION.get(disposition):
+                return detail
+
+        reason = str(item.get("reason") or "").strip()
+        if not reason:
+            return None
+        if detail := _REPORT_ITEM_WHY_BY_REASON.get(reason):
+            return detail
+        for prefix, detail in _REPORT_ITEM_WHY_BY_REASON_PREFIX:
+            if reason.startswith(prefix):
+                return detail
+        return None
 
     def _render_help_note(self) -> str:
         lines = [
