@@ -10,7 +10,7 @@ PLUGIN = LanguageQueryPlugin(
     pattern_specs=(
         PatternSpec(
             "latest_tag",
-            r"(?im)^[+-]?\s*FROM\s+\S+:latest\s*$",
+            r"(?im)^[+-]?\s*FROM\s+(?:--platform=\S+\s+)?\S+:latest(?:\s+AS\s+\S+)?(?:\s+#.*)?\s*$",
             "Mutable latest base image detected; review reproducibility and rollback behavior.",
             0.92,
         ),

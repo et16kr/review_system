@@ -1,4 +1,4 @@
-FROM ubuntu:latest
+FROM ubuntu:latest AS runtime # keep runtime current
 
 ADD https://example.com/install.sh /tmp/install.sh
 RUN apt-get update && apt-get upgrade -y

@@ -10,8 +10,8 @@ entries:
   - rule_no: DOCKER.1
     section: DOCKER
     title: Avoid mutable latest tags for base images
-    summary: Floating base images reduce reproducibility and complicate incident rollback.
-    text: A mutable base image tag means the same Dockerfile can build materially different outputs over time without a repository change.
+    summary: Floating base images reduce reproducibility and complicate incident rollback even when the `FROM` line carries an alias or note.
+    text: A mutable base image tag means the same Dockerfile can build materially different outputs over time without a repository change, even if the `FROM` line adds a stage alias or inline note that makes the tag look more intentional.
     category: configuration
     trigger_patterns: [latest_tag]
     fix_guidance: Pin the base image to an explicit version or digest appropriate for the release process.
@@ -37,7 +37,7 @@ entries:
     section: DOCKER
     title: Pin base images tightly enough that rebuilds remain reproducible across release windows
     summary: Version tags without immutable digests can still drift under the same source revision.
-    text: A semver-looking or distro-flavored base image tag can still be retargeted by the publisher. Digest pinning keeps the exact runtime input stable enough for rebuild explanation, rollback analysis, and supply-chain review.
+    text: A semver-looking, distro-flavored, or `latest` base image tag can still be retargeted by the publisher even when the `FROM` line carries a stage alias or inline note. Digest pinning keeps the exact runtime input stable enough for rebuild explanation, rollback analysis, and supply-chain review.
     category: configuration
     trigger_patterns: [latest_tag, base_tag_without_digest]
     fix_guidance: Prefer an immutable base reference such as `image:tag@sha256:...` when the build needs stable provenance and repeatable rebuild behavior.

@@ -24,7 +24,7 @@ status: drafted
 
 ## High-Signal Review Areas
 
-- Pin base images deliberately, and treat tag-only references as still mutable unless a digest locks the exact artifact, even when the `FROM` line carries a stage alias or inline note; keep package index refresh coupled to install steps.
+- Pin base images deliberately, and treat tag-only references, including `:latest`, as still mutable unless a digest locks the exact artifact, even when the `FROM` line carries a stage alias or inline note; keep package index refresh coupled to install steps.
 - Avoid root runtime defaults unless the workload explicitly requires them.
 - Keep COPY scopes narrow enough to reduce cache churn and accidental secret inclusion.
 - Keep build-time credentials out of `ARG`/`ENV`, including authenticated package or artifact URLs, when BuildKit secret mounts or external secret injection can carry them without ending up in image history.
@@ -33,7 +33,7 @@ status: drafted
 
 ## Candidate Canonical Rule Groups
 
-- Base image reproducibility: mutable `latest`, version tags without digests, and upgrade drift.
+- Base image reproducibility: mutable `latest`, version tags without digests, and upgrade drift, including `FROM ...:latest AS runtime # note` shapes that still hide mutable build input.
 - Runtime privilege: `USER root`, build-vs-runtime separation, and least-privilege final stages.
 - Build context hygiene: `COPY . .`, `.dockerignore`, and secret or cache bleed-through.
 - Multi-stage runtime surface: broad `COPY --from=... /usr/local /usr/local` patterns should be treated as a concrete runtime-surface leak, not just an advisory stage-structure question, even when the copy also carries ownership-fixing flags or an inline note.

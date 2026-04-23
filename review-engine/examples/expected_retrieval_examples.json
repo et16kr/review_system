@@ -176,7 +176,7 @@
   },
   {
     "input": "examples/multilang/Dockerfile",
-    "expected_rules": ["DOCKER.1", "DOCKER.SEC.1"]
+    "expected_rules": ["DOCKER.1", "DOCKER.3", "DOCKER.SEC.1"]
   },
   {
     "input": "examples/multilang/Dockerfile.digest_pinning",
@@ -348,7 +348,7 @@
   {
     "input": "examples/multilang_diffs/Dockerfile.diff",
     "review_path": "examples/multilang/Dockerfile",
-    "expected_rules": ["DOCKER.1"]
+    "expected_rules": ["DOCKER.1", "DOCKER.3"]
   },
   {
     "input": "examples/multilang_diffs/Dockerfile.digest_pinning.diff",
