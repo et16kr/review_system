@@ -352,7 +352,7 @@
   {
     "input": "examples/multilang_diffs/Dockerfile.diff",
     "review_path": "examples/multilang/Dockerfile",
-    "expected_rules": ["DOCKER.1", "DOCKER.3"]
+    "expected_rules": ["DOCKER.1", "DOCKER.3", "DOCKER.SEC.1"]
   },
   {
     "input": "examples/multilang_diffs/Dockerfile.digest_pinning.diff",

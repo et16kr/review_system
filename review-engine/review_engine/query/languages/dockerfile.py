@@ -22,7 +22,7 @@ PLUGIN = LanguageQueryPlugin(
         ),
         PatternSpec(
             "root_user",
-            r"(?im)^[+-]?\s*USER\s+root\s*$",
+            r"(?im)^[+-]?\s*USER\s+(?:root|0)\s*$",
             "Container configured to run as root; review least-privilege runtime expectations.",
             0.95,
         ),

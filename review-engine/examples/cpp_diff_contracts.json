@@ -17,11 +17,13 @@
     "example_path": "examples/multilang_diffs/Dockerfile.diff",
     "source_path": "examples/multilang/Dockerfile",
     "focus_patterns": [
-      "latest_tag"
+      "latest_tag",
+      "root_user"
     ],
     "expected_rules": [
       "DOCKER.1",
-      "DOCKER.3"
+      "DOCKER.3",
+      "DOCKER.SEC.1"
     ]
   },
   {

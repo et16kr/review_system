@@ -10,8 +10,8 @@ entries:
   - rule_no: DOCKER.SEC.1
     section: DOCKERSEC
     title: Prefer non-root runtime identities
-    summary: Containers should not run as root by default unless the workload truly requires it.
-    text: Running the application process as root increases the blast radius of an application compromise and makes defense-in-depth assumptions weaker.
+    summary: Containers should not run as root or UID 0 by default unless the workload truly requires it.
+    text: Running the application process as root, whether declared as `USER root` or `USER 0`, increases the blast radius of an application compromise and makes defense-in-depth assumptions weaker.
     category: security
     trigger_patterns: [root_user]
     fix_guidance: Use a non-root USER and prepare filesystem ownership so the runtime does not depend on root privileges.
@@ -37,7 +37,7 @@ entries:
     section: DOCKERSEC
     title: Limit root to build-time setup and avoid carrying it into the final runtime image
     summary: The final application container should not inherit broader privilege than the workload needs.
-    text: A Dockerfile may legitimately need root during package installation or ownership fixes, but the release runtime should still step down to a narrowly scoped user before the application starts.
+    text: A Dockerfile may legitimately need root during package installation or ownership fixes, but the release runtime should still step down from `USER root` or `USER 0` to a narrowly scoped user before the application starts.
     category: security
     trigger_patterns: [root_user]
     fix_guidance: Finish privileged setup in build layers and switch the final stage or runtime command to a non-root user.

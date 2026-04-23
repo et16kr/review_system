@@ -7,7 +7,7 @@
   "expected_engine_languages": ["go", "dockerfile", "yaml"],
   "expected_engine_rules": {
     "services/cart/main.go": ["GO.1"],
-    "Dockerfile": ["DOCKER.1", "DOCKER.3", "DOCKER.5", "DOCKER.SEC.5"],
+    "Dockerfile": ["DOCKER.1", "DOCKER.3", "DOCKER.SEC.1", "DOCKER.5", "DOCKER.SEC.5"],
     "deploy/k8s/deployment.yaml": ["YAML.K8S.5", "YAML.K8S.6", "YAML.K8S.7"]
   },
   "forbidden_language_tags": ["cpp", "cuda", "python", "sql"],

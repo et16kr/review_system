@@ -2,5 +2,5 @@
 -FROM ubuntu:22.04
 -USER app
 +FROM ubuntu:latest AS runtime # keep runtime current
-+USER root
++USER 0
  COPY . .

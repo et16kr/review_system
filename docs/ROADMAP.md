@@ -117,6 +117,12 @@
 - `DOCKER.SEC.7` source/rule wording이 inline authenticated URL leakage까지 같은 hazard family로 설명하도록 갱신됐다.
 - `DOCKER.SEC.7` bundled code/diff example과 diff contract spec가
   authenticated URL shape를 포함하도록 갱신됐다.
+- `DOCKER.SEC.1`/`DOCKER.SEC.3` `root_user` detector가
+  `USER root`뿐 아니라 numeric root alias인 `USER 0` 경로도 잡도록 넓어졌다.
+- `DOCKER.SEC.1`/`DOCKER.SEC.3` Dockerfile runtime identity wording이
+  `USER root`와 `USER 0`가 같은 root runtime hazard라는 점을 명시하도록 갱신됐다.
+- bundled Docker code/diff example과 curated polyglot smoke contract가
+  UID 0 runtime identity shape를 포함하도록 갱신됐다.
 - `DOCKER.7`이 bare whole-prefix copy뿐 아니라 ownership-fixing `COPY` option과
   inline note가 붙은 `COPY --from=... /usr/local /usr/local` 경로까지 잡도록 넓어졌다.
 - `DOCKER.7` Dockerfile runtime baseline source/rule wording이
@@ -159,8 +165,8 @@
 
 검증 메모:
 
-- 이번 slice는 `review-engine` YAML Kubernetes source/rule/runtime hint/code example/diff example/smoke contract를 변경했고
-  ingest 결과 YAML active guideline dataset도 함께 갱신했다.
+- 이번 slice는 `review-engine` Docker runtime identity source/rule wording, bundled code/diff example,
+  curated polyglot smoke contract를 변경했고 ingest 결과 Dockerfile active guideline dataset도 함께 갱신했다.
 - rerun:
   - `uv run --project review-engine python -m review_engine.cli.ingest_guidelines`
   - `uv run --project review-engine pytest review-engine/tests/test_query_conversion.py review-engine/tests/test_expected_examples.py review-engine/tests/test_smoke_fixture_contracts.py review-engine/tests/test_multilang_regressions.py review-engine/tests/test_source_coverage_matrix.py -q`

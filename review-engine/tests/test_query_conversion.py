@@ -276,6 +276,11 @@ def test_query_analysis_does_not_treat_ide_rc_declaration_as_error_flow() -> Non
         ),
         (
             "dockerfile",
+            "USER 0\n",
+            {"root_user"},
+        ),
+        (
+            "dockerfile",
             "FROM golang:1.22-bookworm@sha256:1111111111111111111111111111111111111111111111111111111111111111 AS build\nFROM debian:bookworm-slim@sha256:2222222222222222222222222222222222222222222222222222222222222222 AS runtime\nCOPY --from=build --chown=10001:10001 /usr/local/ /usr/local/ # keep builder-installed runtime libs\n",
             {"copy_from_builder_usr_local"},
         ),
@@ -346,6 +351,17 @@ def test_dockerfile_safe_index_url_does_not_trigger_authenticated_secret_pattern
 
     assert "build_secret_arg_env" not in names
     assert "build_secret_arg_env_authenticated_url" not in names
+
+
+def test_dockerfile_non_root_numeric_user_does_not_trigger_root_pattern() -> None:
+    analysis = build_query_analysis(
+        "USER 10001\n",
+        input_kind="code",
+        language_id="dockerfile",
+    )
+    names = {pattern.name for pattern in analysis.patterns}
+
+    assert "root_user" not in names
 
 
 def test_dockerfile_digestless_base_with_inline_comment_triggers_without_matching_digest_pinned_variant() -> None:

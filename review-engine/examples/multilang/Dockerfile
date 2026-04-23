@@ -1,3 +1,3 @@
 FROM ubuntu:latest AS runtime # keep runtime current
-USER root
+USER 0
 COPY . .
