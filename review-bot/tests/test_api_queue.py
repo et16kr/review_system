@@ -154,6 +154,50 @@ def test_publish_endpoint_enqueues_publish_job() -> None:
     assert len(fake_queue.calls) == 1
 
 
+def test_review_request_state_response_includes_provider_runtime_provenance() -> None:
+    state = {
+        "key": {
+            "review_system": "gitlab",
+            "project_ref": "group/project-a",
+            "review_request_id": "90",
+        },
+        "last_review_run_id": "run-900",
+        "last_head_sha": "head123",
+        "last_status": "success",
+        "provider_runtime": {
+            "configured_provider": "openai",
+            "effective_provider": "stub",
+            "fallback_used": True,
+            "fallback_reason": "build_draft_error:RuntimeError",
+        },
+        "published_batch_count": 1,
+        "open_finding_count": 3,
+        "resolved_finding_count": 1,
+        "failed_publication_count": 0,
+        "next_batch_size": 10,
+        "open_thread_count": 2,
+        "feedback_event_count": 4,
+        "dead_letter_count": 0,
+    }
+
+    with patch.object(api_main.runner, "build_state", return_value=state):
+        response = api_main.review_request_state(
+            review_system="gitlab",
+            project_ref="group/project-a",
+            review_request_id="90",
+            session=None,
+        )
+
+    assert response.last_review_run_id == "run-900"
+    assert response.provider_runtime is not None
+    assert response.provider_runtime.model_dump() == {
+        "configured_provider": "openai",
+        "effective_provider": "stub",
+        "fallback_used": True,
+        "fallback_reason": "build_draft_error:RuntimeError",
+    }
+
+
 def test_review_request_full_report_endpoint_returns_runner_report() -> None:
     report = {
         "key": {

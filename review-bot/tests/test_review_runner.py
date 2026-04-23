@@ -126,6 +126,7 @@ def test_review_runner_persists_provider_runtime_metadata_on_run_and_finding() -
         review_run = runner.run_review(session, pr_id=303, trigger="provider-runtime")
         stored_run = session.get(ReviewRun, review_run.id)
         evidence = session.query(FindingEvidence).filter_by(review_run_id=review_run.id).one()
+        state = runner.build_state(session, pr_id=303)
 
         assert stored_run is not None
         assert stored_run.provider_runtime == {
@@ -135,6 +136,7 @@ def test_review_runner_persists_provider_runtime_metadata_on_run_and_finding() -
             "fallback_reason": None,
         }
         assert evidence.raw_engine_payload["provider_runtime"] == stored_run.provider_runtime
+        assert state["provider_runtime"] == stored_run.provider_runtime
     finally:
         session.close()
 
@@ -168,6 +170,7 @@ def test_review_runner_persists_fallback_provider_runtime_metadata() -> None:
         review_run = runner.run_review(session, pr_id=304, trigger="provider-fallback")
         stored_run = session.get(ReviewRun, review_run.id)
         evidence = session.query(FindingEvidence).filter_by(review_run_id=review_run.id).one()
+        state = runner.build_state(session, pr_id=304)
 
         assert stored_run is not None
         assert stored_run.provider_runtime == {
@@ -177,6 +180,7 @@ def test_review_runner_persists_fallback_provider_runtime_metadata() -> None:
             "fallback_reason": "build_draft_error:RuntimeError",
         }
         assert evidence.raw_engine_payload["provider_runtime"] == stored_run.provider_runtime
+        assert state["provider_runtime"] == stored_run.provider_runtime
     finally:
         session.close()
 

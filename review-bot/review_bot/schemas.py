@@ -43,11 +43,19 @@ class WebhookAcceptedResponse(BaseModel):
     ignored_reason: str | None = None
 
 
+class ProviderRuntimeResponse(BaseModel):
+    configured_provider: str
+    effective_provider: str
+    fallback_used: bool
+    fallback_reason: str | None = None
+
+
 class ReviewRequestStateResponse(BaseModel):
     key: ReviewRequestKey
     last_review_run_id: str | None
     last_head_sha: str | None
     last_status: str | None = None
+    provider_runtime: ProviderRuntimeResponse | None = None
     published_batch_count: int
     open_finding_count: int
     resolved_finding_count: int

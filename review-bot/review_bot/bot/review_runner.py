@@ -1103,7 +1103,7 @@ class ReviewRunner:
         pr_id: int | None = None,
         *,
         key: ReviewRequestKey | None = None,
-    ) -> dict[str, int | str | None | ReviewRequestKey]:
+    ) -> dict[str, object]:
         target_key = key or self._legacy_key(int(pr_id or 0))
         review_request = self._find_review_request(session, target_key)
         if review_request is None:
@@ -1113,6 +1113,7 @@ class ReviewRunner:
                 "last_review_run_id": None,
                 "last_head_sha": None,
                 "last_status": None,
+                "provider_runtime": None,
                 "published_batch_count": 0,
                 "open_finding_count": 0,
                 "resolved_finding_count": 0,
@@ -1179,6 +1180,7 @@ class ReviewRunner:
             "last_review_run_id": last_run.id if last_run else None,
             "last_head_sha": last_run.head_sha if last_run else None,
             "last_status": last_run.status if last_run else None,
+            "provider_runtime": self._state_provider_runtime(last_run),
             "published_batch_count": int(published_batch_count),
             "open_finding_count": int(open_finding_count),
             "resolved_finding_count": int(resolved_finding_count),
@@ -3148,6 +3150,32 @@ class ReviewRunner:
             "effective_provider": runtime.effective_provider,
             "fallback_used": bool(runtime.fallback_used),
             "fallback_reason": runtime.fallback_reason,
+        }
+
+    def _state_provider_runtime(self, review_run: ReviewRun | None) -> dict[str, object] | None:
+        if review_run is None:
+            return None
+        payload = dict(review_run.provider_runtime or {})
+        configured_provider = str(payload.get("configured_provider") or "").strip()
+        effective_provider = str(payload.get("effective_provider") or "").strip()
+        fallback_reason = str(payload.get("fallback_reason") or "").strip() or None
+        fallback_used = bool(payload.get("fallback_used"))
+        if (
+            not configured_provider
+            and not effective_provider
+            and not fallback_used
+            and fallback_reason is None
+        ):
+            return None
+        if not configured_provider:
+            configured_provider = effective_provider or "unknown"
+        if not effective_provider:
+            effective_provider = configured_provider or "unknown"
+        return {
+            "configured_provider": configured_provider,
+            "effective_provider": effective_provider,
+            "fallback_used": fallback_used,
+            "fallback_reason": fallback_reason,
         }
 
     def _record_provider_runtime(

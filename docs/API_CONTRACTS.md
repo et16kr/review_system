@@ -227,6 +227,12 @@ Response:
   "last_review_run_id": "uuid",
   "last_head_sha": "def456",
   "last_status": "success",
+  "provider_runtime": {
+    "configured_provider": "openai",
+    "effective_provider": "stub",
+    "fallback_used": true,
+    "fallback_reason": "build_draft_error:RuntimeError"
+  },
   "published_batch_count": 1,
   "open_finding_count": 3,
   "resolved_finding_count": 1,
@@ -237,6 +243,11 @@ Response:
   "dead_letter_count": 0
 }
 ```
+
+표현 정책:
+
+- `provider_runtime`는 마지막 review run의 configured/effective provider와 fallback 사용 여부를 나타낸다.
+- legacy row나 run 부재로 provenance를 복원할 수 없으면 `provider_runtime`은 `null`일 수 있다.
 
 ### `GET /internal/review/requests/{review_system}/{project_ref}/{review_request_id}/full-report`
 

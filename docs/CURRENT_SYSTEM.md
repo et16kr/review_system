@@ -84,10 +84,12 @@
   OpenAI API key가 없으면 `openai_status=skipped` baseline으로 남길 수 있다.
 - lifecycle smoke와 direct OpenAI smoke는 다른 신호로 취급한다.
   fallback이 켜져 있으면 lifecycle smoke만으로 live OpenAI 성공을 증명하지 않는다.
+- `review_runs.provider_runtime`에 configured/effective provider와 fallback provenance를 저장하고,
+  current-state API는 최신 run의 provenance를 바로 노출한다.
 - Markdown 문서는 명시적 unreviewable `markdown`으로 분류한다.
 - 마지막 점검 기준 rule count는 public/shared seed 기준 `344`개다.
 - extension rule root, prompt overlay, entry point, detector plugin hook, strict loading 골격은 구현되어 있다.
-- 다만 review run/current-state에 effective provider 또는 fallback provenance를 직접 남기는 운영 관측성은 아직 약하다.
+- 다만 summary/log surface에서 같은 provenance를 더 직접 읽게 하는 작업은 아직 roadmap에 남아 있다.
 
 현재 주요 지원 축:
 
