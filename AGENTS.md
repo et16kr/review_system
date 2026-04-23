@@ -207,6 +207,19 @@ uv run python -m review_bot.cli.evaluate_provider_quality --provider stub
 OpenAI comparison은 `OPENAI_API_KEY`가 있을 때만 opt-in으로 실행하고,
 키가 없으면 `skipped` report로 성공 종료합니다.
 
+direct OpenAI smoke:
+
+```bash
+bash /home/et16/work/review_system/ops/scripts/smoke_openai_provider_direct.sh
+```
+
+이 smoke는 lifecycle fallback과 분리해서 아래를 직접 확인합니다.
+
+- `api.openai.com` 접근 및 auth path
+- 잘못된 key가 실제로 `401 invalid_api_key`를 내는지
+- 현재 key/model이 direct Responses 호출에서 성공하는지
+- 또는 `insufficient_quota` 같은 direct provider 오류로 막히는지
+
 CUDA targeted smoke:
 
 ```bash

@@ -6,6 +6,7 @@ MAX_ITERS="${MAX_ITERS:-1}"
 SANDBOX="${CODEX_SANDBOX:-workspace-write}"
 MODEL="${CODEX_MODEL:-}"
 COMMIT_PREFIX="${COMMIT_PREFIX:-Advance roadmap item}"
+OPENAI_DIRECT_SMOKE="${OPENAI_DIRECT_SMOKE:-1}"
 NO_COMMIT=0
 
 usage() {
@@ -18,6 +19,8 @@ Options:
   --max-iters N      Maximum completed commits to create. Default: MAX_ITERS or 1.
   --model NAME       Pass a model to codex exec. Default: CODEX_MODEL or Codex default.
   --sandbox MODE     Sandbox for codex exec. Default: CODEX_SANDBOX or workspace-write.
+  --skip-openai-direct-smoke
+                     Do not run provider-direct smoke preflight before each iteration.
   --no-commit        Leave changes uncommitted after one completed iteration.
   -h, --help         Show this help.
 
@@ -26,6 +29,8 @@ Environment:
   MAX_ITERS          Same as --max-iters.
   CODEX_MODEL        Same as --model.
   CODEX_SANDBOX      Same as --sandbox.
+  OPENAI_DIRECT_SMOKE
+                     Set to 0 to skip provider-direct smoke preflight.
   COMMIT_PREFIX      Commit message fallback prefix.
 EOF
 }
@@ -43,6 +48,10 @@ while [[ $# -gt 0 ]]; do
     --sandbox)
       SANDBOX="${2:?missing value for --sandbox}"
       shift 2
+      ;;
+    --skip-openai-direct-smoke)
+      OPENAI_DIRECT_SMOKE=0
+      shift
       ;;
     --no-commit)
       NO_COMMIT=1
@@ -105,6 +114,25 @@ parse_commit_message() {
   fi
 }
 
+collect_openai_direct_smoke() {
+  local output_file="$1"
+  local smoke_script="$ROOT/ops/scripts/smoke_openai_provider_direct.sh"
+  if [[ "$OPENAI_DIRECT_SMOKE" == "0" ]]; then
+    printf '%s\n' "OpenAI direct smoke preflight: skipped by configuration." >"$output_file"
+    return 0
+  fi
+  if [[ ! -x "$smoke_script" ]]; then
+    printf '%s\n' "OpenAI direct smoke preflight: unavailable (missing executable $smoke_script)." >"$output_file"
+    return 0
+  fi
+  if "$smoke_script" >"$output_file" 2>&1; then
+    return 0
+  fi
+  local exit_code=$?
+  printf '\n%s\n' "openai_direct_smoke_exit=$exit_code" >>"$output_file"
+  return 0
+}
+
 tmpdir="$(mktemp -d)"
 trap 'rm -rf "$tmpdir"' EXIT
 
@@ -113,6 +141,9 @@ for iteration in $(seq 1 "$MAX_ITERS"); do
 
   prompt="$tmpdir/prompt-$iteration.md"
   output="$tmpdir/output-$iteration.md"
+  openai_smoke="$tmpdir/openai-direct-smoke-$iteration.txt"
+
+  collect_openai_direct_smoke "$openai_smoke"
 
   cat >"$prompt" <<'EOF'
 You are advancing /home/et16/work/review_system/docs/ROADMAP.md.
@@ -136,6 +167,8 @@ Hard constraints:
 - Do not leave docs/ROADMAP_AUTOMATION_DESIGN.md in the final diff.
 - If tests fail and you cannot fix them within this one unit, leave the diff for inspection and finish with STATUS: BLOCKED.
 - If there is no executable roadmap work left, do not edit files and finish with STATUS: ROADMAP_COMPLETE.
+- Treat lifecycle smoke and provider-direct smoke as different signals. A lifecycle smoke pass does not prove live OpenAI succeeded when fallback is enabled.
+- For provider or lifecycle work, report whether validation used direct OpenAI, stub fallback, or both.
 
 Your final response must include:
 - A brief summary.
@@ -146,6 +179,12 @@ STATUS: COMPLETED
 STATUS: BLOCKED
 STATUS: ROADMAP_COMPLETE
 EOF
+
+  {
+    printf '\n[OpenAI Direct Smoke Preflight]\n'
+    cat "$openai_smoke"
+    printf '\n'
+  } >>"$prompt"
 
   codex_cmd=(codex exec --full-auto --sandbox "$SANDBOX" -C "$ROOT" -o "$output")
   if [[ -n "$MODEL" ]]; then

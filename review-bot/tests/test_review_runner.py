@@ -722,6 +722,29 @@ def test_fallback_provider_verify_failure_does_not_disable_primary_build_draft()
     assert draft.summary == "이 변경은 소유권을 직접 관리합니다."
 
 
+def test_fallback_provider_build_failure_disables_primary_and_uses_fallback() -> None:
+    class BuildFailingProvider(FixedProvider):
+        def build_draft(self, **kwargs):  # type: ignore[override]
+            del kwargs
+            raise RuntimeError("openai unavailable")
+
+    provider = FallbackReviewCommentProvider(
+        primary=BuildFailingProvider(title="primary-title"),
+        fallback=FixedProvider(title="fallback-title"),
+    )
+
+    draft = provider.build_draft(
+        file_path="src/a.cpp",
+        rule_no="R.10",
+        title="memory finding",
+        summary="memory summary",
+    )
+
+    assert provider.primary_build_available is False
+    assert draft.title == "fallback-title"
+    assert draft.summary == "이 변경은 소유권을 직접 관리합니다."
+
+
 def test_review_runner_waits_for_expected_head_on_gitlab_note_trigger(monkeypatch) -> None:
     _reset_db()
 

@@ -1,0 +1,145 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="/home/et16/work/review_system"
+ENV_FILE="$ROOT/ops/.env"
+MODEL_OVERRIDE="${BOT_OPENAI_MODEL_OVERRIDE:-}"
+EXPECT_LIVE_OPENAI=0
+
+usage() {
+  cat <<'EOF'
+Usage: ops/scripts/smoke_openai_provider_direct.sh [--expect-live-openai] [--model MODEL]
+
+Directly probes the OpenAI API without review-bot fallback so tests can distinguish:
+- network/auth path is reachable
+- invalid API keys fail with 401 invalid_api_key
+- configured key either succeeds live or fails with a concrete direct-provider error
+
+Exit codes:
+- 0: probe completed; live OpenAI may still be unavailable if summary says insufficient_quota
+- 1: usage or assertion failure
+- 2: live OpenAI was required but direct provider call did not succeed
+EOF
+}
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --expect-live-openai)
+      EXPECT_LIVE_OPENAI=1
+      shift
+      ;;
+    --model)
+      MODEL_OVERRIDE="${2:?missing value for --model}"
+      shift 2
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    *)
+      echo "Unknown argument: $1" >&2
+      usage >&2
+      exit 1
+      ;;
+  esac
+done
+
+if [[ ! -f "$ENV_FILE" ]]; then
+  echo "ops/.env not found: $ENV_FILE" >&2
+  exit 1
+fi
+
+while IFS= read -r line || [[ -n "$line" ]]; do
+  [[ -z "$line" || "${line#\#}" != "$line" ]] && continue
+  [[ "$line" != *=* ]] && continue
+  key="${line%%=*}"
+  value="${line#*=}"
+  export "$key=$value"
+done <"$ENV_FILE"
+
+MODEL="${MODEL_OVERRIDE:-${BOT_OPENAI_MODEL:-gpt-5.2}}"
+
+if [[ -z "${OPENAI_API_KEY:-}" ]]; then
+  echo "OPENAI_API_KEY is not set." >&2
+  exit 1
+fi
+
+tmpdir="$(mktemp -d)"
+trap 'rm -rf "$tmpdir"' EXIT
+
+curl -sS https://api.openai.com/v1/models \
+  -H "Authorization: Bearer $OPENAI_API_KEY" \
+  -o "$tmpdir/models.json"
+
+python3 - "$tmpdir/models.json" <<'PY'
+import json
+import sys
+
+payload = json.loads(open(sys.argv[1], encoding="utf-8").read())
+if "error" in payload:
+    err = payload["error"]
+    print("models_probe_status=error")
+    print(f"models_probe_type={err.get('type')}")
+    print(f"models_probe_code={err.get('code')}")
+    print(f"models_probe_message={err.get('message')}")
+    raise SystemExit(1)
+print("models_probe_status=ok")
+PY
+
+curl -sS https://api.openai.com/v1/responses \
+  -H "Authorization: Bearer sk-invalid-test" \
+  -H "Content-Type: application/json" \
+  -d "{\"model\":\"$MODEL\",\"input\":\"ping\",\"max_output_tokens\":16}" \
+  -o "$tmpdir/invalid.json"
+
+python3 - "$tmpdir/invalid.json" <<'PY'
+import json
+import sys
+
+payload = json.loads(open(sys.argv[1], encoding="utf-8").read())
+error = payload.get("error") or {}
+if error.get("code") != "invalid_api_key":
+    print("invalid_key_probe_status=unexpected")
+    print(f"invalid_key_probe_payload={json.dumps(payload, ensure_ascii=False)}")
+    raise SystemExit(1)
+print("invalid_key_probe_status=ok")
+print(f"invalid_key_probe_type={error.get('type')}")
+print(f"invalid_key_probe_code={error.get('code')}")
+PY
+
+curl -sS https://api.openai.com/v1/responses \
+  -H "Authorization: Bearer $OPENAI_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d "{\"model\":\"$MODEL\",\"input\":\"ping\",\"max_output_tokens\":16}" \
+  -o "$tmpdir/live.json"
+
+live_status="$(
+  python3 - "$tmpdir/live.json" <<'PY'
+import json
+import sys
+
+payload = json.loads(open(sys.argv[1], encoding="utf-8").read())
+if "error" in payload:
+    error = payload["error"]
+    print("error")
+    print(f"live_probe_type={error.get('type')}")
+    print(f"live_probe_code={error.get('code')}")
+    print(f"live_probe_message={error.get('message')}")
+else:
+    text = ""
+    for item in payload.get("output", []):
+        for content in item.get("content", []):
+            if content.get("type") == "output_text":
+                text += content.get("text", "")
+    print("ok")
+    print(f"live_probe_model={payload.get('model')}")
+    print(f"live_probe_text={text[:120]}")
+PY
+)"
+
+printf '%s\n' "configured_model=$MODEL"
+printf '%s\n' "$live_status"
+
+if [[ "$EXPECT_LIVE_OPENAI" -eq 1 && "$live_status" != ok* ]]; then
+  exit 2
+fi

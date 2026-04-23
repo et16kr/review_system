@@ -89,6 +89,23 @@ OPENAI_API_KEY=...
 2. structured output이 실패하거나 quota 문제가 있으면 stub로 fallback 한다.
 3. detect / publish / sync lifecycle은 가능한 한 계속 진행한다.
 
+중요:
+
+- local GitLab lifecycle smoke는 provider fallback을 허용한 상태에서도 통과할 수 있다.
+- 따라서 lifecycle smoke 성공만으로 OpenAI provider direct 성공을 의미하지 않는다.
+- direct OpenAI 경로를 별도로 확인하려면 아래 provider-direct smoke를 사용한다.
+
+```bash
+bash /home/et16/work/review_system/ops/scripts/smoke_openai_provider_direct.sh
+```
+
+이 smoke는 아래를 구분해서 보여준다.
+
+- OpenAI API `/v1/models` 도달 여부
+- 잘못된 API key가 실제로 `401 invalid_api_key`를 내는지
+- 현재 설정 key/model이 direct Responses 호출에서 실제로 성공하는지
+- 또는 `insufficient_quota` 같은 direct provider 오류로 막히는지
+
 verify phase 기본값:
 
 - `BOT_VERIFY_ENABLED=0`
