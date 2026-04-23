@@ -4,8 +4,12 @@ pack_files:
   - packs/pep8_python.yaml
   - packs/pep257_docstrings.yaml
   - packs/project_python.yaml
+  - packs/django_service.yaml
+  - packs/fastapi_service.yaml
 profile_files:
   - profiles/default.yaml
   - profiles/typed_python.yaml
+  - profiles/django_service.yaml
+  - profiles/fastapi_service.yaml
 policy_files:
   - policies/python_default.yaml

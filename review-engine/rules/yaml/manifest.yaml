@@ -5,11 +5,15 @@ pack_files:
   - packs/kubernetes_yaml.yaml
   - packs/ci_yaml.yaml
   - packs/helm_values.yaml
+  - packs/product_yaml.yaml
+  - packs/schema_yaml.yaml
 profile_files:
   - profiles/default.yaml
   - profiles/kubernetes_manifests.yaml
   - profiles/github_actions.yaml
   - profiles/gitlab_ci.yaml
   - profiles/helm_values.yaml
+  - profiles/product_config.yaml
+  - profiles/schema_config.yaml
 policy_files:
   - policies/yaml_default.yaml

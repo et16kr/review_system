@@ -3,6 +3,7 @@ profile_id: analytics_warehouse
 language_id: sql
 enabled_packs:
   - ansi_sql
+  - analytics_sql
   - postgres_sql
   - project_sql
 shared_packs:

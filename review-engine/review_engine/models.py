@@ -166,6 +166,8 @@ class PriorityPolicy(BaseModel):
         default_factory=lambda: [
             "explicit_override",
             "higher_tier",
+            "higher_pattern_boost",
+            "higher_similarity",
             "higher_specificity",
             "higher_base_score",
             "higher_pack_weight",
@@ -174,6 +176,28 @@ class PriorityPolicy(BaseModel):
     )
     overrides: list[PriorityPolicyOverride] = Field(default_factory=list)
     exclusions: list[PriorityPolicyExclusion] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def _normalize_tie_breakers(self) -> PriorityPolicy:
+        ordered = list(dict.fromkeys(self.tie_breakers))
+        promoted_breakers = ["higher_pattern_boost", "higher_similarity"]
+
+        for breaker in promoted_breakers:
+            if breaker in ordered:
+                ordered.remove(breaker)
+
+        if "higher_tier" in ordered:
+            insert_at = ordered.index("higher_tier") + 1
+        elif "explicit_override" in ordered:
+            insert_at = ordered.index("explicit_override") + 1
+        else:
+            insert_at = 0
+
+        for breaker in reversed(promoted_breakers):
+            ordered.insert(insert_at, breaker)
+
+        self.tie_breakers = ordered
+        return self
 
 
 class RuleRootManifest(BaseModel):
@@ -427,7 +451,7 @@ class ReviewDiffRequest(BaseModel):
 
 class IngestionSummary(BaseModel):
     total_parsed: int
-    altibase_records: int = 0
+    organization_policy_records: int = 0
     cpp_core_records: int = 0
     active_records: int
     reference_records: int = 0
@@ -436,7 +460,6 @@ class IngestionSummary(BaseModel):
     active_dataset_path: str
     reference_dataset_path: str | None = None
     excluded_dataset_path: str | None = None
-    parsed_altibase_path: str = ""
     parsed_cpp_core_path: str = ""
     collections: dict[str, int] = Field(default_factory=dict)
     parsed_pack_counts: dict[str, int] = Field(default_factory=dict)

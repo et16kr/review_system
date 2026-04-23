@@ -7,12 +7,12 @@ from pathlib import Path
 from review_engine.models import RepoFileFinding, RepoScanReport
 from review_engine.query.cpp_feature_extractor import extract_query_patterns
 
-CODE_SUFFIXES = {".c", ".cc", ".cpp", ".cxx", ".h", ".hpp"}
+CODE_SUFFIXES = {".c", ".cc", ".cpp", ".cxx", ".cu", ".cuh", ".h", ".hpp"}
 DEFAULT_EXCLUDED_DIRS = {
     ".git",
     ".venv",
     ".ruff_cache",
-    "altibase_home",
+    "organization_home",
     "build",
     "build-compat",
     "out",

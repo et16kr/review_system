@@ -145,3 +145,47 @@ class FindingOutcomesResponse(BaseModel):
     human_resolve_rate: float = 0.0
     false_positive_feedback_rate: float = 0.0
     fix_conversion_rate: float = 0.0
+
+
+class WrongLanguagePairResponse(BaseModel):
+    detected_language_id: str
+    expected_language_id: str
+    count: int
+
+
+class WrongLanguageProfileResponse(BaseModel):
+    detected_language_id: str
+    expected_language_id: str
+    profile_id: str | None = None
+    context_id: str | None = None
+    count: int
+
+
+class WrongLanguagePathResponse(BaseModel):
+    detected_language_id: str
+    expected_language_id: str
+    path_pattern: str
+    count: int
+
+
+class WrongLanguageTriageCandidateResponse(BaseModel):
+    detected_language_id: str
+    expected_language_id: str
+    profile_id: str | None = None
+    context_id: str | None = None
+    path_pattern: str
+    count: int
+    priority: Literal["high", "medium", "low"] = "low"
+    suggested_action: str
+
+
+class WrongLanguageFeedbackResponse(BaseModel):
+    window: Literal["14d", "28d"] = "28d"
+    project_ref: str | None = None
+    total_events: int = 0
+    distinct_threads: int = 0
+    distinct_findings: int = 0
+    top_language_pairs: list[WrongLanguagePairResponse] = Field(default_factory=list)
+    top_profiles: list[WrongLanguageProfileResponse] = Field(default_factory=list)
+    top_paths: list[WrongLanguagePathResponse] = Field(default_factory=list)
+    triage_candidates: list[WrongLanguageTriageCandidateResponse] = Field(default_factory=list)

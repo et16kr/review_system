@@ -1,0 +1,57 @@
+schema_version: 1
+pack_id: fastapi_service
+namespace: public
+language_id: python
+source_kind: project_policy
+description: FastAPI service review rules for async request paths and validation boundaries.
+default_enabled: true
+default_priority_tier: high
+entries:
+  - rule_no: PY.FAPI.1
+    section: PYFAPI
+    title: Async FastAPI request handlers should not hide blocking I/O behind the event loop
+    summary: Blocking work inside async request paths turns one request into broader scheduler starvation risk.
+    text: Async handlers are only cheap when their I/O model remains non-blocking. Using requests, time.sleep, or synchronous subprocess work inside them quietly widens latency and concurrency risk for unrelated requests.
+    category: performance
+    trigger_patterns: [fastapi_blocking_in_async]
+    fix_guidance: Move blocking work to a thread pool or use an async-native client so the request path stays aligned with the event-loop contract.
+    base_score: 0.96
+    severity_default: 0.97
+    priority_tier: high
+    specificity: 0.94
+    false_positive_risk: low
+  - rule_no: PY.FAPI.2
+    section: PYFAPI
+    title: FastAPI routes that read request.json() directly should reintroduce explicit validation
+    summary: Raw request parsing bypasses one of FastAPI's main safety and reviewability advantages.
+    text: FastAPI works best when request payloads are validated through typed models at the HTTP boundary. Reading request.json() directly is a signal that runtime validation may have been pushed into ad hoc handler code.
+    category: security
+    trigger_patterns: [fastapi_request_json]
+    fix_guidance: Prefer typed request models or an explicit validation step immediately after parsing so the rest of the handler can rely on a checked contract.
+    base_score: 0.91
+    severity_default: 0.93
+    priority_tier: high
+    specificity: 0.89
+    false_positive_risk: low
+  - rule_no: PY.FAPI.REF.1
+    section: PYFAPIREF
+    title: FastAPI request and response models should make the transport contract obvious
+    summary: Reference guidance fits when a route shape looks under-specified but the local patch does not prove a direct defect.
+    text: Prefer handlers where incoming payloads, status codes, and response schemas are visible in the type layer instead of being reconstructed from untyped dictionaries.
+    category: process
+    reviewability: reference_only
+    applies_to: [code, diff, docs]
+    false_positive_risk: medium
+    base_score: 0.55
+    severity_default: 0.55
+  - rule_no: PY.FAPI.REF.2
+    section: PYFAPIREF
+    title: Background task, dependency, and transaction lifetime should remain legible in FastAPI services
+    summary: Async service review often depends on lifecycle boundaries that span dependencies and background jobs.
+    text: Use this as reference guidance when a FastAPI patch hints at unclear ownership for dependency cleanup, background work, or session lifetime without exposing one certain local bug.
+    category: process
+    reviewability: reference_only
+    applies_to: [code, diff, docs]
+    false_positive_risk: medium
+    base_score: 0.54
+    severity_default: 0.54

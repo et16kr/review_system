@@ -1,0 +1,83 @@
+schema_version: 1
+pack_id: spring_backend
+namespace: public
+language_id: java
+source_kind: project_policy
+description: Spring backend review rules for validation, transaction ownership, and request-path data safety.
+default_enabled: true
+default_priority_tier: high
+entries:
+  - rule_no: JAVA.SPRING.1
+    section: JAVASPRING
+    title: Prefer constructor injection over Spring field injection
+    summary: Field injection hides required dependencies and makes test setup and lifecycle assumptions harder to review.
+    text: Spring dependencies are easier to audit when construction makes required collaborators explicit and immutable by default. Field injection tends to hide wiring requirements and weakens local invariants.
+    category: configuration
+    trigger_patterns: [spring_field_injection]
+    fix_guidance: Prefer constructor injection with final fields so dependency requirements stay explicit and testable.
+    base_score: 0.92
+    severity_default: 0.93
+    priority_tier: high
+    specificity: 0.9
+    false_positive_risk: low
+  - rule_no: JAVA.SPRING.2
+    section: JAVASPRING
+    title: Keep transaction ownership out of controller boundaries
+    summary: HTTP entrypoints should rarely own the transactional contract directly.
+    text: A controller already owns transport concerns such as request parsing and response shape. Mixing that layer with transaction ownership makes retries, side effects, and service boundaries harder to reason about.
+    category: resource_management
+    trigger_patterns: [spring_transaction_on_controller]
+    fix_guidance: Move transactional work into a service boundary that owns business-level consistency rather than the HTTP adapter.
+    base_score: 0.9
+    severity_default: 0.92
+    priority_tier: high
+    specificity: 0.88
+    false_positive_risk: low
+  - rule_no: JAVA.SPRING.3
+    section: JAVASPRING
+    title: ConfigurationProperties bindings should pair with explicit validation
+    summary: Typed configuration is safer when invalid startup state is rejected close to binding time.
+    text: Spring configuration binding turns external text into typed application state. That boundary is easier to trust when validation rules are explicit and fail fast during startup.
+    category: configuration
+    trigger_patterns: [spring_configuration_properties]
+    fix_guidance: Add explicit validation for bound properties and keep required constraints obvious at the binding boundary.
+    base_score: 0.8
+    severity_default: 0.82
+    priority_tier: high
+    specificity: 0.78
+    false_positive_risk: medium
+  - rule_no: JAVA.SPRING.4
+    section: JAVASPRING
+    title: Request-path findAll calls should make data volume and DTO boundaries explicit
+    summary: Exposing repository-wide reads directly from a request path often hides pagination, mapping, or N+1 risks.
+    text: A controller path that calls findAll is easy to write but frequently under-specifies response size, loading shape, and domain-to-DTO boundaries. Review the request contract before turning repository-wide reads into API output.
+    category: performance
+    trigger_patterns: [spring_findall_request_path]
+    fix_guidance: Prefer paged or explicitly bounded queries and map entities through a response contract that names what the endpoint is allowed to expose.
+    base_score: 0.76
+    severity_default: 0.79
+    priority_tier: default
+    specificity: 0.74
+    false_positive_risk: medium
+  - rule_no: JAVA.SPRING.REF.1
+    section: JAVASPRINGREF
+    title: Spring request, service, and repository boundaries should keep DTO and entity roles distinct
+    summary: Reference guidance is useful when a patch hints at transport and persistence concerns bleeding together but the local diff does not prove a defect.
+    text: Prefer controller contracts that talk in request and response DTOs, while services and repositories own business rules and persistence details.
+    category: process
+    reviewability: reference_only
+    applies_to: [code, diff, docs]
+    false_positive_risk: medium
+    base_score: 0.55
+    severity_default: 0.55
+  - rule_no: JAVA.SPRING.REF.2
+    section: JAVASPRINGREF
+    title: Exception translation and validation ownership should be obvious at Spring boundaries
+    summary: Review guidance is needed when transport, validation, and persistence failures could be translated in multiple layers.
+    text: Prefer one obvious layer for validation errors, one for business-domain errors, and one for persistence failures so reviewers do not have to reconstruct exception flow from several annotations and interceptors.
+    category: process
+    reviewability: reference_only
+    applies_to: [code, diff, docs]
+    false_positive_risk: medium
+    base_score: 0.54
+    severity_default: 0.54

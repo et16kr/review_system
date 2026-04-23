@@ -4,7 +4,7 @@
 - environment: `local | staging | prod`
 - branch_or_image: `...`
 - project_ref: `group/project` or `all`
-- source_family: `altibase | cpp_core | all`
+- source_family: `cpp_core | project_cpp | shared_security | all`
 
 ## Health
 

@@ -13,7 +13,9 @@ from urllib import error, parse, request
 ROOT = Path("/home/et16/work/review_system")
 OPS_DIR = ROOT / "ops"
 LOCAL_GITLAB_COMPOSE = OPS_DIR / "gitlab-local-compose.yml"
-ALTIDEV4_PATH = Path("/home/et16/work/altidev4")
+SMOKE_REPO_PATH = Path(
+    os.getenv("LOCAL_GITLAB_SMOKE_REPO_PATH", "/home/et16/work/review-system-smoke")
+).expanduser()
 
 
 def run(cmd: list[str], *, cwd: Path | None = None, capture: bool = False) -> str:
@@ -199,22 +201,22 @@ def api_json(method: str, url: str, token: str, payload: dict | None = None):
 
 def ensure_remote(repo_http_url: str, token: str) -> None:
     authenticated = repo_http_url.replace("http://", f"http://root:{token}@", 1)
-    existing = run(["git", "-C", str(ALTIDEV4_PATH), "remote"], cwd=ROOT, capture=True).splitlines()
+    existing = run(["git", "-C", str(SMOKE_REPO_PATH), "remote"], cwd=ROOT, capture=True).splitlines()
     if "gitlab-local" in existing:
         run(
-            ["git", "-C", str(ALTIDEV4_PATH), "remote", "set-url", "gitlab-local", authenticated],
+            ["git", "-C", str(SMOKE_REPO_PATH), "remote", "set-url", "gitlab-local", authenticated],
             cwd=ROOT,
         )
     else:
         run(
-            ["git", "-C", str(ALTIDEV4_PATH), "remote", "add", "gitlab-local", authenticated],
+            ["git", "-C", str(SMOKE_REPO_PATH), "remote", "add", "gitlab-local", authenticated],
             cwd=ROOT,
         )
 
 
 def push_tde_branches() -> None:
-    run(["git", "-C", str(ALTIDEV4_PATH), "push", "gitlab-local", "tde_base:tde_base"], cwd=ROOT)
-    run(["git", "-C", str(ALTIDEV4_PATH), "push", "gitlab-local", "tde_first:tde_first"], cwd=ROOT)
+    run(["git", "-C", str(SMOKE_REPO_PATH), "push", "gitlab-local", "tde_base:tde_base"], cwd=ROOT)
+    run(["git", "-C", str(SMOKE_REPO_PATH), "push", "gitlab-local", "tde_first:tde_first"], cwd=ROOT)
 
 
 def create_merge_request(base_url: str, token: str, project_id: int) -> dict:
@@ -230,7 +232,7 @@ def create_merge_request(base_url: str, token: str, project_id: int) -> dict:
             "python3",
             str(OPS_DIR / "scripts" / "create_gitlab_merge_request.py"),
             "--repo-path",
-            str(ALTIDEV4_PATH),
+            str(SMOKE_REPO_PATH),
             "--source-branch",
             "tde_first",
             "--target-branch",
@@ -280,14 +282,14 @@ def delete_matching_merge_requests(base_url: str, token: str, project_id: int) -
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Bootstrap local GitLab and create the TDE merge request."
+        description="Bootstrap local GitLab and create the default smoke merge request."
     )
     parser.add_argument("--skip-start", action="store_true", help="Do not start GitLab compose.")
     parser.add_argument("--skip-push", action="store_true", help="Do not push branches to GitLab.")
     parser.add_argument("--namespace", default="root", help="GitLab namespace path")
     parser.add_argument(
         "--project-name",
-        default="altidev4-review",
+        default="review-system-smoke",
         help="GitLab project name/path",
     )
     parser.add_argument(
@@ -308,6 +310,11 @@ def main() -> int:
     env_file = OPS_DIR / ".env"
     if not env_file.exists():
         raise SystemExit("ops/.env not found. Copy ops/.env.example to ops/.env first.")
+    if not SMOKE_REPO_PATH.exists():
+        raise SystemExit(
+            f"Local smoke repository not found: {SMOKE_REPO_PATH}. "
+            "Set LOCAL_GITLAB_SMOKE_REPO_PATH if needed."
+        )
 
     base_url = os.getenv("LOCAL_GITLAB_EXTERNAL_URL")
     if not base_url:

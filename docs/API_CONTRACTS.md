@@ -77,7 +77,7 @@
     {
       "note_ref": "note-10",
       "author_type": "bot",
-      "body": "[봇 리뷰] ..."
+      "body": "[봇 리뷰][cpp] ..."
     }
   ]
 }
@@ -301,8 +301,8 @@ Response 예시:
 {
   "rules": [
     {
-      "rule_no": "ALTI-MEM-007",
-      "source_family": "altibase",
+      "rule_no": "R.10",
+      "source_family": "cpp_core",
       "total": 12,
       "published": 7,
       "resolved": 3,
@@ -376,7 +376,7 @@ Response 예시:
 {
   "window": "28d",
   "project_ref": "group/project",
-  "source_family": "altibase",
+  "source_family": "cpp_core",
   "surfaced_distinct": 120,
   "resolved_distinct": 70,
   "fixed_distinct": 48,
@@ -390,6 +390,120 @@ Response 예시:
   "human_resolve_rate": 0.0,
   "false_positive_feedback_rate": 0.0,
   "fix_conversion_rate": 0.342
+}
+```
+
+### `GET /internal/analytics/wrong-language-feedback`
+
+용도:
+
+- 사람이 `@review-bot wrong-language <expected-language>`로 남긴 피드백을 집계한다.
+- detector blind spot, 자주 틀리는 언어 쌍, 경로 기반 오분류 패턴을 확인하는 canonical source다.
+
+Query parameter:
+
+- `project_ref` optional
+- `window` optional: `14d | 28d`, 기본값 `28d`
+
+집계 단위:
+
+- raw comment row가 아니라 latest parsed wrong-language feedback event 기준
+- 동일 finding/thread에 여러 reply가 있어도 최신 canonical command만 반영한다
+
+Response 공통 필드:
+
+- `total_events`
+- `distinct_threads`
+- `distinct_findings`
+- `top_language_pairs`
+- `top_profiles`
+- `top_paths`
+- `triage_candidates`
+
+`top_language_pairs` 각 항목:
+
+- `detected_language_id`
+- `expected_language_id`
+- `count`
+
+`top_profiles` 각 항목:
+
+- `detected_language_id`
+- `expected_language_id`
+- `profile_id`
+- `context_id`
+- `count`
+
+`top_paths` 각 항목:
+
+- `detected_language_id`
+- `expected_language_id`
+- `path_pattern`
+- `count`
+
+`triage_candidates` 각 항목:
+
+- `detected_language_id`
+- `expected_language_id`
+- `profile_id`
+- `context_id`
+- `path_pattern`
+- `count`
+- `priority`
+- `suggested_action`
+
+운영 해석 가이드:
+
+- `top_language_pairs`는 어떤 언어 조합에서 detector가 흔들리는지 보여 준다.
+- `top_profiles`는 framework/context 오분류가 profile/context 축에서 집중되는지 확인하는 데 쓴다.
+- `top_paths`는 `.github/workflows`, `src`, `db`, `docs` 같은 경로 버킷별 blind spot을 찾는 데 쓴다.
+- `triage_candidates`는 detector backlog를 바로 만들 때 우선 손대야 할 조합을 보여 준다.
+
+Response 예시:
+
+```json
+{
+  "window": "28d",
+  "project_ref": "group/project",
+  "total_events": 3,
+  "distinct_threads": 3,
+  "distinct_findings": 3,
+  "top_language_pairs": [
+    {
+      "detected_language_id": "cpp",
+      "expected_language_id": "markdown",
+      "count": 2
+    }
+  ],
+  "top_profiles": [
+    {
+      "detected_language_id": "yaml",
+      "expected_language_id": "markdown",
+      "profile_id": "github_actions",
+      "context_id": "github_actions",
+      "count": 1
+    }
+  ],
+  "top_paths": [
+    {
+      "detected_language_id": "cpp",
+      "expected_language_id": "markdown",
+      "path_pattern": "src",
+      "count": 2
+    }
+  ],
+  "triage_candidates": [
+    {
+      "detected_language_id": "yaml",
+      "expected_language_id": "markdown",
+      "profile_id": "gitlab_ci",
+      "context_id": "gitlab_ci",
+      "path_pattern": ".gitlab-ci.yml",
+      "count": 1,
+      "priority": "high",
+      "suggested_action": "문서 경로를 reviewable 대상에서 더 명확히 제외하고, 유사 확장자/경로 예외 규칙을 detector backlog에 추가하세요."
+    }
+  ]
 }
 ```
 
@@ -529,12 +643,12 @@ Response:
   ],
   "results": [
     {
-      "rule_no": "ALTI-MEM-007",
-      "source_family": "altibase",
-      "authority": "internal",
-      "conflict_policy": "authoritative",
-      "title": "Assign NULL immediately after free()",
-      "section": "ALTI-MEM",
+      "rule_no": "R.10",
+      "source_family": "cpp_core",
+      "authority": "external",
+      "conflict_policy": "compatible",
+      "title": "Avoid malloc() and free()",
+      "section": "R",
       "priority": 0.98,
       "score": 0.94,
       "summary": "free() 직후 NULL을 대입한다.",

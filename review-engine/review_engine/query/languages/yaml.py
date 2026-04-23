@@ -6,7 +6,7 @@ from review_engine.query.languages.base import LanguageQueryPlugin, PatternSpec
 PLUGIN = LanguageQueryPlugin(
     plugin_id="yaml",
     display_name="YAML",
-    default_focus="schema intent, CI/CD safety, Kubernetes security defaults, and configuration drift",
+    default_focus="schema intent, CI/CD safety, Kubernetes security defaults, product config hygiene, and configuration drift",
     pattern_specs=(
         PatternSpec(
             "latest_tag",
@@ -50,6 +50,54 @@ PLUGIN = LanguageQueryPlugin(
             "GitHub Action branch ref detected; review provenance and whether the action should be pinned more tightly.",
             0.92,
         ),
+        PatternSpec(
+            "github_actions_pull_request_target",
+            r"(?im)^[+-]?\s*(?:-\s*)?pull_request_target\s*:\s*$|^[+-]?\s*-\s*pull_request_target\s*$",
+            "GitHub Actions pull_request_target trigger detected; review whether untrusted PR code can now run with privileged tokens or secrets.",
+            0.99,
+        ),
+        PatternSpec(
+            "ci_remote_bootstrap",
+            r"(?im)^[+-]?\s*-\s*(?:curl|wget)\b[^\n]*\|\s*(?:bash|sh)\b",
+            "Remote download piped into a shell detected in CI YAML; review provenance and explicit verification.",
+            0.99,
+        ),
+        PatternSpec(
+            "ci_insecure_download",
+            r"(?im)^[+-]?\s*-\s*(?:curl\b[^\n]*(?:--insecure|-k)\b|wget\b[^\n]*--no-check-certificate\b)",
+            "Insecure artifact download flags detected in CI YAML; review transport trust and explicit verification.",
+            0.97,
+        ),
+        PatternSpec(
+            "service_latest_tag",
+            r"(?im)^[+-]?\s*-\s*[\w./-]+:latest\s*$",
+            "Floating latest tag detected in a CI helper or service image; review reproducibility and rollback safety.",
+            0.82,
+        ),
+        PatternSpec(
+            "yaml_secret_literal",
+            r"(?im)^[+-]?\s*(?:password|passwd|secret|token|api[_-]?key|client[_-]?secret)\s*:\s*['\"]?[a-z0-9_./:+-]{6,}\s*$",
+            "Secret-like literal detected in YAML; review whether runtime credentials are being committed directly.",
+            0.98,
+        ),
+        PatternSpec(
+            "yaml_merge_key",
+            r"(?im)^[+-]?\s*<<:\s*\*",
+            "YAML merge key detected; review whether inherited defaults and overrides remain obvious.",
+            0.7,
+        ),
+        PatternSpec(
+            "yaml_additional_properties_true",
+            r"(?im)^[+-]?\s*additionalProperties:\s*true\s*$",
+            "Schema allows arbitrary extra properties; review whether the contract is broader than intended.",
+            0.88,
+        ),
+        PatternSpec(
+            "yaml_ambiguous_boolean_default",
+            r"(?im)^[+-]?\s*default:\s*(?:on|off|yes|no)\s*$",
+            "Boolean-like YAML default detected as a bare word; review schema clarity and cross-parser ambiguity.",
+            0.82,
+        ),
     ),
     hinted_rules={
         "latest_tag": ("YAML.CI.2", "YAML.CI.4", "YAML.2", "YAML.HELM.2"),
@@ -59,6 +107,14 @@ PLUGIN = LanguageQueryPlugin(
         "allow_privilege_escalation": ("YAML.K8S.5",),
         "host_network_true": ("YAML.K8S.6",),
         "uses_branch_ref": ("YAML.CI.5",),
+        "github_actions_pull_request_target": ("YAML.CI.9",),
+        "ci_remote_bootstrap": ("YAML.CI.6",),
+        "ci_insecure_download": ("YAML.CI.7",),
+        "service_latest_tag": ("YAML.CI.8",),
+        "yaml_secret_literal": ("YAML.PROD.1",),
+        "yaml_merge_key": ("YAML.PROD.REF.1",),
+        "yaml_additional_properties_true": ("YAML.SCHEMA.1",),
+        "yaml_ambiguous_boolean_default": ("YAML.SCHEMA.2",),
     },
     direct_hint_patterns={
         "latest_tag",
@@ -68,5 +124,13 @@ PLUGIN = LanguageQueryPlugin(
         "allow_privilege_escalation",
         "host_network_true",
         "uses_branch_ref",
+        "github_actions_pull_request_target",
+        "ci_remote_bootstrap",
+        "ci_insecure_download",
+        "service_latest_tag",
+        "yaml_secret_literal",
+        "yaml_merge_key",
+        "yaml_additional_properties_true",
+        "yaml_ambiguous_boolean_default",
     },
 )

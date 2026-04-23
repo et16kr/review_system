@@ -36,13 +36,13 @@
 대표적인 고정 지점:
 
 - [review-engine/review_engine/models.py](/home/et16/work/review_system/review-engine/review_engine/models.py:1)
-  - `source_family`가 `altibase | cpp_core`로 고정되어 있다.
+  - `source_family`가 C++ 중심 family 값에 과하게 기대고 있다.
 - [review-engine/review_engine/query/code_to_query.py](/home/et16/work/review_system/review-engine/review_engine/query/code_to_query.py:1)
   - query 문장이 `"Review this C++ ..."`로 고정되어 있다.
 - [review-engine/review_engine/query/cpp_feature_extractor.py](/home/et16/work/review_system/review-engine/review_engine/query/cpp_feature_extractor.py:1)
-  - 패턴 추출기가 C++/Altibase 메모리 규칙 중심이다.
+  - 패턴 추출기가 C++/조직 메모리 규칙 중심이다.
 - [review-engine/review_engine/config.py](/home/et16/work/review_system/review-engine/review_engine/config.py:1)
-  - `CODING_CONVENTION.md`, `cpp_core_guidelines.html`, `disabled_cpp_core_rules.json`처럼 C++ 전용 파일명을 직접 가진다.
+  - 여전히 `cpp_core_guidelines.html` 같은 C++ 전용 cache filename을 직접 가진다.
 - [review-bot/review_bot/bot/review_runner.py](/home/et16/work/review_system/review-bot/review_bot/bot/review_runner.py:1)
   - `CPP_EXTENSIONS`와 `self._is_cpp_path()` 전제를 가진다.
 
@@ -724,7 +724,7 @@ reviewable: true
 
 - `CPP_EXTENSIONS`
 - `_is_cpp_path()`
-- provider prompt가 Altibase C++ 맥락에 최적화
+- provider prompt가 특정 조직의 C++ 맥락에 최적화
 
 ### 변경 방향
 

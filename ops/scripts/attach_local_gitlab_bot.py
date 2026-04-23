@@ -466,7 +466,7 @@ def delete_existing_bot_comments(base_url: str, token: str, project_ref: str, pr
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Attach the local GitLab MR to the review bot.")
-    parser.add_argument("--project-ref", default="root/altidev4-review")
+    parser.add_argument("--project-ref", default="root/review-system-smoke")
     parser.add_argument("--mr-iid", type=int, default=1)
     parser.add_argument("--token-name", default="review-bot-runtime")
     parser.add_argument(

@@ -1,0 +1,70 @@
+schema_version: 1
+pack_id: cuda_tma
+namespace: public
+language_id: cuda
+source_kind: project_policy
+description: CUDA Tensor Memory Accelerator rules for tensor-map ownership, barrier completion, and descriptor publication.
+default_enabled: true
+default_priority_tier: high
+entries:
+  - rule_no: CUDA.TMA.1
+    section: CUDATMA
+    title: TMA bulk tensor copies should not feed shared tiles before a visible completion boundary
+    summary: "`cp_async_bulk_tensor` and `cp.async.bulk.tensor` stay reviewable only when the first shared-tile use is clearly behind the matching barrier wait."
+    text: TMA bulk tensor copies can overlap tensor movement with compute, but the local patch still needs to show where the destination shared tile becomes safe to read. If the code reaches `consume_tile`, `use_tile`, or another first tile-consumption step before a visible `bar.wait`, `mbarrier` wait, or equivalent completion boundary, reviewers cannot tell whether the tensor transfer has actually completed.
+    category: correctness
+    trigger_patterns: [cuda_tma_copy_without_wait]
+    fix_guidance: Keep the first shared-tile use adjacent to the barrier wait that closes the TMA transfer, or wrap the copy and wait sequence in a helper whose readiness contract is obvious at the call site.
+    base_score: 0.97
+    severity_default: 0.97
+    priority_tier: high
+    specificity: 0.95
+    false_positive_risk: low
+  - rule_no: CUDA.TMA.2
+    section: CUDATMA
+    title: Tensor map inputs should keep the transport contract explicit
+    summary: "`CUtensorMap` ownership is hard to audit when a TMA path reads it from a raw pointer without a visible `__grid_constant__` or proxy-fence contract."
+    text: TMA code often relies on tensor maps that were encoded on the host and transported into device code through a specific ownership path. When the local code uses `cp_async_bulk_tensor` with a raw `CUtensorMap* tensor_map` path but does not show `__grid_constant__`, a constant-memory transport path, or an explicit tensor-map fence, reviewers cannot reconstruct whether the descriptor is stable and visible to the consuming thread block.
+    category: correctness
+    trigger_patterns: [cuda_tma_tensor_map_pointer_without_contract]
+    fix_guidance: Prefer a `const __grid_constant__ CUtensorMap` kernel parameter for steady-state maps, or keep the global-memory acquisition and required fence visible near the first TMA use.
+    base_score: 0.96
+    severity_default: 0.96
+    priority_tier: high
+    specificity: 0.94
+    false_positive_risk: medium
+  - rule_no: CUDA.TMA.3
+    section: CUDATMA
+    title: On-device tensor-map mutation should publish the updated descriptor through a visible proxy fence
+    summary: "`tensormap_replace*` changes descriptor state, so later TMA use should also show the proxy-fence step that makes the update visible."
+    text: Tensor-map mutation helpers such as `tensormap_replace_*` can update descriptor state on the device, but that mutation stays hard to trust unless the local code also shows the proxy-fence or publication step before later TMA instructions reuse the updated map. If a patch mutates a tensor map and then issues `cp_async_bulk_tensor` without a visible `tensormap_cp_fenceproxy`, `tensormap_copy_fenceproxy`, or equivalent publication path, reviewers cannot tell whether the descriptor update is actually visible to the TMA consumer.
+    category: concurrency
+    trigger_patterns: [cuda_tma_tensormap_replace_without_fence]
+    fix_guidance: Keep the proxy-fence or descriptor publication step adjacent to the tensor-map mutation, and make the later TMA use depend on that visible contract.
+    base_score: 0.98
+    severity_default: 0.98
+    priority_tier: high
+    specificity: 0.95
+    false_positive_risk: low
+  - rule_no: CUDA.TMA.REF.1
+    section: CUDATMAREF
+    title: Tensor shape, alignment, and coordinate ownership should stay reconstructable
+    summary: TMA code is easier to review when tensor rank, alignment, coordinate math, and multicast assumptions stay visible from the local patch.
+    text: Prefer TMA code where tensor-map rank, box or tile shape, alignment requirements, coordinate construction, and multicast expectations remain explicit enough that reviewers can connect the descriptor and the transfer back to the intended tensor contract.
+    category: process
+    reviewability: reference_only
+    applies_to: [code, diff, docs]
+    false_positive_risk: medium
+    base_score: 0.55
+    severity_default: 0.55
+  - rule_no: CUDA.TMA.REF.2
+    section: CUDATMAREF
+    title: Barrier byte counts and async-group ownership should remain visible
+    summary: TMA helpers are easiest to trust when they preserve who owns completion, how many bytes were promised, and which wait closes the transfer.
+    text: Keep `barrier_arrive_tx`, `mbarrier` byte counts, bulk async-group waits, and helper boundaries explicit enough that reviewers can see which participant owns completion, which transfer size was promised, and which wait or fence actually closes the TMA operation.
+    category: process
+    reviewability: reference_only
+    applies_to: [code, diff, docs]
+    false_positive_risk: medium
+    base_score: 0.54
+    severity_default: 0.54

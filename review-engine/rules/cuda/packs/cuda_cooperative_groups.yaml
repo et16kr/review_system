@@ -1,0 +1,70 @@
+schema_version: 1
+pack_id: cuda_cooperative_groups
+namespace: public
+language_id: cuda
+source_kind: project_policy
+description: CUDA Cooperative Groups rules for collective partitioning, sync ownership, and cooperative launch boundaries.
+default_enabled: true
+default_priority_tier: high
+entries:
+  - rule_no: CUDA.CG.1
+    section: CUDACG
+    title: Cooperative-group partitioning must not happen under non-uniform control flow
+    summary: Group creation is a collective contract, not a per-lane convenience API.
+    text: Functions such as `tiled_partition`, `labeled_partition`, and `binary_partition` require all threads in the parent group to participate consistently. Creating those groups only from a lane-dependent branch can deadlock or corrupt subsequent collective behavior.
+    category: correctness
+    trigger_patterns: [cuda_cg_partition_in_branch]
+    fix_guidance: Create cooperative groups from a control-flow region that every participating thread reaches, then branch on subgroup rank only after the collective group exists.
+    base_score: 0.98
+    severity_default: 0.98
+    priority_tier: high
+    specificity: 0.96
+    false_positive_risk: low
+  - rule_no: CUDA.CG.2
+    section: CUDACG
+    title: Grid-wide cooperative-group synchronization should keep cooperative launch ownership explicit
+    summary: "`grid.sync()` is only valid when launch shape and residency assumptions are already owned by the caller."
+    text: A `grid.sync()` call implies a cooperative launch contract that depends on grid size, residency, and launch API choices outside the local line. Reviewers should still be able to tell which boundary owns that launch requirement and whether all blocks that must participate are guaranteed to be resident together.
+    category: concurrency
+    trigger_patterns: [cuda_cg_grid_sync]
+    fix_guidance: Keep the cooperative-launch requirement visible near the kernel launch or document the launch contract in the surrounding abstraction so `grid.sync()` is not an ambient assumption.
+    base_score: 0.92
+    severity_default: 0.93
+    priority_tier: high
+    specificity: 0.9
+    false_positive_risk: medium
+  - rule_no: CUDA.CG.3
+    section: CUDACG
+    title: Cooperative-group synchronization should not sit under rank-dependent control flow
+    summary: Group sync has the same collective safety requirement as any other barrier in the group.
+    text: Calling `cg::sync(group)` or `group.sync()` from a branch keyed by thread rank, lane identity, or another non-uniform predicate can break the collective contract of the group just as surely as a divergent `__syncthreads()` breaks a block barrier.
+    category: correctness
+    trigger_patterns: [cuda_cg_divergent_sync]
+    fix_guidance: Move the group synchronization point out of rank-dependent branches or restructure the algorithm so every thread in the group reaches the same sync phase.
+    base_score: 0.97
+    severity_default: 0.97
+    priority_tier: high
+    specificity: 0.95
+    false_positive_risk: low
+  - rule_no: CUDA.CG.REF.1
+    section: CUDACGREF
+    title: Specialized cooperative-group shapes and tile ownership should stay explicit
+    summary: Tile-size and subgroup choices are often intentional tuning decisions even when the diff does not prove a local bug.
+    text: Prefer cooperative-group code where tile size, subgroup ownership, and any warp-aligned assumptions stay explicit enough that reviewers can connect the chosen group shape back to the algorithm.
+    category: process
+    reviewability: reference_only
+    applies_to: [code, diff, docs]
+    false_positive_risk: medium
+    base_score: 0.55
+    severity_default: 0.55
+  - rule_no: CUDA.CG.REF.2
+    section: CUDACGREF
+    title: Cooperative launch resource limits and large-scale synchronization contracts should stay reconstructable
+    summary: Grid-wide and large-group synchronization often span launch configuration, residency, and scheduling context beyond one local patch.
+    text: Keep cooperative-launch sizing, residency assumptions, and large-scale synchronization boundaries documented enough that reviewers can reconstruct why the chosen cooperative-group scope is valid.
+    category: process
+    reviewability: reference_only
+    applies_to: [code, diff, docs]
+    false_positive_risk: medium
+    base_score: 0.54
+    severity_default: 0.54

@@ -1,0 +1,86 @@
+schema_version: 1
+pack_id: migration_sql
+namespace: public
+language_id: sql
+source_kind: project_policy
+description: Migration SQL rules for staged rollout safety and lock-aware schema changes.
+default_enabled: true
+default_priority_tier: high
+entries:
+  - rule_no: SQL.MIG.1
+    section: SQLMIG
+    title: DROP TABLE should be staged and exceptional in migration review
+    summary: Destructive schema removal needs an explicit compatibility story, not just a syntactic migration.
+    text: Dropping a table can break lagging readers, rollbacks, and backfills. Reviewers should expect an explicit deprecation or staged removal story before destructive DDL lands.
+    category: security
+    trigger_patterns: [migration_drop_table]
+    fix_guidance: Prefer staged deprecation and cleanup migrations so compatibility windows and rollback boundaries remain visible.
+    base_score: 0.98
+    severity_default: 0.99
+    priority_tier: override
+    specificity: 0.96
+    false_positive_risk: low
+  - rule_no: SQL.MIG.2
+    section: SQLMIG
+    title: DROP COLUMN should be staged around compatibility windows
+    summary: Column removal is often safe only after readers and writers have been separated across releases.
+    text: A migration that drops a column may look local but frequently depends on several application deployments and backfill steps having already completed successfully.
+    category: security
+    trigger_patterns: [migration_drop_column]
+    fix_guidance: Split column removal into additive, backfill, reader-cutover, and cleanup stages where needed.
+    base_score: 0.96
+    severity_default: 0.97
+    priority_tier: high
+    specificity: 0.94
+    false_positive_risk: low
+  - rule_no: SQL.MIG.3
+    section: SQLMIG
+    title: SET NOT NULL should follow a visible backfill or validation boundary
+    summary: Tightening nullability is safest when the data repair step is obvious in the rollout story.
+    text: A NOT NULL migration assumes every existing row already satisfies the constraint and every writer has been updated. Reviewers should not have to guess where that validation happened.
+    category: sql_quality
+    trigger_patterns: [migration_set_not_null]
+    fix_guidance: Add an explicit backfill or validation step before the constraint-tightening migration, or stage the change across releases.
+    base_score: 0.92
+    severity_default: 0.94
+    priority_tier: high
+    specificity: 0.9
+    false_positive_risk: low
+  - rule_no: SQL.MIG.4
+    section: SQLMIG
+    title: PostgreSQL CREATE INDEX in migration paths should justify non-concurrent form
+    summary: Large-table index creation can block writers unless the migration strategy makes lock impact explicit.
+    text: In PostgreSQL, a plain CREATE INDEX may be acceptable for small or offline tables, but in ordinary live migrations reviewers should expect the lock and rollout story to be obvious.
+    category: performance
+    trigger_patterns: [migration_create_index_plain]
+    fix_guidance: Use CONCURRENTLY where appropriate or document why the table size, maintenance window, or offline migration model makes the non-concurrent form safe.
+    base_score: 0.86
+    severity_default: 0.88
+    priority_tier: high
+    specificity: 0.84
+    false_positive_risk: medium
+    dialect_id: postgresql
+  - rule_no: SQL.MIG.5
+    section: SQLMIG
+    title: DROP ... CASCADE in migrations should make dependent-object blast radius explicit
+    summary: CASCADE widens a destructive change from one object into every dependent object the engine decides to remove.
+    text: A migration with CASCADE can delete more schema surface than the local diff names directly. Reviewers should expect an explicit dependency inventory or staged cleanup story before accepting fan-out destructive DDL.
+    category: security
+    trigger_patterns: [migration_drop_cascade]
+    fix_guidance: Prefer explicitly staged dependency cleanup or document the exact dependent objects and compatibility window before using CASCADE.
+    base_score: 0.99
+    severity_default: 0.99
+    priority_tier: override
+    specificity: 0.97
+    false_positive_risk: low
+  - rule_no: SQL.MIG.REF.1
+    section: SQLMIGREF
+    title: Migration review should make lock windows, transaction scope, and rollback boundaries obvious
+    summary: Reference guidance is useful when the DDL is plausible but the operational safety story is still unclear.
+    text: Prefer migration series where lock impact, retry behavior, transaction boundaries, and rollback expectations are explicit enough that reviewers can reason about live deployment risk.
+    category: process
+    reviewability: reference_only
+    applies_to: [code, diff, docs]
+    false_positive_risk: medium
+    base_score: 0.55
+    severity_default: 0.55

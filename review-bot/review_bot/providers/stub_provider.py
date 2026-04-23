@@ -39,9 +39,7 @@ class StubReviewCommentProvider(ReviewCommentProvider):
     ) -> FindingDraft:
         del (
             rule_no,
-            rule_text,
             file_context,
-            language_id,
             profile_id,
             context_id,
             dialect_id,
@@ -59,14 +57,25 @@ class StubReviewCommentProvider(ReviewCommentProvider):
             candidate_line_nos=candidate_line_nos,
             issue=issue,
         )
-        draft = _build_issue_draft(
-            issue=issue,
+        draft = _build_guideline_backed_draft(
+            language_id=language_id,
             file_path=file_path,
-            excerpt=_excerpt_near_selected_line(change_snippet or "", selected_line_no) or excerpt,
+            excerpt=excerpt,
+            category=category,
             fallback_title=title,
             fallback_summary=summary,
+            rule_text=rule_text,
             fix_guidance=fix_guidance,
         )
+        if draft is None:
+            draft = _build_issue_draft(
+                issue=issue,
+                file_path=file_path,
+                excerpt=_excerpt_near_selected_line(change_snippet or "", selected_line_no) or excerpt,
+                fallback_title=title,
+                fallback_summary=summary,
+                fix_guidance=fix_guidance,
+            )
         draft.line_no = selected_line_no
         if draft.line_no is None and not requires_direct_signal(issue):
             draft.line_no = line_no
@@ -421,6 +430,152 @@ def _build_issue_draft(
         confidence=0.66,
         should_publish=False,
     )
+
+
+def _build_guideline_backed_draft(
+    *,
+    language_id: str | None,
+    file_path: str,
+    excerpt: str,
+    category: str | None,
+    fallback_title: str,
+    fallback_summary: str,
+    rule_text: str | None,
+    fix_guidance: str | None,
+) -> FindingDraft | None:
+    cleaned_fix_guidance = _clean_fix_guidance(fix_guidance)
+    excerpt_hint = _format_excerpt_hint(excerpt)
+    combined = " ".join(
+        part.strip()
+        for part in (fallback_title, fallback_summary, rule_text or "", fix_guidance or "", excerpt)
+        if part and part.strip()
+    ).lower()
+
+    if language_id == "yaml" and category == "security":
+        if any(token in combined for token in ("checksum", "signature", "tls verification", "shell script")):
+            return FindingDraft(
+                title="CI에서 외부 스크립트를 검증 없이 실행하고 있습니다",
+                summary=(
+                    "이 변경은 네트워크에서 가져온 내용을 검증 없이 실행 경로에 연결합니다. "
+                    "CI 단계는 배포 체인의 일부라서 provenance가 약해지면 재현성과 추적성이 빠르게 무너집니다."
+                    f"{excerpt_hint}"
+                ),
+                suggested_fix=cleaned_fix_guidance
+                or (
+                    "다운로드와 실행을 분리하고, checksum 또는 signature 검증을 통과한 뒤에만 "
+                    "실행 경로로 넘겨 주세요."
+                ),
+                severity="high",
+                confidence=0.88,
+            )
+        return FindingDraft(
+            title="CI 입력을 신뢰 경계에서 한 번 더 검증해 주세요",
+            summary=(
+                "이 변경은 CI에서 외부 입력이나 실행 자산을 다루는 방식이 조금 느슨해 보입니다. "
+                "이 구간은 재실행과 사고 분석이 모두 어려워지기 쉬운 곳입니다."
+                f"{excerpt_hint}"
+            ),
+            suggested_fix=cleaned_fix_guidance
+            or "외부 입력은 pinning, 검증, 실행을 분리해서 provenance를 남겨 주세요.",
+            severity="high",
+            confidence=0.8,
+        )
+
+    if language_id == "yaml" and category == "configuration":
+        return FindingDraft(
+            title="CI 런타임 이미지는 고정 버전으로 pinning해 주세요",
+            summary=(
+                "helper/service 이미지가 floating tag를 쓰면 같은 파이프라인 정의라도 실행 시점마다 "
+                "동작이 달라질 수 있습니다. 디버깅과 롤백 재현성을 위해 버전 또는 digest를 고정하는 편이 안전합니다."
+                f"{excerpt_hint}"
+            ),
+            suggested_fix=cleaned_fix_guidance
+            or "helper/service 이미지는 version tag 또는 digest로 고정해 주세요.",
+            severity="medium",
+            confidence=0.82,
+        )
+
+    if language_id == "python" and category == "performance":
+        return FindingDraft(
+            title="비동기 핸들러 안에 blocking 작업이 섞이지 않게 해 주세요",
+            summary=(
+                "이 변경은 async request 경로 안에서 event loop를 오래 붙잡을 수 있는 작업을 수행할 가능성이 있습니다. "
+                "이런 패턴은 unrelated request까지 같이 느려지게 만듭니다."
+                f"{excerpt_hint}"
+            ),
+            suggested_fix=cleaned_fix_guidance
+            or "blocking 작업은 thread pool로 보내거나 async-native client로 바꿔 주세요.",
+            severity="high",
+            confidence=0.85,
+        )
+
+    if language_id == "python" and category == "security":
+        return FindingDraft(
+            title="요청 본문을 타입 모델로 검증해 주세요",
+            summary=(
+                "핸들러에서 `request.json()` 같은 ad hoc 파싱으로 바로 본문을 다루면, "
+                "검증 규약이 endpoint마다 흩어지고 이후 로직이 기대하는 계약도 약해집니다."
+                f"{excerpt_hint}"
+            ),
+            suggested_fix=cleaned_fix_guidance
+            or "Pydantic 모델이나 명시적인 validation step으로 HTTP 경계에서 먼저 계약을 고정해 주세요.",
+            severity="medium",
+            confidence=0.84,
+        )
+
+    if language_id == "sql" and category == "sql_quality":
+        if "group by explicit" in combined or "grouping semantics" in combined:
+            return FindingDraft(
+                title="GROUP BY 순번 지정은 변경에 취약합니다",
+                summary=(
+                    "projection 순서에 의존하는 GROUP BY는 컬럼이 추가되거나 재배치될 때 의미가 조용히 바뀔 수 있습니다. "
+                    "리뷰와 유지보수 모두 explicit column 기준이 더 안전합니다."
+                    f"{excerpt_hint}"
+                ),
+                suggested_fix=cleaned_fix_guidance
+                or "GROUP BY는 순번 대신 explicit column name 또는 alias로 바꿔 주세요.",
+                severity="medium",
+                confidence=0.84,
+            )
+        if "order by" in combined:
+            return FindingDraft(
+                title="재사용되는 SQL 결과는 정렬 기준을 명시해 주세요",
+                summary=(
+                    "LIMIT이나 sampling 성격의 쿼리는 ORDER BY가 없으면 실행 시점마다 결과가 달라질 수 있습니다. "
+                    "리포트나 검증 용도로 재사용된다면 정렬 계약을 코드에 남기는 편이 안전합니다."
+                    f"{excerpt_hint}"
+                ),
+                suggested_fix=cleaned_fix_guidance
+                or "LIMIT을 쓰는 쿼리라면 의도한 정렬 기준을 ORDER BY로 함께 명시해 주세요.",
+                severity="medium",
+                confidence=0.8,
+            )
+        return FindingDraft(
+            title="SQL 결과 계약을 더 명시적으로 고정해 주세요",
+            summary=(
+                "이 변경은 warehouse/report SQL의 해석이 projection 순서나 암묵적 DB 동작에 기대고 있을 가능성이 있습니다. "
+                "리포트 성격의 쿼리는 결과 계약을 explicit하게 남기는 편이 안전합니다."
+                f"{excerpt_hint}"
+            ),
+            suggested_fix=cleaned_fix_guidance
+            or "정렬, grouping, null 처리 규칙을 쿼리 안에서 explicit하게 드러내 주세요.",
+            severity="medium",
+            confidence=0.76,
+        )
+
+    if category == "security" and language_id in {"java", "javascript", "typescript", "rust", "go"}:
+        return FindingDraft(
+            title="신뢰 경계에서 입력 검증을 더 직접적으로 드러내 주세요",
+            summary=(
+                "이 변경은 외부 입력이나 실행 경계를 다루는 코드로 보여서, 검증 규약이 코드에 더 직접적으로 드러나는 편이 안전합니다."
+                f"{excerpt_hint}"
+            ),
+            suggested_fix=cleaned_fix_guidance or "입력 검증과 실패 경로를 boundary 근처에서 명시해 주세요.",
+            severity="medium",
+            confidence=0.78,
+        )
+
+    return None
 
 
 def _normalize_title(title: str) -> str:

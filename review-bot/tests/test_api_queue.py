@@ -34,7 +34,7 @@ def test_create_review_run_endpoint_enqueues_detect_job_and_persists_run() -> No
                     json={
                         "key": {
                             "review_system": "gitlab",
-                            "project_ref": "root/altidev4-review",
+                            "project_ref": "root/review-system-smoke",
                             "review_request_id": "77",
                         },
                         "trigger": "manual:test",
@@ -59,7 +59,7 @@ def test_create_review_run_endpoint_enqueues_detect_job_and_persists_run() -> No
         review_request = session.query(ReviewRequest).filter_by(review_request_id="77").one()
         run = session.query(ReviewRun).filter_by(id=payload["review_run_id"]).one()
         assert review_request.review_system == "gitlab"
-        assert review_request.project_ref == "root/altidev4-review"
+        assert review_request.project_ref == "root/review-system-smoke"
         assert run.review_request_pk == review_request.id
         assert run.status == "queued"
         assert run.job_id == "job-123"
@@ -75,7 +75,7 @@ def test_create_review_run_endpoint_reuses_pending_run_without_reenqueue() -> No
     payload = {
         "key": {
             "review_system": "gitlab",
-            "project_ref": "root/altidev4-review",
+            "project_ref": "root/review-system-smoke",
             "review_request_id": "78",
         },
         "trigger": "manual:test",
@@ -105,7 +105,7 @@ def test_create_review_run_endpoint_returns_actual_status_for_reused_running_run
     payload = {
         "key": {
             "review_system": "gitlab",
-            "project_ref": "root/altidev4-review",
+            "project_ref": "root/review-system-smoke",
             "review_request_id": "79",
         },
         "trigger": "manual:test",
@@ -183,7 +183,7 @@ def test_review_request_full_report_endpoint_returns_runner_report() -> None:
                 "fingerprint": "fp-1",
                 "file_path": "src/a.cpp",
                 "line_no": 10,
-                "rule_no": "ALTI-MEM-007",
+                "rule_no": "R.10",
                 "severity": "high",
                 "title": "메모리 소유권 관리",
                 "summary": "malloc 사용이 탐지되었습니다.",
@@ -270,6 +270,71 @@ def test_review_request_full_report_endpoint_supports_backlog_view() -> None:
 
     assert response.status_code == 200
     assert mock_build.call_args.kwargs["view"] == "backlog"
+
+
+def test_wrong_language_feedback_endpoint_returns_runner_payload() -> None:
+    report = {
+        "window": "28d",
+        "project_ref": "group/project-a",
+        "total_events": 3,
+        "distinct_threads": 2,
+        "distinct_findings": 2,
+        "top_language_pairs": [
+            {
+                "detected_language_id": "cpp",
+                "expected_language_id": "markdown",
+                "count": 2,
+            }
+        ],
+        "top_profiles": [
+            {
+                "detected_language_id": "cpp",
+                "expected_language_id": "markdown",
+                "profile_id": "default",
+                "context_id": None,
+                "count": 2,
+            }
+        ],
+        "top_paths": [
+            {
+                "detected_language_id": "cpp",
+                "expected_language_id": "markdown",
+                "path_pattern": "docs",
+                "count": 2,
+            }
+        ],
+        "triage_candidates": [
+            {
+                "detected_language_id": "cpp",
+                "expected_language_id": "markdown",
+                "profile_id": "default",
+                "context_id": None,
+                "path_pattern": "docs",
+                "count": 2,
+                "priority": "medium",
+                "suggested_action": "문서 경로 exclusion과 unreviewable 규칙을 우선 보강하세요.",
+            }
+        ],
+    }
+
+    with patch.object(api_main, "init_db", lambda: None):
+        with patch.object(
+            api_main.runner,
+            "wrong_language_feedback_analytics",
+            return_value=report,
+        ) as mock_analytics:
+            with TestClient(api_main.app) as client:
+                response = client.get(
+                    "/internal/analytics/wrong-language-feedback?project_ref=group/project-a&window=28d"
+                )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["total_events"] == 3
+    assert body["top_language_pairs"][0]["expected_language_id"] == "markdown"
+    assert body["triage_candidates"][0]["path_pattern"] == "docs"
+    assert mock_analytics.call_args.kwargs["project_ref"] == "group/project-a"
+    assert mock_analytics.call_args.kwargs["window"] == "28d"
 
 
 def test_gitlab_note_webhook_creates_manual_run_for_bot_mention() -> None:

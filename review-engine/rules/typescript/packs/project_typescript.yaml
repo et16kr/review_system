@@ -72,6 +72,32 @@ entries:
     priority_tier: high
     specificity: 0.82
     false_positive_risk: medium
+  - rule_no: TS.6
+    section: TS
+    title: React effect callbacks should not be async
+    summary: Async effect callbacks hide cleanup and rejection ownership behind an implicit Promise boundary.
+    text: React effects are meant to return either nothing or a cleanup function. Making the callback async turns that return value into a Promise, which obscures cleanup behavior and usually belongs in an inner async helper instead.
+    category: error_handling
+    trigger_patterns: [async_effect_callback]
+    fix_guidance: Keep the effect callback synchronous, define an inner async function, and make cancellation or cleanup behavior explicit.
+    base_score: 0.91
+    severity_default: 0.93
+    priority_tier: high
+    specificity: 0.89
+    false_positive_risk: low
+  - rule_no: TS.7
+    section: TS
+    title: dangerouslySetInnerHTML should stay behind a narrow sanitization boundary
+    summary: Rendering raw HTML in TSX widens the XSS trust boundary and should be exceptional.
+    text: React normally keeps string rendering escaped by default. Using dangerouslySetInnerHTML bypasses that safety model, so the sanitization source and trust boundary should be obvious in the same local review context.
+    category: security
+    trigger_patterns: [jsx_dangerous_html]
+    fix_guidance: Prefer normal JSX/text rendering, or route the HTML through a clearly named sanitization step before passing it to dangerouslySetInnerHTML.
+    base_score: 0.95
+    severity_default: 0.97
+    priority_tier: override
+    specificity: 0.93
+    false_positive_risk: low
   - rule_no: TS.REF.1
     section: TSREF
     title: Public DTO and boundary types should prefer explicit domain shapes over ad hoc casts
@@ -94,3 +120,14 @@ entries:
     false_positive_risk: medium
     base_score: 0.55
     severity_default: 0.55
+  - rule_no: TS.REF.3
+    section: TSREF
+    title: Effect and rendering boundaries should keep lifecycle proof close to the component
+    summary: React components are easier to review when cleanup, render trust, and state ownership stay local and legible.
+    text: Use this as reference guidance when a TSX patch hints at unclear lifecycle ownership or rendering trust boundaries but the local diff alone cannot prove a concrete defect.
+    category: process
+    reviewability: reference_only
+    applies_to: [code, diff, docs]
+    false_positive_risk: medium
+    base_score: 0.54
+    severity_default: 0.54

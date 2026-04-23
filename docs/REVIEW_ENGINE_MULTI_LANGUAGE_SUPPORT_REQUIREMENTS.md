@@ -22,6 +22,7 @@ C++ 중심 구조를 넘어 다양한 언어와 reviewable artifact를 지원하
 
 - `cpp`
 - `c`
+- `cuda`
 - `python`
 - `typescript`
 - `javascript`
@@ -83,6 +84,7 @@ C++ 중심 구조를 넘어 다양한 언어와 reviewable artifact를 지원하
 
 - `cpp`
 - `c`
+- `cuda`
 - `python`
 - `typescript`
 - `javascript`
@@ -224,4 +226,3 @@ C++ 중심 구조를 넘어 다양한 언어와 reviewable artifact를 지원하
 6. vector store / collection 분리 전략
 7. 언어별 테스트 전략
 8. 단계별 언어 도입 순서
-

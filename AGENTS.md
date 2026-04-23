@@ -165,6 +165,29 @@ python3 /home/et16/work/review_system/ops/scripts/capture_review_bot_baseline.py
   --baseline-kind v0
 ```
 
+wrong-language telemetry snapshot:
+
+```bash
+python3 /home/et16/work/review_system/ops/scripts/capture_wrong_language_telemetry.py \
+  --window 28d
+```
+
+wrong-language detector backlog:
+
+```bash
+python3 /home/et16/work/review_system/ops/scripts/build_wrong_language_backlog.py \
+  --window 28d
+```
+
+mixed-language smoke:
+
+```bash
+bash /home/et16/work/review_system/ops/scripts/smoke_local_gitlab_multilang_review.sh
+```
+
+이 smoke는 `markdown + yaml + sql + FastAPI` 조합에서 compact language tag와
+wrong-language feedback loop를 함께 검증합니다.
+
 ## 7. Phase A Trust Foundation Summary
 
 Phase A에서 이미 들어간 핵심 변화입니다. 이 영역을 만지면 관련 문서와 테스트를 같이 봐야 합니다.
@@ -241,7 +264,7 @@ curl http://127.0.0.1:18081/metrics
 review request 상태 확인:
 
 ```bash
-curl http://127.0.0.1:18081/internal/review/requests/gitlab/root/altidev4-review/14
+curl http://127.0.0.1:18081/internal/review/requests/gitlab/root/review-system-smoke/14
 ```
 
 analytics:
@@ -249,6 +272,7 @@ analytics:
 ```bash
 curl http://127.0.0.1:18081/internal/analytics/rule-effectiveness
 curl "http://127.0.0.1:18081/internal/analytics/finding-outcomes?window=28d"
+curl "http://127.0.0.1:18081/internal/analytics/wrong-language-feedback?window=28d"
 ```
 
 ## 10. Last Known Good Validation Path
@@ -258,6 +282,7 @@ curl "http://127.0.0.1:18081/internal/analytics/finding-outcomes?window=28d"
 - `review-bot` 핵심 테스트 4종
 - `review-platform` 테스트
 - `ops/scripts/smoke_local_gitlab_tde_review.sh`
+- `ops/scripts/smoke_local_gitlab_multilang_review.sh`
 
 GitLab smoke 성공 기준:
 

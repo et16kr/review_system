@@ -26,6 +26,7 @@ from review_bot.schemas import (
     ReviewRunCreateRequest,
     SyncRunResponse,
     WebhookAcceptedResponse,
+    WrongLanguageFeedbackResponse,
 )
 from review_bot.worker import execute_detect_job, execute_publish_job, execute_sync_job
 
@@ -546,6 +547,24 @@ def finding_outcomes(
             session,
             project_ref=project_ref,
             source_family=source_family,
+            window=window,
+        )
+    )
+
+
+@app.get(
+    "/internal/analytics/wrong-language-feedback",
+    response_model=WrongLanguageFeedbackResponse,
+)
+def wrong_language_feedback(
+    session: SessionDep,
+    project_ref: str | None = None,
+    window: Literal["14d", "28d"] = "28d",
+):
+    return WrongLanguageFeedbackResponse(
+        **runner.wrong_language_feedback_analytics(
+            session,
+            project_ref=project_ref,
             window=window,
         )
     )

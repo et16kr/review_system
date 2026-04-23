@@ -1,0 +1,70 @@
+schema_version: 1
+pack_id: cuda_pipeline_async
+namespace: public
+language_id: cuda
+source_kind: project_policy
+description: CUDA pipeline async rules for staged memcpy completion, phase ownership, and barrier parity.
+default_enabled: true
+default_priority_tier: high
+entries:
+  - rule_no: CUDA.PIPE.1
+    section: CUDAPIPE
+    title: Pipeline async copies should not feed staged data before a visible completion boundary
+    summary: "`cuda::memcpy_async`, `__pipeline_memcpy_async`, and `cp.async` stay reviewable only when the first staged-data use is clearly behind a wait boundary."
+    text: Async pipeline copies can overlap transfer and compute, but the local patch still needs to show where the staged tile becomes safe to read. If compute starts consuming the staged shared-memory buffer before a visible `consumer_wait`, `wait_prior`, `arrive_and_wait`, or equivalent completion boundary, reviewers cannot tell whether the copy has actually completed.
+    category: correctness
+    trigger_patterns: [cuda_pipeline_copy_without_wait]
+    fix_guidance: Keep the first staged-data use adjacent to an explicit wait boundary, or wrap the copy and wait sequence in a helper whose readiness contract is obvious at the call site.
+    base_score: 0.97
+    severity_default: 0.97
+    priority_tier: high
+    specificity: 0.95
+    false_positive_risk: low
+  - rule_no: CUDA.PIPE.2
+    section: CUDAPIPE
+    title: Pipeline producer and consumer phase operations should not sit under rank-dependent control flow
+    summary: "`producer_acquire`, `producer_commit`, `consumer_wait`, and `consumer_release` are collective phase ownership points, not lane-local optimizations."
+    text: When only a subset of threads performs pipeline acquire, commit, wait, or release operations, producer and consumer phase ownership can drift away from the participant set that actually issued or consumes the staged copy. That makes the phase contract much harder to audit and can break the intended collective pipeline behavior.
+    category: correctness
+    trigger_patterns: [cuda_pipeline_phase_ops_in_branch]
+    fix_guidance: Move pipeline phase operations to a control-flow region reached by every participating thread, then branch only after the phase boundary is complete and locally obvious.
+    base_score: 0.98
+    severity_default: 0.98
+    priority_tier: high
+    specificity: 0.96
+    false_positive_risk: low
+  - rule_no: CUDA.PIPE.3
+    section: CUDAPIPE
+    title: Barrier-backed pipeline phases should keep participant scope and phase parity explicit
+    summary: Async barrier arrival and wait are only safe when the same participant set owns the bound copy and the barrier phase transition.
+    text: "`cuda::barrier`, `mbarrier`, and `arrive_and_wait` can synchronize staged async copies, but the barrier phase only stays interpretable when reviewers can see who participates in each arrival and wait. If barrier operations sit under partial-participation branches, the local code hides whether barrier parity still matches the async-copy contract."
+    category: concurrency
+    trigger_patterns: [cuda_pipeline_barrier_in_branch]
+    fix_guidance: Keep barrier arrivals and waits in a full-participant region, or document the exact participant scope and bound-copy ownership at the barrier boundary.
+    base_score: 0.96
+    severity_default: 0.96
+    priority_tier: high
+    specificity: 0.94
+    false_positive_risk: medium
+  - rule_no: CUDA.PIPE.REF.1
+    section: CUDAPIPEREF
+    title: Pipeline stage shape, alignment, and wait sequencing should stay reconstructable
+    summary: Stage count, alignment, and `wait_prior` or equivalent sequencing often matter even when the diff does not prove one local defect.
+    text: Prefer pipeline code where reviewers can still reconstruct stage count, alignment assumptions, batching boundaries, and why the chosen wait sequencing is sufficient for the staged copy contract.
+    category: process
+    reviewability: reference_only
+    applies_to: [code, diff, docs]
+    false_positive_risk: medium
+    base_score: 0.55
+    severity_default: 0.55
+  - rule_no: CUDA.PIPE.REF.2
+    section: CUDAPIPEREF
+    title: Shared staging lifetime and barrier-coupled helpers should keep ownership visible
+    summary: Async copy helpers are easier to review when they preserve who owns the staged buffer, the barrier phase, and teardown timing.
+    text: Keep shared staging buffers, pipeline helpers, and barrier-coupled abstractions explicit enough that reviewers can see which scope owns the staged memory, how completion becomes visible, and when the stage can be reused or torn down.
+    category: process
+    reviewability: reference_only
+    applies_to: [code, diff, docs]
+    false_positive_risk: medium
+    base_score: 0.54
+    severity_default: 0.54

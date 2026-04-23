@@ -3,8 +3,10 @@ language_id: typescript
 pack_files:
   - packs/project_typescript.yaml
   - packs/ts_api_design.yaml
+  - packs/nextjs_frontend.yaml
 profile_files:
   - profiles/default.yaml
   - profiles/frontend_strict.yaml
+  - profiles/nextjs_frontend.yaml
 policy_files:
   - policies/typescript_default.yaml

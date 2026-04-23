@@ -1,0 +1,12 @@
+@@ -8,6 +8,12 @@
+     wmma::fragment<wmma::matrix_b, 16, 16, 16, half, wmma::col_major> b_frag;
+     wmma::fragment<wmma::accumulator, 16, 16, 16, float> acc_frag;
+ 
++    if (lane == 0) {
++        wmma::load_matrix_sync(a_frag, a, lda);
++    }
++    asm volatile("mma.sync.aligned.m16n8k16.row.col.f32.f16.f16.f32");
+     wmma::load_matrix_sync(b_frag, b, ldb);
+     wmma::fill_fragment(acc_frag, 0.0f);
+     wmma::mma_sync(acc_frag, a_frag, b_frag, acc_frag);
++    out[threadIdx.x] = __float2half_rn(acc_frag.x[0]);

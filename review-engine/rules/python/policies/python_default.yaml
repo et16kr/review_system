@@ -5,6 +5,8 @@ pack_weights:
   pep8_python: 0.82
   pep257_docstrings: 0.4
   project_python: 0.88
+  django_service: 0.91
+  fastapi_service: 0.92
   shared_security: 0.96
 defaults:
   conflict_action: compatible

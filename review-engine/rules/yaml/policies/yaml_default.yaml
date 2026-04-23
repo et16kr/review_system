@@ -6,6 +6,8 @@ pack_weights:
   kubernetes_yaml: 0.92
   ci_yaml: 0.9
   helm_values: 0.6
+  product_yaml: 0.88
+  schema_yaml: 0.9
   shared_security: 0.96
 defaults:
   conflict_action: compatible

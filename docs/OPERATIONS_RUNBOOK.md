@@ -219,7 +219,7 @@ python3 /home/et16/work/review_system/ops/scripts/capture_review_bot_baseline.py
 python3 /home/et16/work/review_system/ops/scripts/capture_review_bot_baseline.py \
   --baseline-kind v1 \
   --project-ref group/project \
-  --source-family altibase
+  --source-family cpp_core
 ```
 
 기본 저장 위치:
@@ -232,7 +232,39 @@ python3 /home/et16/work/review_system/ops/scripts/capture_review_bot_baseline.py
 - `/internal/analytics/rule-effectiveness`
 - `/internal/analytics/finding-outcomes?window=14d`
 - `/internal/analytics/finding-outcomes?window=28d`
+- `/internal/analytics/wrong-language-feedback?window=28d`
 - `/metrics` 중 Phase A 관련 counter snapshot
+
+wrong-language telemetry 해석 기준:
+
+- `top_language_pairs`로 가장 자주 틀리는 detect 조합을 본다.
+- `top_profiles`로 framework/profile/context 오분류 집중 구간을 본다.
+- `top_paths`로 `.github/workflows`, `src`, `db`, `docs` 같은 경로 기반 blind spot을 본다.
+- `triage_candidates`로 detector backlog를 바로 만들 우선순위 조합을 본다.
+
+standalone wrong-language telemetry snapshot이 필요하면:
+
+```bash
+python3 /home/et16/work/review_system/ops/scripts/capture_wrong_language_telemetry.py \
+  --window 28d
+```
+
+특정 프로젝트만 보려면:
+
+```bash
+python3 /home/et16/work/review_system/ops/scripts/capture_wrong_language_telemetry.py \
+  --project-ref root/review-system-multilang-smoke \
+  --window 28d
+```
+
+telemetry를 바로 detector backlog 형태로 정리하려면:
+
+```bash
+python3 /home/et16/work/review_system/ops/scripts/build_wrong_language_backlog.py \
+  --project-ref root/review-system-multilang-smoke \
+  --window 28d \
+  --min-count 1
+```
 
 ## 7. 로컬 GitLab E2E 검증
 
@@ -248,7 +280,7 @@ python3 ops/scripts/bootstrap_local_gitlab_tde_review.py
 
 ```bash
 python3 ops/scripts/attach_local_gitlab_bot.py \
-  --project-ref root/altidev4-review \
+  --project-ref root/review-system-smoke \
   --mr-iid 1
 ```
 
@@ -307,6 +339,26 @@ bash ops/scripts/smoke_local_gitlab_tde_review.sh \
   --json-output /tmp/review-bot-smoke.json
 ```
 
+framework/product/config 축까지 함께 검증하는 mixed-language smoke는 아래 wrapper를 사용한다.
+
+```bash
+bash ops/scripts/smoke_local_gitlab_multilang_review.sh \
+  --json-output /tmp/review-bot-multilang-smoke.json
+```
+
+이 시나리오는 아래를 한 번에 검증한다.
+
+- `markdown + yaml + sql + FastAPI` 조합 MR 생성
+- compact language tag(`[봇 리뷰][yaml]`, `[봇 리뷰][sql]`, `[봇 리뷰][python]`) 확인
+- markdown 파일에 대해 엉뚱한 `cpp` 태그가 붙지 않는지 확인
+- `@review-bot wrong-language markdown` reply 후 telemetry 집계 확인
+
+운영 노트:
+
+- mixed-language smoke는 comment/tag/routing 검증을 안정적으로 하기 위해 실행 중에 provider를 일시적으로 `stub/stub`로 전환한다.
+- 기본 경로는 smoke 종료 시 원래 provider env로 복구한다.
+- 디버깅 중에는 `--skip-provider-restore`를 써서 반복 rebuild 비용을 줄일 수 있다.
+
 선택적으로 첫 open bot thread에 human reply / resolve / sync까지 포함할 수 있다.
 
 ```bash
@@ -364,7 +416,7 @@ curl -X POST http://127.0.0.1:18081/internal/review/runs \
   -d '{
     "key": {
       "review_system": "gitlab",
-      "project_ref": "root/altidev4-review",
+      "project_ref": "root/review-system-smoke",
       "review_request_id": "1"
     },
     "trigger": "manual",
@@ -375,7 +427,7 @@ curl -X POST http://127.0.0.1:18081/internal/review/runs \
 ### review request 상태 조회
 
 ```bash
-curl http://127.0.0.1:18081/internal/review/requests/gitlab/root%2Faltidev4-review/1
+curl http://127.0.0.1:18081/internal/review/requests/gitlab/root%2Freview-system-smoke/1
 ```
 
 ## 9. 현재 주의사항

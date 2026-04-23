@@ -19,26 +19,87 @@ languages:
       - rule_source_id: c.posix_c_safety
         path: c/posix_c_safety.md
         pack_targets: [posix_c, project_c, native_memory_shared]
+  - language_id: cuda
+    sources:
+      - rule_source_id: cuda.cuda_runtime_baseline
+        path: cuda/cuda_runtime_baseline.md
+        pack_targets: [cuda_core, cuda_performance]
+      - rule_source_id: cuda.cuda_async_runtime_deepening
+        path: cuda/cuda_async_runtime_deepening.md
+        pack_targets: [cuda_async_runtime]
+        profile_id: cuda_async_runtime
+      - rule_source_id: cuda.cuda_pipeline_async_deepening
+        path: cuda/cuda_pipeline_async_deepening.md
+        pack_targets: [cuda_pipeline_async]
+        profile_id: cuda_pipeline_async
+      - rule_source_id: cuda.cuda_thread_block_cluster_deepening
+        path: cuda/cuda_thread_block_cluster_deepening.md
+        pack_targets: [cuda_thread_block_cluster]
+        profile_id: cuda_thread_block_cluster
+      - rule_source_id: cuda.cuda_tma_deepening
+        path: cuda/cuda_tma_deepening.md
+        pack_targets: [cuda_tma]
+        profile_id: cuda_tma
+      - rule_source_id: cuda.cuda_multigpu_deepening
+        path: cuda/cuda_multigpu_deepening.md
+        pack_targets: [cuda_multigpu]
+        profile_id: cuda_multigpu
+      - rule_source_id: cuda.cuda_wgmma_deepening
+        path: cuda/cuda_wgmma_deepening.md
+        pack_targets: [cuda_wgmma]
+        profile_id: cuda_wgmma
+      - rule_source_id: cuda.cuda_tensor_core_deepening
+        path: cuda/cuda_tensor_core_deepening.md
+        pack_targets: [cuda_tensor_core]
+        profile_id: cuda_tensor_core
+      - rule_source_id: cuda.cuda_cooperative_groups_deepening
+        path: cuda/cuda_cooperative_groups_deepening.md
+        pack_targets: [cuda_cooperative_groups]
+        profile_id: cuda_cooperative_groups
   - language_id: python
     sources:
       - rule_source_id: python.python_runtime_baseline
         path: python/python_runtime_baseline.md
         pack_targets: [pep8_python, pep257_docstrings, project_python]
+      - rule_source_id: python.django_service_deepening
+        path: python/django_service_deepening.md
+        pack_targets: [django_service]
+        profile_id: django_service
+      - rule_source_id: python.fastapi_service_deepening
+        path: python/fastapi_service_deepening.md
+        pack_targets: [fastapi_service]
+        profile_id: fastapi_service
   - language_id: typescript
     sources:
       - rule_source_id: typescript.typescript_runtime_baseline
         path: typescript/typescript_runtime_baseline.md
         pack_targets: [project_typescript, ts_api_design]
+      - rule_source_id: typescript.react_frontend_deepening
+        path: typescript/react_frontend_deepening.md
+        pack_targets: [project_typescript, ts_api_design]
+        profile_id: frontend_strict
+      - rule_source_id: typescript.nextjs_frontend_deepening
+        path: typescript/nextjs_frontend_deepening.md
+        pack_targets: [nextjs_frontend]
+        profile_id: nextjs_frontend
   - language_id: javascript
     sources:
       - rule_source_id: javascript.javascript_runtime_baseline
         path: javascript/javascript_runtime_baseline.md
         pack_targets: [project_javascript, node_javascript]
+      - rule_source_id: javascript.nextjs_frontend_deepening
+        path: javascript/nextjs_frontend_deepening.md
+        pack_targets: [nextjs_frontend]
+        profile_id: nextjs_frontend
   - language_id: java
     sources:
       - rule_source_id: java.java_runtime_baseline
         path: java/java_runtime_baseline.md
         pack_targets: [effective_java, project_java]
+      - rule_source_id: java.spring_backend_deepening
+        path: java/spring_backend_deepening.md
+        pack_targets: [spring_backend]
+        profile_id: spring_backend
   - language_id: go
     sources:
       - rule_source_id: go.go_runtime_baseline
@@ -49,6 +110,10 @@ languages:
       - rule_source_id: rust.rust_runtime_baseline
         path: rust/rust_runtime_baseline.md
         pack_targets: [project_rust]
+      - rule_source_id: rust.tokio_async_deepening
+        path: rust/tokio_async_deepening.md
+        pack_targets: [tokio_async]
+        profile_id: tokio_async
   - language_id: bash
     sources:
       - rule_source_id: bash.shell_safety
@@ -59,11 +124,37 @@ languages:
       - rule_source_id: sql.sql_runtime_baseline
         path: sql/sql_runtime_baseline.md
         pack_targets: [ansi_sql, postgres_sql, project_sql]
+      - rule_source_id: sql.analytics_warehouse_baseline
+        path: sql/analytics_warehouse_baseline.md
+        pack_targets: [analytics_sql, ansi_sql, project_sql]
+        context_id: analytics
+      - rule_source_id: sql.dbt_warehouse_deepening
+        path: sql/dbt_warehouse_deepening.md
+        pack_targets: [dbt_sql]
+        profile_id: dbt_warehouse
+        context_id: analytics
+      - rule_source_id: sql.migration_sql_deepening
+        path: sql/migration_sql_deepening.md
+        pack_targets: [migration_sql]
+        profile_id: migration_sql
   - language_id: yaml
     sources:
       - rule_source_id: yaml.yaml_runtime_baseline
         path: yaml/yaml_runtime_baseline.md
         pack_targets: [generic_yaml, kubernetes_yaml, ci_yaml, helm_values]
+      - rule_source_id: yaml.ci_workflow_deepening
+        path: yaml/ci_workflow_deepening.md
+        pack_targets: [ci_yaml]
+      - rule_source_id: yaml.product_config_deepening
+        path: yaml/product_config_deepening.md
+        pack_targets: [product_yaml]
+        profile_id: product_config
+        context_id: product_config
+      - rule_source_id: yaml.schema_config_deepening
+        path: yaml/schema_config_deepening.md
+        pack_targets: [schema_yaml]
+        profile_id: schema_config
+        context_id: schema_config
   - language_id: dockerfile
     sources:
       - rule_source_id: dockerfile.dockerfile_runtime_baseline

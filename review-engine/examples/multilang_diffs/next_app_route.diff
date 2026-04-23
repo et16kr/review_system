@@ -1,0 +1,6 @@
+@@ -1,2 +1,4 @@
+-export async function POST() { return Response.json({ ok: true }); }
++export async function POST(request: Request) {
++    const payload = await request.json();
++    return Response.json(payload);
++}

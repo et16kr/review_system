@@ -7,13 +7,13 @@
       "score_adjustment": 0.05,
       "minimum_score": 0.72,
       "suppress_rules": [],
-      "promote_rules": ["ALTI-MEM-007"]
+      "promote_rules": ["R.10"]
     },
     {
       "glob": "tests/**",
       "score_adjustment": -0.08,
       "minimum_score": 0.8,
-      "suppress_rules": ["ALTI-COF-001"],
+      "suppress_rules": ["ES.77"],
       "promote_rules": []
     }
   ]

@@ -28,9 +28,9 @@ from attach_local_gitlab_bot import (
     update_env,
 )
 from bootstrap_local_gitlab_tde_review import (
-    ALTIDEV4_PATH,
     OPS_DIR,
     ROOT,
+    SMOKE_REPO_PATH,
     api_json,
     compose,
     create_merge_request,
@@ -43,7 +43,7 @@ from bootstrap_local_gitlab_tde_review import (
     wait_for_gitlab,
 )
 
-DEFAULT_PROJECT_REF = "root/altidev4-review"
+DEFAULT_PROJECT_REF = "root/review-system-smoke"
 DEFAULT_TARGET_BRANCH = "tde_base"
 DEFAULT_SOURCE_BRANCH = "tde_first"
 DEFAULT_TARGET_REF = "b5425ede8aabd45aa9edc09e7b33617aae66ce4c"
@@ -169,7 +169,7 @@ def force_push_ref(*, remote: str, ref: str, branch: str) -> None:
         [
             "git",
             "-C",
-            str(ALTIDEV4_PATH),
+            str(SMOKE_REPO_PATH),
             "push",
             "--force",
             remote,

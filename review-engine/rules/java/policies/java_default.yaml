@@ -4,6 +4,7 @@ language_id: java
 pack_weights:
   effective_java: 0.86
   project_java: 0.88
+  spring_backend: 0.93
   shared_security: 0.96
 defaults:
   conflict_action: compatible

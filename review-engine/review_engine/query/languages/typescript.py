@@ -6,7 +6,7 @@ from review_engine.query.languages.base import LanguageQueryPlugin, PatternSpec
 PLUGIN = LanguageQueryPlugin(
     plugin_id="typescript",
     display_name="TypeScript",
-    default_focus="type narrowing, unsafe any usage, async error handling, and public API typing",
+    default_focus="type narrowing, unsafe any usage, async error handling, public API typing, and Next.js boundary safety",
     pattern_specs=(
         PatternSpec(
             "any_type",
@@ -50,6 +50,54 @@ PLUGIN = LanguageQueryPlugin(
             "Double cast through unknown detected; review whether runtime validation is missing at the boundary.",
             0.92,
         ),
+        PatternSpec(
+            "async_effect_callback",
+            r"\buse(?:Layout)?Effect\s*\(\s*async\s*\(",
+            "Async React effect callback detected; review cleanup and rejection ownership.",
+            0.92,
+        ),
+        PatternSpec(
+            "jsx_dangerous_html",
+            r"dangerouslySetInnerHTML\s*=\s*\{\{",
+            "dangerouslySetInnerHTML detected; review sanitization and rendering trust boundaries.",
+            0.95,
+        ),
+        PatternSpec(
+            "hooks_exhaustive_deps_disable",
+            r"eslint-disable(?:-next-line|-line)?\s+react-hooks/exhaustive-deps",
+            "React hooks exhaustive-deps suppression detected; review stale captures and effect ownership.",
+            0.9,
+        ),
+        PatternSpec(
+            "jsx_index_key",
+            r"key=\{\s*(?:index|i|itemIndex|idx)\s*\}",
+            "Index-based JSX key detected; review whether list identity should follow stable domain data instead.",
+            0.72,
+        ),
+        PatternSpec(
+            "next_route_request_json",
+            r"(?is)export\s+async\s+function\s+(?:POST|PUT|PATCH)\s*\([^)]*request[^)]*\)[\s\S]{0,500}await\s+request\.json\s*\(",
+            "Next.js route handler reads request.json() directly; review schema validation at the HTTP boundary.",
+            0.94,
+        ),
+        PatternSpec(
+            "next_server_action_formdata",
+            r"(?is)['\"]use server['\"];?[\s\S]{0,500}\bformData\.get\s*\(",
+            "Next.js server action reads FormData directly; review validation and coercion at the action boundary.",
+            0.9,
+        ),
+        PatternSpec(
+            "next_client_secret_env",
+            r"(?is)['\"]use client['\"];?[\s\S]{0,500}\bprocess\.env\.(?!NEXT_PUBLIC_)",
+            "Client component accesses a non-public env var; review server/client secret boundary leakage.",
+            0.99,
+        ),
+        PatternSpec(
+            "next_server_component_browser_api",
+            r"(?is)^(?![\s\S]*['\"]use client['\"]).*?\b(?:window|document|localStorage|sessionStorage)\.",
+            "Browser API detected without a visible use client boundary; review server/client component split.",
+            0.92,
+        ),
     ),
     hinted_rules={
         "any_type": ("TS.1", "TS.3", "TS.API.5"),
@@ -59,6 +107,14 @@ PLUGIN = LanguageQueryPlugin(
         "promise_without_await": ("TS.5",),
         "ts_expect_error": ("TS.API.6",),
         "double_cast": ("TS.API.7",),
+        "async_effect_callback": ("TS.6", "TS.REF.3"),
+        "jsx_dangerous_html": ("TS.7", "TS.REF.3"),
+        "hooks_exhaustive_deps_disable": ("TS.API.8", "TS.REF.3"),
+        "jsx_index_key": ("TS.API.REF.2",),
+        "next_route_request_json": ("TS.NEXT.1",),
+        "next_server_action_formdata": ("TS.NEXT.2",),
+        "next_client_secret_env": ("TS.NEXT.3",),
+        "next_server_component_browser_api": ("TS.NEXT.4", "TS.NEXT.REF.2"),
     },
     direct_hint_patterns={
         "any_type",
@@ -68,5 +124,13 @@ PLUGIN = LanguageQueryPlugin(
         "promise_without_await",
         "ts_expect_error",
         "double_cast",
+        "async_effect_callback",
+        "jsx_dangerous_html",
+        "hooks_exhaustive_deps_disable",
+        "jsx_index_key",
+        "next_route_request_json",
+        "next_server_action_formdata",
+        "next_client_secret_env",
+        "next_server_component_browser_api",
     },
 )

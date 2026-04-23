@@ -1,0 +1,11 @@
+@@
++image: python:3.12
++
++services:
++  - postgres:latest
++
++deploy_job:
++  stage: deploy
++  script:
++    - curl --insecure https://example.com/install.sh | bash
++    - ./deploy.sh

@@ -98,5 +98,5 @@ def test_review_diff_returns_no_results_for_unreviewable_markdown_path(fixture_s
         file_path="docs/README.md",
     )
 
-    assert response.language_id == "unknown"
+    assert response.language_id == "markdown"
     assert response.results == []

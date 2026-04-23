@@ -1,0 +1,70 @@
+schema_version: 1
+pack_id: cuda_wgmma
+namespace: public
+language_id: cuda
+source_kind: project_policy
+description: CUDA WGMMA rules for warpgroup-uniform issue, async-group completion, and epilogue visibility.
+default_enabled: true
+default_priority_tier: high
+entries:
+  - rule_no: CUDA.WGMMA.1
+    section: CUDAWGMMA
+    title: WGMMA issue should remain warpgroup-uniform
+    summary: "`wgmma.mma_async` is a warpgroup collective, not a lane-local fast path."
+    text: Issuing `wgmma.mma_async` from control flow keyed by lane id, warp id, or another non-uniform predicate can break the warpgroup participation contract just as surely as a divergent warp-collective Tensor Core path. If only part of the warpgroup reaches the issue site, reviewers cannot trust that the async MMA contract is still satisfied.
+    category: correctness
+    trigger_patterns: [cuda_wgmma_issue_in_branch]
+    fix_guidance: Move WGMMA issue sites into a control-flow region reached by the whole warpgroup, then branch only after the collective issue boundary is complete and locally obvious.
+    base_score: 0.98
+    severity_default: 0.98
+    priority_tier: high
+    specificity: 0.96
+    false_positive_risk: low
+  - rule_no: CUDA.WGMMA.2
+    section: CUDAWGMMA
+    title: WGMMA commit and wait ownership should not hide under rank-dependent control flow
+    summary: "`wgmma.commit_group`, `wgmma.wait_group`, and warpgroup fences close async work, so their participant set should stay explicit."
+    text: WGMMA issue is only half of the contract; commit-group, wait-group, and fence operations decide when outstanding async MMA work becomes visible. When those operations sit under lane- or warp-dependent control flow, reviewers cannot tell whether the same participant set that issued the work is also closing the async group.
+    category: correctness
+    trigger_patterns: [cuda_wgmma_group_ops_in_branch]
+    fix_guidance: Keep WGMMA commit and wait operations in a warpgroup-uniform region, or make the exact participant scope explicit at the local boundary.
+    base_score: 0.97
+    severity_default: 0.97
+    priority_tier: high
+    specificity: 0.95
+    false_positive_risk: low
+  - rule_no: CUDA.WGMMA.3
+    section: CUDAWGMMA
+    title: Accumulator or epilogue use should wait for a visible WGMMA completion boundary
+    summary: "`wgmma.wait_group` should remain visibly ahead of the first accumulator or epilogue use that depends on the outstanding async MMA work."
+    text: WGMMA decouples issue from completion, so the local patch still needs to show where dependent accumulator or epilogue work becomes safe. If the code narrows results, stores an epilogue, or otherwise consumes the accumulator before a visible `wgmma.wait_group`, reviewers cannot reconstruct whether the outstanding async MMA work has actually completed.
+    category: concurrency
+    trigger_patterns: [cuda_wgmma_epilogue_before_wait]
+    fix_guidance: Place the first accumulator-dependent epilogue step directly behind `wgmma.wait_group`, or wrap the wait and epilogue in a helper whose completion contract is obvious at the call site.
+    base_score: 0.96
+    severity_default: 0.96
+    priority_tier: high
+    specificity: 0.94
+    false_positive_risk: medium
+  - rule_no: CUDA.WGMMA.REF.1
+    section: CUDAWGMMAREF
+    title: Shared descriptors, staging shape, and fence placement should stay reconstructable
+    summary: WGMMA code is easier to review when shared descriptor setup, staging ownership, and fence placement remain visible from the local patch.
+    text: Prefer WGMMA code where shared descriptor setup, operand staging shape, fence placement, and helper boundaries stay explicit enough that reviewers can see why the warpgroup-level contract is valid.
+    category: process
+    reviewability: reference_only
+    applies_to: [code, diff, docs]
+    false_positive_risk: medium
+    base_score: 0.55
+    severity_default: 0.55
+  - rule_no: CUDA.WGMMA.REF.2
+    section: CUDAWGMMAREF
+    title: Matrix layout and result narrowing boundaries should remain visible
+    summary: WGMMA helpers are easiest to trust when they preserve matrix shape, layout, and where accumulator precision is narrowed into the epilogue.
+    text: Keep matrix layout, fragment shape, and accumulator-to-output narrowing boundaries explicit enough that reviewers can see how WGMMA results are interpreted and when lower-precision publication becomes valid.
+    category: process
+    reviewability: reference_only
+    applies_to: [code, diff, docs]
+    false_positive_risk: medium
+    base_score: 0.54
+    severity_default: 0.54

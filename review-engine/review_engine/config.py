@@ -24,19 +24,13 @@ class Settings:
     project_root: Path
     data_dir: Path
     examples_dir: Path
-    internal_guideline_path: Path | None = None
     cpp_core_html_cache: Path | None = None
-    parsed_altibase_path: Path | None = None
     parsed_cpp_core_path: Path | None = None
     active_dataset_path: Path | None = None
-    source_priority_path: Path | None = None
-    conflict_rules_path: Path | None = None
-    disabled_cpp_rules_path: Path | None = None
     chroma_path: Path | None = None
     collection_name: str = "guideline_records"
     reference_dataset_path: Path | None = None
     excluded_dataset_path: Path | None = None
-    review_profiles_path: Path | None = None
     active_collection_name: str | None = None
     reference_collection_name: str | None = None
     excluded_collection_name: str | None = None
@@ -100,19 +94,13 @@ def get_settings() -> Settings:
         project_root=project_root,
         data_dir=data_dir,
         examples_dir=project_root / "examples",
-        internal_guideline_path=None,
         cpp_core_html_cache=data_dir / "cpp_core_guidelines.html",
-        parsed_altibase_path=data_dir / "altibase_coding_convention_rules.json",
         parsed_cpp_core_path=data_dir / "cpp_core_guidelines_rules.json",
         active_dataset_path=data_dir / "active_guideline_records.json",
-        source_priority_path=data_dir / "source_priority.json",
-        conflict_rules_path=data_dir / "conflict_rules.json",
-        disabled_cpp_rules_path=data_dir / "disabled_cpp_core_rules.json",
         chroma_path=data_dir / "chroma",
         collection_name="guideline_records",
         reference_dataset_path=data_dir / "reference_guideline_records.json",
         excluded_dataset_path=data_dir / "excluded_guideline_records.json",
-        review_profiles_path=data_dir / "review_profiles.json",
         active_collection_name=f"guideline_rules_active_{default_language_id}",
         reference_collection_name=f"guideline_rules_reference_{default_language_id}",
         excluded_collection_name=f"guideline_rules_excluded_{default_language_id}",

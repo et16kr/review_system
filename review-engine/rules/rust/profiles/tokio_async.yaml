@@ -1,0 +1,12 @@
+schema_version: 1
+profile_id: tokio_async
+language_id: rust
+enabled_packs:
+  - project_rust
+  - tokio_async
+shared_packs:
+  - shared_security
+prompt_overlay_refs:
+  - tokio_async
+detector_refs: []
+priority_policy_ref: rust_default

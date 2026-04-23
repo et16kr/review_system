@@ -1,0 +1,70 @@
+schema_version: 1
+pack_id: cuda_async_runtime
+namespace: public
+language_id: cuda
+source_kind: project_policy
+description: CUDA async runtime rules for stream ownership, callbacks, and graph-adjacent execution boundaries.
+default_enabled: true
+default_priority_tier: high
+entries:
+  - rule_no: CUDA.ASYNC.1
+    section: CUDAASYNC
+    title: Async CUDA APIs that explicitly target stream 0 should justify default-stream ordering
+    summary: Explicit stream 0 keeps async-looking code inside NULL-stream ordering semantics.
+    text: An explicit 0 stream argument on cudaMemcpyAsync-style APIs often means the code still relies on default-stream ordering even though the call shape looks asynchronous. Review whether that serialization is intentional or just missing stream plumbing.
+    category: concurrency
+    trigger_patterns: [cuda_async_default_stream]
+    fix_guidance: Route the work through an explicit owned stream when overlap matters, or document that NULL-stream ordering is the intended contract.
+    base_score: 0.91
+    severity_default: 0.92
+    priority_tier: high
+    specificity: 0.89
+    false_positive_risk: medium
+  - rule_no: CUDA.ASYNC.2
+    section: CUDAASYNC
+    title: Stream host callbacks should not hide buffer or object lifetime beyond the stream boundary
+    summary: Host callbacks run later than the local scope that launched them, so captured ownership can become ambiguous.
+    text: cudaLaunchHostFunc or callback-based stream hooks can make host or device buffer lifetime harder to reason about because the host work runs only after earlier stream work completes, often after the local stack frame has moved on.
+    category: correctness
+    trigger_patterns: [cuda_stream_callback]
+    fix_guidance: Keep callback captures narrow, make ownership explicit, or move post-processing behind a component that already owns the stream and buffer lifetimes.
+    base_score: 0.89
+    severity_default: 0.9
+    priority_tier: high
+    specificity: 0.87
+    false_positive_risk: medium
+  - rule_no: CUDA.ASYNC.3
+    section: CUDAASYNC
+    title: Creating CUDA streams inside hot loops should justify lifecycle churn and ownership
+    summary: Per-iteration stream creation is rarely free and often signals missing long-lived stream ownership.
+    text: When a loop creates CUDA streams repeatedly, reviewers need to see whether the code truly needs per-iteration stream churn or is missing a longer-lived owner, pool, or reuse boundary.
+    category: performance
+    trigger_patterns: [cuda_stream_create_in_loop]
+    fix_guidance: Reuse or pool long-lived streams when the lifecycle is not truly per-iteration, and keep create and destroy ownership visible.
+    base_score: 0.87
+    severity_default: 0.88
+    priority_tier: high
+    specificity: 0.85
+    false_positive_risk: medium
+  - rule_no: CUDA.ASYNC.REF.1
+    section: CUDAASYNCREF
+    title: Stream and event dependency chains should stay easy to reconstruct from local code
+    summary: Async correctness often depends on a dependency graph that is broader than one call site.
+    text: Prefer stream and event boundaries where reviewers can still tell which work produces readiness, which stream waits on it, and where completion becomes visible to the host.
+    category: process
+    reviewability: reference_only
+    applies_to: [code, diff, docs]
+    false_positive_risk: medium
+    base_score: 0.55
+    severity_default: 0.55
+  - rule_no: CUDA.ASYNC.REF.2
+    section: CUDAASYNCREF
+    title: CUDA Graph and callback-based async orchestration should keep captured lifetime contracts explicit
+    summary: Graph capture and callback orchestration are often review-important even when the local diff does not prove one concrete defect.
+    text: Keep graph-owned buffers, callback capture state, and async teardown boundaries explicit enough that reviewers can reason about lifetime without rebuilding the whole pipeline mentally.
+    category: process
+    reviewability: reference_only
+    applies_to: [code, diff, docs]
+    false_positive_risk: medium
+    base_score: 0.54
+    severity_default: 0.54

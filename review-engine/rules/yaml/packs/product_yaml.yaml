@@ -1,0 +1,35 @@
+schema_version: 1
+pack_id: product_yaml
+namespace: public
+language_id: yaml
+source_kind: public_standard
+description: Product configuration YAML rules for secrets and override clarity.
+default_enabled: true
+default_priority_tier: high
+context_id: product_config
+entries:
+  - rule_no: YAML.PROD.1
+    section: YAMLPROD
+    title: Product config should not commit secret-like literal values directly
+    summary: Checked-in product config is rarely the right place for runtime credentials or tokens.
+    text: Secrets committed as plain YAML values widen the blast radius of repository access and make rotation or environment separation harder to reason about.
+    category: security
+    trigger_patterns: [yaml_secret_literal]
+    fix_guidance: Move secret material to a dedicated secret manager or environment-specific injection path and keep only the reference in committed config.
+    base_score: 0.98
+    severity_default: 0.99
+    priority_tier: override
+    specificity: 0.96
+    false_positive_risk: low
+  - rule_no: YAML.PROD.REF.1
+    section: YAMLPRODREF
+    title: Product config inheritance should keep override precedence and environment drift obvious
+    summary: Merge-key heavy YAML often needs reference guidance more than an inline defect claim.
+    text: Prefer configuration layering where inherited defaults, local overrides, and environment-specific divergence stay visible instead of being reconstructed from several anchors and merge keys.
+    category: process
+    reviewability: reference_only
+    trigger_patterns: [yaml_merge_key]
+    applies_to: [code, diff, docs]
+    false_positive_risk: medium
+    base_score: 0.55
+    severity_default: 0.55

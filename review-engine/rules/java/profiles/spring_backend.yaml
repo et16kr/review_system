@@ -1,0 +1,13 @@
+schema_version: 1
+profile_id: spring_backend
+language_id: java
+enabled_packs:
+  - effective_java
+  - project_java
+  - spring_backend
+shared_packs:
+  - shared_security
+prompt_overlay_refs:
+  - spring_backend
+detector_refs: []
+priority_policy_ref: java_default

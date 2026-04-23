@@ -3,7 +3,9 @@ language_id: java
 pack_files:
   - packs/effective_java.yaml
   - packs/project_java.yaml
+  - packs/spring_backend.yaml
 profile_files:
   - profiles/default.yaml
+  - profiles/spring_backend.yaml
 policy_files:
   - policies/java_default.yaml

@@ -16,7 +16,7 @@ def test_gitlab_adapter_rebuilds_patch_when_gitlab_omits_large_new_file_diff(mon
     )
     key = ReviewRequestKey(
         review_system="gitlab",
-        project_ref="root/altidev4-review",
+        project_ref="root/review-system-smoke",
         review_request_id="2",
     )
 
@@ -75,7 +75,7 @@ def test_gitlab_adapter_uses_compare_diff_for_incremental_mode(monkeypatch) -> N
     )
     key = ReviewRequestKey(
         review_system="gitlab",
-        project_ref="root/altidev4-review",
+        project_ref="root/review-system-smoke",
         review_request_id="2",
     )
 
@@ -151,7 +151,7 @@ def test_gitlab_adapter_rebuilds_modified_patch_from_repository_versions_when_gi
     )
     key = ReviewRequestKey(
         review_system="gitlab",
-        project_ref="root/altidev4-review",
+        project_ref="root/review-system-smoke",
         review_request_id="3",
     )
 
@@ -215,7 +215,7 @@ def test_gitlab_adapter_collects_resolve_and_human_reply_feedback(monkeypatch) -
     )
     key = ReviewRequestKey(
         review_system="gitlab",
-        project_ref="root/altidev4-review",
+        project_ref="root/review-system-smoke",
         review_request_id="5",
     )
 
@@ -261,7 +261,7 @@ def test_gitlab_adapter_reopens_resolved_discussion_before_reply(monkeypatch) ->
     )
     key = ReviewRequestKey(
         review_system="gitlab",
-        project_ref="root/altidev4-review",
+        project_ref="root/review-system-smoke",
         review_request_id="8",
     )
 
@@ -303,7 +303,7 @@ def test_gitlab_adapter_upserts_general_note_by_purpose(monkeypatch) -> None:
     )
     key = ReviewRequestKey(
         review_system="gitlab",
-        project_ref="root/altidev4-review",
+        project_ref="root/review-system-smoke",
         review_request_id="9",
     )
     marker = render_general_note_purpose_marker("full-report")
@@ -357,7 +357,7 @@ def test_gitlab_adapter_creates_general_note_when_purpose_not_found(monkeypatch)
     )
     key = ReviewRequestKey(
         review_system="gitlab",
-        project_ref="root/altidev4-review",
+        project_ref="root/review-system-smoke",
         review_request_id="10",
     )
     marker = render_general_note_purpose_marker("backlog")

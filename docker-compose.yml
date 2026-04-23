@@ -1,7 +1,8 @@
 services:
-  review-system:
-    build: .
+  review-engine:
+    build:
+      context: ./review-engine
     ports:
       - "8000:8000"
     volumes:
-      - ./data:/app/data
+      - ./review-engine/data:/app/data

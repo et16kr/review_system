@@ -1,0 +1,6 @@
+type: object
+additionalProperties: true
+properties:
+  enabled:
+    type: boolean
+    default: on

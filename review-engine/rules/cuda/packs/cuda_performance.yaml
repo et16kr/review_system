@@ -1,0 +1,59 @@
+schema_version: 1
+pack_id: cuda_performance
+namespace: public
+language_id: cuda
+source_kind: project_policy
+description: CUDA performance review rules for contention, divergence, and async overlap contracts.
+default_enabled: true
+default_priority_tier: high
+entries:
+  - rule_no: CUDA.PERF.1
+    section: CUDAPERF
+    title: Atomic-heavy hot paths should justify their contention or reduction strategy
+    summary: Atomics are correct only when the resulting contention profile is still acceptable for the workload.
+    text: An `atomicAdd` or similar primitive in a hot kernel can quietly turn scalable work into one-address serialization. Review whether the patch still has a credible reduction, sharding, or contention story.
+    category: performance
+    trigger_patterns: [cuda_atomic]
+    fix_guidance: Prefer block-local reduction, sharded accumulation, or another design that keeps a single global atomic hotspot from dominating the kernel.
+    base_score: 0.9
+    severity_default: 0.91
+    priority_tier: high
+    specificity: 0.88
+    false_positive_risk: medium
+  - rule_no: CUDA.PERF.2
+    section: CUDAPERF
+    title: Warp-lane-dependent branches in hot kernels should be intentional
+    summary: Lane-dependent control flow is often the shortest path to warp divergence and unstable throughput.
+    text: Branches keyed directly from `threadIdx`, lane ID, or warp-size modulo logic may be correct and still fragment warp progress. Review whether the divergence is essential and bounded rather than accidental.
+    category: performance
+    trigger_patterns: [cuda_warp_divergence]
+    fix_guidance: Reshape the work so warp lanes follow more uniform control flow, or keep the divergent path clearly isolated and intentionally small.
+    base_score: 0.84
+    severity_default: 0.85
+    priority_tier: high
+    specificity: 0.82
+    false_positive_risk: medium
+  - rule_no: CUDA.PERF.3
+    section: CUDAPERF
+    title: Async copies and stream-local work should preserve stream ownership and overlap assumptions
+    summary: Asynchronous transfer APIs help only when the completion and stream contract are still visible.
+    text: "`cudaMemcpyAsync` and related stream-local work can look non-blocking while still depending on an implicit stream or completion boundary that reviewers cannot see from the patch."
+    category: concurrency
+    trigger_patterns: [cuda_memcpy_async]
+    fix_guidance: Keep the owning stream explicit and make the completion boundary or dependent work visible near the transfer site.
+    base_score: 0.87
+    severity_default: 0.88
+    priority_tier: high
+    specificity: 0.85
+    false_positive_risk: medium
+  - rule_no: CUDA.PERF.REF.1
+    section: CUDAPERFREF
+    title: Coalescing, bank conflicts, and occupancy tradeoffs stay advisory unless the local regression is obvious
+    summary: Many CUDA performance themes matter, but not all of them are line-local defect claims.
+    text: Keep coalescing, bank-conflict, and occupancy guidance available as reference context when the patch suggests a tuning issue without proving one concrete correctness or latency regression on its own.
+    category: process
+    reviewability: reference_only
+    applies_to: [code, diff, docs]
+    false_positive_risk: medium
+    base_score: 0.55
+    severity_default: 0.55

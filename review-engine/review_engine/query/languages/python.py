@@ -6,7 +6,7 @@ from review_engine.query.languages.base import LanguageQueryPlugin, PatternSpec
 PLUGIN = LanguageQueryPlugin(
     plugin_id="python",
     display_name="Python",
-    default_focus="exception handling, context managers, typing discipline, and API clarity",
+    default_focus="exception handling, context managers, typing discipline, Django/FastAPI boundary safety, and API clarity",
     pattern_specs=(
         PatternSpec(
             "mutable_default",
@@ -56,6 +56,42 @@ PLUGIN = LanguageQueryPlugin(
             "yaml.load detected; review trusted-input assumptions and whether safe_load should be used instead.",
             0.97,
         ),
+        PatternSpec(
+            "django_debug_true",
+            r"(?m)^\s*DEBUG\s*=\s*True\b",
+            "Django DEBUG=True detected; review whether debug mode is leaking into a checked-in runtime path.",
+            0.98,
+        ),
+        PatternSpec(
+            "django_csrf_exempt",
+            r"@csrf_exempt\b",
+            "csrf_exempt detected; review request trust boundaries and compensating controls.",
+            0.94,
+        ),
+        PatternSpec(
+            "django_raw_sql",
+            r"\.(?:raw|extra)\s*\(",
+            "Django raw/extra query detected; review ORM contract bypasses and parameterization safety.",
+            0.88,
+        ),
+        PatternSpec(
+            "django_mark_safe",
+            r"\bmark_safe\s*\(",
+            "django.utils.safestring.mark_safe detected; review whether HTML escaping is being bypassed at an untrusted boundary.",
+            0.96,
+        ),
+        PatternSpec(
+            "fastapi_blocking_in_async",
+            r"(?is)async\s+def\b[\s\S]{0,500}\b(?:requests\.\w+|time\.sleep|subprocess\.run)\s*\(",
+            "Blocking call detected inside an async Python function; review event-loop ownership in FastAPI or asyncio request paths.",
+            0.95,
+        ),
+        PatternSpec(
+            "fastapi_request_json",
+            r"(?is)@(?:app|router)\.(?:post|put|patch)\([^)]*\)[\s\S]{0,500}await\s+request\.json\s*\(",
+            "FastAPI route reads raw request.json(); review whether validated request models are being bypassed.",
+            0.9,
+        ),
     ),
     hinted_rules={
         "mutable_default": ("PY.1", "PY.4"),
@@ -66,6 +102,12 @@ PLUGIN = LanguageQueryPlugin(
         "except_exception": ("PY.5",),
         "assert_usage": ("PY.PROJ.6",),
         "yaml_unsafe_load": ("PY.PROJ.7",),
+        "django_debug_true": ("PY.DJ.1",),
+        "django_csrf_exempt": ("PY.DJ.2",),
+        "django_raw_sql": ("PY.DJ.3",),
+        "django_mark_safe": ("PY.DJ.4",),
+        "fastapi_blocking_in_async": ("PY.FAPI.1",),
+        "fastapi_request_json": ("PY.FAPI.2", "PY.FAPI.REF.1"),
     },
     direct_hint_patterns={
         "mutable_default",
@@ -76,5 +118,11 @@ PLUGIN = LanguageQueryPlugin(
         "except_exception",
         "assert_usage",
         "yaml_unsafe_load",
+        "django_debug_true",
+        "django_csrf_exempt",
+        "django_raw_sql",
+        "django_mark_safe",
+        "fastapi_blocking_in_async",
+        "fastapi_request_json",
     },
 )

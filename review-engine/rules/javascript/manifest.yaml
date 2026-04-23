@@ -3,7 +3,9 @@ language_id: javascript
 pack_files:
   - packs/project_javascript.yaml
   - packs/node_javascript.yaml
+  - packs/nextjs_frontend.yaml
 profile_files:
   - profiles/default.yaml
+  - profiles/nextjs_frontend.yaml
 policy_files:
   - policies/javascript_default.yaml

@@ -7,12 +7,15 @@
 - `docker-compose.yml`
 - `.env.example`
 - `scripts/create_gitlab_merge_request.py`
-- `scripts/create_altidev4_tde_review.sh`
+- `scripts/create_gitlab_tde_review.sh`
 - `scripts/bootstrap_local_gitlab_tde_review.py`
 - `scripts/attach_local_gitlab_bot.py`
 - `scripts/replay_local_gitlab_tde_review.py`
 - `scripts/smoke_local_gitlab_tde_review.sh`
+- `scripts/smoke_local_gitlab_multilang_review.sh`
 - `scripts/capture_review_bot_baseline.py`
+- `scripts/capture_wrong_language_telemetry.py`
+- `scripts/build_wrong_language_backlog.py`
 - `review-bot-policy.example.json`
 
 초기 실행:
@@ -25,12 +28,12 @@ docker compose up --build
 GitLab에 실제 Merge Request를 먼저 만들 때:
 
 ```bash
-bash /home/et16/work/review_system/ops/scripts/create_altidev4_tde_review.sh --dry-run
+bash /home/et16/work/review_system/ops/scripts/create_gitlab_tde_review.sh --dry-run
 ```
 
 상세 절차는 [GITLAB_TDE_REVIEW_SETUP.md](/home/et16/work/review_system/docs/GITLAB_TDE_REVIEW_SETUP.md:1)에 정리했다.
 
-로컬 GitLab 인스턴스를 함께 띄워서 `altidev4` MR까지 자동 생성하려면:
+로컬 GitLab 인스턴스를 함께 띄워서 smoke MR까지 자동 생성하려면:
 
 ```bash
 python3 /home/et16/work/review_system/ops/scripts/bootstrap_local_gitlab_tde_review.py
@@ -60,3 +63,26 @@ Phase A baseline snapshot을 남기려면:
 python3 /home/et16/work/review_system/ops/scripts/capture_review_bot_baseline.py \
   --baseline-kind v0
 ```
+
+wrong-language telemetry snapshot만 따로 남기려면:
+
+```bash
+python3 /home/et16/work/review_system/ops/scripts/capture_wrong_language_telemetry.py \
+  --window 28d
+```
+
+wrong-language detector backlog를 바로 Markdown으로 만들려면:
+
+```bash
+python3 /home/et16/work/review_system/ops/scripts/build_wrong_language_backlog.py \
+  --window 28d
+```
+
+mixed-language smoke를 돌리려면:
+
+```bash
+bash /home/et16/work/review_system/ops/scripts/smoke_local_gitlab_multilang_review.sh \
+  --json-output /tmp/review-bot-multilang-smoke.json
+```
+
+이 smoke는 `markdown + yaml + sql + framework file` 조합에서 language tag와 wrong-language telemetry 흐름까지 함께 검증합니다.

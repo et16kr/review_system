@@ -1,0 +1,58 @@
+schema_version: 1
+pack_id: dbt_sql
+namespace: public
+language_id: sql
+source_kind: project_policy
+description: dbt warehouse SQL rules for model contracts and macro safety.
+default_enabled: true
+default_priority_tier: high
+context_id: analytics
+entries:
+  - rule_no: SQL.DBT.1
+    section: SQLDBT
+    title: Avoid SELECT * from ref or source models in committed dbt contracts
+    summary: Model-to-model contracts drift more easily when the projection is implicit.
+    text: dbt models become durable interfaces for downstream models, tests, and dashboards. Selecting * from a ref or source makes upstream column drift harder to review and easier to propagate accidentally.
+    category: sql_quality
+    trigger_patterns: [dbt_select_star_ref]
+    fix_guidance: Project the named columns the model actually owns so upstream schema changes stay visible in review.
+    base_score: 0.9
+    severity_default: 0.92
+    priority_tier: high
+    specificity: 0.88
+    false_positive_risk: low
+  - rule_no: SQL.DBT.2
+    section: SQLDBT
+    title: run_query should keep dbt macro SQL structure and inputs explicit
+    summary: Dynamic warehouse-side SQL inside dbt macros is harder to audit than ordinary model SQL.
+    text: run_query is powerful, but it also hides the eventual SQL boundary behind Jinja execution. Review whether the generated structure, inputs, and side effects remain narrow and explicit.
+    category: security
+    trigger_patterns: [dbt_run_query]
+    fix_guidance: Keep macro inputs constrained, keep SQL structure obvious, and prefer static model SQL when dynamic execution is not truly required.
+    base_score: 0.91
+    severity_default: 0.93
+    priority_tier: high
+    specificity: 0.89
+    false_positive_risk: medium
+  - rule_no: SQL.DBT.REF.1
+    section: SQLDBTREF
+    title: Incremental dbt models should make unique-key and freshness boundaries obvious
+    summary: Reference guidance fits when a patch hints at incremental drift but the local diff does not prove an immediate defect.
+    text: Prefer models where incremental filters, unique keys, and freshness assumptions are legible enough that reviewers can reason about backfills and idempotency locally.
+    category: process
+    reviewability: reference_only
+    applies_to: [code, diff, docs]
+    false_positive_risk: medium
+    base_score: 0.55
+    severity_default: 0.55
+  - rule_no: SQL.DBT.REF.2
+    section: SQLDBTREF
+    title: dbt model contracts should prefer named columns over implicit projection drift
+    summary: This is often best kept as reference guidance unless the patch proves a concrete broken consumer contract.
+    text: Prefer model outputs that communicate which columns are part of the contract so downstream consumers do not silently absorb upstream projection changes.
+    category: process
+    reviewability: reference_only
+    applies_to: [code, diff, docs]
+    false_positive_risk: medium
+    base_score: 0.54
+    severity_default: 0.54

@@ -1,0 +1,13 @@
+schema_version: 1
+profile_id: cuda_tensor_core
+language_id: cuda
+enabled_packs:
+  - cuda_core
+  - cuda_performance
+  - cuda_tensor_core
+shared_packs:
+  - shared_security
+prompt_overlay_refs:
+  - cuda_tensor_core
+detector_refs: []
+priority_policy_ref: cuda_default

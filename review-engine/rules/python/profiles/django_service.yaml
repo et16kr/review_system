@@ -1,0 +1,14 @@
+schema_version: 1
+profile_id: django_service
+language_id: python
+enabled_packs:
+  - pep8_python
+  - pep257_docstrings
+  - project_python
+  - django_service
+shared_packs:
+  - shared_security
+prompt_overlay_refs:
+  - django_service
+detector_refs: []
+priority_policy_ref: python_default

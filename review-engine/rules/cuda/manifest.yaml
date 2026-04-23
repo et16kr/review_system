@@ -1,0 +1,25 @@
+schema_version: 1
+language_id: cuda
+pack_files:
+  - packs/cuda_core.yaml
+  - packs/cuda_performance.yaml
+  - packs/cuda_async_runtime.yaml
+  - packs/cuda_pipeline_async.yaml
+  - packs/cuda_thread_block_cluster.yaml
+  - packs/cuda_tma.yaml
+  - packs/cuda_multigpu.yaml
+  - packs/cuda_wgmma.yaml
+  - packs/cuda_tensor_core.yaml
+  - packs/cuda_cooperative_groups.yaml
+profile_files:
+  - profiles/default.yaml
+  - profiles/cuda_async_runtime.yaml
+  - profiles/cuda_pipeline_async.yaml
+  - profiles/cuda_thread_block_cluster.yaml
+  - profiles/cuda_tma.yaml
+  - profiles/cuda_multigpu.yaml
+  - profiles/cuda_wgmma.yaml
+  - profiles/cuda_tensor_core.yaml
+  - profiles/cuda_cooperative_groups.yaml
+policy_files:
+  - policies/cuda_default.yaml

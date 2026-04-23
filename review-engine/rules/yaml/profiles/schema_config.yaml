@@ -1,0 +1,13 @@
+schema_version: 1
+profile_id: schema_config
+language_id: yaml
+enabled_packs:
+  - generic_yaml
+  - schema_yaml
+shared_packs:
+  - shared_security
+prompt_overlay_refs:
+  - schema_config
+detector_refs: []
+priority_policy_ref: yaml_default
+context_id: schema_config

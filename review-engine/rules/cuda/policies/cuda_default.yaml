@@ -1,0 +1,27 @@
+schema_version: 1
+policy_id: cuda_default
+language_id: cuda
+pack_weights:
+  cuda_core: 0.94
+  cuda_performance: 0.88
+  cuda_async_runtime: 0.9
+  cuda_pipeline_async: 0.93
+  cuda_thread_block_cluster: 0.93
+  cuda_tma: 0.93
+  cuda_multigpu: 0.92
+  cuda_wgmma: 0.93
+  cuda_tensor_core: 0.92
+  cuda_cooperative_groups: 0.9
+  shared_security: 0.96
+defaults:
+  conflict_action: compatible
+  default_pack_weight: 0.5
+tie_breakers:
+  - explicit_override
+  - higher_tier
+  - higher_specificity
+  - higher_base_score
+  - higher_pack_weight
+  - lexical_rule_id
+overrides: []
+exclusions: []

@@ -72,6 +72,58 @@ entries:
     priority_tier: high
     specificity: 0.91
     false_positive_risk: low
+  - rule_no: YAML.CI.6
+    section: YAMLCI
+    title: CI jobs should not pipe remote downloads directly into shell interpreters
+    summary: CI bootstrap should keep fetch, verification, and execution as distinct trust steps.
+    text: A pipeline step that downloads text from the network and immediately executes it as a shell script weakens provenance review and makes reruns harder to explain safely.
+    category: security
+    trigger_patterns: [ci_remote_bootstrap]
+    fix_guidance: Split the flow into fetch, verify, and execute stages or replace it with a pinned artifact and explicit checksum or signature verification step.
+    base_score: 0.96
+    severity_default: 0.97
+    priority_tier: override
+    specificity: 0.94
+    false_positive_risk: low
+  - rule_no: YAML.CI.7
+    section: YAMLCI
+    title: Insecure artifact downloads in CI should be exceptional and paired with explicit verification
+    summary: Disabling TLS verification in CI makes the pipeline trust boundary harder to justify after the fact.
+    text: CI pipelines often become part of the deployment chain. Using insecure download flags in that environment expands the artifact trust boundary and should only happen with an explicit verification story.
+    category: security
+    trigger_patterns: [ci_insecure_download]
+    fix_guidance: Keep TLS verification enabled or add an explicit pinned checksum or signature verification path before the artifact is used.
+    base_score: 0.95
+    severity_default: 0.96
+    priority_tier: high
+    specificity: 0.93
+    false_positive_risk: low
+  - rule_no: YAML.CI.8
+    section: YAMLCI
+    title: CI service and helper images should avoid floating latest tags
+    summary: Mutable service containers make pipeline behavior drift even when the checked-in job steps do not change.
+    text: Helper containers and service images are part of the executable CI environment. Floating latest tags make test and deploy behavior harder to reproduce when debugging or rolling back.
+    category: configuration
+    trigger_patterns: [service_latest_tag]
+    fix_guidance: Pin the helper or service image to a versioned tag or digest so the CI runtime stays traceable.
+    base_score: 0.86
+    severity_default: 0.88
+    priority_tier: high
+    specificity: 0.84
+    false_positive_risk: medium
+  - rule_no: YAML.CI.9
+    section: YAMLCI
+    title: pull_request_target workflows should make privileged PR execution boundaries explicit
+    summary: pull_request_target changes the trust model for forked PR automation and can expose secrets or write scopes unexpectedly.
+    text: In GitHub Actions, pull_request_target runs in the base repository context, not the untrusted fork context. That can be valid for carefully isolated workflows, but it should not be introduced without an obvious secret, token, and checkout safety story.
+    category: security
+    trigger_patterns: [github_actions_pull_request_target]
+    fix_guidance: Prefer pull_request for untrusted PR execution, or isolate pull_request_target jobs so they never run untrusted code with privileged tokens or secrets.
+    base_score: 0.99
+    severity_default: 0.99
+    priority_tier: override
+    specificity: 0.97
+    false_positive_risk: low
   - rule_no: YAML.CI.REF.1
     section: YAMLCIREF
     title: Workflow trust boundaries should be obvious at the job that consumes privileged tokens or mutable dependencies
@@ -83,3 +135,14 @@ entries:
     false_positive_risk: medium
     base_score: 0.55
     severity_default: 0.55
+  - rule_no: YAML.CI.REF.2
+    section: YAMLCIREF
+    title: Deployment and migration jobs should make approval and failure boundaries obvious
+    summary: CI guidance is more actionable when release-critical jobs expose whether failure can be softened, retried, or manually approved.
+    text: Use this as reference guidance when a pipeline patch changes deploy or migration behavior in ways that deserve a clearer gate or failure model than the local diff alone can prove incorrect.
+    category: process
+    reviewability: reference_only
+    applies_to: [code, diff, docs]
+    false_positive_risk: medium
+    base_score: 0.54
+    severity_default: 0.54

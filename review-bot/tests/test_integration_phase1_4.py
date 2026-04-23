@@ -88,7 +88,7 @@ def _multi_hunk_malloc_patch() -> str:
     )
 
 
-def _result(rule_no: str = "ALTI-MEM-007", *, score: float = 0.82,
+def _result(rule_no: str = "R.10", *, score: float = 0.82,
             category: str = "memory") -> dict:
     return {
         "rule_no": rule_no,
@@ -100,9 +100,9 @@ def _result(rule_no: str = "ALTI-MEM-007", *, score: float = 0.82,
         "fix_guidance": "std::vector 사용 권장",
         "severity": "high",
         "false_positive_risk": "medium",
-        "source_family": "altibase",
-        "authority": "internal",
-        "conflict_policy": "authoritative",
+        "source_family": "cpp_core",
+        "authority": "external",
+        "conflict_policy": "compatible",
         "section": "메모리",
         "priority": 0.9,
         "text": "malloc/free 사용 금지",
@@ -930,12 +930,12 @@ class TestPhase4Advanced:
 
         class SequentialResultEngine(EngineStub):
             def __init__(self) -> None:
-                super().__init__([_result("ALTI-MEM-007")])
+                super().__init__([_result("R.10")])
                 self._call_count = 0
 
             def review_diff(self, diff, top_k=8, *, file_path=None, file_context=None):
                 self._call_count += 1
-                rule_no = "ALTI-MEM-007" if self._call_count == 1 else "ALTI-MEM-008"
+                rule_no = "R.10" if self._call_count == 1 else "R.12"
                 result = dict(_result(rule_no))
                 if self._call_count == 2:
                     result["title"] = "두 번째 메모리 할당이 추가되었습니다"
@@ -1034,7 +1034,7 @@ class TestPhase4Advanced:
         key = runner._legacy_key(6005)
         adapter.set_diff(key, path="src/a.cpp", patch=_malloc_patch())
         runner.platform_client = adapter
-        runner.engine_client = EngineStub([_result("ALTI-MEM-007")])
+        runner.engine_client = EngineStub([_result("R.10")])
         runner.provider = FixedProvider()
 
         session = SessionLocal()
@@ -1048,8 +1048,8 @@ class TestPhase4Advanced:
         assert response.status_code == 200
         data = response.json()
         rule_nos = [r["rule_no"] for r in data["rules"]]
-        assert "ALTI-MEM-007" in rule_nos
-        rule = next(r for r in data["rules"] if r["rule_no"] == "ALTI-MEM-007")
+        assert "R.10" in rule_nos
+        rule = next(r for r in data["rules"] if r["rule_no"] == "R.10")
         assert rule["total"] >= 1
         assert rule["resolve_rate"] == 0.0
 
@@ -1064,7 +1064,7 @@ class TestPhase4Advanced:
         key = runner._legacy_key(60051)
         adapter.set_diff(key, path="src/a.cpp", patch=_malloc_patch())
         runner.platform_client = adapter
-        runner.engine_client = EngineStub([_result("ALTI-MEM-007")])
+        runner.engine_client = EngineStub([_result("R.10")])
         runner.provider = FixedProvider()
 
         session = SessionLocal()
@@ -1080,7 +1080,7 @@ class TestPhase4Advanced:
         response = client.get("/internal/analytics/rule-effectiveness")
         assert response.status_code == 200
         data = response.json()
-        rule = next(r for r in data["rules"] if r["rule_no"] == "ALTI-MEM-007")
+        rule = next(r for r in data["rules"] if r["rule_no"] == "R.10")
         assert rule["published"] == 0
         assert rule["resolved"] >= 1
         assert rule["resolve_rate"] == 1.0
@@ -1094,7 +1094,7 @@ class TestPhase4Advanced:
         runner = ReviewRunner()
         adapter = FakeAdapter()
         runner.platform_client = adapter
-        runner.engine_client = EngineStub([_result("ALTI-MEM-007")])
+        runner.engine_client = EngineStub([_result("R.10")])
         runner.provider = FixedProvider()
 
         key1 = runner._legacy_key(60052)
@@ -1117,7 +1117,7 @@ class TestPhase4Advanced:
         response = client.get("/internal/analytics/rule-effectiveness")
         assert response.status_code == 200
         data = response.json()
-        rule = next(r for r in data["rules"] if r["rule_no"] == "ALTI-MEM-007")
+        rule = next(r for r in data["rules"] if r["rule_no"] == "R.10")
         assert rule["published"] >= 1
         assert rule["resolved"] >= 1
         assert rule["resolve_rate"] == 0.5
@@ -1189,8 +1189,8 @@ class TestPhase4Advanced:
                     dedupe_key="dk-reopened-1",
                     file_path="src/a.cpp",
                     line_no=10,
-                    rule_no="ALTI-MEM-007",
-                    source_family="altibase",
+                    rule_no="R.10",
+                    source_family="cpp_core",
                     score_raw=0.9,
                     score_final=0.9,
                     anchor_signature="sig-a",
@@ -1210,8 +1210,8 @@ class TestPhase4Advanced:
                     dedupe_key="dk-reopened-2",
                     file_path="src/a.cpp",
                     line_no=10,
-                    rule_no="ALTI-MEM-007",
-                    source_family="altibase",
+                    rule_no="R.10",
+                    source_family="cpp_core",
                     score_raw=0.95,
                     score_final=0.95,
                     anchor_signature="sig-a",
@@ -1227,7 +1227,7 @@ class TestPhase4Advanced:
         response = client.get("/internal/analytics/rule-effectiveness")
         assert response.status_code == 200
         data = response.json()
-        rule = next(r for r in data["rules"] if r["rule_no"] == "ALTI-MEM-007")
+        rule = next(r for r in data["rules"] if r["rule_no"] == "R.10")
         assert rule["published"] == 1
         assert rule["resolved"] == 0
         assert rule["resolve_rate"] == 0.0
@@ -1282,8 +1282,8 @@ class TestPhase4Advanced:
                     dedupe_key="dk-published",
                     file_path="src/a.cpp",
                     line_no=10,
-                    rule_no="ALTI-MEM-007",
-                    source_family="altibase",
+                    rule_no="R.10",
+                    source_family="cpp_core",
                     score_raw=0.9,
                     score_final=0.9,
                     anchor_signature="sig-a",
@@ -1302,8 +1302,8 @@ class TestPhase4Advanced:
                     dedupe_key="dk-candidate",
                     file_path="src/b.cpp",
                     line_no=20,
-                    rule_no="ALTI-MEM-007",
-                    source_family="altibase",
+                    rule_no="R.10",
+                    source_family="cpp_core",
                     score_raw=0.8,
                     score_final=0.8,
                     anchor_signature="sig-b",
@@ -1318,7 +1318,7 @@ class TestPhase4Advanced:
         response = client.get("/internal/analytics/rule-effectiveness")
         assert response.status_code == 200
         data = response.json()
-        rule = next(r for r in data["rules"] if r["rule_no"] == "ALTI-MEM-007")
+        rule = next(r for r in data["rules"] if r["rule_no"] == "R.10")
         assert rule["total"] == 1
         assert rule["published"] == 1
         assert rule["resolved"] == 0
@@ -1389,8 +1389,8 @@ class TestPhase4Advanced:
                 dedupe_key="dk-fixed",
                 file_path="src/a.cpp",
                 line_no=10,
-                rule_no="ALTI-MEM-007",
-                source_family="altibase",
+                rule_no="R.10",
+                source_family="cpp_core",
                 score_raw=0.9,
                 score_final=0.9,
                 anchor_signature="sig-fixed",
@@ -1408,8 +1408,8 @@ class TestPhase4Advanced:
                 dedupe_key="dk-manual",
                 file_path="src/b.cpp",
                 line_no=20,
-                rule_no="ALTI-MEM-007",
-                source_family="altibase",
+                rule_no="R.10",
+                source_family="cpp_core",
                 score_raw=0.88,
                 score_final=0.88,
                 anchor_signature="sig-manual",
@@ -1472,8 +1472,8 @@ class TestPhase4Advanced:
                         finding_fingerprint="fp-fixed-reopened",
                         finding_decision_id=decision1.id,
                         adapter_thread_ref="thread-fixed",
-                        rule_no="ALTI-MEM-007",
-                        rule_family="altibase",
+                        rule_no="R.10",
+                        rule_family="cpp_core",
                         file_path="src/a.cpp",
                         event_type="resolved",
                         event_reason="fixed_in_followup_commit",
@@ -1490,8 +1490,8 @@ class TestPhase4Advanced:
                         finding_fingerprint="fp-fixed-reopened",
                         finding_decision_id=decision1.id,
                         adapter_thread_ref="thread-fixed",
-                        rule_no="ALTI-MEM-007",
-                        rule_family="altibase",
+                        rule_no="R.10",
+                        rule_family="cpp_core",
                         file_path="src/a.cpp",
                         event_type="reopened",
                         event_reason="remote_reopened",
@@ -1508,8 +1508,8 @@ class TestPhase4Advanced:
                         finding_fingerprint="fp-manual",
                         finding_decision_id=decision2.id,
                         adapter_thread_ref="thread-manual",
-                        rule_no="ALTI-MEM-007",
-                        rule_family="altibase",
+                        rule_no="R.10",
+                        rule_family="cpp_core",
                         file_path="src/b.cpp",
                         event_type="resolved",
                         event_reason="remote_resolved_manual_only",
@@ -1604,24 +1604,6 @@ class TestPhase4Advanced:
             session.add(evidence)
             session.flush()
 
-            altibase_decision = FindingDecision(
-                review_run_id=review_run.id,
-                evidence_id=evidence.id,
-                review_request_pk=review_request.id,
-                review_system="gitlab",
-                project_ref="group/project",
-                review_request_id="60057",
-                fingerprint="fp-altibase",
-                dedupe_key="dk-altibase",
-                file_path="src/a.cpp",
-                line_no=10,
-                rule_no="ALTI-MEM-007",
-                source_family="altibase",
-                score_raw=0.9,
-                score_final=0.9,
-                anchor_signature="sig-altibase",
-                state="published",
-            )
             cpp_core_decision = FindingDecision(
                 review_run_id=review_run.id,
                 evidence_id=evidence.id,
@@ -1631,23 +1613,41 @@ class TestPhase4Advanced:
                 review_request_id="60057",
                 fingerprint="fp-cpp-core",
                 dedupe_key="dk-cpp-core",
-                file_path="src/b.cpp",
-                line_no=20,
-                rule_no="CPP-001",
+                file_path="src/a.cpp",
+                line_no=10,
+                rule_no="R.10",
                 source_family="cpp_core",
                 score_raw=0.9,
                 score_final=0.9,
-                anchor_signature="sig-cpp",
+                anchor_signature="sig-cpp-core",
                 state="published",
             )
-            session.add_all([altibase_decision, cpp_core_decision])
+            project_decision = FindingDecision(
+                review_run_id=review_run.id,
+                evidence_id=evidence.id,
+                review_request_pk=review_request.id,
+                review_system="gitlab",
+                project_ref="group/project",
+                review_request_id="60057",
+                fingerprint="fp-project",
+                dedupe_key="dk-project",
+                file_path="src/b.cpp",
+                line_no=20,
+                rule_no="CPP.PROJ.1",
+                source_family="project_cpp",
+                score_raw=0.9,
+                score_final=0.9,
+                anchor_signature="sig-project",
+                state="published",
+            )
+            session.add_all([cpp_core_decision, project_decision])
             session.flush()
 
             now = datetime.now(UTC)
             session.add_all(
                 [
                     PublicationState(
-                        finding_decision_id=altibase_decision.id,
+                        finding_decision_id=cpp_core_decision.id,
                         review_request_pk=review_request.id,
                         review_system="gitlab",
                         project_ref="group/project",
@@ -1656,7 +1656,7 @@ class TestPhase4Advanced:
                         published_at=now,
                     ),
                     PublicationState(
-                        finding_decision_id=cpp_core_decision.id,
+                        finding_decision_id=project_decision.id,
                         review_request_pk=review_request.id,
                         review_system="gitlab",
                         project_ref="group/project",
@@ -1676,14 +1676,14 @@ class TestPhase4Advanced:
             params={
                 "window": "28d",
                 "project_ref": "group/project",
-                "source_family": "altibase",
+                "source_family": "cpp_core",
             },
         )
         assert response.status_code == 200
         data = response.json()
         assert data["surfaced_distinct"] == 1
         assert data["project_ref"] == "group/project"
-        assert data["source_family"] == "altibase"
+        assert data["source_family"] == "cpp_core"
 
     def test_comment_footer_always_present(self):
         """코멘트 형식: 모든 코멘트에 안내 문구가 포함된다."""

@@ -53,7 +53,7 @@ def build_default_description(
             tail,
             "",
             "## Note",
-            "- This merge request was prepared from the local `altidev4` workspace.",
+            "- This merge request was prepared from the local smoke workspace.",
             "- Review focus: TDE implementation changes between `tde_first` and `tde_base`.",
         ]
     ).strip()
@@ -263,12 +263,12 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--project-name",
-        default="altidev4",
+        default="review-system-smoke",
         help="GitLab project display name",
     )
     parser.add_argument(
         "--project-path",
-        default="altidev4",
+        default="review-system-smoke",
         help="GitLab project path slug",
     )
     parser.add_argument(

@@ -14,7 +14,7 @@
   - `review-engine/examples/*_diffs/*.diff`
 
 현재 shipped corpus는 repo-local generic/multilang fixture만 기준으로 유지한다.
-Altibase/Altidev4 전용 fixture는 evaluation contract에서 제거된 상태를 기준선으로 본다.
+legacy organization-specific fixture는 evaluation contract에서 제거된 상태를 기준선으로 본다.
 
 ## 실행 명령
 

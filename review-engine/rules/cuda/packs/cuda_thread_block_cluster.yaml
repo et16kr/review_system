@@ -1,0 +1,70 @@
+schema_version: 1
+pack_id: cuda_thread_block_cluster
+namespace: public
+language_id: cuda
+source_kind: project_policy
+description: CUDA thread block cluster rules for launch ownership, cluster-wide collectives, and distributed shared-memory access.
+default_enabled: true
+default_priority_tier: high
+entries:
+  - rule_no: CUDA.CLUSTER.1
+    section: CUDACLUSTER
+    title: Cluster-wide synchronization must not sit under non-uniform participation
+    summary: Cluster synchronization is a collective contract across the cluster, not a per-block convenience API.
+    text: Calling `cluster.sync()` or an equivalent cluster barrier path from control flow keyed by block rank, thread rank, or another non-uniform predicate can break the cluster-wide collective contract just as surely as a divergent block barrier breaks `__syncthreads()`.
+    category: correctness
+    trigger_patterns: [cuda_cluster_sync_in_branch]
+    fix_guidance: Move cluster-wide synchronization into a full-participant region that every thread in the cluster reaches, or use a narrower synchronization primitive if only one block should participate.
+    base_score: 0.98
+    severity_default: 0.98
+    priority_tier: high
+    specificity: 0.96
+    false_positive_risk: low
+  - rule_no: CUDA.CLUSTER.2
+    section: CUDACLUSTER
+    title: Distributed shared-memory access should wait for a visible cluster-wide readiness boundary
+    summary: Remote shared memory is only reviewable when the local code still shows which cluster-wide boundary makes the producer block's data ready.
+    text: "`map_shared_rank()` exposes another block's shared memory inside the same cluster, but that does not remove the need for a visible cluster-wide readiness boundary before remote shared state is consumed or updated. If remote DSM access appears before a visible `cluster.sync()` or equivalent cluster barrier, reviewers cannot tell whether the producing block has reached the required initialization phase."
+    category: concurrency
+    trigger_patterns: [cuda_cluster_dsm_without_sync]
+    fix_guidance: Synchronize the cluster before the first remote DSM use, and keep the remote rank and readiness boundary close enough that the ownership contract is locally obvious.
+    base_score: 0.97
+    severity_default: 0.97
+    priority_tier: high
+    specificity: 0.95
+    false_positive_risk: medium
+  - rule_no: CUDA.CLUSTER.3
+    section: CUDACLUSTER
+    title: Cluster-dependent kernels should keep the cluster launch contract explicit
+    summary: If kernel correctness depends on cluster APIs or DSM, the local code should also show how the kernel is actually launched as a cluster.
+    text: Code that uses `this_cluster()`, `cluster_group`, `map_shared_rank()`, or `cluster.sync()` is depending on a cluster launch contract that does not exist for an ordinary kernel launch. When the same local file shows a triple-chevron launch but no `__cluster_dims__` attribute or explicit cluster launch API, reviewers cannot reconstruct whether the cluster requirement is actually owned by the launch path.
+    category: correctness
+    trigger_patterns: [cuda_cluster_launch_without_contract]
+    fix_guidance: Keep the cluster dimension contract explicit near the kernel definition or launch site, for example with `__cluster_dims__` or an explicit cluster launch configuration path.
+    base_score: 0.95
+    severity_default: 0.95
+    priority_tier: high
+    specificity: 0.93
+    false_positive_risk: medium
+  - rule_no: CUDA.CLUSTER.REF.1
+    section: CUDACLUSTERREF
+    title: Cluster topology, grid sizing, and remote-rank ownership should stay reconstructable
+    summary: Cluster-aware code is easier to review when the chosen cluster shape and remote block mapping remain visible from the local patch.
+    text: Prefer cluster code where cluster size, grid-multiple assumptions, and remote block rank ownership stay explicit enough that reviewers can connect `map_shared_rank()` and cluster-wide collectives back to the intended topology.
+    category: process
+    reviewability: reference_only
+    applies_to: [code, diff, docs]
+    false_positive_risk: medium
+    base_score: 0.55
+    severity_default: 0.55
+  - rule_no: CUDA.CLUSTER.REF.2
+    section: CUDACLUSTERREF
+    title: Distributed shared-memory lifetime and helper boundaries should keep ownership visible
+    summary: DSM helpers are easiest to trust when they preserve who owns the remote shared state and when it can be reused safely.
+    text: Keep distributed shared-memory helpers, cluster barriers, and remote shared-memory reuse boundaries explicit enough that reviewers can see which block owns the data, when the cluster-wide phase completes, and when the DSM region may be repurposed.
+    category: process
+    reviewability: reference_only
+    applies_to: [code, diff, docs]
+    false_positive_risk: medium
+    base_score: 0.54
+    severity_default: 0.54

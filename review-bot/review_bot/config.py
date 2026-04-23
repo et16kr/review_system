@@ -36,6 +36,7 @@ class Settings:
     feedback_reply_penalty: float
     feedback_reply_suppression_threshold: int
     rule_family_cap: int
+    file_comment_cap: int
     dead_letter_enabled: bool
     policy_path: str | None
     legacy_review_system: str
@@ -87,6 +88,7 @@ def get_settings() -> Settings:
             os.getenv("BOT_FEEDBACK_REPLY_SUPPRESSION_THRESHOLD", "2")
         ),
         rule_family_cap=int(os.getenv("BOT_RULE_FAMILY_CAP", "2")),
+        file_comment_cap=int(os.getenv("BOT_FILE_COMMENT_CAP", "2")),
         dead_letter_enabled=os.getenv("BOT_DEAD_LETTER_ENABLED", "1") not in {"0", "false", "False"},
         policy_path=os.getenv("BOT_POLICY_PATH"),
         legacy_review_system=os.getenv("BOT_LEGACY_REVIEW_SYSTEM", "legacy"),

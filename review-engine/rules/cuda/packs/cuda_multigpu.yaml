@@ -1,0 +1,70 @@
+schema_version: 1
+pack_id: cuda_multigpu
+namespace: public
+language_id: cuda
+source_kind: project_policy
+description: CUDA multi-GPU rules for current-device ownership, peer access, and NCCL ordering boundaries.
+default_enabled: true
+default_priority_tier: high
+entries:
+  - rule_no: CUDA.MG.1
+    section: CUDAMG
+    title: Repeated cudaSetDevice inside loops should keep current-device ownership explicit
+    summary: Current-device mutation is ambient process state, so loop-local switching is easy to misuse.
+    text: A loop that repeatedly calls cudaSetDevice can make allocation, stream, and error ownership depend on ambient current-device state rather than explicit per-device handles. Review whether the loop truly owns that device switch boundary.
+    category: correctness
+    trigger_patterns: [cuda_set_device_in_loop]
+    fix_guidance: Move device scoping to a higher-level owner or make per-device state explicit so later edits do not depend on hidden current-device assumptions.
+    base_score: 0.94
+    severity_default: 0.95
+    priority_tier: high
+    specificity: 0.92
+    false_positive_risk: low
+  - rule_no: CUDA.MG.2
+    section: CUDAMG
+    title: Peer access and peer copies should keep topology and fallback assumptions explicit
+    summary: Multi-GPU fast paths are only safe when capability checks and fallback boundaries remain visible.
+    text: Peer access enablement and peer copies create topology-dependent behavior that can quietly differ across hosts or partitions. Review whether capability checks, ordering, and fallback paths are still explicit enough for the deployment target.
+    category: correctness
+    trigger_patterns: [cuda_peer_access]
+    fix_guidance: Keep topology checks, enablement boundaries, and non-peer fallbacks explicit so the data-movement contract stays reviewable.
+    base_score: 0.9
+    severity_default: 0.91
+    priority_tier: high
+    specificity: 0.88
+    false_positive_risk: medium
+  - rule_no: CUDA.MG.3
+    section: CUDAMG
+    title: NCCL collective launch order and stream ownership should stay globally obvious
+    summary: A local NCCL call participates in a cross-rank ordering contract that small edits can still break.
+    text: NCCL collectives and group boundaries are concise to write but depend on consistent communicator, stream, and ordering assumptions across ranks and sometimes across communicators. Review whether those assumptions are still explicit from the local code.
+    category: concurrency
+    trigger_patterns: [cuda_nccl_collective, cuda_nccl_group_ops]
+    fix_guidance: Keep communicator ownership, stream association, and grouped collective ordering obvious enough that cross-rank behavior can still be reasoned about locally.
+    base_score: 0.91
+    severity_default: 0.92
+    priority_tier: high
+    specificity: 0.89
+    false_positive_risk: medium
+  - rule_no: CUDA.MG.REF.1
+    section: CUDAMGREF
+    title: Rank to device mapping and communicator lifetime should remain legible at the orchestration boundary
+    summary: Multi-GPU correctness often depends on global ordering and ownership that no single line proves on its own.
+    text: Prefer orchestration code where the mapping between rank, device, communicator, and stream remains visible enough that reviewers can reconstruct the collective contract.
+    category: process
+    reviewability: reference_only
+    applies_to: [code, diff, docs]
+    false_positive_risk: medium
+    base_score: 0.55
+    severity_default: 0.55
+  - rule_no: CUDA.MG.REF.2
+    section: CUDAMGREF
+    title: Multi-device managed memory and peer topology assumptions should not hide cross-GPU movement costs
+    summary: Cross-device data movement can be correct and still depend on topology assumptions that deserve explicit review.
+    text: Keep peer visibility, managed-memory placement, and cross-GPU movement assumptions explicit enough that reviewers can tell whether the code expects NVLink-like fast paths or tolerates slower fallback behavior.
+    category: process
+    reviewability: reference_only
+    applies_to: [code, diff, docs]
+    false_positive_risk: medium
+    base_score: 0.54
+    severity_default: 0.54

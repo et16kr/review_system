@@ -6,6 +6,7 @@ import re
 import time
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from typing import Any, Literal
 
 from fastapi import HTTPException
@@ -118,6 +119,19 @@ _RULE_EFFECTIVENESS_MEANINGFUL_STATES = (
     "failed_publication",
 )
 _RULE_EFFECTIVENESS_SURFACED_STATES = ("published", "resolved", "suppressed")
+_DOCS_EXTENSIONS = {".md", ".mdx", ".markdown", ".rst", ".adoc"}
+_DOCS_FILENAMES = {
+    "readme",
+    "readme.md",
+    "changelog",
+    "changelog.md",
+    "contributing",
+    "contributing.md",
+    "security.md",
+    "code_of_conduct.md",
+}
+_CI_PATH_BUCKETS = {".github", ".github/workflows", ".gitlab-ci.yml", ".gitlab-ci.yaml"}
+_CI_CONTEXTS = {"github_actions", "gitlab_ci"}
 
 
 def _compute_top_k(patch: str) -> int:
@@ -159,6 +173,7 @@ class PublicationCandidate:
     canonical_body_hash: str
     existing_thread: ThreadSyncState | None
     publication_key: tuple[str, int | None, str]
+    same_line_category_key: tuple[str, int, str] | None
     priority_group: int
     reminder_candidate: bool = False
     backlog_only: bool = False
@@ -369,12 +384,15 @@ class ReviewRunner:
             seen_human_keys: set[str] = set()
             detect_t0 = __import__("time").monotonic()
             for file_item in diff_payload.files:
-                language_match = self.language_registry.resolve(file_path=file_item.path)
-                if not language_match.reviewable:
-                    continue
                 file_context = self._fetch_file_context(
                     adapter, key, file_item.path, review_run.head_sha
                 )
+                language_match = self.language_registry.resolve(
+                    file_path=file_item.path,
+                    source_text=file_context or file_item.patch,
+                )
+                if not language_match.reviewable:
+                    continue
                 for review_unit in self._iter_review_units(file_item.patch):
                     top_k = _compute_top_k(review_unit.patch)
                     t0 = __import__("time").monotonic()
@@ -2237,6 +2255,184 @@ class ReviewRunner:
         }
         return result
 
+    def wrong_language_feedback_analytics(
+        self,
+        session: Session,
+        *,
+        project_ref: str | None = None,
+        window: Literal["14d", "28d"] = "28d",
+    ) -> dict[str, Any]:
+        window_days = 14 if window == "14d" else 28
+        boundary = datetime.now(UTC) - timedelta(days=window_days)
+
+        feedback_rows = (
+            session.query(
+                FeedbackEvent.adapter_thread_ref,
+                FeedbackEvent.payload,
+                FeedbackEvent.occurred_at,
+                FeedbackEvent.event_key,
+                FeedbackEvent.project_ref,
+            )
+            .filter(
+                FeedbackEvent.actor_type == "human",
+                FeedbackEvent.event_type == "reply",
+            )
+            .all()
+        )
+
+        filtered_feedback: list[tuple[str, dict[str, Any], datetime, str]] = []
+        thread_refs: set[str] = set()
+        for thread_ref, payload, occurred_at, event_key, feedback_project_ref in feedback_rows:
+            if not thread_ref:
+                continue
+            if project_ref is not None and feedback_project_ref != project_ref:
+                continue
+            parsed = self._feedback_command_from_payload(payload)
+            if parsed is None or parsed.command != "wrong-language":
+                continue
+            normalized_occurred_at = self._as_utc(occurred_at)
+            if normalized_occurred_at is None or normalized_occurred_at < boundary:
+                continue
+            filtered_feedback.append(
+                (
+                    thread_ref,
+                    dict(payload or {}),
+                    normalized_occurred_at,
+                    event_key or "",
+                )
+            )
+            thread_refs.add(thread_ref)
+
+        if not filtered_feedback:
+            return {
+                "window": window,
+                "project_ref": project_ref,
+                "total_events": 0,
+                "distinct_threads": 0,
+                "distinct_findings": 0,
+                "top_language_pairs": [],
+                "top_profiles": [],
+                "top_paths": [],
+                "triage_candidates": [],
+            }
+
+        publication_rows = (
+            session.query(
+                PublicationState.adapter_thread_ref,
+                FindingDecision.fingerprint,
+                FindingDecision.file_path,
+                FindingEvidence.raw_engine_payload,
+                PublicationState.updated_at,
+                PublicationState.id,
+            )
+            .join(FindingDecision, PublicationState.finding_decision_id == FindingDecision.id)
+            .join(FindingEvidence, FindingDecision.evidence_id == FindingEvidence.id)
+            .filter(PublicationState.adapter_thread_ref.in_(thread_refs))
+            .order_by(PublicationState.updated_at.desc(), PublicationState.id.desc())
+            .all()
+        )
+        metadata_by_thread: dict[str, dict[str, Any]] = {}
+        for (
+            thread_ref,
+            fingerprint,
+            file_path,
+            raw_engine_payload,
+            _updated_at,
+            _publication_id,
+        ) in publication_rows:
+            if not thread_ref or thread_ref in metadata_by_thread:
+                continue
+            payload = dict(raw_engine_payload or {})
+            metadata_by_thread[thread_ref] = {
+                "fingerprint": fingerprint,
+                "file_path": file_path or "",
+                "detected_language_id": str(payload.get("language_id") or "unknown"),
+                "profile_id": str(payload.get("profile_id") or "").strip() or None,
+                "context_id": str(payload.get("context_id") or "").strip() or None,
+            }
+
+        pair_counts: dict[tuple[str, str], int] = {}
+        profile_counts: dict[tuple[str, str, str | None, str | None], int] = {}
+        path_counts: dict[tuple[str, str, str], int] = {}
+        fingerprints: set[str] = set()
+
+        for thread_ref, payload, _occurred_at, _event_key in filtered_feedback:
+            metadata = metadata_by_thread.get(thread_ref, {})
+            detected_language_id = str(metadata.get("detected_language_id") or "unknown")
+            expected_language_id = str(payload.get("expected_language_id") or "unknown").strip() or "unknown"
+            profile_id = metadata.get("profile_id")
+            context_id = metadata.get("context_id")
+            file_path = str(metadata.get("file_path") or "")
+            fingerprint = str(metadata.get("fingerprint") or "")
+
+            pair_counts[(detected_language_id, expected_language_id)] = (
+                pair_counts.get((detected_language_id, expected_language_id), 0) + 1
+            )
+            profile_key = (detected_language_id, expected_language_id, profile_id, context_id)
+            profile_counts[profile_key] = profile_counts.get(profile_key, 0) + 1
+            path_key = (
+                detected_language_id,
+                expected_language_id,
+                self._feedback_path_bucket(file_path),
+            )
+            path_counts[path_key] = path_counts.get(path_key, 0) + 1
+            if fingerprint:
+                fingerprints.add(fingerprint)
+
+        top_language_pairs = [
+            {
+                "detected_language_id": detected_language_id,
+                "expected_language_id": expected_language_id,
+                "count": count,
+            }
+            for (detected_language_id, expected_language_id), count in sorted(
+                pair_counts.items(),
+                key=lambda item: (-item[1], item[0][0], item[0][1]),
+            )[:12]
+        ]
+        top_profiles = [
+            {
+                "detected_language_id": detected_language_id,
+                "expected_language_id": expected_language_id,
+                "profile_id": profile_id,
+                "context_id": context_id,
+                "count": count,
+            }
+            for (detected_language_id, expected_language_id, profile_id, context_id), count in sorted(
+                profile_counts.items(),
+                key=lambda item: (-item[1], item[0][0], item[0][1], item[0][2] or "", item[0][3] or ""),
+            )[:12]
+        ]
+        top_paths = [
+            {
+                "detected_language_id": detected_language_id,
+                "expected_language_id": expected_language_id,
+                "path_pattern": path_pattern,
+                "count": count,
+            }
+            for (detected_language_id, expected_language_id, path_pattern), count in sorted(
+                path_counts.items(),
+                key=lambda item: (-item[1], item[0][0], item[0][1], item[0][2]),
+            )[:12]
+        ]
+        triage_candidates = self._build_wrong_language_triage_candidates(
+            pair_counts=pair_counts,
+            profile_counts=profile_counts,
+            path_counts=path_counts,
+        )
+
+        return {
+            "window": window,
+            "project_ref": project_ref,
+            "total_events": len(filtered_feedback),
+            "distinct_threads": len(thread_refs),
+            "distinct_findings": len(fingerprints),
+            "top_language_pairs": top_language_pairs,
+            "top_profiles": top_profiles,
+            "top_paths": top_paths,
+            "triage_candidates": triage_candidates,
+        }
+
     def _feedback_signal(
         self,
         session: Session,
@@ -2309,6 +2505,128 @@ class ReviewRunner:
             later_requested=latest_command == "later",
             allow_requested=latest_command == "allow",
             expected_language_id=latest_expected_language_id,
+        )
+
+    def _feedback_path_bucket(self, file_path: str) -> str:
+        normalized = str(file_path or "").replace("\\", "/").strip("/")
+        if not normalized:
+            return "<unknown>"
+        parts = [part for part in normalized.split("/") if part]
+        name = Path(normalized).name.lower()
+        suffix = Path(normalized).suffix.lower()
+        if (
+            suffix in _DOCS_EXTENSIONS
+            or name in _DOCS_FILENAMES
+            or parts[0].lower() in {"docs", "documentation", "wiki"}
+        ):
+            return "docs"
+        if len(parts) == 1:
+            return parts[0]
+        if parts[0] == ".github":
+            return "/".join(parts[: min(2, len(parts))])
+        if parts[0] in {"app", "pages", "src", "db", "docs", "configs", "config"}:
+            return parts[0]
+        return parts[0]
+
+    def _build_wrong_language_triage_candidates(
+        self,
+        *,
+        pair_counts: dict[tuple[str, str], int],
+        profile_counts: dict[tuple[str, str, str | None, str | None], int],
+        path_counts: dict[tuple[str, str, str], int],
+    ) -> list[dict[str, Any]]:
+        best_path_by_pair: dict[tuple[str, str], tuple[str, int]] = {}
+        for (detected_language_id, expected_language_id, path_pattern), count in path_counts.items():
+            pair = (detected_language_id, expected_language_id)
+            current = best_path_by_pair.get(pair)
+            if current is None or count > current[1] or (
+                count == current[1] and path_pattern < current[0]
+            ):
+                best_path_by_pair[pair] = (path_pattern, count)
+
+        candidates: list[dict[str, Any]] = []
+        for (detected_language_id, expected_language_id, profile_id, context_id), count in sorted(
+            profile_counts.items(),
+            key=lambda item: (-item[1], item[0][0], item[0][1], item[0][2] or "", item[0][3] or ""),
+        )[:12]:
+            pair = (detected_language_id, expected_language_id)
+            path_pattern = best_path_by_pair.get(pair, ("<unknown>", 0))[0]
+            candidates.append(
+                {
+                    "detected_language_id": detected_language_id,
+                    "expected_language_id": expected_language_id,
+                    "profile_id": profile_id,
+                    "context_id": context_id,
+                    "path_pattern": path_pattern,
+                    "count": count,
+                    "priority": self._wrong_language_priority(
+                        pair_count=pair_counts.get(pair, count),
+                        profile_id=profile_id,
+                        context_id=context_id,
+                    ),
+                    "suggested_action": self._wrong_language_suggested_action(
+                        detected_language_id=detected_language_id,
+                        expected_language_id=expected_language_id,
+                        profile_id=profile_id,
+                        context_id=context_id,
+                        path_pattern=path_pattern,
+                    ),
+                }
+            )
+        return candidates
+
+    def _wrong_language_priority(
+        self,
+        *,
+        pair_count: int,
+        profile_id: str | None,
+        context_id: str | None,
+    ) -> str:
+        if pair_count >= 3 or context_id is not None:
+            return "high"
+        if pair_count >= 2 or profile_id not in {None, "default"}:
+            return "medium"
+        return "low"
+
+    def _wrong_language_suggested_action(
+        self,
+        *,
+        detected_language_id: str,
+        expected_language_id: str,
+        profile_id: str | None,
+        context_id: str | None,
+        path_pattern: str,
+    ) -> str:
+        if path_pattern == "docs" or detected_language_id == "markdown":
+            return (
+                "문서 경로를 reviewable 대상에서 더 명확히 제외하고, "
+                "유사 확장자/경로 예외 규칙을 detector backlog에 추가하세요."
+            )
+        if expected_language_id == "markdown":
+            return (
+                "문서형 경로가 아닌데 `markdown` 기대값이 들어왔습니다. "
+                "detector 오분류인지, wrong-language reply 대상 thread가 맞는지 먼저 확인하고 "
+                "feedback regression 예제를 함께 보강하세요."
+            )
+        if path_pattern in _CI_PATH_BUCKETS or context_id in _CI_CONTEXTS:
+            return (
+                "CI/workflow 경로 우선 분류를 다시 확인하고, "
+                "workflow 전용 detector 힌트와 path rule을 보강하세요."
+            )
+        if path_pattern in {"db", "warehouse"} or context_id == "analytics":
+            return (
+                "DB/warehouse 경로 힌트를 다시 확인하고, "
+                "SQL profile/context detector와 dialect 분기를 우선 재점검하세요."
+            )
+        if profile_id not in {None, "default"} or context_id is not None:
+            return (
+                f"`{detected_language_id}` -> `{expected_language_id}` 오분류가 "
+                f"`{profile_id or 'default'}` / `{context_id or 'generic'}` 축에 모여 있습니다. "
+                "framework/profile detector와 prompt routing을 함께 재검토하세요."
+            )
+        return (
+            f"`{detected_language_id}` -> `{expected_language_id}` 오분류가 반복됩니다. "
+            "path/content/shebang 힌트를 우선 재검토하고 wrong-language 샘플을 regression fixture로 추가하세요."
         )
 
     def _contains_feedback_command(self, body: str, command: str) -> bool:
@@ -2821,9 +3139,13 @@ class ReviewRunner:
             return "medium"
         return "low"
 
-    def _render_runtime_metadata(self, decision: FindingDecision) -> list[str]:
+    def _render_comment_language(self, decision: FindingDecision) -> str:
         payload = dict(decision.evidence.raw_engine_payload or {}) if decision.evidence else {}
         language_id = str(payload.get("language_id") or "unknown")
+        return language_id
+
+    def _render_runtime_metadata(self, decision: FindingDecision) -> list[str]:
+        payload = dict(decision.evidence.raw_engine_payload or {}) if decision.evidence else {}
         profile_id = str(payload.get("profile_id") or "default")
         context_id = str(payload.get("context_id") or "").strip() or None
         dialect_id = str(payload.get("dialect_id") or "").strip() or None
@@ -2835,29 +3157,29 @@ class ReviewRunner:
             "unmatched": "미분류",
         }.get(match_source)
 
-        language_line = f"검토 언어: `{language_id}`"
-        if source_label:
-            language_line += f" ({source_label})"
-
-        detail_parts = [f"프로필 `{profile_id}`"]
+        detail_parts: list[str] = []
+        if source_label and match_source != "classified":
+            detail_parts.append(f"언어 판별 `{source_label}`")
+        if profile_id != "default":
+            detail_parts.append(f"프로필 `{profile_id}`")
         if context_id:
             detail_parts.append(f"컨텍스트 `{context_id}`")
         if dialect_id:
             detail_parts.append(f"다이얼렉트 `{dialect_id}`")
 
-        return [
-            language_line,
-            " / ".join(detail_parts),
-            "언어 판별이 잘못되었으면 이 스레드에 "
-            "`@review-bot wrong-language <expected-language>`를 남겨 주세요.",
-        ]
+        lines: list[str] = []
+        if detail_parts:
+            lines.append("_" + " | ".join(detail_parts) + "_")
+        lines.append("_오분류면 `@review-bot wrong-language <expected-language>`_")
+        return lines
 
     def _render_comment(self, decision: FindingDecision) -> str:
-        lines = [f"[봇 리뷰] {decision.title}", ""]
+        language_id = self._render_comment_language(decision)
+        lines = [f"[봇 리뷰][{language_id}] {decision.title}", ""]
 
         # 증거 인용: 실제 코드 근거를 먼저 표시
         if decision.evidence_snippet:
-            lines += [f"> {decision.evidence_snippet}", ""]
+            lines += [self._render_blockquote(decision.evidence_snippet), ""]
 
         lines.append(decision.summary or "")
 
@@ -2869,20 +3191,21 @@ class ReviewRunner:
             suggestion_body = "\n".join(decision.auto_fix_lines)
             lines.extend(["", "```suggestion", suggestion_body, "```"])
 
-        lines.extend(["", "**검토 런타임**", *self._render_runtime_metadata(decision)])
+        lines.extend(["", *self._render_runtime_metadata(decision)])
         lines.extend(["", "---", "_이 코멘트는 자동 생성됩니다. 문제가 없다면 스레드를 Resolve 해주세요._"])
         return self._truncate_comment("\n".join(lines))
 
     def _render_reminder_comment(self, decision: FindingDecision) -> str:
-        lines = [f"[봇 리뷰] {decision.title}", ""]
+        language_id = self._render_comment_language(decision)
+        lines = [f"[봇 리뷰][{language_id}] {decision.title}", ""]
         if decision.evidence_snippet:
-            lines += [f"> {decision.evidence_snippet}", ""]
+            lines += [self._render_blockquote(decision.evidence_snippet), ""]
         lines.append("이전 리뷰에서 지적했던 내용이 이번 전체 재검토에서도 계속 확인되었습니다.")
         if decision.summary:
             lines.extend(["", decision.summary])
         if decision.suggested_fix:
             lines.extend(["", "**권장 수정**", decision.suggested_fix])
-        lines.extend(["", "**검토 런타임**", *self._render_runtime_metadata(decision)])
+        lines.extend(["", *self._render_runtime_metadata(decision)])
         lines.extend(["", "---", "_이 코멘트는 자동 생성됩니다. 문제가 없다면 스레드를 Resolve 해주세요._"])
         return self._truncate_comment("\n".join(lines))
 
@@ -2891,6 +3214,10 @@ class ReviewRunner:
             return body
         suffix = "\n\n...(내용이 잘렸습니다. 파일을 직접 확인하세요.)"
         return body[: MAX_COMMENT_BODY - len(suffix)] + suffix
+
+    def _render_blockquote(self, value: str) -> str:
+        lines = value.splitlines() or [value]
+        return "\n".join("> " if not line.strip() else f"> {line}" for line in lines)
 
     def _truncate_general_note(self, body: str) -> str:
         if len(body) <= MAX_COMMENT_BODY:
@@ -3551,6 +3878,7 @@ class ReviewRunner:
                         decision.line_no,
                         draft.title.strip(),
                     ),
+                    same_line_category_key=self._same_line_category_key(decision),
                     priority_group=self._candidate_priority_group(
                         review_run=review_run,
                         decision=decision,
@@ -3563,7 +3891,53 @@ class ReviewRunner:
                     backlog_reason=backlog_reason,
                 )
             )
-        return candidates
+        return self._suppress_same_line_category_equivalents(candidates)
+
+    def _same_line_category_key(
+        self,
+        decision: FindingDecision,
+    ) -> tuple[str, int, str] | None:
+        if not decision.evidence:
+            return None
+        category = str(decision.evidence.raw_engine_payload.get("category") or "").strip()
+        if not category or decision.line_no is None:
+            return None
+        return (decision.file_path, int(decision.line_no), category)
+
+    def _suppress_same_line_category_equivalents(
+        self,
+        candidates: list[PublicationCandidate],
+    ) -> list[PublicationCandidate]:
+        grouped: dict[tuple[str, int, str], list[PublicationCandidate]] = {}
+        for candidate in candidates:
+            key = candidate.same_line_category_key
+            if key is None or candidate.backlog_only:
+                continue
+            grouped.setdefault(key, []).append(candidate)
+
+        suppressed_ids: set[int] = set()
+        for group in grouped.values():
+            if len(group) < 2:
+                continue
+            if len({candidate.publication_key for candidate in group}) < 2:
+                continue
+
+            winner = min(
+                group,
+                key=lambda candidate: (
+                    candidate.priority_group,
+                    -float(candidate.decision.score_final or 0.0),
+                    candidate.decision.rule_no,
+                ),
+            )
+            for candidate in group:
+                if candidate is winner:
+                    continue
+                candidate.decision.state = "suppressed"
+                candidate.decision.suppression_reason = "publish_batch_same_line_category"
+                suppressed_ids.add(id(candidate))
+
+        return [candidate for candidate in candidates if id(candidate) not in suppressed_ids]
 
     def _maybe_verify_draft(
         self,
@@ -3731,6 +4105,7 @@ class ReviewRunner:
         selected: list[PublicationCandidate] = []
         seen_file_titles: set[tuple[str, str]] = set()
         title_counts: dict[str, int] = {}
+        file_counts: dict[str, int] = {}
         ordered_candidates = sorted(
             (
                 candidate
@@ -3741,19 +4116,59 @@ class ReviewRunner:
                 candidate.priority_group,
                 -candidate.decision.score_final,
                 candidate.decision.created_at,
+                candidate.decision.file_path,
             ),
         )
+        grouped_candidates: dict[int, dict[str, list[PublicationCandidate]]] = {}
+        file_order_by_group: dict[int, list[str]] = {}
         for candidate in ordered_candidates:
-            decision = candidate.decision
-            file_title = (decision.file_path, decision.rule_no)
-            if file_title in seen_file_titles:
-                continue
-            title_counts[decision.rule_no] = title_counts.get(decision.rule_no, 0)
-            if title_counts[decision.rule_no] >= self.settings.rule_family_cap:
-                continue
-            selected.append(candidate)
-            seen_file_titles.add(file_title)
-            title_counts[decision.rule_no] += 1
+            priority_group = candidate.priority_group
+            file_path = candidate.decision.file_path
+            group_bucket = grouped_candidates.setdefault(priority_group, {})
+            if file_path not in group_bucket:
+                group_bucket[file_path] = []
+                file_order_by_group.setdefault(priority_group, []).append(file_path)
+            group_bucket[file_path].append(candidate)
+
+        # Keep priority-group ordering intact, then interleave by file so one file does not
+        # monopolize the batch when several files surface similarly strong findings.
+        for priority_group in sorted(grouped_candidates):
+            active_files = list(file_order_by_group.get(priority_group, []))
+            while active_files and len(selected) < self.settings.batch_size:
+                progressed = False
+                next_active_files: list[str] = []
+                for file_path in active_files:
+                    queue = grouped_candidates[priority_group][file_path]
+                    while queue:
+                        candidate = queue.pop(0)
+                        decision = candidate.decision
+                        file_title = (decision.file_path, decision.rule_no)
+                        if file_title in seen_file_titles:
+                            continue
+                        file_counts.setdefault(decision.file_path, 0)
+                        if file_counts[decision.file_path] >= self.settings.file_comment_cap:
+                            queue.clear()
+                            break
+                        title_counts[decision.rule_no] = title_counts.get(decision.rule_no, 0)
+                        if title_counts[decision.rule_no] >= self.settings.rule_family_cap:
+                            continue
+                        selected.append(candidate)
+                        seen_file_titles.add(file_title)
+                        title_counts[decision.rule_no] += 1
+                        file_counts[decision.file_path] += 1
+                        progressed = True
+                        break
+                    if (
+                        queue
+                        and file_counts.get(file_path, 0) < self.settings.file_comment_cap
+                        and len(selected) < self.settings.batch_size
+                    ):
+                        next_active_files.append(file_path)
+                    if len(selected) >= self.settings.batch_size:
+                        break
+                if not progressed:
+                    break
+                active_files = next_active_files
             if len(selected) >= self.settings.batch_size:
                 break
         return selected

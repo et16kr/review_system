@@ -2,7 +2,7 @@
 
 ## 목적
 
-이 문서는 현재 `Altibase` 전용으로 결합되어 있는 규칙 우선순위, 내부 규칙 적재,
+이 문서는 현재 특정 조직 전용으로 결합되어 있는 규칙 우선순위, 내부 규칙 적재,
 패턴 힌트, 프롬프트 특화 구조를 제거하고,
 이를 어느 조직에서나 사용할 수 있는 범용 `organization rule system`으로
 대체하기 위한 요구사항을 정의한다.
@@ -14,18 +14,18 @@
 
 ## 배경
 
-현재 구조는 다음 전제를 가진다.
+legacy 구조는 다음 전제를 가졌다.
 
-- `source_family = altibase | cpp_core`
-- 내부 규칙은 `CODING_CONVENTION.md`에서 읽는다
-- 내부 규칙은 항상 외부 규칙보다 높은 우선순위를 가진다
-- 일부 query heuristic과 provider prompt가 Altibase C++ 규칙을 전제로 한다
+- `source_family`가 조직별 C++ family와 public C++ family로 사실상 고정되어 있었다
+- 내부 규칙은 legacy internal guideline markdown에서 읽었다
+- 내부 규칙은 항상 외부 규칙보다 높은 우선순위를 가졌다
+- 일부 query heuristic과 provider prompt가 조직 고유 C++ 규칙을 전제로 했다
 
 이 구조는 사내 정확도에는 유리했지만,
 공개 배포 기준에서는 다음 문제가 있다.
 
 - 특정 회사명이 코드와 문서에 직접 남는다
-- 조직별 규칙 기능이 아니라 Altibase 전용 기능처럼 보인다
+- 조직별 규칙 기능이 아니라 특정 조직 전용 기능처럼 보인다
 - 다른 회사가 같은 구조를 재사용하기 어렵다
 - 공개 코어와 private extension의 경계가 불명확하다
 
@@ -42,7 +42,7 @@
 
 ### Goal 1. 공개 코어에서 특정 회사 흔적 제거
 
-- 공개 저장소 기본 코드에 `Altibase`, `ALTI-*`, `IDE_RC` 같은 조직 전용 표현이 남지 않는다.
+- 공개 저장소 기본 코드에 특정 회사명이나 조직 전용 표현이 남지 않는다.
 - 공개 테스트, fixture, 문서, 예제 데이터에도 특정 회사 전용 내용이 남지 않는다.
 
 ### Goal 2. 범용 organization rule system 제공
@@ -205,5 +205,4 @@
 4. detector plugin 인터페이스
 5. provider prompt overlay 구조
 6. public CI와 private CI 분리 전략
-7. 기존 Altibase 결합 코드의 migration plan
-
+7. 기존 organization-coupled 코드의 migration plan

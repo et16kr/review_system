@@ -1,0 +1,83 @@
+schema_version: 1
+pack_id: django_service
+namespace: public
+language_id: python
+source_kind: project_policy
+description: Django service review rules for settings safety, request trust boundaries, and ORM escape hatches.
+default_enabled: true
+default_priority_tier: high
+entries:
+  - rule_no: PY.DJ.1
+    section: PYDJ
+    title: DEBUG=True should not survive in checked-in Django runtime configuration
+    summary: Django debug mode widens information disclosure and operational drift risk.
+    text: Debug mode changes error exposure, static behavior, and security posture. It should not remain enabled in committed runtime-facing configuration without a very explicit local reason.
+    category: security
+    trigger_patterns: [django_debug_true]
+    fix_guidance: Keep DEBUG disabled in committed runtime configuration and move local overrides into environment-specific development paths.
+    base_score: 0.98
+    severity_default: 0.99
+    priority_tier: override
+    specificity: 0.96
+    false_positive_risk: low
+  - rule_no: PY.DJ.2
+    section: PYDJ
+    title: csrf_exempt should be exceptional and paired with an explicit trust model
+    summary: Disabling CSRF protection broadens a request boundary that reviewers should not have to infer.
+    text: A csrf_exempt decorator can be valid for narrowly bounded endpoints, but it should not become the default way to make a handler work. The surrounding authentication and request-origin model must be obvious.
+    category: security
+    trigger_patterns: [django_csrf_exempt]
+    fix_guidance: Keep CSRF protection on by default or document the alternate trust boundary and authentication model right next to the exemption.
+    base_score: 0.94
+    severity_default: 0.96
+    priority_tier: high
+    specificity: 0.92
+    false_positive_risk: low
+  - rule_no: PY.DJ.3
+    section: PYDJ
+    title: Django raw and extra query escapes should stay exceptional and parameterized
+    summary: ORM escape hatches are easier to get wrong than ordinary queryset composition.
+    text: raw and extra bypass part of Django's normal queryset ergonomics and review surface. When they appear, reviewers need the SQL structure, parameterization, and result contract to stay explicit.
+    category: security
+    trigger_patterns: [django_raw_sql]
+    fix_guidance: Prefer queryset composition where possible, and keep SQL structure plus parameters explicit when a raw escape hatch is truly required.
+    base_score: 0.9
+    severity_default: 0.92
+    priority_tier: high
+    specificity: 0.88
+    false_positive_risk: low
+  - rule_no: PY.DJ.4
+    section: PYDJ
+    title: mark_safe should stay exceptional because it bypasses template escaping at an HTML trust boundary
+    summary: mark_safe is a deliberate escape hatch from Django's normal HTML-safety contract.
+    text: mark_safe is sometimes necessary for trusted, framework-generated HTML, but it also turns one local string decision into a broader XSS review problem. Reviewers should not have to guess whether the input stayed trusted all the way to rendering.
+    category: security
+    trigger_patterns: [django_mark_safe]
+    fix_guidance: Prefer escaped rendering or narrowly scoped safe fragments such as format_html, and keep any truly trusted HTML boundary obvious next to the escape hatch.
+    base_score: 0.96
+    severity_default: 0.97
+    priority_tier: high
+    specificity: 0.94
+    false_positive_risk: low
+  - rule_no: PY.DJ.REF.1
+    section: PYDJREF
+    title: Django view, serializer, and model boundaries should keep validation ownership explicit
+    summary: Reference guidance is appropriate when the patch hints at boundary drift but not a concrete exploit or correctness bug.
+    text: Prefer APIs where request parsing, validation, ORM access, and response shaping each have one obvious ownership layer so reviewers do not have to reconstruct it from conventions alone.
+    category: process
+    reviewability: reference_only
+    applies_to: [code, diff, docs]
+    false_positive_risk: medium
+    base_score: 0.55
+    severity_default: 0.55
+  - rule_no: PY.DJ.REF.2
+    section: PYDJREF
+    title: Queryset loading strategy should make prefetch and transaction expectations obvious
+    summary: ORM performance review often needs broader application context than one patch can prove.
+    text: Use this as reference guidance when a Django change appears to widen query volume or lazy-loading risk but the exact prefetch and transaction story spans multiple layers.
+    category: process
+    reviewability: reference_only
+    applies_to: [code, diff, docs]
+    false_positive_risk: medium
+    base_score: 0.54
+    severity_default: 0.54

@@ -1,0 +1,16 @@
+schema_version: 1
+profile_id: dbt_warehouse
+language_id: sql
+enabled_packs:
+  - ansi_sql
+  - analytics_sql
+  - project_sql
+  - dbt_sql
+  - postgres_sql
+shared_packs:
+  - shared_security
+prompt_overlay_refs:
+  - dbt_warehouse
+detector_refs: []
+priority_policy_ref: sql_default
+context_id: analytics

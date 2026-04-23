@@ -105,6 +105,7 @@ PLUGIN = LanguageQueryPlugin(
         "direct_system_call": ("SL.io.3", "P.11", "E.19"),
         "continue_usage": ("ES.77",),
         "switch_without_default": ("ES.78", "ES.79"),
+        "for_initializer_declaration": ("ES.6",),
         "primitive_format_specifier": ("SL.io.3", "ES.34"),
     },
     direct_hint_patterns={

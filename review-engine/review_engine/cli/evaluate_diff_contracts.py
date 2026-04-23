@@ -13,7 +13,7 @@ def main() -> None:
     )
     parser.add_argument(
         "--spec",
-        default="examples/altidev4_diffs.json",
+        default="examples/cpp_diff_contracts.json",
         help="Path to the diff contract specification JSON file.",
     )
     parser.add_argument(

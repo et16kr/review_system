@@ -27,12 +27,18 @@ def rerank_candidates(
     for candidate in filtered:
         candidate.pack_weight_score = float(candidate.record.pack_weight)
         candidate.pattern_boost = _pattern_boost(candidate, query_analysis)
+        tier_boost = _tier_rank_map(effective_policy).get(candidate.record.priority_tier, 0) / max(
+            1,
+            len(effective_policy.tier_order),
+        )
         candidate.final_score = round(
-            candidate.similarity_score * 0.45
-            + candidate.pack_weight_score * 0.20
-            + candidate.record.base_score * 0.20
+            candidate.similarity_score * 0.36
+            + candidate.pack_weight_score * 0.16
+            + candidate.record.base_score * 0.18
             + candidate.record.severity_default * 0.10
-            + candidate.pattern_boost * 0.05,
+            + candidate.pattern_boost * 0.10
+            + candidate.record.specificity * 0.07
+            + tier_boost * 0.03,
             4,
         )
 
@@ -88,6 +94,10 @@ def _compare_tie_breaker(
             rank_map.get(left.record.priority_tier, 0),
             rank_map.get(right.record.priority_tier, 0),
         )
+    if breaker == "higher_pattern_boost":
+        return _compare_desc(left.pattern_boost, right.pattern_boost)
+    if breaker == "higher_similarity":
+        return _compare_desc(left.similarity_score, right.similarity_score)
     if breaker == "higher_specificity":
         return _compare_desc(left.record.specificity, right.record.specificity)
     if breaker == "higher_base_score":
@@ -121,6 +131,8 @@ def _compare_desc(left: float | int, right: float | int) -> int:
 def _pattern_boost(candidate: CandidateHit, query_analysis: QueryAnalysis) -> float:
     if not query_analysis.patterns:
         return 0.0
+    patterns_by_name = {pattern.name: pattern for pattern in query_analysis.patterns}
+    detected_pattern_names = set(patterns_by_name)
 
     hinted_rules = QueryDetectorManager().collect_hinted_rules(
         query_plugin_id=query_analysis.query_plugin_id or query_analysis.language_id,
@@ -129,6 +141,13 @@ def _pattern_boost(candidate: CandidateHit, query_analysis: QueryAnalysis) -> fl
     )
     if candidate.record.rule_no in hinted_rules:
         return 1.0
+
+    exact_trigger_matches = set(candidate.record.trigger_patterns) & detected_pattern_names
+    if exact_trigger_matches:
+        total_query_weight = sum(pattern.weight for pattern in query_analysis.patterns) or 1.0
+        matched_weight = sum(patterns_by_name[name].weight for name in exact_trigger_matches)
+        exact_match_boost = 0.88 + min(0.1, matched_weight / total_query_weight * 0.1)
+        return round(min(0.98, exact_match_boost), 4)
 
     candidate_terms = set(tokenize(" ".join(candidate.record.keywords)))
     candidate_terms.update(tokenize(candidate.record.title))
@@ -140,8 +159,10 @@ def _pattern_boost(candidate: CandidateHit, query_analysis: QueryAnalysis) -> fl
         total_weight += pattern.weight
         pattern_terms = set(tokenize(pattern.name.replace("_", " ")))
         pattern_terms.update(tokenize(pattern.description))
-        if candidate_terms & pattern_terms:
-            matched_weight += pattern.weight
+        overlapping_terms = candidate_terms & pattern_terms
+        if not overlapping_terms:
+            continue
+        matched_weight += pattern.weight * (len(overlapping_terms) / max(1, len(pattern_terms)))
 
     if total_weight == 0.0:
         return 0.0

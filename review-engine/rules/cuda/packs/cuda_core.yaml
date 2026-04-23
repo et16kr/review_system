@@ -1,0 +1,135 @@
+schema_version: 1
+pack_id: cuda_core
+namespace: public
+language_id: cuda
+source_kind: project_policy
+description: CUDA baseline rules for kernel launch ownership, synchronization, and device-memory contracts.
+default_enabled: true
+default_priority_tier: high
+entries:
+  - rule_no: CUDA.1
+    section: CUDA
+    title: Kernel launches should keep the launch-failure and post-launch error boundary visible
+    summary: CUDA launch syntax is asynchronous, so failure ownership becomes easy to lose in review.
+    text: A `<<<...>>>` launch hides whether launch failure is checked immediately, deferred to a later sync, or lost entirely behind a distant helper. Reviewers should still be able to see which boundary owns launch status and execution failure.
+    category: error_handling
+    trigger_patterns: [cuda_kernel_launch]
+    fix_guidance: Keep launch-error handling or the owning synchronization/result boundary close enough to the launch that reviewers can see who observes failure.
+    base_score: 0.95
+    severity_default: 0.96
+    priority_tier: high
+    specificity: 0.93
+    false_positive_risk: medium
+  - rule_no: CUDA.2
+    section: CUDA
+    title: Device, pinned-host, and managed allocations should keep ownership and matching free explicit
+    summary: CUDA allocation APIs create memory with non-local lifetime and synchronization implications.
+    text: "`cudaMalloc`, `cudaHostAlloc`, and `cudaMallocManaged` make lifetime, transfer ownership, and teardown easy to hide behind helper code. The review should still reveal who frees the allocation and when that free is safe relative to outstanding work."
+    category: resource_management
+    trigger_patterns: [cuda_malloc, cuda_managed_memory]
+    fix_guidance: Keep allocation ownership visible, pair it with the matching free path, and avoid burying transfer of responsibility behind ambiguous helper APIs.
+    base_score: 0.94
+    severity_default: 0.95
+    priority_tier: high
+    specificity: 0.92
+    false_positive_risk: low
+  - rule_no: CUDA.3
+    section: CUDA
+    title: "`__syncthreads()` must not sit under lane-dependent control flow"
+    summary: A barrier is only safe when every thread in the block reaches it under the same control-flow contract.
+    text: A block-level barrier inside a branch keyed by `threadIdx`, lane identity, or another per-thread condition can deadlock or produce undefined behavior because some threads skip the barrier while others wait forever.
+    category: correctness
+    trigger_patterns: [cuda_divergent_syncthreads]
+    fix_guidance: Move the barrier out of divergent control flow or rewrite the algorithm so every thread in the block reaches the same synchronization point.
+    base_score: 0.99
+    severity_default: 0.99
+    priority_tier: high
+    specificity: 0.98
+    false_positive_risk: low
+  - rule_no: CUDA.4
+    section: CUDA
+    title: Device-wide or broad stream synchronization should be exceptional in steady-state paths
+    summary: Broad synchronization is often a hidden latency and concurrency boundary, not just a debugging helper.
+    text: "`cudaDeviceSynchronize`, `cudaStreamSynchronize`, and event synchronization can serialize unrelated work or hide where completion is actually owned. Review whether the synchronization scope is wider than the local contract requires."
+    category: performance
+    trigger_patterns: [cuda_device_sync]
+    fix_guidance: Narrow the synchronization scope, move completion handling to the true owner, or document why a broad sync is the intended contract.
+    base_score: 0.91
+    severity_default: 0.92
+    priority_tier: high
+    specificity: 0.89
+    false_positive_risk: medium
+  - rule_no: CUDA.5
+    section: CUDA
+    title: Default-stream launches and copies should be intentional rather than accidental serialization
+    summary: The default stream is a runtime contract that can silently change overlap and ordering semantics.
+    text: A kernel launch or `cudaMemcpy` on the default stream may serialize work that callers expected to overlap. That is especially reviewable when the patch mixes synchronous copies and launches without a clearly owned stream boundary.
+    category: concurrency
+    trigger_patterns: [cuda_kernel_launch, cuda_memcpy_sync]
+    fix_guidance: Pass an explicit stream where overlap matters or document that default-stream sequencing is the intended ordering contract.
+    base_score: 0.88
+    severity_default: 0.89
+    priority_tier: high
+    specificity: 0.86
+    false_positive_risk: medium
+  - rule_no: CUDA.6
+    section: CUDA
+    title: "`__host__ __device__` helpers should not hide host-only or device-only assumptions"
+    summary: Dual-annotated helpers stay maintainable only when both execution contexts share the same visible contract.
+    text: A helper compiled for host and device can drift when it performs logging, allocation, synchronization, or control-flow that only one side really supports. Review whether the function contract is still valid in both environments.
+    category: correctness
+    trigger_patterns: [cuda_host_device]
+    fix_guidance: Split host and device behavior when their contracts differ, or keep the shared helper limited to logic that is truly valid in both compilation targets.
+    base_score: 0.86
+    severity_default: 0.87
+    priority_tier: high
+    specificity: 0.84
+    false_positive_risk: medium
+  - rule_no: CUDA.7
+    section: CUDA
+    title: Shared-memory sizing and launch-geometry assumptions should stay explicit at the kernel boundary
+    summary: Shared-memory bugs often come from a launch contract that is no longer obvious in the local patch.
+    text: "`__shared__`, `extern __shared__`, and launch-bounds annotations couple kernel code to launch geometry and byte-size math. Reviewers should be able to see whether the launch site still matches the kernel's shared-memory assumptions."
+    category: correctness
+    trigger_patterns: [cuda_shared_memory, cuda_launch_bounds]
+    fix_guidance: Keep shared-memory byte math, launch configuration, and kernel assumptions close together or route them through a helper that makes the contract explicit.
+    base_score: 0.9
+    severity_default: 0.91
+    priority_tier: high
+    specificity: 0.88
+    false_positive_risk: medium
+  - rule_no: CUDA.8
+    section: CUDA
+    title: Managed memory in latency-sensitive paths should make residency and migration assumptions explicit
+    summary: Managed memory is easier to adopt than to reason about when latency or overlap matters.
+    text: "`cudaMallocManaged` can be correct and still surprise the caller with page migration or residency behavior that is invisible in the patch. Review whether the subsystem owns those migration assumptions explicitly."
+    category: performance
+    trigger_patterns: [cuda_managed_memory]
+    fix_guidance: Document the residency expectation, prefetch or advise when needed, or keep latency-sensitive code on an ownership model with clearer movement semantics.
+    base_score: 0.85
+    severity_default: 0.86
+    priority_tier: default
+    specificity: 0.83
+    false_positive_risk: medium
+  - rule_no: CUDA.REF.1
+    section: CUDAREF
+    title: Kernel geometry and occupancy assumptions should stay near the tuning boundary
+    summary: Launch-bounds and occupancy tradeoffs are often valid guidance even when the diff does not prove a concrete defect.
+    text: Use this as reference guidance when a patch changes launch geometry, launch-bounds, or block sizing assumptions that are important but not locally falsifiable.
+    category: process
+    reviewability: reference_only
+    applies_to: [code, diff, docs]
+    false_positive_risk: medium
+    base_score: 0.56
+    severity_default: 0.56
+  - rule_no: CUDA.REF.2
+    section: CUDAREF
+    title: Host-device residency, batching, and transfer ownership should remain easy to reason about
+    summary: Transfer strategy is often broader than one patch, but reviewers still need the contract to stay legible.
+    text: Prefer subsystem boundaries where reviewers can tell which layer owns device residency, batching, staging buffers, and the transfer-completion contract.
+    category: process
+    reviewability: reference_only
+    applies_to: [code, diff, docs]
+    false_positive_risk: medium
+    base_score: 0.55
+    severity_default: 0.55

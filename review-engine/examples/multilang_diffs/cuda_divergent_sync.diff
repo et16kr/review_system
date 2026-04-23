@@ -1,0 +1,13 @@
+@@ -1,8 +1,11 @@
+ __global__ void accumulate(float* dst, const float* src, int n) {
+-    int idx = blockIdx.x * blockDim.x + threadIdx.x;
++    extern __shared__ float scratch[];
++    int idx = blockIdx.x * blockDim.x + threadIdx.x;
++    if (threadIdx.x == 0) {
++        __syncthreads();
++    }
+     if (idx < n) {
+-        dst[idx] = src[idx];
++        atomicAdd(&dst[0], src[idx]);
+     }
+ }

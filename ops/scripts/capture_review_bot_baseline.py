@@ -74,6 +74,7 @@ def render_markdown(
     rule_effectiveness: dict | list,
     finding_outcomes_14d: dict | list,
     finding_outcomes_28d: dict | list,
+    wrong_language_feedback_28d: dict | list,
     metric_lines: list[str],
 ) -> str:
     generated_at = datetime.now(UTC).isoformat()
@@ -107,6 +108,12 @@ def render_markdown(
         "",
         "```json",
         json.dumps(finding_outcomes_28d, indent=2, ensure_ascii=False),
+        "```",
+        "",
+        "## Wrong-Language Feedback 28d",
+        "",
+        "```json",
+        json.dumps(wrong_language_feedback_28d, indent=2, ensure_ascii=False),
         "```",
         "",
         "## Selected Metrics Snapshot",
@@ -191,6 +198,14 @@ def main() -> int:
             source_family=args.source_family or "",
         )
     )
+    wrong_language_28d = fetch_optional_json(
+        build_url(
+            args.bot_base_url,
+            "/internal/analytics/wrong-language-feedback",
+            window="28d",
+            project_ref=args.project_ref or "",
+        )
+    )
     metrics_text = fetch_text(build_url(args.bot_base_url, "/metrics"))
     markdown = render_markdown(
         baseline_kind=args.baseline_kind,
@@ -201,6 +216,7 @@ def main() -> int:
         rule_effectiveness=rule_effectiveness,
         finding_outcomes_14d=outcomes_14d,
         finding_outcomes_28d=outcomes_28d,
+        wrong_language_feedback_28d=wrong_language_28d,
         metric_lines=select_metric_lines(metrics_text),
     )
     output_path.write_text(markdown, encoding="utf-8")

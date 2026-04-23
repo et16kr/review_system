@@ -1,0 +1,47 @@
+schema_version: 1
+pack_id: schema_yaml
+namespace: public
+language_id: yaml
+source_kind: public_standard
+description: YAML schema rules for contract strictness and default clarity.
+default_enabled: true
+default_priority_tier: high
+context_id: schema_config
+entries:
+  - rule_no: YAML.SCHEMA.1
+    section: YAMLSCHEMA
+    title: "additionalProperties: true should be a deliberate schema-boundary decision"
+    summary: Allowing arbitrary extra keys broadens the contract and reduces drift detection.
+    text: A schema that accepts any undeclared key is harder to validate mentally and weakens the ability to catch accidental producer drift early.
+    category: configuration
+    trigger_patterns: [yaml_additional_properties_true]
+    fix_guidance: Prefer a closed or narrowly constrained schema unless the extension boundary is explicitly part of the contract.
+    base_score: 0.88
+    severity_default: 0.9
+    priority_tier: high
+    specificity: 0.86
+    false_positive_risk: medium
+  - rule_no: YAML.SCHEMA.2
+    section: YAMLSCHEMA
+    title: Boolean-like schema defaults should be explicit instead of ambiguous YAML words
+    summary: Bare on/off/yes/no defaults make cross-parser intent and documentation harder to trust.
+    text: Schema defaults act as durable documentation for producers and consumers. Ambiguous YAML words increase the chance that tooling, humans, or downstream formats disagree about the intended type.
+    category: configuration
+    trigger_patterns: [yaml_ambiguous_boolean_default]
+    fix_guidance: Use an explicit boolean or a quoted string that matches the actual schema type so the default contract is unambiguous.
+    base_score: 0.82
+    severity_default: 0.84
+    priority_tier: high
+    specificity: 0.8
+    false_positive_risk: medium
+  - rule_no: YAML.SCHEMA.REF.1
+    section: YAMLSCHEMAREF
+    title: Required, nullable, and default semantics should tell the same story in schema YAML
+    summary: Reference guidance is useful when the patch hints at contract drift but one local line cannot prove the bug.
+    text: Prefer schemas where required fields, nullable behavior, and defaults align well enough that client and server teams do not have to infer the real contract from examples or implementation quirks.
+    category: process
+    reviewability: reference_only
+    applies_to: [code, diff, docs]
+    false_positive_risk: medium
+    base_score: 0.55
+    severity_default: 0.55

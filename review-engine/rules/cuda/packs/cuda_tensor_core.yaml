@@ -1,0 +1,70 @@
+schema_version: 1
+pack_id: cuda_tensor_core
+namespace: public
+language_id: cuda
+source_kind: project_policy
+description: CUDA Tensor Core review rules for warp-collective WMMA usage, inline MMA PTX, and mixed-precision boundaries.
+default_enabled: true
+default_priority_tier: high
+entries:
+  - rule_no: CUDA.TC.1
+    section: CUDATC
+    title: Tensor Core warp collectives must keep full-warp participation explicit
+    summary: WMMA and warp-level matrix instructions are only safe when all participating lanes reach the same collective operation.
+    text: "`wmma::load_matrix_sync`, `wmma::mma_sync`, `wmma::store_matrix_sync`, and low-level tensor-core instructions such as `mma.sync` or `ldmatrix` are warp-collective operations. If a lane-dependent branch controls who reaches them, the kernel can become undefined or silently corrupt results."
+    category: correctness
+    trigger_patterns: [cuda_tensor_core_divergent_collective]
+    fix_guidance: Move tensor-core collectives out of lane-dependent branches or make the predicate warp-uniform so every participating lane reaches the same collective instruction.
+    base_score: 0.98
+    severity_default: 0.98
+    priority_tier: high
+    specificity: 0.97
+    false_positive_risk: low
+  - rule_no: CUDA.TC.2
+    section: CUDATC
+    title: Inline Tensor Core PTX should keep shape, alignment, and staging contracts obvious
+    summary: "`mma.sync` and `ldmatrix` fast paths are brittle because correctness depends on layout, alignment, and tile-shape assumptions that are easy to hide."
+    text: Inline PTX for Tensor Core kernels often bakes in matrix shape, memory layout, and alignment assumptions that are much harder to audit than the high-level algorithm. Reviewers should still be able to tell which shared-memory staging and operand contract the inline instruction expects.
+    category: correctness
+    trigger_patterns: [cuda_tensor_inline_ptx]
+    fix_guidance: Keep the tensor-core instruction shape, operand layout, and staging assumptions explicit near the asm block, or wrap them in a helper whose contract is documented at the call site.
+    base_score: 0.92
+    severity_default: 0.93
+    priority_tier: high
+    specificity: 0.9
+    false_positive_risk: medium
+  - rule_no: CUDA.TC.3
+    section: CUDATC
+    title: Mixed-precision Tensor Core epilogues should make narrowing and accumulator ownership explicit
+    summary: Low-precision Tensor Core kernels are maintainable only when the patch still shows where wider accumulation is narrowed back to a smaller output type.
+    text: Tensor Core code often multiplies low-precision inputs but accumulates into a wider type such as `float`. That can still lose correctness when the epilogue quietly narrows results back to `half`, `bfloat16`, or another reduced-precision output without making the numerical boundary obvious in the local patch.
+    category: correctness
+    trigger_patterns: [cuda_tensor_mixed_precision_boundary]
+    fix_guidance: Keep the accumulation type and the final narrowing boundary explicit, and make any saturation, rounding, or range assumption visible near the epilogue that stores the result.
+    base_score: 0.9
+    severity_default: 0.91
+    priority_tier: high
+    specificity: 0.88
+    false_positive_risk: medium
+  - rule_no: CUDA.TC.REF.1
+    section: CUDATCREF
+    title: Tensor Core fast paths should gate architecture support and fallback kernels explicitly
+    summary: Tensor Core enablement often depends on SM capability, tile shape, and datatype support that span more than one line of code.
+    text: Keep architecture gating, fallback kernels, and datatype-shape compatibility visible enough that reviewers can tell whether the Tensor Core fast path is optional optimization or required correctness behavior.
+    category: process
+    reviewability: reference_only
+    applies_to: [code, diff, docs]
+    false_positive_risk: medium
+    base_score: 0.56
+    severity_default: 0.56
+  - rule_no: CUDA.TC.REF.2
+    section: CUDATCREF
+    title: WMMA fragments should stay local and materialize to memory across wider interfaces
+    summary: Fragment layout is intentionally opaque, so cross-boundary reuse is better expressed through stored tiles than through fragment internals.
+    text: Prefer boundaries where fragment objects stay local to one kernel scope and wider interfaces exchange explicit memory-backed tiles instead of depending on fragment layout details that may vary across architectures and compilation units.
+    category: process
+    reviewability: reference_only
+    applies_to: [code, diff, docs]
+    false_positive_risk: medium
+    base_score: 0.55
+    severity_default: 0.55

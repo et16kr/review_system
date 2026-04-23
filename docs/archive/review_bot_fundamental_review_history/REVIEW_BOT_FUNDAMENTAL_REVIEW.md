@@ -254,7 +254,7 @@ GitLab Note Hook
 
 ### 3.7 장기 (Defer)
 
-- **Cross-repo analysis.** CodeRabbit이 3월에 출시한 기능. Altibase처럼 단일 repo가 크면 가치 낮음. 우선순위 낮음.
+- **Cross-repo analysis.** CodeRabbit이 3월에 출시한 기능. 단일 repo가 매우 크면 가치가 낮아 우선순위가 낮다.
 - **Multi-lang 확장.** 현재 C++ 가정이 박혀 있음 (`CPP_EXTENSIONS`). 시기가 올 때까지 defer.
 - **IDE 통합.** Sourcery처럼 editor에서 실시간 리뷰는 별개 product 영역. 현 단계에선 scope out.
 
@@ -379,19 +379,19 @@ review:
     suggestion: 0.6
     nitpick: 0.4
   collapsed_severities: [nitpick, suggestion]
-  allowed_rules: [ALTI-MEM-007]
-  suppressed_rules: [ALTI-STYLE-012]
+  allowed_rules: [ORG-MEM-007]
+  suppressed_rules: [ORG-STYLE-012]
 
 paths:
   - glob: "tests/**"
     score_adjustment: -0.2
-    suppress_rules: [ALTI-PERF-001]
+    suppress_rules: [ORG-PERF-001]
   - glob: "src/security/**"
     minimum_score: 0.8
-    promote_rules: [ALTI-SEC-*]
+    promote_rules: [ORG-SEC-*]
 
 instructions: |
-  이 repo는 Altibase storage engine 코어다.
+  이 repo는 대규모 storage engine 코어다.
   - 메모리 소유권과 예외 안전이 최우선.
   - 테스트 코드의 스타일 지적은 피한다.
   - suggestion 블록은 반드시 컴파일 가능해야 한다.

@@ -375,10 +375,14 @@ class LanguageRegistry:
             return None
         name = Path(file_path).name
         lowered_name = name.lower()
+        best_match: tuple[int, LanguageRegistryEntry] | None = None
         for entry in self._entries.values():
-            if any(lowered_name.endswith(ext) for ext in entry.file_extensions):
-                return entry
-        return None
+            for ext in entry.file_extensions:
+                if not lowered_name.endswith(ext):
+                    continue
+                if best_match is None or len(ext) > best_match[0]:
+                    best_match = (len(ext), entry)
+        return best_match[1] if best_match is not None else None
 
     def _match_by_shebang(self, source_text: str) -> LanguageRegistryEntry | None:
         first_line = source_text.splitlines()[0].strip() if source_text else ""

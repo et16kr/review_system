@@ -101,13 +101,8 @@ def _build_extension_root(tmp_path: Path) -> Path:
     return root
 
 
-def test_public_ingest_uses_canonical_yaml_without_internal_markdown(fixture_settings, tmp_path) -> None:
-    settings = replace(
-        fixture_settings,
-        internal_guideline_path=tmp_path / "missing" / "legacy-test-fixture.md",
-    )
-
-    summary = ingest_all_sources(settings)
+def test_public_ingest_uses_canonical_yaml_rule_root(fixture_settings) -> None:
+    summary = ingest_all_sources(fixture_settings)
 
     assert summary.total_parsed >= summary.cpp_core_records
     assert summary.active_records > 0
@@ -364,3 +359,254 @@ def test_rerank_prefers_priority_tier_and_pack_weight_over_legacy_authority(
 
     assert [candidate.record.rule_no for candidate in ranked] == ["ORG.MEM.1", "R.11"]
     assert ranked[0].pack_weight_score == pytest.approx(0.97)
+
+
+def test_rerank_prefers_direct_hint_before_static_specificity_within_same_tier(
+    fixture_settings,
+) -> None:
+    analysis = QueryAnalysis(
+        input_kind="code",
+        query_text="react hook stale capture and deps suppression",
+        language_id="typescript",
+        query_plugin_id="typescript",
+        patterns=[
+            QueryPattern(
+                name="hooks_exhaustive_deps_disable",
+                description="React hooks exhaustive-deps suppression detected.",
+                weight=1.0,
+            )
+        ],
+    )
+    policy = PriorityPolicy(policy_id="typescript_default", language_id="typescript")
+    generic_candidate = CandidateHit(
+        record=GuidelineRecord(
+            id="ts_api_design:TS.API.REF.2",
+            rule_no="TS.API.REF.2",
+            source="fixture",
+            pack_id="ts_api_design",
+            source_kind="public_standard",
+            source_family="ts_api_design",
+            authority="external",
+            section="TS.API",
+            title="Use stable list identity in React rendering",
+            text="Stable list keys keep render state predictable.",
+            summary="Stable list keys improve rendering consistency.",
+            keywords=["react", "list", "key"],
+            base_score=0.9,
+            priority_tier="default",
+            pack_weight=0.84,
+            specificity=0.97,
+            severity_default=0.7,
+            conflict_action="compatible",
+            category="state_management",
+            trigger_patterns=["jsx_index_key"],
+        ),
+        distance=0.18,
+        similarity_score=0.61,
+    )
+    hinted_candidate = CandidateHit(
+        record=GuidelineRecord(
+            id="ts_api_design:TS.API.8",
+            rule_no="TS.API.8",
+            source="fixture",
+            pack_id="ts_api_design",
+            source_kind="public_standard",
+            source_family="ts_api_design",
+            authority="external",
+            section="TS.API",
+            title="Do not suppress exhaustive-deps without a local ownership argument",
+            text="Suppressing exhaustive-deps can hide stale captures and effect ownership bugs.",
+            summary="React effect dependencies should stay explicit.",
+            keywords=["react", "effect", "deps", "stale"],
+            base_score=0.82,
+            priority_tier="default",
+            pack_weight=0.84,
+            specificity=0.68,
+            severity_default=0.86,
+            conflict_action="compatible",
+            category="process",
+            trigger_patterns=["hooks_exhaustive_deps_disable"],
+        ),
+        distance=0.31,
+        similarity_score=0.73,
+    )
+
+    ranked = rerank_candidates(
+        [generic_candidate, hinted_candidate],
+        analysis,
+        fixture_settings,
+        top_k=2,
+        policy=policy,
+    )
+
+    assert [candidate.record.rule_no for candidate in ranked] == ["TS.API.8", "TS.API.REF.2"]
+    assert ranked[0].pattern_boost == pytest.approx(1.0)
+
+
+def test_rerank_prefers_similarity_before_specificity_when_no_direct_hint_exists(
+    fixture_settings,
+) -> None:
+    analysis = QueryAnalysis(
+        input_kind="code",
+        query_text="validated request contract at the HTTP boundary",
+        language_id="python",
+        query_plugin_id="python",
+        patterns=[],
+    )
+    policy = PriorityPolicy(policy_id="python_default", language_id="python")
+    more_specific_but_less_similar = CandidateHit(
+        record=GuidelineRecord(
+            id="pep8_python:PY.4",
+            rule_no="PY.4",
+            source="fixture",
+            pack_id="pep8_python",
+            source_kind="public_standard",
+            source_family="pep8_python",
+            authority="external",
+            section="PY",
+            title="Prefer clear and direct control flow",
+            text="Control flow should stay obvious.",
+            summary="Direct control flow is easier to maintain.",
+            keywords=["clarity", "control-flow"],
+            base_score=0.9,
+            priority_tier="default",
+            pack_weight=0.82,
+            specificity=0.96,
+            severity_default=0.7,
+            conflict_action="compatible",
+            category="process",
+        ),
+        distance=0.17,
+        similarity_score=0.43,
+    )
+    less_specific_but_more_similar = CandidateHit(
+        record=GuidelineRecord(
+            id="fastapi_service:PY.FAPI.2",
+            rule_no="PY.FAPI.2",
+            source="fixture",
+            pack_id="fastapi_service",
+            source_kind="public_standard",
+            source_family="fastapi_service",
+            authority="external",
+            section="PY.FAPI",
+            title="Validate FastAPI request payloads with typed models",
+            text="FastAPI request boundaries should stay schema-driven.",
+            summary="Typed request models keep handler contracts explicit.",
+            keywords=["fastapi", "request", "schema", "validation", "boundary"],
+            base_score=0.82,
+            priority_tier="default",
+            pack_weight=0.92,
+            specificity=0.74,
+            severity_default=0.82,
+            conflict_action="compatible",
+            category="security",
+        ),
+        distance=0.23,
+        similarity_score=0.79,
+    )
+
+    ranked = rerank_candidates(
+        [more_specific_but_less_similar, less_specific_but_more_similar],
+        analysis,
+        fixture_settings,
+        top_k=2,
+        policy=policy,
+    )
+
+    assert [candidate.record.rule_no for candidate in ranked] == ["PY.FAPI.2", "PY.4"]
+
+
+def test_rerank_prefers_exact_trigger_pattern_match_before_keyword_overlap(
+    fixture_settings,
+) -> None:
+    analysis = QueryAnalysis(
+        input_kind="code",
+        query_text="django html escaping bypass at the render boundary",
+        language_id="python",
+        query_plugin_id="python",
+        patterns=[
+            QueryPattern(
+                name="django_mark_safe",
+                description="mark_safe bypasses template escaping",
+                weight=0.96,
+            )
+        ],
+    )
+    policy = PriorityPolicy(policy_id="python_default", language_id="python")
+    exact_trigger_candidate = CandidateHit(
+        record=GuidelineRecord(
+            id="django_service:PY.DJ.4",
+            rule_no="PY.DJ.4",
+            source="fixture",
+            pack_id="django_service",
+            source_kind="public_standard",
+            source_family="django_service",
+            authority="external",
+            section="PYDJ",
+            title="mark_safe should stay exceptional",
+            text="mark_safe bypasses escaping at an HTML trust boundary.",
+            summary="mark_safe widens XSS review scope.",
+            keywords=["django", "template", "escaping", "xss"],
+            base_score=0.82,
+            priority_tier="default",
+            pack_weight=0.82,
+            specificity=0.72,
+            severity_default=0.86,
+            conflict_action="compatible",
+            category="security",
+            trigger_patterns=["django_mark_safe"],
+        ),
+        distance=0.28,
+        similarity_score=0.62,
+    )
+    keyword_overlap_candidate = CandidateHit(
+        record=GuidelineRecord(
+            id="project_python:PY.PROJ.8",
+            rule_no="PY.PROJ.8",
+            source="fixture",
+            pack_id="project_python",
+            source_kind="public_standard",
+            source_family="project_python",
+            authority="external",
+            section="PYPROJ",
+            title="Document explicit trust boundaries",
+            text="Trust boundaries should stay obvious in Python services.",
+            summary="Keep boundary ownership explicit near rendering and parsing code.",
+            keywords=["trust", "boundary", "escaping", "rendering"],
+            base_score=0.9,
+            priority_tier="default",
+            pack_weight=0.88,
+            specificity=0.94,
+            severity_default=0.8,
+            conflict_action="compatible",
+            category="process",
+        ),
+        distance=0.19,
+        similarity_score=0.77,
+    )
+
+    ranked = rerank_candidates(
+        [keyword_overlap_candidate, exact_trigger_candidate],
+        analysis,
+        fixture_settings,
+        top_k=2,
+        policy=policy,
+    )
+
+    assert [candidate.record.rule_no for candidate in ranked] == ["PY.DJ.4", "PY.PROJ.8"]
+    assert ranked[0].pattern_boost > 0.9
+    assert ranked[0].pattern_boost > ranked[1].pattern_boost
+
+
+def test_prompt_composer_loads_profile_and_context_overlays_for_new_multilang_profiles() -> None:
+    composer = PromptComposer()
+
+    prompt = composer.compose(
+        language_id="typescript",
+        profile_id="nextjs_frontend",
+        context_id="app_router",
+    )
+
+    assert "TypeScript 검토 시 특히 아래를 중요하게 봅니다." in prompt
+    assert "Next.js 프론트엔드 검토 시 특히 아래를 중요하게 봅니다." in prompt
+    assert "이 파일은 Next.js `app router` 컨텍스트입니다." in prompt

@@ -1,6 +1,7 @@
 from review_engine.query.languages.bash import PLUGIN as BASH_PLUGIN
 from review_engine.query.languages.c import PLUGIN as C_PLUGIN
 from review_engine.query.languages.cpp import PLUGIN as CPP_PLUGIN
+from review_engine.query.languages.cuda import PLUGIN as CUDA_PLUGIN
 from review_engine.query.languages.dockerfile import PLUGIN as DOCKERFILE_PLUGIN
 from review_engine.query.languages.go import PLUGIN as GO_PLUGIN
 from review_engine.query.languages.java import PLUGIN as JAVA_PLUGIN
@@ -18,6 +19,7 @@ BUILTIN_QUERY_PLUGINS = {
         SHARED_PLUGIN,
         CPP_PLUGIN,
         C_PLUGIN,
+        CUDA_PLUGIN,
         PYTHON_PLUGIN,
         TYPESCRIPT_PLUGIN,
         JAVASCRIPT_PLUGIN,

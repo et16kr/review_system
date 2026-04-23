@@ -23,7 +23,7 @@ def extract_chunks(file_path: str, content: str) -> list[dict]:
         file_path=file_path,
         source_text=content,
     ).language_id
-    if language_id in {"cpp", "c", "typescript", "javascript", "java", "go", "rust"}:
+    if language_id in {"cpp", "c", "cuda", "typescript", "javascript", "java", "go", "rust"}:
         return _extract_structured_chunks(file_path, content, _BRACE_FUNC_RE)
     if language_id == "python":
         return _extract_structured_chunks(file_path, content, _PYTHON_BLOCK_RE)

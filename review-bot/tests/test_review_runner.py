@@ -43,7 +43,7 @@ def test_review_runner_publishes_inline_comment_and_persists_thread_state() -> N
     key = runner._legacy_key(101)  # noqa: SLF001
     adapter.set_diff(key, path="src/a.cpp", patch=_malloc_patch())
     runner.platform_client = adapter
-    runner.engine_client = EngineStub([_result("ALTI-MEM-007", category="memory")])
+    runner.engine_client = EngineStub([_result("R.10", category="memory")])
     runner.provider = FixedProvider()
 
     session = SessionLocal()
@@ -82,7 +82,7 @@ def test_review_runner_keeps_distinct_findings_per_hunk() -> None:
     key = runner._legacy_key(202)  # noqa: SLF001
     adapter.set_diff(key, path="src/a.cpp", patch=_multi_hunk_malloc_patch())
     runner.platform_client = adapter
-    runner.engine_client = EngineStub([_result("ALTI-MEM-007", category="memory")])
+    runner.engine_client = EngineStub([_result("R.10", category="memory")])
     runner.provider = FixedProvider()
 
     session = SessionLocal()
@@ -90,7 +90,7 @@ def test_review_runner_keeps_distinct_findings_per_hunk() -> None:
         runner.run_review(session, pr_id=202, trigger="test-hunks")
         findings = (
             session.query(FindingDecision)
-            .filter_by(review_request_id="202", rule_no="ALTI-MEM-007")
+            .filter_by(review_request_id="202", rule_no="R.10")
             .order_by(FindingDecision.line_no.asc())
             .all()
         )
@@ -110,7 +110,7 @@ def test_full_rerun_does_not_reply_again_to_unchanged_open_thread_by_default() -
     key = runner._legacy_key(404)  # noqa: SLF001
     adapter.set_diff(key, path="src/a.cpp", patch=_malloc_patch())
     runner.platform_client = adapter
-    runner.engine_client = EngineStub([_result("ALTI-MEM-007", category="memory")])
+    runner.engine_client = EngineStub([_result("R.10", category="memory")])
     runner.provider = FixedProvider(summary_suffix="same")
 
     session = SessionLocal()
@@ -146,7 +146,7 @@ def test_review_runner_replies_to_existing_thread_when_body_changes_but_anchor_i
     adapter.set_diff(key, path="src/a.cpp", patch=_malloc_patch())
     provider = FixedProvider(summary_suffix="v1")
     runner.platform_client = adapter
-    runner.engine_client = EngineStub([_result("ALTI-MEM-007", category="memory")])
+    runner.engine_client = EngineStub([_result("R.10", category="memory")])
     runner.provider = provider
 
     session = SessionLocal()
@@ -174,15 +174,15 @@ def test_review_runner_prioritizes_existing_thread_update_before_new_finding_whe
     key = runner._legacy_key(555)  # noqa: SLF001
     adapter.set_diff(key, path="src/a.cpp", patch=_malloc_patch(), head_sha="head-a")
     runner.platform_client = adapter
-    runner.engine_client = EngineStub([_result("ALTI-MEM-007", category="memory", score=0.8)])
+    runner.engine_client = EngineStub([_result("R.10", category="memory", score=0.8)])
     provider = ScenarioProvider(
         {
-            ("src/a.cpp", "ALTI-MEM-007"): FindingDraft(
+            ("src/a.cpp", "R.10"): FindingDraft(
                 title="메모리를 직접 할당하고 해제하고 있습니다",
                 summary="첫 번째 게시입니다.",
                 suggested_fix="RAII 또는 프로젝트 표준 wrapper로 옮겨 주세요.",
             ),
-            ("src/b.cpp", "ALTI-COF-001"): FindingDraft(
+            ("src/b.cpp", "ES.77"): FindingDraft(
                 title="루프 흐름이 `continue`에 의존하고 있습니다",
                 summary="새로운 제어 흐름 finding입니다.",
                 suggested_fix="조건 분기를 명시적으로 정리해 주세요.",
@@ -203,15 +203,15 @@ def test_review_runner_prioritizes_existing_thread_update_before_new_finding_whe
             ],
             head_sha="head-b",
         )
-        provider.mapping[("src/a.cpp", "ALTI-MEM-007")] = FindingDraft(
+        provider.mapping[("src/a.cpp", "R.10")] = FindingDraft(
             title="메모리를 직접 할당하고 해제하고 있습니다",
             summary="기존 thread를 먼저 갱신해야 합니다.",
             suggested_fix="RAII 또는 프로젝트 표준 wrapper로 옮겨 주세요.",
         )
         runner.engine_client = SequentialEngineStub(
             [
-                [_result("ALTI-MEM-007", category="memory", score=0.75)],
-                [_result("ALTI-COF-001", category="control_flow", score=0.99)],
+                [_result("R.10", category="memory", score=0.75)],
+                [_result("ES.77", category="control_flow", score=0.99)],
             ]
         )
 
@@ -248,15 +248,15 @@ def test_review_runner_does_not_spend_batch_slot_on_unchanged_open_thread() -> N
     key = runner._legacy_key(556)  # noqa: SLF001
     adapter.set_diff(key, path="src/a.cpp", patch=_malloc_patch(), head_sha="head-a")
     runner.platform_client = adapter
-    runner.engine_client = EngineStub([_result("ALTI-MEM-007", category="memory", score=0.8)])
+    runner.engine_client = EngineStub([_result("R.10", category="memory", score=0.8)])
     provider = ScenarioProvider(
         {
-            ("src/a.cpp", "ALTI-MEM-007"): FindingDraft(
+            ("src/a.cpp", "R.10"): FindingDraft(
                 title="메모리를 직접 할당하고 해제하고 있습니다",
                 summary="변화가 없는 기존 thread입니다.",
                 suggested_fix="RAII 또는 프로젝트 표준 wrapper로 옮겨 주세요.",
             ),
-            ("src/b.cpp", "ALTI-COF-001"): FindingDraft(
+            ("src/b.cpp", "ES.77"): FindingDraft(
                 title="루프 흐름이 `continue`에 의존하고 있습니다",
                 summary="새 finding을 우선 게시해야 합니다.",
                 suggested_fix="조건 분기를 명시적으로 정리해 주세요.",
@@ -279,8 +279,8 @@ def test_review_runner_does_not_spend_batch_slot_on_unchanged_open_thread() -> N
         )
         runner.engine_client = SequentialEngineStub(
             [
-                [_result("ALTI-MEM-007", category="memory", score=0.8)],
-                [_result("ALTI-COF-001", category="control_flow", score=0.99)],
+                [_result("R.10", category="memory", score=0.8)],
+                [_result("ES.77", category="control_flow", score=0.99)],
             ]
         )
 
@@ -314,6 +314,74 @@ def test_review_runner_does_not_spend_batch_slot_on_unchanged_open_thread() -> N
         session.close()
 
 
+def test_review_runner_interleaves_files_before_second_comment_on_same_file() -> None:
+    _reset_db()
+
+    runner = ReviewRunner()
+    runner.settings = dataclass_replace(runner.settings, batch_size=2, file_comment_cap=2)
+    adapter = FakeAdapter()
+    key = runner._legacy_key(557)  # noqa: SLF001
+    adapter.set_files_diff(
+        key,
+        files=[
+            {"path": "src/a.cpp", "patch": _malloc_patch()},
+            {"path": "src/b.cpp", "patch": _continue_patch()},
+        ],
+        head_sha="head-density",
+    )
+    runner.platform_client = adapter
+    runner.engine_client = SequentialEngineStub(
+        [
+            [
+                _result("R.10", category="memory", score=0.99),
+                _result("ES.77", category="control_flow", score=0.98),
+            ],
+            [_result("NAME.TEST.001", category="naming", score=0.80)],
+        ]
+    )
+    runner.provider = ScenarioProvider(
+        {
+            ("src/a.cpp", "R.10"): FindingDraft(
+                title="직접 메모리 관리가 보입니다",
+                summary="첫 번째 파일의 핵심 finding입니다.",
+                suggested_fix="RAII로 교체하세요.",
+            ),
+            ("src/a.cpp", "ES.77"): FindingDraft(
+                title="흐름 제어가 분산되어 있습니다",
+                summary="같은 파일의 두 번째 finding입니다.",
+                suggested_fix="분기 구조를 단순화하세요.",
+            ),
+            ("src/b.cpp", "NAME.TEST.001"): FindingDraft(
+                title="이름이 역할을 충분히 드러내지 않습니다",
+                summary="다른 파일 finding입니다.",
+                suggested_fix="역할이 드러나는 이름으로 바꾸세요.",
+            ),
+        }
+    )
+
+    session = SessionLocal()
+    try:
+        runner.run_review(session, pr_id=557, trigger="density")
+        findings = (
+            session.query(FindingDecision)
+            .filter_by(review_request_id="557")
+            .order_by(FindingDecision.file_path.asc(), FindingDecision.rule_no.asc())
+            .all()
+        )
+
+        assert [request.anchor.file_path for request in adapter.upsert_requests] == [
+            "src/a.cpp",
+            "src/b.cpp",
+        ]
+        assert [item.file_path for item in findings if item.state == "published"] == [
+            "src/a.cpp",
+            "src/b.cpp",
+        ]
+        assert [item.file_path for item in findings if item.state == "eligible"] == ["src/a.cpp"]
+    finally:
+        session.close()
+
+
 def test_review_runner_resolves_stale_thread_when_finding_is_no_longer_auto_publishable() -> None:
     _reset_db()
 
@@ -321,7 +389,7 @@ def test_review_runner_resolves_stale_thread_when_finding_is_no_longer_auto_publ
     adapter = FakeAdapter()
     key = runner._legacy_key(606)  # noqa: SLF001
     adapter.set_diff(key, path="src/a.cpp", patch=_malloc_patch())
-    engine = EngineStub([_result("ALTI-MEM-007", category="memory")])
+    engine = EngineStub([_result("R.10", category="memory")])
     runner.platform_client = adapter
     runner.engine_client = engine
     runner.provider = FixedProvider()
@@ -329,7 +397,7 @@ def test_review_runner_resolves_stale_thread_when_finding_is_no_longer_auto_publ
     session = SessionLocal()
     try:
         runner.run_review(session, pr_id=606, trigger="first")
-        engine.results = [_result("ALTI-MEM-007", category="memory", reviewability="manual_only")]
+        engine.results = [_result("R.10", category="memory", reviewability="manual_only")]
         review_run = runner.run_review(session, pr_id=606, trigger="second")
 
         thread_state = session.query(ThreadSyncState).one()
@@ -361,7 +429,7 @@ def test_incremental_sync_does_not_resolve_threads_for_untouched_files() -> None
     key = runner._legacy_key(616)  # noqa: SLF001
     adapter.set_diff(key, path="src/a.cpp", patch=_malloc_patch(), head_sha="head-a")
     runner.platform_client = adapter
-    runner.engine_client = EngineStub([_result("ALTI-MEM-007", category="memory")])
+    runner.engine_client = EngineStub([_result("R.10", category="memory")])
     runner.provider = FixedProvider()
 
     session = SessionLocal()
@@ -400,7 +468,7 @@ def test_review_runner_collects_feedback_events_from_resolved_threads_and_human_
     key = runner._legacy_key(707)  # noqa: SLF001
     adapter.set_diff(key, path="src/a.cpp", patch=_malloc_patch())
     runner.platform_client = adapter
-    runner.engine_client = EngineStub([_result("ALTI-MEM-007", category="memory")])
+    runner.engine_client = EngineStub([_result("R.10", category="memory")])
     runner.provider = FixedProvider()
 
     session = SessionLocal()
@@ -432,7 +500,7 @@ def test_feedback_command_metric_counts_unique_event_key_once() -> None:
     key = runner._legacy_key(7071)  # noqa: SLF001
     adapter.set_diff(key, path="src/a.cpp", patch=_malloc_patch())
     runner.platform_client = adapter
-    runner.engine_client = EngineStub([_result("ALTI-MEM-007", category="memory")])
+    runner.engine_client = EngineStub([_result("R.10", category="memory")])
     runner.provider = FixedProvider()
 
     baseline = _counter_value(feedback_commands_total, command="later")
@@ -463,7 +531,7 @@ def test_verify_reject_suppresses_candidate_and_records_metrics() -> None:
     key = runner._legacy_key(7072)  # noqa: SLF001
     adapter.set_diff(key, path="src/a.cpp", patch=_malloc_patch())
     runner.platform_client = adapter
-    runner.engine_client = EngineStub([_result("ALTI-MEM-007", category="memory", score=0.7)])
+    runner.engine_client = EngineStub([_result("R.10", category="memory", score=0.7)])
     runner.provider = VerifyScenarioProvider(
         verify_result=VerifyDraftResult(applies=False, reason="not_a_real_bug")
     )
@@ -510,7 +578,7 @@ def test_verify_execution_error_fails_open_and_keeps_publish() -> None:
     key = runner._legacy_key(7073)  # noqa: SLF001
     adapter.set_diff(key, path="src/a.cpp", patch=_malloc_patch())
     runner.platform_client = adapter
-    runner.engine_client = EngineStub([_result("ALTI-MEM-007", category="memory", score=0.7)])
+    runner.engine_client = EngineStub([_result("R.10", category="memory", score=0.7)])
     runner.provider = VerifyScenarioProvider(verify_error=RuntimeError("verify execution failed"))
 
     attempts_before = _counter_value(verify_attempts_total, mode="llm_self_check")
@@ -555,7 +623,7 @@ def test_verify_execution_error_reason_alias_fails_open_and_keeps_publish() -> N
     key = runner._legacy_key(70731)  # noqa: SLF001
     adapter.set_diff(key, path="src/a.cpp", patch=_malloc_patch())
     runner.platform_client = adapter
-    runner.engine_client = EngineStub([_result("ALTI-MEM-007", category="memory", score=0.7)])
+    runner.engine_client = EngineStub([_result("R.10", category="memory", score=0.7)])
     runner.provider = VerifyScenarioProvider(
         verify_result=VerifyDraftResult(applies=False, reason="execution error")
     )
@@ -633,13 +701,13 @@ def test_fallback_provider_verify_failure_does_not_disable_primary_build_draft()
             suggested_fix=None,
         ),
         file_path="src/a.cpp",
-        rule_no="ALTI-MEM-007",
+        rule_no="R.10",
         title="memory finding",
         summary="memory summary",
     )
     draft = provider.build_draft(
         file_path="src/a.cpp",
-        rule_no="ALTI-MEM-007",
+        rule_no="R.10",
         title="memory finding",
         summary="memory summary",
     )
@@ -663,7 +731,7 @@ def test_review_runner_waits_for_expected_head_on_gitlab_note_trigger(monkeypatc
     stale_head_sha = "stale-head"
     adapter.set_diff(key, path="src/a.cpp", patch=_malloc_patch(), head_sha=stale_head_sha)
     runner.platform_client = adapter
-    runner.engine_client = EngineStub([_result("ALTI-MEM-007", category="memory")])
+    runner.engine_client = EngineStub([_result("R.10", category="memory")])
     runner.provider = FixedProvider()
 
     key_tuple = _key_tuple(key)
@@ -740,7 +808,7 @@ def test_resolution_classifier_marks_fixed_in_followup_commit_and_records_lifecy
     key = runner._legacy_key(7074)  # noqa: SLF001
     adapter.set_diff(key, path="src/a.cpp", patch=_malloc_patch(), head_sha="head-a")
     runner.platform_client = adapter
-    runner.engine_client = EngineStub([_result("ALTI-MEM-007", category="memory")])
+    runner.engine_client = EngineStub([_result("R.10", category="memory")])
     runner.provider = FixedProvider()
 
     session = SessionLocal()
@@ -756,7 +824,7 @@ def test_resolution_classifier_marks_fixed_in_followup_commit_and_records_lifecy
             head_sha="head-b",
         )
         runner.engine_client = EngineStub(
-            [_result("ALTI-MEM-007", category="memory", reviewability="manual_only")]
+            [_result("R.10", category="memory", reviewability="manual_only")]
         )
 
         runner.run_review(session, pr_id=7074, trigger="resolved-with-fix")
@@ -787,7 +855,7 @@ def test_resolution_classifier_marks_remote_resolved_manual_only_when_diff_does_
     key = runner._legacy_key(7075)  # noqa: SLF001
     adapter.set_diff(key, path="src/a.cpp", patch=_malloc_patch(), head_sha="head-a")
     runner.platform_client = adapter
-    runner.engine_client = EngineStub([_result("ALTI-MEM-007", category="memory")])
+    runner.engine_client = EngineStub([_result("R.10", category="memory")])
     runner.provider = FixedProvider()
 
     session = SessionLocal()
@@ -803,7 +871,7 @@ def test_resolution_classifier_marks_remote_resolved_manual_only_when_diff_does_
             head_sha="head-b",
         )
         runner.engine_client = EngineStub(
-            [_result("ALTI-MEM-007", category="memory", reviewability="manual_only")]
+            [_result("R.10", category="memory", reviewability="manual_only")]
         )
 
         runner.run_review(session, pr_id=7075, trigger="resolved-manual")
@@ -832,7 +900,7 @@ def test_review_runner_recovers_stale_thread_after_resolve_failure_when_remote_t
     key = runner._legacy_key(708)  # noqa: SLF001
     adapter.set_diff(key, path="src/a.cpp", patch=_malloc_patch())
     runner.platform_client = adapter
-    runner.engine_client = EngineStub([_result("ALTI-MEM-007", category="memory")])
+    runner.engine_client = EngineStub([_result("R.10", category="memory")])
     runner.provider = FixedProvider()
 
     session = SessionLocal()
@@ -841,7 +909,7 @@ def test_review_runner_recovers_stale_thread_after_resolve_failure_when_remote_t
 
         adapter.fail_resolve_refs.add("thread-1")
         runner.engine_client = EngineStub(
-            [_result("ALTI-MEM-007", category="memory", reviewability="manual_only")]
+            [_result("R.10", category="memory", reviewability="manual_only")]
         )
         runner.run_review(session, pr_id=708, trigger="resolve-fails")
 
@@ -850,7 +918,7 @@ def test_review_runner_recovers_stale_thread_after_resolve_failure_when_remote_t
         assert stale_state.resolution_reason == "resolve_failed"
 
         adapter.fail_resolve_refs.clear()
-        runner.engine_client = EngineStub([_result("ALTI-MEM-007", category="memory")])
+        runner.engine_client = EngineStub([_result("R.10", category="memory")])
         runner.run_review(session, pr_id=708, trigger="recovered")
 
         thread_state = session.query(ThreadSyncState).filter_by(review_request_id="708").one()
@@ -874,7 +942,7 @@ def test_review_runner_persists_manual_reopen_without_posting_redundant_bot_repl
     key = runner._legacy_key(709)  # noqa: SLF001
     adapter.set_diff(key, path="src/a.cpp", patch=_malloc_patch())
     runner.platform_client = adapter
-    runner.engine_client = EngineStub([_result("ALTI-MEM-007", category="memory")])
+    runner.engine_client = EngineStub([_result("R.10", category="memory")])
     runner.provider = FixedProvider()
 
     session = SessionLocal()
@@ -883,12 +951,12 @@ def test_review_runner_persists_manual_reopen_without_posting_redundant_bot_repl
 
         adapter.mark_resolved(key, "thread-1", resolved=True)
         runner.engine_client = EngineStub(
-            [_result("ALTI-MEM-007", category="memory", reviewability="manual_only")]
+            [_result("R.10", category="memory", reviewability="manual_only")]
         )
         runner.run_review(session, pr_id=709, trigger="resolved")
 
         adapter.mark_resolved(key, "thread-1", resolved=False)
-        runner.engine_client = EngineStub([_result("ALTI-MEM-007", category="memory")])
+        runner.engine_client = EngineStub([_result("R.10", category="memory")])
         runner.run_review(session, pr_id=709, trigger="manual-reopen")
 
         thread_state = session.query(ThreadSyncState).filter_by(review_request_id="709").one()
@@ -910,7 +978,7 @@ def test_reopen_records_immutable_lifecycle_event_without_erasing_fixed_history(
     key = runner._legacy_key(7091)  # noqa: SLF001
     adapter.set_diff(key, path="src/a.cpp", patch=_malloc_patch(), head_sha="head-a")
     runner.platform_client = adapter
-    runner.engine_client = EngineStub([_result("ALTI-MEM-007", category="memory")])
+    runner.engine_client = EngineStub([_result("R.10", category="memory")])
     runner.provider = FixedProvider()
 
     session = SessionLocal()
@@ -926,13 +994,13 @@ def test_reopen_records_immutable_lifecycle_event_without_erasing_fixed_history(
             head_sha="head-b",
         )
         runner.engine_client = EngineStub(
-            [_result("ALTI-MEM-007", category="memory", reviewability="manual_only")]
+            [_result("R.10", category="memory", reviewability="manual_only")]
         )
         runner.run_review(session, pr_id=7091, trigger="resolved")
 
         adapter.mark_resolved(key, "thread-1", resolved=False)
         adapter.set_diff(key, path="src/a.cpp", patch=_malloc_patch(), head_sha="head-c")
-        runner.engine_client = EngineStub([_result("ALTI-MEM-007", category="memory")])
+        runner.engine_client = EngineStub([_result("R.10", category="memory")])
         runner.run_review(session, pr_id=7091, trigger="reopened")
 
         lifecycle_events = (
@@ -957,7 +1025,7 @@ def test_review_runner_records_repeated_resolve_and_unresolve_feedback_transitio
     key = runner._legacy_key(710)  # noqa: SLF001
     adapter.set_diff(key, path="src/a.cpp", patch=_malloc_patch())
     runner.platform_client = adapter
-    runner.engine_client = EngineStub([_result("ALTI-MEM-007", category="memory")])
+    runner.engine_client = EngineStub([_result("R.10", category="memory")])
     runner.provider = FixedProvider()
 
     session = SessionLocal()
@@ -966,12 +1034,12 @@ def test_review_runner_records_repeated_resolve_and_unresolve_feedback_transitio
 
         adapter.mark_resolved(key, "thread-1", resolved=True)
         runner.engine_client = EngineStub(
-            [_result("ALTI-MEM-007", category="memory", reviewability="manual_only")]
+            [_result("R.10", category="memory", reviewability="manual_only")]
         )
         runner.run_review(session, pr_id=710, trigger="resolved")
 
         adapter.mark_resolved(key, "thread-1", resolved=False)
-        runner.engine_client = EngineStub([_result("ALTI-MEM-007", category="memory")])
+        runner.engine_client = EngineStub([_result("R.10", category="memory")])
         runner.run_review(session, pr_id=710, trigger="reopened")
 
         feedback = (
@@ -999,7 +1067,7 @@ def test_resolved_unchanged_finding_stays_backlog_only_by_default() -> None:
     key = runner._legacy_key(717)  # noqa: SLF001
     adapter.set_diff(key, path="src/a.cpp", patch=_malloc_patch())
     runner.platform_client = adapter
-    runner.engine_client = EngineStub([_result("ALTI-MEM-007", category="memory")])
+    runner.engine_client = EngineStub([_result("R.10", category="memory")])
     runner.provider = FixedProvider()
 
     session = SessionLocal()
@@ -1027,7 +1095,7 @@ def test_opt_in_resurface_can_reopen_resolved_unchanged_thread() -> None:
     key = runner._legacy_key(7170)  # noqa: SLF001
     adapter.set_diff(key, path="src/a.cpp", patch=_malloc_patch())
     runner.platform_client = adapter
-    runner.engine_client = EngineStub([_result("ALTI-MEM-007", category="memory")])
+    runner.engine_client = EngineStub([_result("R.10", category="memory")])
     runner.provider = FixedProvider()
 
     session = SessionLocal()
@@ -1056,7 +1124,7 @@ def test_review_runner_suppresses_finding_when_human_feedback_requests_ignore() 
     key = runner._legacy_key(718)  # noqa: SLF001
     adapter.set_diff(key, path="src/a.cpp", patch=_malloc_patch())
     runner.platform_client = adapter
-    runner.engine_client = EngineStub([_result("ALTI-MEM-007", category="memory")])
+    runner.engine_client = EngineStub([_result("R.10", category="memory")])
     runner.provider = FixedProvider()
 
     session = SessionLocal()
@@ -1086,7 +1154,7 @@ def test_review_runner_does_not_treat_plain_text_mentions_as_feedback_commands()
     key = runner._legacy_key(719)  # noqa: SLF001
     adapter.set_diff(key, path="src/a.cpp", patch=_malloc_patch())
     runner.platform_client = adapter
-    runner.engine_client = EngineStub([_result("ALTI-MEM-007", category="memory")])
+    runner.engine_client = EngineStub([_result("R.10", category="memory")])
     runner.provider = FixedProvider()
 
     session = SessionLocal()
@@ -1120,7 +1188,7 @@ def test_review_runner_skips_unreviewable_markdown_files() -> None:
     key = runner._legacy_key(7191)  # noqa: SLF001
     adapter.set_diff(key, path="docs/README.md", patch="@@ -1 +1 @@\n-Old\n+New\n")
     runner.platform_client = adapter
-    runner.engine_client = EngineStub([_result("ALTI-MEM-007", category="memory")])
+    runner.engine_client = EngineStub([_result("R.10", category="memory")])
     runner.provider = FixedProvider()
 
     session = SessionLocal()
@@ -1142,7 +1210,7 @@ def test_review_comment_includes_detected_language_metadata() -> None:
     key = runner._legacy_key(7192)  # noqa: SLF001
     adapter.set_diff(key, path="src/a.cpp", patch=_malloc_patch())
     runner.platform_client = adapter
-    runner.engine_client = EngineStub([_result("ALTI-MEM-007", category="memory")])
+    runner.engine_client = EngineStub([_result("R.10", category="memory")])
     runner.provider = FixedProvider()
 
     session = SessionLocal()
@@ -1150,9 +1218,9 @@ def test_review_comment_includes_detected_language_metadata() -> None:
         runner.run_review(session, pr_id=7192, trigger="first")
 
         body = adapter.upsert_requests[0].body
-        assert "검토 언어: `cpp` (자동 분류)" in body
-        assert "프로필 `default`" in body
-        assert "@review-bot wrong-language <expected-language>" in body
+        assert body.startswith("[봇 리뷰][cpp] ")
+        assert "_오분류면 `@review-bot wrong-language <expected-language>`_" in body
+        assert "프로필 `default`" not in body
     finally:
         session.close()
 
@@ -1165,7 +1233,7 @@ def test_wrong_language_feedback_suppresses_future_candidate() -> None:
     key = runner._legacy_key(7193)  # noqa: SLF001
     adapter.set_diff(key, path="src/a.cpp", patch=_malloc_patch())
     runner.platform_client = adapter
-    runner.engine_client = EngineStub([_result("ALTI-MEM-007", category="memory")])
+    runner.engine_client = EngineStub([_result("R.10", category="memory")])
     runner.provider = FixedProvider()
 
     session = SessionLocal()
@@ -1305,12 +1373,634 @@ def test_review_runner_passes_language_metadata_to_provider_and_comment_body() -
         assert build_call["context_id"] == "analytics"
         assert build_call["dialect_id"] == "postgresql"
         assert "execute format" in str(build_call["file_context"])
-        assert "검토 언어: `sql` (자동 분류)" in body
+        assert body.startswith("[봇 리뷰][sql] ")
         assert "프로필 `analytics_warehouse`" in body
         assert "컨텍스트 `analytics`" in body
         assert "다이얼렉트 `postgresql`" in body
     finally:
         session.close()
+
+
+def test_review_runner_detects_framework_and_config_profiles_per_file() -> None:
+    _reset_db()
+
+    runner = ReviewRunner()
+    adapter = FakeAdapter()
+    key = runner._legacy_key(7196)  # noqa: SLF001
+    adapter.set_files_diff(
+        key,
+        files=[
+            {
+                "path": "app/api/users/route.ts",
+                "patch": "@@ -1 +1,4 @@\n-export async function POST() { return Response.json({ ok: true }); }\n+export async function POST(request: Request) {\n+  const payload = await request.json();\n+  return Response.json(payload);\n+}\n",
+            },
+            {
+                "path": "config/app/settings.yaml",
+                "patch": "@@ -1 +1 @@\n-service:\n+service:\n+  api_key: prod-secret-token\n",
+            },
+            {
+                "path": "db/migrations/postgres/V5__cleanup.sql",
+                "patch": "@@ -1 +1,4 @@\n-select 1;\n+drop table legacy_users;\n+alter table accounts drop column legacy_flag;\n+alter table orders alter column status set not null;\n+create index idx_orders_created_at on orders(created_at);\n",
+            },
+        ],
+        head_sha="head-framework",
+    )
+    adapter.set_file_content(
+        key,
+        "app/api/users/route.ts",
+        "head-framework",
+        "export async function POST(request: Request) {\n  const payload = await request.json();\n  return Response.json(payload);\n}\n",
+    )
+    adapter.set_file_content(
+        key,
+        "config/app/settings.yaml",
+        "head-framework",
+        "service:\n  api_key: prod-secret-token\n",
+    )
+    adapter.set_file_content(
+        key,
+        "db/migrations/postgres/V5__cleanup.sql",
+        "head-framework",
+        "drop table legacy_users;\nalter table accounts drop column legacy_flag;\nalter table orders alter column status set not null;\ncreate index idx_orders_created_at on orders(created_at);\n",
+    )
+    runner.platform_client = adapter
+    engine = EngineCaptureStub()
+    runner.engine_client = engine
+    runner.provider = FixedProvider()
+
+    session = SessionLocal()
+    try:
+        review_run = runner.run_review(session, pr_id=7196, trigger="first")
+        calls_by_path = {str(call["file_path"]): call for call in engine.review_calls}
+
+        assert review_run.status == "success"
+        assert calls_by_path["app/api/users/route.ts"]["language_id"] == "typescript"
+        assert calls_by_path["app/api/users/route.ts"]["profile_id"] == "nextjs_frontend"
+        assert calls_by_path["app/api/users/route.ts"]["context_id"] == "app_router"
+        assert calls_by_path["config/app/settings.yaml"]["language_id"] == "yaml"
+        assert calls_by_path["config/app/settings.yaml"]["profile_id"] == "product_config"
+        assert calls_by_path["config/app/settings.yaml"]["context_id"] == "product_config"
+        assert calls_by_path["db/migrations/postgres/V5__cleanup.sql"]["language_id"] == "sql"
+        assert calls_by_path["db/migrations/postgres/V5__cleanup.sql"]["profile_id"] == "migration_sql"
+        assert calls_by_path["db/migrations/postgres/V5__cleanup.sql"]["dialect_id"] == "postgresql"
+    finally:
+        session.close()
+
+
+def test_review_runner_passes_cuda_language_metadata() -> None:
+    _reset_db()
+
+    runner = ReviewRunner()
+    adapter = FakeAdapter()
+    key = runner._legacy_key(71961)  # noqa: SLF001
+    adapter.set_diff(
+        key,
+        path="kernels/vector_add.cu",
+        patch=(
+            "@@ -1,5 +1,9 @@\n"
+            " __global__ void accumulate(float* dst, const float* src, int n) {\n"
+            "+    extern __shared__ float scratch[];\n"
+            "     int idx = blockIdx.x * blockDim.x + threadIdx.x;\n"
+            "+    if (threadIdx.x == 0) {\n"
+            "+        __syncthreads();\n"
+            "+    }\n"
+            "     if (idx < n) {\n"
+            "-        dst[idx] = src[idx];\n"
+            "+        atomicAdd(&dst[0], src[idx]);\n"
+            "     }\n"
+            " }\n"
+        ),
+        head_sha="head-cuda",
+    )
+    adapter.set_file_content(
+        key,
+        "kernels/vector_add.cu",
+        "head-cuda",
+        (
+            "__global__ void accumulate(float* dst, const float* src, int n) {\n"
+            "    extern __shared__ float scratch[];\n"
+            "    int idx = blockIdx.x * blockDim.x + threadIdx.x;\n"
+            "    if (threadIdx.x == 0) {\n"
+            "        __syncthreads();\n"
+            "    }\n"
+            "    if (idx < n) {\n"
+            "        atomicAdd(&dst[0], src[idx]);\n"
+            "    }\n"
+            "}\n"
+        ),
+    )
+    runner.platform_client = adapter
+    runner.engine_client = EngineCaptureStub(
+        results_by_path={
+            "kernels/vector_add.cu": [_result("CUDA.3", category="correctness")]
+        }
+    )
+    provider = CaptureProvider()
+    runner.provider = provider
+
+    session = SessionLocal()
+    try:
+        runner.run_review(session, pr_id=71961, trigger="first")
+
+        assert len(provider.build_calls) == 1
+        build_call = provider.build_calls[0]
+        body = adapter.upsert_requests[0].body
+
+        assert build_call["language_id"] == "cuda"
+        assert build_call["profile_id"] == "default"
+        assert build_call["context_id"] is None
+        assert build_call["dialect_id"] is None
+        assert "atomicAdd" in str(build_call["file_context"])
+        assert body.startswith("[봇 리뷰][cuda] ")
+        assert "_오분류면 `@review-bot wrong-language <expected-language>`_" in body
+        assert "프로필 `default`" not in body
+    finally:
+        session.close()
+
+
+def test_review_runner_detects_cuda_followup_profiles() -> None:
+    _reset_db()
+
+    runner = ReviewRunner()
+    adapter = FakeAdapter()
+    key = runner._legacy_key(71962)  # noqa: SLF001
+    adapter.set_files_diff(
+        key,
+        files=[
+            {
+                "path": "kernels/cuda_async_default_stream.cu",
+                "patch": (
+                    "@@ -1,5 +1,9 @@\n"
+                    " void overlap_copy(float* host_dst, const float* device_src, size_t bytes, int iters) {\n"
+                    "   for (int i = 0; i < iters; ++i) {\n"
+                    "+    cudaStream_t stream;\n"
+                    "+    cudaStreamCreate(&stream);\n"
+                    "+    cudaMemcpyAsync(host_dst, device_src, bytes, cudaMemcpyDeviceToHost, 0);\n"
+                    "+    cudaLaunchHostFunc(stream, on_done, host_dst);\n"
+                    "+    cudaStreamDestroy(stream);\n"
+                    "   }\n"
+                    " }\n"
+                ),
+            },
+            {
+                "path": "kernels/cuda_pipeline_async_stage_drift.cu",
+                "patch": (
+                    "@@ -12,5 +12,19 @@\n"
+                    "   for (int tile = 0; tile < tiles; ++tile) {\n"
+                    "     int stage = tile % 2;\n"
+                    "     float* shared_tile = smem + stage * block.size();\n"
+                    "+    if (threadIdx.x == 0) {\n"
+                    "+      pipe.producer_acquire();\n"
+                    "+    }\n"
+                    "+    cuda::memcpy_async(block, shared_tile, in + tile * block.size(), cuda::aligned_size_t<4>(sizeof(float) * block.size()), pipe);\n"
+                    "+    consume_stage(out, shared_tile, block.size());\n"
+                    "+    if (threadIdx.x == 0) {\n"
+                    "+      pipe.producer_commit();\n"
+                    "+      pipe.consumer_wait();\n"
+                    "+    }\n"
+                    "+    if (threadIdx.x < 16) {\n"
+                    "+      ready.arrive_and_wait();\n"
+                    "+    }\n"
+                    "+    pipe.consumer_release();\n"
+                    "   }\n"
+                    " }\n"
+                ),
+            },
+            {
+                "path": "kernels/cuda_thread_block_cluster_dsm.cu",
+                "patch": (
+                    "@@ -5,7 +5,17 @@\n"
+                    " __global__ void cluster_histogram(int* bins, const int* input, int count) {\n"
+                    "   extern __shared__ int smem[];\n"
+                    "   auto cluster = cg::this_cluster();\n"
+                    "+  if (cluster.block_rank() == 0) {\n"
+                    "+    cluster.sync();\n"
+                    "+  }\n"
+                    "+  int* remote_hist = cluster.map_shared_rank(smem, (cluster.block_rank() + 1) % cluster.num_blocks());\n"
+                    "+  atomicAdd(remote_hist + (threadIdx.x % 32), 1);\n"
+                    "+  cluster.sync();\n"
+                    " }\n"
+                    " \n"
+                    " void launch_cluster_histogram(int* bins, const int* input, int count) {\n"
+                    "+  cluster_histogram<<<blocks, threads, 128 * sizeof(int)>>>(bins, input, count);\n"
+                    " }\n"
+                ),
+            },
+            {
+                "path": "kernels/cuda_tma_tensor_map_contract.cu",
+                "patch": (
+                    "@@ -8,5 +8,22 @@\n"
+                    " __global__ void load_tile_tma(CUtensorMap* tensor_map, float* out) {\n"
+                    "   __shared__ alignas(128) CUtensorMap smem_tmap;\n"
+                    "   __shared__ alignas(1024) int4 smem_tile[8][8];\n"
+                    "   __shared__ cuda::barrier<cuda::thread_scope_block> bar;\n"
+                    "+  if (threadIdx.x == 0) {\n"
+                    "+    smem_tmap = *tensor_map;\n"
+                    "+    ptx::tensormap_replace_global_address(ptx::space_shared, &smem_tmap, out);\n"
+                    "+    ptx::cp_async_bulk_tensor(\n"
+                    "+      ptx::space_shared,\n"
+                    "+      ptx::space_global,\n"
+                    "+      &smem_tile,\n"
+                    "+      tensor_map,\n"
+                    "+      coords,\n"
+                    "+      cuda::device::barrier_native_handle(bar));\n"
+                    "+    cuda::device::barrier_arrive_tx(bar, 1, sizeof(smem_tile));\n"
+                    "+  }\n"
+                    "+  consume_tile(smem_tile, out);\n"
+                    " }\n"
+                ),
+            },
+            {
+                "path": "kernels/cuda_wgmma_async_group_drift.cu",
+                "patch": (
+                    "@@ -6,5 +6,14 @@\n"
+                    " __global__ void warpgroup_gemm(const uint64_t* desc_a, const uint64_t* desc_b, half* out) {\n"
+                    "   __shared__ float accum[64];\n"
+                    "   int lane = threadIdx.x % warpSize;\n"
+                    "+  int warpgroup = threadIdx.x / 128;\n"
+                    "+  if (warpgroup == 0) {\n"
+                    "+    asm volatile(\"wgmma.mma_async.sync.aligned.m64n128k16.f32.f16.f16\");\n"
+                    "+  }\n"
+                    "+  if (lane == 0) {\n"
+                    "+    asm volatile(\"wgmma.commit_group.sync.aligned;\");\n"
+                    "+  }\n"
+                    "+  epilogue_store(out, accum);\n"
+                    "+  if (lane == 0) {\n"
+                    "+    asm volatile(\"wgmma.wait_group.sync.aligned 0;\");\n"
+                    "+  }\n"
+                    " }\n"
+                ),
+            },
+            {
+                "path": "distributed/cuda_multigpu_nccl.cu",
+                "patch": (
+                    "@@ -1,5 +1,12 @@\n"
+                    " void run_collective(float* device0, float* device1, size_t elements, cudaStream_t* streams, ncclComm_t* comms, int gpu_count) {\n"
+                    "+  for (int device = 0; device < gpu_count; ++device) {\n"
+                    "+    cudaSetDevice(device);\n"
+                    "+  }\n"
+                    "+  cudaDeviceEnablePeerAccess(1, 0);\n"
+                    "+  cudaMemcpyPeerAsync(device1, 1, device0, 0, elements * sizeof(float), streams[0]);\n"
+                    "+  ncclGroupStart();\n"
+                    "+  ncclAllReduce((const void*)device0, device0, elements, ncclFloat, ncclSum, comms[0], streams[0]);\n"
+                    "+  ncclGroupEnd();\n"
+                    " }\n"
+                ),
+            },
+            {
+                "path": "kernels/cuda_tensor_core_wmma.cu",
+                "patch": (
+                    "@@ -6,5 +6,11 @@\n"
+                    "     wmma::fragment<wmma::matrix_b, 16, 16, 16, half, wmma::col_major> b_frag;\n"
+                    "     wmma::fragment<wmma::accumulator, 16, 16, 16, float> acc_frag;\n"
+                    "+    if (lane == 0) {\n"
+                    "+        wmma::load_matrix_sync(a_frag, a, lda);\n"
+                    "+    }\n"
+                    "+    asm volatile(\"mma.sync.aligned.m16n8k16.row.col.f32.f16.f16.f32\");\n"
+                    "     wmma::load_matrix_sync(b_frag, b, ldb);\n"
+                    "     wmma::fill_fragment(acc_frag, 0.0f);\n"
+                    "     wmma::mma_sync(acc_frag, a_frag, b_frag, acc_frag);\n"
+                    "+    out[threadIdx.x] = __float2half_rn(acc_frag.x[0]);\n"
+                    " }\n"
+                ),
+            },
+            {
+                "path": "kernels/cuda_cooperative_groups_grid_sync.cu",
+                "patch": (
+                    "@@ -3,5 +3,14 @@\n"
+                    " namespace cg = cooperative_groups;\n"
+                    " \n"
+                    " __global__ void persistent_reduce(float* dst) {\n"
+                    "+  cg::thread_block block = cg::this_thread_block();\n"
+                    "+  if (threadIdx.x < 16) {\n"
+                    "+    auto tile = cg::tiled_partition<16>(block);\n"
+                    "+    tile.sync();\n"
+                    "+  }\n"
+                    "+  auto grid = cg::this_grid();\n"
+                    "+  grid.sync();\n"
+                    "+  if (threadIdx.x == 0) {\n"
+                    "+    cg::sync(block);\n"
+                    "+  }\n"
+                    "   dst[threadIdx.x] = static_cast<float>(threadIdx.x);\n"
+                    " }\n"
+                ),
+            },
+        ],
+        head_sha="head-cuda-profiles",
+    )
+    adapter.set_file_content(
+        key,
+        "kernels/cuda_async_default_stream.cu",
+        "head-cuda-profiles",
+        (
+            "void overlap_copy(float* host_dst, const float* device_src, size_t bytes, int iters) {\n"
+            "  for (int i = 0; i < iters; ++i) {\n"
+            "    cudaStream_t stream;\n"
+            "    cudaStreamCreate(&stream);\n"
+            "    cudaMemcpyAsync(host_dst, device_src, bytes, cudaMemcpyDeviceToHost, 0);\n"
+            "    cudaLaunchHostFunc(stream, on_done, host_dst);\n"
+            "    cudaStreamDestroy(stream);\n"
+            "  }\n"
+            "}\n"
+        ),
+    )
+    adapter.set_file_content(
+        key,
+        "kernels/cuda_pipeline_async_stage_drift.cu",
+        "head-cuda-profiles",
+        (
+            "#include <cuda/barrier>\n"
+            "#include <cuda/pipeline>\n"
+            "#include <cooperative_groups.h>\n"
+            "namespace cg = cooperative_groups;\n"
+            "__device__ void consume_stage(float* out, const float* tile, int count) {\n"
+            "  if (threadIdx.x < count) {\n"
+            "    out[threadIdx.x] += tile[threadIdx.x];\n"
+            "  }\n"
+            "}\n"
+            "__global__ void stage_tiles(float* out, const float* in, int tiles) {\n"
+            "  extern __shared__ float smem[];\n"
+            "  __shared__ cuda::pipeline_shared_state<cuda::thread_scope_block, 2> pipe_state;\n"
+            "  __shared__ cuda::barrier<cuda::thread_scope_block> ready;\n"
+            "  auto block = cg::this_thread_block();\n"
+            "  auto pipe = cuda::make_pipeline(block, &pipe_state);\n"
+            "  if (block.thread_rank() == 0) {\n"
+            "    init(&ready, block.size());\n"
+            "  }\n"
+            "  block.sync();\n"
+            "  for (int tile = 0; tile < tiles; ++tile) {\n"
+            "    int stage = tile % 2;\n"
+            "    float* shared_tile = smem + stage * block.size();\n"
+            "    if (threadIdx.x == 0) {\n"
+            "      pipe.producer_acquire();\n"
+            "    }\n"
+            "    cuda::memcpy_async(block, shared_tile, in + tile * block.size(), cuda::aligned_size_t<4>(sizeof(float) * block.size()), pipe);\n"
+            "    consume_stage(out, shared_tile, block.size());\n"
+            "    if (threadIdx.x == 0) {\n"
+            "      pipe.producer_commit();\n"
+            "      pipe.consumer_wait();\n"
+            "    }\n"
+            "    if (threadIdx.x < 16) {\n"
+            "      ready.arrive_and_wait();\n"
+            "    }\n"
+            "    pipe.consumer_release();\n"
+            "  }\n"
+            "}\n"
+        ),
+    )
+    adapter.set_file_content(
+        key,
+        "kernels/cuda_thread_block_cluster_dsm.cu",
+        "head-cuda-profiles",
+        (
+            "#include <cooperative_groups.h>\n"
+            "namespace cg = cooperative_groups;\n"
+            "__global__ void cluster_histogram(int* bins, const int* input, int count) {\n"
+            "  extern __shared__ int smem[];\n"
+            "  auto cluster = cg::this_cluster();\n"
+            "  if (cluster.block_rank() == 0) {\n"
+            "    cluster.sync();\n"
+            "  }\n"
+            "  int* remote_hist = cluster.map_shared_rank(smem, (cluster.block_rank() + 1) % cluster.num_blocks());\n"
+            "  atomicAdd(remote_hist + (threadIdx.x % 32), 1);\n"
+            "  cluster.sync();\n"
+            "}\n"
+            "void launch_cluster_histogram(int* bins, const int* input, int count) {\n"
+            "  dim3 blocks(6, 1, 1);\n"
+            "  dim3 threads(128, 1, 1);\n"
+            "  cluster_histogram<<<blocks, threads, 128 * sizeof(int)>>>(bins, input, count);\n"
+            "}\n"
+        ),
+    )
+    adapter.set_file_content(
+        key,
+        "kernels/cuda_tma_tensor_map_contract.cu",
+        "head-cuda-profiles",
+        (
+            "#include <cuda.h>\n"
+            "#include <cuda/barrier>\n"
+            "#include <cuda/ptx>\n"
+            "namespace ptx = cuda::ptx;\n"
+            "__device__ void consume_tile(const int4 tile[8][8], float* out) {\n"
+            "  out[threadIdx.x % 8] += static_cast<float>(tile[threadIdx.x % 8][0].x);\n"
+            "}\n"
+            "__global__ void load_tile_tma(CUtensorMap* tensor_map, float* out) {\n"
+            "  __shared__ alignas(128) CUtensorMap smem_tmap;\n"
+            "  __shared__ alignas(1024) int4 smem_tile[8][8];\n"
+            "  __shared__ cuda::barrier<cuda::thread_scope_block> bar;\n"
+            "  if (threadIdx.x == 0) {\n"
+            "    smem_tmap = *tensor_map;\n"
+            "    ptx::tensormap_replace_global_address(ptx::space_shared, &smem_tmap, out);\n"
+            "    ptx::cp_async_bulk_tensor(\n"
+            "      ptx::space_shared,\n"
+            "      ptx::space_global,\n"
+            "      &smem_tile,\n"
+            "      tensor_map,\n"
+            "      coords,\n"
+            "      cuda::device::barrier_native_handle(bar));\n"
+            "    cuda::device::barrier_arrive_tx(bar, 1, sizeof(smem_tile));\n"
+            "  }\n"
+            "  consume_tile(smem_tile, out);\n"
+            "}\n"
+        ),
+    )
+    adapter.set_file_content(
+        key,
+        "kernels/cuda_wgmma_async_group_drift.cu",
+        "head-cuda-profiles",
+        (
+            "__device__ void epilogue_store(half* out, const float* accum) {\n"
+            "  out[threadIdx.x] = __float2half_rn(accum[threadIdx.x % 64]);\n"
+            "}\n"
+            "__global__ void warpgroup_gemm(const uint64_t* desc_a, const uint64_t* desc_b, half* out) {\n"
+            "  __shared__ float accum[64];\n"
+            "  int lane = threadIdx.x % warpSize;\n"
+            "  int warpgroup = threadIdx.x / 128;\n"
+            "  if (warpgroup == 0) {\n"
+            "    asm volatile(\"wgmma.mma_async.sync.aligned.m64n128k16.f32.f16.f16\");\n"
+            "  }\n"
+            "  if (lane == 0) {\n"
+            "    asm volatile(\"wgmma.commit_group.sync.aligned;\");\n"
+            "  }\n"
+            "  epilogue_store(out, accum);\n"
+            "  if (lane == 0) {\n"
+            "    asm volatile(\"wgmma.wait_group.sync.aligned 0;\");\n"
+            "  }\n"
+            "}\n"
+        ),
+    )
+    adapter.set_file_content(
+        key,
+        "distributed/cuda_multigpu_nccl.cu",
+        "head-cuda-profiles",
+        (
+            "void run_collective(float* device0, float* device1, size_t elements, cudaStream_t* streams, ncclComm_t* comms, int gpu_count) {\n"
+            "  for (int device = 0; device < gpu_count; ++device) {\n"
+            "    cudaSetDevice(device);\n"
+            "  }\n"
+            "  cudaDeviceEnablePeerAccess(1, 0);\n"
+            "  cudaMemcpyPeerAsync(device1, 1, device0, 0, elements * sizeof(float), streams[0]);\n"
+            "  ncclGroupStart();\n"
+            "  ncclAllReduce((const void*)device0, device0, elements, ncclFloat, ncclSum, comms[0], streams[0]);\n"
+            "  ncclGroupEnd();\n"
+            "}\n"
+        ),
+    )
+    adapter.set_file_content(
+        key,
+        "kernels/cuda_tensor_core_wmma.cu",
+        "head-cuda-profiles",
+        (
+            "#include <mma.h>\n"
+            "__global__ void tensor_core_gemm(const half* a, const half* b, half* out, int lda, int ldb) {\n"
+            "  int lane = threadIdx.x % warpSize;\n"
+            "  wmma::fragment<wmma::accumulator, 16, 16, 16, float> acc_frag;\n"
+            "  if (lane == 0) {\n"
+            "    wmma::load_matrix_sync(a_frag, a, lda);\n"
+            "  }\n"
+            "  asm volatile(\"mma.sync.aligned.m16n8k16.row.col.f32.f16.f16.f32\");\n"
+            "  wmma::mma_sync(acc_frag, a_frag, b_frag, acc_frag);\n"
+            "  out[threadIdx.x] = __float2half_rn(acc_frag.x[0]);\n"
+            "}\n"
+        ),
+    )
+    adapter.set_file_content(
+        key,
+        "kernels/cuda_cooperative_groups_grid_sync.cu",
+        "head-cuda-profiles",
+        (
+            "#include <cooperative_groups.h>\n"
+            "namespace cg = cooperative_groups;\n"
+            "void persistent_reduce(float* dst) {\n"
+            "  cg::thread_block block = cg::this_thread_block();\n"
+            "  if (threadIdx.x < 16) {\n"
+            "    auto tile = cg::tiled_partition<16>(block);\n"
+            "    tile.sync();\n"
+            "  }\n"
+            "  auto grid = cg::this_grid();\n"
+            "  grid.sync();\n"
+            "  if (threadIdx.x == 0) {\n"
+            "    cg::sync(block);\n"
+            "  }\n"
+            "}\n"
+        ),
+    )
+    runner.platform_client = adapter
+    engine = EngineCaptureStub()
+    runner.engine_client = engine
+    runner.provider = FixedProvider()
+
+    session = SessionLocal()
+    try:
+        review_run = runner.run_review(session, pr_id=71962, trigger="first")
+        calls_by_path = {str(call["file_path"]): call for call in engine.review_calls}
+
+        assert review_run.status == "success"
+        assert calls_by_path["kernels/cuda_async_default_stream.cu"]["language_id"] == "cuda"
+        assert calls_by_path["kernels/cuda_async_default_stream.cu"]["profile_id"] == "cuda_async_runtime"
+        assert calls_by_path["kernels/cuda_pipeline_async_stage_drift.cu"]["language_id"] == "cuda"
+        assert calls_by_path["kernels/cuda_pipeline_async_stage_drift.cu"]["profile_id"] == "cuda_pipeline_async"
+        assert calls_by_path["kernels/cuda_thread_block_cluster_dsm.cu"]["language_id"] == "cuda"
+        assert (
+            calls_by_path["kernels/cuda_thread_block_cluster_dsm.cu"]["profile_id"]
+            == "cuda_thread_block_cluster"
+        )
+        assert calls_by_path["kernels/cuda_tma_tensor_map_contract.cu"]["language_id"] == "cuda"
+        assert calls_by_path["kernels/cuda_tma_tensor_map_contract.cu"]["profile_id"] == "cuda_tma"
+        assert calls_by_path["kernels/cuda_wgmma_async_group_drift.cu"]["language_id"] == "cuda"
+        assert calls_by_path["kernels/cuda_wgmma_async_group_drift.cu"]["profile_id"] == "cuda_wgmma"
+        assert calls_by_path["distributed/cuda_multigpu_nccl.cu"]["language_id"] == "cuda"
+        assert calls_by_path["distributed/cuda_multigpu_nccl.cu"]["profile_id"] == "cuda_multigpu"
+        assert calls_by_path["kernels/cuda_tensor_core_wmma.cu"]["language_id"] == "cuda"
+        assert calls_by_path["kernels/cuda_tensor_core_wmma.cu"]["profile_id"] == "cuda_tensor_core"
+        assert calls_by_path["kernels/cuda_cooperative_groups_grid_sync.cu"]["language_id"] == "cuda"
+        assert calls_by_path["kernels/cuda_cooperative_groups_grid_sync.cu"]["profile_id"] == "cuda_cooperative_groups"
+    finally:
+        session.close()
+
+
+def test_wrong_language_feedback_analytics_reports_detected_vs_expected_language() -> None:
+    _reset_db()
+
+    runner = ReviewRunner()
+    adapter = FakeAdapter()
+    key = runner._legacy_key(7197)  # noqa: SLF001
+    adapter.set_diff(key, path="src/a.cpp", patch=_malloc_patch())
+    runner.platform_client = adapter
+    runner.engine_client = EngineStub([_result("R.10", category="memory")])
+    runner.provider = FixedProvider()
+
+    session = SessionLocal()
+    try:
+        runner.run_review(session, pr_id=7197, trigger="first")
+        adapter.add_human_reply(
+            key,
+            "thread-1",
+            "@review-bot wrong-language markdown\n이 파일은 문서로 취급해야 합니다.",
+        )
+        runner.run_review(session, pr_id=7197, trigger="second")
+
+        report = runner.wrong_language_feedback_analytics(session, window="28d")
+
+        assert report["total_events"] == 1
+        assert report["distinct_threads"] == 1
+        assert report["distinct_findings"] == 1
+        assert report["top_language_pairs"][0] == {
+            "detected_language_id": "cpp",
+            "expected_language_id": "markdown",
+            "count": 1,
+        }
+        assert report["top_profiles"][0]["profile_id"] == "default"
+        assert report["top_paths"][0]["path_pattern"] == "src"
+        assert report["triage_candidates"][0] == {
+            "detected_language_id": "cpp",
+            "expected_language_id": "markdown",
+            "profile_id": "default",
+            "context_id": None,
+            "path_pattern": "src",
+            "count": 1,
+            "priority": "low",
+            "suggested_action": (
+                "문서형 경로가 아닌데 `markdown` 기대값이 들어왔습니다. "
+                "detector 오분류인지, wrong-language reply 대상 thread가 맞는지 먼저 확인하고 "
+                "feedback regression 예제를 함께 보강하세요."
+            ),
+        }
+    finally:
+        session.close()
+
+
+def test_feedback_path_bucket_normalizes_root_markdown_paths_to_docs() -> None:
+    runner = ReviewRunner()
+
+    assert runner._feedback_path_bucket("README.md") == "docs"  # noqa: SLF001
+    assert runner._feedback_path_bucket("guide/overview.mdx") == "docs"  # noqa: SLF001
+    assert runner._feedback_path_bucket("docs/architecture/overview.md") == "docs"  # noqa: SLF001
+
+
+def test_wrong_language_suggested_action_prefers_docs_only_for_docs_like_paths() -> None:
+    runner = ReviewRunner()
+
+    assert (
+        runner._wrong_language_suggested_action(  # noqa: SLF001
+            detected_language_id="markdown",
+            expected_language_id="yaml",
+            profile_id="default",
+            context_id=None,
+            path_pattern="docs",
+        )
+        == "문서 경로를 reviewable 대상에서 더 명확히 제외하고, 유사 확장자/경로 예외 규칙을 detector backlog에 추가하세요."
+    )
+    assert (
+        runner._wrong_language_suggested_action(  # noqa: SLF001
+            detected_language_id="yaml",
+            expected_language_id="markdown",
+            profile_id="gitlab_ci",
+            context_id="gitlab_ci",
+            path_pattern=".gitlab-ci.yml",
+        )
+        == "문서형 경로가 아닌데 `markdown` 기대값이 들어왔습니다. detector 오분류인지, wrong-language reply 대상 thread가 맞는지 먼저 확인하고 feedback regression 예제를 함께 보강하세요."
+    )
 
 
 def test_build_state_and_full_report_use_latest_created_run() -> None:
@@ -1321,7 +2011,7 @@ def test_build_state_and_full_report_use_latest_created_run() -> None:
     key = runner._legacy_key(8010)  # noqa: SLF001
     adapter.set_diff(key, path="src/a.cpp", patch=_malloc_patch(), head_sha="head-a")
     runner.platform_client = adapter
-    runner.engine_client = EngineStub([_result("ALTI-MEM-007", category="memory")])
+    runner.engine_client = EngineStub([_result("R.10", category="memory")])
     runner.provider = FixedProvider(summary_suffix="first")
 
     session = SessionLocal()
@@ -1329,7 +2019,7 @@ def test_build_state_and_full_report_use_latest_created_run() -> None:
         first_run = runner.run_review(session, pr_id=8010, trigger="first")
 
         adapter.set_diff(key, path="src/b.cpp", patch=_continue_patch(), head_sha="head-b")
-        runner.engine_client = EngineStub([_result("ALTI-COF-001", category="control_flow")])
+        runner.engine_client = EngineStub([_result("ES.77", category="control_flow")])
         runner.provider = FixedProvider(
             title="두 번째 run finding",
             summary="두 번째 run에서 생성된 finding입니다.",
@@ -1364,7 +2054,7 @@ def test_review_runner_records_dead_letter_for_failed_publication() -> None:
     key = runner._legacy_key(726)  # noqa: SLF001
     adapter.set_diff(key, path="src/flow.cpp", patch=_continue_patch())
     runner.platform_client = adapter
-    runner.engine_client = EngineStub([_result("ALTI-COF-001", category="control_flow")])
+    runner.engine_client = EngineStub([_result("ES.77", category="control_flow")])
     runner.provider = FixedProvider()
 
     session = SessionLocal()
@@ -1390,7 +2080,7 @@ def test_review_runner_does_not_fallback_to_general_note_when_inline_publish_fai
     key = runner._legacy_key(727)  # noqa: SLF001
     adapter.set_diff(key, path="src/flow.cpp", patch=_continue_patch())
     runner.platform_client = adapter
-    runner.engine_client = EngineStub([_result("ALTI-COF-001", category="control_flow")])
+    runner.engine_client = EngineStub([_result("ES.77", category="control_flow")])
     runner.provider = FixedProvider()
 
     session = SessionLocal()
@@ -1422,7 +2112,7 @@ def test_review_runner_suppresses_gitlab_invalid_line_code_without_marking_run_p
     key = runner._legacy_key(728)  # noqa: SLF001
     adapter.set_diff(key, path="src/flow.cpp", patch=_continue_patch())
     runner.platform_client = adapter
-    runner.engine_client = EngineStub([_result("ALTI-COF-001", category="control_flow")])
+    runner.engine_client = EngineStub([_result("ES.77", category="control_flow")])
     runner.provider = FixedProvider()
 
     session = SessionLocal()
@@ -1449,7 +2139,7 @@ def test_review_runner_applies_path_policy_suppression() -> None:
         path_policies=(
             PathPolicy(
                 glob="src/id/**",
-                suppress_rules=frozenset({"ALTI-MEM-007"}),
+                suppress_rules=frozenset({"R.10"}),
             ),
         )
     )
@@ -1457,7 +2147,7 @@ def test_review_runner_applies_path_policy_suppression() -> None:
     key = runner._legacy_key(777)  # noqa: SLF001
     adapter.set_diff(key, path="src/id/ids/idsTde.cpp", patch=_malloc_patch())
     runner.platform_client = adapter
-    runner.engine_client = EngineStub([_result("ALTI-MEM-007", category="memory")])
+    runner.engine_client = EngineStub([_result("R.10", category="memory")])
     runner.provider = FixedProvider()
 
     session = SessionLocal()
@@ -1483,7 +2173,7 @@ def test_review_runner_detects_manual_only_findings_but_suppresses_publish() -> 
     adapter.set_diff(key, path="src/a.cpp", patch=_malloc_patch())
     runner.platform_client = adapter
     runner.engine_client = EngineStub(
-        [_result("ALTI-MEM-007", category="memory", reviewability="manual_only")]
+        [_result("R.10", category="memory", reviewability="manual_only")]
     )
     runner.provider = FixedProvider()
 
@@ -1511,8 +2201,8 @@ def test_review_runner_suppresses_user_facing_duplicate_comments_in_same_batch()
     runner.platform_client = adapter
     runner.engine_client = EngineStub(
         [
-            _result("ALTI-COF-001", category="control_flow"),
-            _result("ALTI-COF-009", category="control_flow"),
+            _result("ES.77", category="control_flow"),
+            _result("ES.78", category="control_flow"),
         ]
     )
     runner.provider = FixedProvider(
@@ -1548,7 +2238,7 @@ def test_review_runner_ignores_provider_line_no_for_anchor_and_batch_dedupe() ->
         def build_draft(self, **kwargs) -> FindingDraft:
             rule_no = kwargs["rule_no"]
             provider_line_no = (kwargs.get("line_no") or 0) + (
-                100 if rule_no == "ALTI-COF-001" else 200
+                100 if rule_no == "ES.77" else 200
             )
             self.returned_line_nos[rule_no] = provider_line_no
             return FindingDraft(
@@ -1566,8 +2256,8 @@ def test_review_runner_ignores_provider_line_no_for_anchor_and_batch_dedupe() ->
     runner.platform_client = adapter
     runner.engine_client = EngineStub(
         [
-            _result("ALTI-COF-001", category="control_flow"),
-            _result("ALTI-COF-009", category="control_flow"),
+            _result("ES.77", category="control_flow"),
+            _result("ES.78", category="control_flow"),
         ]
     )
     provider = OffsetLineProvider()
@@ -1590,8 +2280,89 @@ def test_review_runner_ignores_provider_line_no_for_anchor_and_batch_dedupe() ->
         assert adapter.upsert_requests[0].anchor.start_line == findings[0].line_no
         assert (
             adapter.upsert_requests[0].anchor.start_line
-            != provider.returned_line_nos["ALTI-COF-001"]
+            != provider.returned_line_nos["ES.77"]
         )
+    finally:
+        session.close()
+
+
+def test_review_runner_suppresses_same_line_same_category_variants_before_batch_selection() -> None:
+    _reset_db()
+
+    runner = ReviewRunner()
+    adapter = FakeAdapter()
+    key = runner._legacy_key(911)  # noqa: SLF001
+    adapter.set_diff(key, path="src/flow.cpp", patch=_continue_patch())
+    runner.platform_client = adapter
+    runner.engine_client = EngineStub(
+        [
+            _result("ES.77", category="control_flow", score=0.92),
+            _result("ES.78", category="control_flow", score=0.81),
+        ]
+    )
+    runner.provider = ScenarioProvider(
+        {
+            ("src/flow.cpp", "ES.77"): FindingDraft(
+                title="루프 탈출 조건이 분산되어 있습니다",
+                summary="첫 번째 제어 흐름 설명입니다.",
+                suggested_fix="조건을 앞쪽에서 정리해 주세요.",
+            ),
+            ("src/flow.cpp", "ES.78"): FindingDraft(
+                title="`continue` 중심 흐름이 읽기 어렵습니다",
+                summary="같은 줄의 변형 phrasing입니다.",
+                suggested_fix="조건 분기를 더 직접적으로 표현해 주세요.",
+            ),
+        }
+    )
+
+    session = SessionLocal()
+    try:
+        review_run = runner.run_review(session, pr_id=911, trigger="same-line-category")
+        findings = (
+            session.query(FindingDecision)
+            .filter_by(review_run_id=review_run.id)
+            .order_by(FindingDecision.rule_no.asc())
+            .all()
+        )
+
+        assert review_run.status == "success"
+        assert len(adapter.upsert_requests) == 1
+        assert [finding.state for finding in findings] == ["published", "suppressed"]
+        assert findings[1].suppression_reason == "publish_batch_same_line_category"
+    finally:
+        session.close()
+
+
+def test_review_runner_blockquotes_multiline_evidence_snippet() -> None:
+    _reset_db()
+
+    class EvidenceProvider(ReviewCommentProvider):
+        def build_draft(self, **kwargs) -> FindingDraft:
+            return FindingDraft(
+                title="멀티라인 증거 예시",
+                summary="증거 인용 렌더링을 검증합니다.",
+                suggested_fix="증거 줄이 모두 quote 되어야 합니다.",
+                should_publish=True,
+                line_no=kwargs.get("line_no"),
+                evidence_snippet="if (!ready) {\n    return;\n}",
+            )
+
+    runner = ReviewRunner()
+    adapter = FakeAdapter()
+    key = runner._legacy_key(912)  # noqa: SLF001
+    adapter.set_diff(key, path="src/a.cpp", patch=_malloc_patch())
+    runner.platform_client = adapter
+    runner.engine_client = EngineStub([_result("R.10", category="memory")])
+    runner.provider = EvidenceProvider()
+
+    session = SessionLocal()
+    try:
+        runner.run_review(session, pr_id=912, trigger="blockquote")
+
+        body = adapter.upsert_requests[0].body
+        assert "> if (!ready) {" in body
+        assert ">     return;" in body
+        assert "> }" in body
     finally:
         session.close()
 
@@ -2125,9 +2896,9 @@ def _result(
 ) -> dict[str, object]:
     return {
         "rule_no": rule_no,
-        "source_family": "altibase" if rule_no.startswith("ALTI") else "cpp_core",
-        "authority": "internal" if rule_no.startswith("ALTI") else "external",
-        "conflict_policy": "authoritative" if rule_no.startswith("ALTI") else "compatible",
+        "source_family": "cpp_core",
+        "authority": "external",
+        "conflict_policy": "compatible",
         "title": f"{rule_no} title",
         "section": rule_no.split("-")[0] if "-" in rule_no else rule_no.split(".")[0],
         "priority": score,
@@ -2190,7 +2961,7 @@ def test_open_thread_with_changed_body_updates_existing_thread() -> None:
     key = runner._legacy_key(8001)  # noqa: SLF001
     adapter.set_diff(key, path="src/a.cpp", patch=_malloc_patch())
     runner.platform_client = adapter
-    runner.engine_client = EngineStub([_result("ALTI-MEM-007", category="memory")])
+    runner.engine_client = EngineStub([_result("R.10", category="memory")])
     provider = FixedProvider(summary_suffix="v1")
     runner.provider = provider
 
@@ -2214,7 +2985,7 @@ def test_feedback_false_positive_suppresses_future_candidate() -> None:
     key = runner._legacy_key(8002)  # noqa: SLF001
     adapter.set_diff(key, path="src/a.cpp", patch=_malloc_patch())
     runner.platform_client = adapter
-    runner.engine_client = EngineStub([_result("ALTI-MEM-007", category="memory")])
+    runner.engine_client = EngineStub([_result("R.10", category="memory")])
     runner.provider = FixedProvider()
 
     session = SessionLocal()
@@ -2244,7 +3015,7 @@ def test_feedback_allow_overrides_false_positive_request() -> None:
     key = runner._legacy_key(80021)  # noqa: SLF001
     adapter.set_diff(key, path="src/a.cpp", patch=_malloc_patch())
     runner.platform_client = adapter
-    runner.engine_client = EngineStub([_result("ALTI-MEM-007", category="memory")])
+    runner.engine_client = EngineStub([_result("R.10", category="memory")])
     provider = FixedProvider(summary_suffix="v1")
     runner.provider = provider
 
@@ -2280,7 +3051,7 @@ def test_feedback_later_keeps_candidate_out_of_inline_publish() -> None:
     key = runner._legacy_key(8003)  # noqa: SLF001
     adapter.set_diff(key, path="src/a.cpp", patch=_malloc_patch())
     runner.platform_client = adapter
-    runner.engine_client = EngineStub([_result("ALTI-MEM-007", category="memory")])
+    runner.engine_client = EngineStub([_result("R.10", category="memory")])
     runner.provider = FixedProvider()
 
     session = SessionLocal()
@@ -2303,7 +3074,7 @@ def test_feedback_allow_overrides_later_request() -> None:
     key = runner._legacy_key(80031)  # noqa: SLF001
     adapter.set_diff(key, path="src/a.cpp", patch=_malloc_patch())
     runner.platform_client = adapter
-    runner.engine_client = EngineStub([_result("ALTI-MEM-007", category="memory")])
+    runner.engine_client = EngineStub([_result("R.10", category="memory")])
     provider = FixedProvider(summary_suffix="v1")
     runner.provider = provider
 
@@ -2349,29 +3120,29 @@ def test_pr_summary_includes_feedback_backlog_and_suppressed_counts() -> None:
     runner.platform_client = adapter
     runner.engine_client = SequentialEngineStub(
         [
-            [_result("ALTI-MEM-007", category="memory")],
-            [_result("ALTI-COF-001", category="control_flow")],
-            [_result("ALTI-TYP-001", category="type_usage")],
+            [_result("R.10", category="memory")],
+            [_result("ES.77", category="control_flow")],
+            [_result("I.4", category="type_usage")],
         ]
     )
     runner.provider = ScenarioProvider(
         {
-            ("src/a.cpp", "ALTI-MEM-007"): FindingDraft(
+            ("src/a.cpp", "R.10"): FindingDraft(
                 title="src/a.cpp 메모리 소유권 관리",
                 summary="이 코드는 직접 메모리 해제를 전제로 합니다.",
                 suggested_fix="RAII wrapper를 사용해 주세요.",
             ),
-            ("src/b.cpp", "ALTI-COF-001"): FindingDraft(
+            ("src/b.cpp", "ES.77"): FindingDraft(
                 title="src/b.cpp 제어 흐름 단순화",
                 summary="continue 중심 제어 흐름은 가독성을 떨어뜨립니다.",
                 suggested_fix="조건 분기를 정리해 주세요.",
             ),
-            ("src/c.cpp", "ALTI-TYP-001"): FindingDraft(
+            ("src/c.cpp", "I.4"): FindingDraft(
                 title="src/c.cpp 타입 사용 개선",
                 summary="명시적 타입 의도를 더 분명히 해 주세요.",
                 suggested_fix="프로젝트 표준 타입 alias를 사용해 주세요.",
             ),
-            ("src/d.cpp", "ALTI-ERR-001"): FindingDraft(
+            ("src/d.cpp", "ERR.TEST.001"): FindingDraft(
                 title="src/d.cpp 오류 처리 일관성",
                 summary="새로운 오류 처리 finding입니다.",
                 suggested_fix="반환값 검사를 추가해 주세요.",
@@ -2398,10 +3169,10 @@ def test_pr_summary_includes_feedback_backlog_and_suppressed_counts() -> None:
         )
         runner.engine_client = SequentialEngineStub(
             [
-                [_result("ALTI-MEM-007", category="memory")],
-                [_result("ALTI-COF-001", category="control_flow")],
-                [_result("ALTI-TYP-001", category="type_usage")],
-                [_result("ALTI-ERR-001", category="error_handling")],
+                [_result("R.10", category="memory")],
+                [_result("ES.77", category="control_flow")],
+                [_result("I.4", category="type_usage")],
+                [_result("ERR.TEST.001", category="error_handling")],
             ]
         )
 
@@ -2436,29 +3207,29 @@ def test_build_full_report_classifies_backlog_and_feedback_sections() -> None:
     runner.platform_client = adapter
     runner.engine_client = SequentialEngineStub(
         [
-            [_result("ALTI-MEM-007", category="memory")],
-            [_result("ALTI-COF-001", category="control_flow")],
-            [_result("ALTI-TYP-001", category="type_usage")],
+            [_result("R.10", category="memory")],
+            [_result("ES.77", category="control_flow")],
+            [_result("I.4", category="type_usage")],
         ]
     )
     runner.provider = ScenarioProvider(
         {
-            ("src/a.cpp", "ALTI-MEM-007"): FindingDraft(
+            ("src/a.cpp", "R.10"): FindingDraft(
                 title="src/a.cpp 메모리 소유권 관리",
                 summary="이 코드는 직접 메모리 해제를 전제로 합니다.",
                 suggested_fix="RAII wrapper를 사용해 주세요.",
             ),
-            ("src/b.cpp", "ALTI-COF-001"): FindingDraft(
+            ("src/b.cpp", "ES.77"): FindingDraft(
                 title="src/b.cpp 제어 흐름 단순화",
                 summary="continue 중심 제어 흐름은 가독성을 떨어뜨립니다.",
                 suggested_fix="조건 분기를 정리해 주세요.",
             ),
-            ("src/c.cpp", "ALTI-TYP-001"): FindingDraft(
+            ("src/c.cpp", "I.4"): FindingDraft(
                 title="src/c.cpp 타입 사용 개선",
                 summary="명시적 타입 의도를 더 분명히 해 주세요.",
                 suggested_fix="프로젝트 표준 타입 alias를 사용해 주세요.",
             ),
-            ("src/d.cpp", "ALTI-ERR-001"): FindingDraft(
+            ("src/d.cpp", "ERR.TEST.001"): FindingDraft(
                 title="src/d.cpp 오류 처리 일관성",
                 summary="새로운 오류 처리 finding입니다.",
                 suggested_fix="반환값 검사를 추가해 주세요.",
@@ -2485,10 +3256,10 @@ def test_build_full_report_classifies_backlog_and_feedback_sections() -> None:
         )
         runner.engine_client = SequentialEngineStub(
             [
-                [_result("ALTI-MEM-007", category="memory")],
-                [_result("ALTI-COF-001", category="control_flow")],
-                [_result("ALTI-TYP-001", category="type_usage")],
-                [_result("ALTI-ERR-001", category="error_handling")],
+                [_result("R.10", category="memory")],
+                [_result("ES.77", category="control_flow")],
+                [_result("I.4", category="type_usage")],
+                [_result("ERR.TEST.001", category="error_handling")],
             ]
         )
 
@@ -2525,18 +3296,18 @@ def test_post_full_report_note_posts_backlog_overview() -> None:
     runner.platform_client = adapter
     runner.engine_client = SequentialEngineStub(
         [
-            [_result("ALTI-MEM-007", category="memory")],
-            [_result("ALTI-COF-001", category="control_flow")],
+            [_result("R.10", category="memory")],
+            [_result("ES.77", category="control_flow")],
         ]
     )
     runner.provider = ScenarioProvider(
         {
-            ("src/a.cpp", "ALTI-MEM-007"): FindingDraft(
+            ("src/a.cpp", "R.10"): FindingDraft(
                 title="src/a.cpp 메모리 소유권 관리",
                 summary="이 코드는 직접 메모리 해제를 전제로 합니다.",
                 suggested_fix="RAII wrapper를 사용해 주세요.",
             ),
-            ("src/b.cpp", "ALTI-COF-001"): FindingDraft(
+            ("src/b.cpp", "ES.77"): FindingDraft(
                 title="src/b.cpp 제어 흐름 단순화",
                 summary="continue 중심 제어 흐름은 가독성을 떨어뜨립니다.",
                 suggested_fix="조건 분기를 정리해 주세요.",
@@ -2550,8 +3321,8 @@ def test_post_full_report_note_posts_backlog_overview() -> None:
         adapter.add_human_reply(key, "thread-2", "bot:later\n다음 정리 때 처리하겠습니다.")
         runner.engine_client = SequentialEngineStub(
             [
-                [_result("ALTI-MEM-007", category="memory")],
-                [_result("ALTI-COF-001", category="control_flow")],
+                [_result("R.10", category="memory")],
+                [_result("ES.77", category="control_flow")],
             ]
         )
         runner.run_review(session, pr_id=80034, trigger="second")
@@ -2574,7 +3345,7 @@ def test_full_report_prefers_latest_completed_run_while_showing_in_flight_run() 
     key = runner._legacy_key(800340)  # noqa: SLF001
     adapter.set_diff(key, path="src/a.cpp", patch=_malloc_patch(), head_sha="head-a")
     runner.platform_client = adapter
-    runner.engine_client = EngineStub([_result("ALTI-MEM-007", category="memory")])
+    runner.engine_client = EngineStub([_result("R.10", category="memory")])
     runner.provider = FixedProvider(summary_suffix="done")
 
     session = SessionLocal()
@@ -2625,7 +3396,7 @@ def test_post_full_report_note_upserts_same_purpose_general_note() -> None:
             "fingerprint": "fp-1",
             "file_path": "src/a.cpp",
             "line_no": 10,
-            "rule_no": "ALTI-TEST-001",
+            "rule_no": "TEST.RULE.001",
             "severity": "medium",
             "title": "첫 번째 backlog",
             "summary": "첫 번째 내용",
@@ -2675,7 +3446,7 @@ def test_post_full_report_note_truncates_long_general_note() -> None:
                 "fingerprint": f"fp-{idx}",
                 "file_path": f"src/file_{idx}.cpp",
                 "line_no": idx + 1,
-                "rule_no": "ALTI-LONG-001",
+                "rule_no": "LONG.RULE.001",
                 "severity": "high",
                 "title": f"긴 제목 {idx} " + ("T" * 120),
                 "summary": "요약 " + ("S" * 260),
@@ -2737,7 +3508,7 @@ def test_opt_in_reminder_mode_can_restore_old_behavior() -> None:
     key = runner._legacy_key(8004)  # noqa: SLF001
     adapter.set_diff(key, path="src/a.cpp", patch=_malloc_patch())
     runner.platform_client = adapter
-    runner.engine_client = EngineStub([_result("ALTI-MEM-007", category="memory")])
+    runner.engine_client = EngineStub([_result("R.10", category="memory")])
     runner.provider = FixedProvider(summary_suffix="same")
 
     session = SessionLocal()
@@ -2769,23 +3540,23 @@ def test_build_full_report_preserves_backlog_across_incremental_runs() -> None:
     runner.platform_client = adapter
     runner.engine_client = SequentialEngineStub(
         [
-            [_result("ALTI-MEM-007", category="memory")],
-            [_result("ALTI-COF-001", category="control_flow")],
+            [_result("R.10", category="memory")],
+            [_result("ES.77", category="control_flow")],
         ]
     )
     runner.provider = ScenarioProvider(
         {
-            ("src/a.cpp", "ALTI-MEM-007"): FindingDraft(
+            ("src/a.cpp", "R.10"): FindingDraft(
                 title="src/a.cpp 메모리 소유권 관리",
                 summary="이 코드는 직접 메모리 해제를 전제로 합니다.",
                 suggested_fix="RAII wrapper를 사용해 주세요.",
             ),
-            ("src/b.cpp", "ALTI-COF-001"): FindingDraft(
+            ("src/b.cpp", "ES.77"): FindingDraft(
                 title="src/b.cpp 제어 흐름 단순화",
                 summary="continue 중심 제어 흐름은 가독성을 떨어뜨립니다.",
                 suggested_fix="조건 분기를 정리해 주세요.",
             ),
-            ("src/c.cpp", "ALTI-TYP-001"): FindingDraft(
+            ("src/c.cpp", "I.4"): FindingDraft(
                 title="src/c.cpp 타입 사용 개선",
                 summary="명시적 타입 의도를 더 분명히 해 주세요.",
                 suggested_fix="프로젝트 표준 타입 alias를 사용해 주세요.",
@@ -2812,7 +3583,7 @@ def test_build_full_report_preserves_backlog_across_incremental_runs() -> None:
         )
         runner.engine_client = SequentialEngineStub(
             [
-                [_result("ALTI-TYP-001", category="type_usage")],
+                [_result("I.4", category="type_usage")],
             ]
         )
         second_run = runner.create_review_run_for_key(
@@ -2846,16 +3617,16 @@ def test_post_backlog_note_posts_backlog_only_view() -> None:
     )
     runner.platform_client = adapter
     runner.engine_client = SequentialEngineStub(
-        [[_result("ALTI-MEM-007", category="memory")]]
+        [[_result("R.10", category="memory")]]
     )
     runner.provider = ScenarioProvider(
         {
-            ("src/a.cpp", "ALTI-MEM-007"): FindingDraft(
+            ("src/a.cpp", "R.10"): FindingDraft(
                 title="src/a.cpp 메모리 소유권 관리",
                 summary="이 코드는 직접 메모리 해제를 전제로 합니다.",
                 suggested_fix="RAII wrapper를 사용해 주세요.",
             ),
-            ("src/b.cpp", "ALTI-COF-001"): FindingDraft(
+            ("src/b.cpp", "ES.77"): FindingDraft(
                 title="src/b.cpp 제어 흐름 단순화",
                 summary="continue 중심 제어 흐름은 가독성을 떨어뜨립니다.",
                 suggested_fix="조건 분기를 정리해 주세요.",
@@ -2873,7 +3644,7 @@ def test_post_backlog_note_posts_backlog_only_view() -> None:
             head_sha="head-b",
         )
         runner.engine_client = SequentialEngineStub(
-            [[_result("ALTI-COF-001", category="control_flow")]]
+            [[_result("ES.77", category="control_flow")]]
         )
         second_run = runner.create_review_run_for_key(
             session, key, trigger="second", mode="incremental"
@@ -2973,8 +3744,8 @@ def test_load_rule_effectiveness_weights_uses_distinct_fingerprint() -> None:
                         fingerprint=fp,
                         dedupe_key=f"dk-{fp}-{run_idx}",
                         file_path="src/a.cpp",
-                        rule_no="ALTI-TEST-001",
-                        source_family="altibase",
+                        rule_no="TEST.RULE.001",
+                        source_family="cpp_core",
                         score_raw=0.9,
                         score_final=0.9,
                         anchor_signature="sig",
@@ -2984,9 +3755,9 @@ def test_load_rule_effectiveness_weights_uses_distinct_fingerprint() -> None:
         session.commit()
 
         weights = runner._load_rule_effectiveness_weights(session)  # noqa: SLF001
-        assert "ALTI-TEST-001" in weights
+        assert "TEST.RULE.001" in weights
         # 3 human-resolved out of 6 unique fingerprints = 0.5 → weight ≈ 1.2.
-        assert weights["ALTI-TEST-001"] == 1.2
+        assert weights["TEST.RULE.001"] == 1.2
     finally:
         session.close()
 

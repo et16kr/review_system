@@ -2,7 +2,9 @@ schema_version: 1
 language_id: rust
 pack_files:
   - packs/project_rust.yaml
+  - packs/tokio_async.yaml
 profile_files:
   - profiles/default.yaml
+  - profiles/tokio_async.yaml
 policy_files:
   - policies/rust_default.yaml

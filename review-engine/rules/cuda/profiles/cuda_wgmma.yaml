@@ -1,0 +1,13 @@
+schema_version: 1
+profile_id: cuda_wgmma
+language_id: cuda
+enabled_packs:
+  - cuda_core
+  - cuda_performance
+  - cuda_wgmma
+shared_packs:
+  - shared_security
+prompt_overlay_refs:
+  - cuda_wgmma
+detector_refs: []
+priority_policy_ref: cuda_default

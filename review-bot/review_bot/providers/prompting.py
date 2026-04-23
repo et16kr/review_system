@@ -28,17 +28,18 @@ class PromptComposer:
     def compose(
         self,
         *,
-        language_id: str = "cpp",
+        language_id: str | None = None,
         profile_id: str = "default",
         context_id: str | None = None,
         overlay_refs: list[str] | None = None,
     ) -> str:
         pieces: list[str] = []
-        for relative in (
-            Path("base/system.md"),
-            Path("languages") / f"{language_id}.md",
-            Path("profiles") / f"{profile_id}.md",
-        ):
+        prompt_paths = [Path("base/system.md")]
+        if language_id:
+            prompt_paths.append(Path("languages") / f"{language_id}.md")
+        prompt_paths.append(Path("profiles") / f"{profile_id}.md")
+
+        for relative in prompt_paths:
             content = self._load_first(relative)
             if content:
                 pieces.append(content)

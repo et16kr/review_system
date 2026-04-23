@@ -1,0 +1,83 @@
+schema_version: 1
+pack_id: nextjs_frontend
+namespace: public
+language_id: typescript
+source_kind: project_policy
+description: Next.js frontend review rules for route handlers, server actions, and server-client boundaries.
+default_enabled: true
+default_priority_tier: high
+entries:
+  - rule_no: TS.NEXT.1
+    section: TSNEXT
+    title: Next.js route handlers should validate request.json() payloads before trusting shape
+    summary: Raw JSON parsing bypasses the schema step that makes route contracts reviewable.
+    text: Route handlers are transport boundaries. Pulling request.json() directly into business logic widens the trust boundary unless validation is immediately reintroduced.
+    category: security
+    trigger_patterns: [next_route_request_json]
+    fix_guidance: Parse into a narrow boundary type and validate the payload immediately before the rest of the route uses it.
+    base_score: 0.94
+    severity_default: 0.95
+    priority_tier: high
+    specificity: 0.92
+    false_positive_risk: low
+  - rule_no: TS.NEXT.2
+    section: TSNEXT
+    title: Server actions should validate FormData values before domain use
+    summary: FormData is transport input, not proof of a typed server-side contract.
+    text: Server actions feel local, but they still accept user-controlled transport data. Pulling raw FormData values into domain logic without validation makes type intent and trust boundaries harder to audit.
+    category: security
+    trigger_patterns: [next_server_action_formdata]
+    fix_guidance: Convert FormData into a validated boundary object before invoking domain or persistence logic.
+    base_score: 0.9
+    severity_default: 0.92
+    priority_tier: high
+    specificity: 0.88
+    false_positive_risk: low
+  - rule_no: TS.NEXT.3
+    section: TSNEXT
+    title: Client components must not depend on non-public server environment variables
+    summary: The client boundary should not be the place where server-only secrets quietly leak or fail open.
+    text: A use client component runs in a browser-facing environment. Reading non-public env vars there either leaks intent, breaks at runtime, or obscures where the real secret boundary is supposed to live.
+    category: security
+    trigger_patterns: [next_client_secret_env]
+    fix_guidance: Keep secrets on the server boundary and pass only explicitly public, derived values into client components.
+    base_score: 0.99
+    severity_default: 0.99
+    priority_tier: override
+    specificity: 0.97
+    false_positive_risk: low
+  - rule_no: TS.NEXT.4
+    section: TSNEXT
+    title: Browser APIs in app-router components require an explicit client boundary
+    summary: Using window or document without a visible use client contract makes the server-client split hard to trust.
+    text: App-router components default to server rendering semantics. Reaching for browser globals without an explicit client boundary is a strong signal that the rendering contract may be drifting.
+    category: state_management
+    trigger_patterns: [next_server_component_browser_api]
+    fix_guidance: Add an explicit client boundary where appropriate or move browser-only logic into a dedicated client component.
+    base_score: 0.92
+    severity_default: 0.94
+    priority_tier: high
+    specificity: 0.9
+    false_positive_risk: low
+  - rule_no: TS.NEXT.REF.1
+    section: TSNEXTREF
+    title: Next.js cache and revalidation boundaries should stay obvious at the route or fetch call that owns them
+    summary: Reference guidance fits when the patch hints at cache drift but the local diff does not prove a concrete stale-data bug.
+    text: Prefer route and data-fetching code where cache lifetime, revalidation triggers, and ownership of freshness stay explicit rather than being inferred from distant framework defaults.
+    category: process
+    reviewability: reference_only
+    applies_to: [code, diff, docs]
+    false_positive_risk: medium
+    base_score: 0.55
+    severity_default: 0.55
+  - rule_no: TS.NEXT.REF.2
+    section: TSNEXTREF
+    title: Next.js server and client responsibilities should be legible from file boundaries
+    summary: Reference guidance is useful when a patch hints at mixed responsibilities without proving one concrete runtime defect.
+    text: Prefer app-router files where transport parsing, server-side fetching, and client-only interactivity are separated enough that the boundary is visible from the file itself.
+    category: process
+    reviewability: reference_only
+    applies_to: [code, diff, docs]
+    false_positive_risk: medium
+    base_score: 0.54
+    severity_default: 0.54

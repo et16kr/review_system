@@ -3,8 +3,11 @@ policy_id: sql_default
 language_id: sql
 pack_weights:
   ansi_sql: 0.86
+  analytics_sql: 0.89
   postgres_sql: 0.84
   project_sql: 0.9
+  dbt_sql: 0.91
+  migration_sql: 0.93
   shared_security: 0.96
 defaults:
   conflict_action: compatible

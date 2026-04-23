@@ -1,0 +1,16 @@
+@@ -1,6 +1,15 @@
+-import { useEffect } from "react";
++import { useEffect } from "react";
+ 
+ export function AuditPanel({ url, html }: Props) {
+-  useEffect(() => {
+-    void fetch(url);
++  // eslint-disable-next-line react-hooks/exhaustive-deps
++  useEffect(async () => {
++    const response = await fetch(url);
++    await response.text();
+   }, []);
+ 
+-  return <section>{html}</section>;
++  return <section dangerouslySetInnerHTML={{ __html: html }} />;
+ }

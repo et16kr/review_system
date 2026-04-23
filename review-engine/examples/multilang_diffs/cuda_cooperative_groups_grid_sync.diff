@@ -1,0 +1,16 @@
+@@ -3,5 +3,14 @@
+ namespace cg = cooperative_groups;
+ 
+ __global__ void persistent_reduce(float* dst) {
++    cg::thread_block block = cg::this_thread_block();
++    if (threadIdx.x < 16) {
++        auto tile = cg::tiled_partition<16>(block);
++        tile.sync();
++    }
++    auto grid = cg::this_grid();
++    grid.sync();
++    if (threadIdx.x == 0) {
++        cg::sync(block);
++    }
+     dst[threadIdx.x] = static_cast<float>(threadIdx.x);
+ }

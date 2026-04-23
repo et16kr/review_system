@@ -286,7 +286,7 @@ ReviewRequestKey {
 ```json
 {
   "review_system": "gitlab",
-  "project_ref": "root/altidev4-review",
+  "project_ref": "root/review-system-smoke",
   "review_request_id": "34"
 }
 ```
@@ -408,7 +408,7 @@ ReviewRequestKey {
 | `evidence_id_fk` | UUID FK | evidence id |
 | `review_request_id_fk` | UUID FK | review request |
 | `rule_no` | varchar(128) | rule id |
-| `source_family` | varchar(64) | `altibase`, `cpp_core` |
+| `source_family` | varchar(64) | `cpp_core`, `project_cpp`, `shared_security` |
 | `reviewability` | varchar(32) | `auto_review`, `manual_only`, `reference_only` |
 | `severity` | varchar(32) | `low`, `medium`, `high`, `critical` |
 | `confidence` | numeric | 0.0~1.0 |
@@ -550,7 +550,7 @@ class ReviewSystemAdapterV2(Protocol):
 {
   "key": {
     "review_system": "gitlab",
-    "project_ref": "root/altidev4-review",
+    "project_ref": "root/review-system-smoke",
     "review_request_id": "34"
   },
   "title": "TDE 리뷰 개선",
@@ -650,8 +650,8 @@ class ReviewSystemAdapterV2(Protocol):
 {
   "results": [
     {
-      "rule_no": "ALTI-MEM-007",
-      "source_family": "altibase",
+      "rule_no": "R.10",
+      "source_family": "cpp_core",
       "reviewability": "auto_review",
       "severity_default": 0.92,
       "false_positive_risk": "low",

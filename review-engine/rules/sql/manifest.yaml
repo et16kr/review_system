@@ -2,10 +2,15 @@ schema_version: 1
 language_id: sql
 pack_files:
   - packs/ansi_sql.yaml
+  - packs/analytics_sql.yaml
   - packs/postgres_sql.yaml
   - packs/project_sql.yaml
+  - packs/dbt_sql.yaml
+  - packs/migration_sql.yaml
 profile_files:
   - profiles/default.yaml
   - profiles/analytics_warehouse.yaml
+  - profiles/dbt_warehouse.yaml
+  - profiles/migration_sql.yaml
 policy_files:
   - policies/sql_default.yaml

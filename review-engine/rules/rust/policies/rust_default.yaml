@@ -3,6 +3,7 @@ policy_id: rust_default
 language_id: rust
 pack_weights:
   project_rust: 0.9
+  tokio_async: 0.93
   shared_security: 0.96
 defaults:
   conflict_action: compatible

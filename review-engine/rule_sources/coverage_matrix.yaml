@@ -178,6 +178,376 @@ languages:
             reviewability_mix: [reference_only]
             reason: This review question is preserved as boundary-oriented reference guidance.
 
+  - language_id: cuda
+    sources:
+      - rule_source_id: cuda.cuda_runtime_baseline
+        section_counts:
+          candidate_canonical_rule_groups: 4
+          reference_only_guidance: 2
+        atoms:
+          - source_atom_id: error_and_lifecycle_boundaries
+            section_id: candidate_canonical_rule_groups
+            status: mapped
+            pack_targets: [cuda_core]
+            canonical_rules: [CUDA.1, CUDA.2]
+            reviewability_mix: [auto_review]
+            reason: Kernel launch visibility and allocation ownership are represented as active CUDA runtime rules.
+          - source_atom_id: synchronization_and_stream_contracts
+            section_id: candidate_canonical_rule_groups
+            status: mapped
+            pack_targets: [cuda_core, cuda_performance]
+            canonical_rules: [CUDA.4, CUDA.5, CUDA.PERF.3]
+            reviewability_mix: [auto_review]
+            reason: Default-stream, sync-scope, and async transfer ownership guidance is canonicalized with dedicated patterns.
+          - source_atom_id: kernel_safety_boundaries
+            section_id: candidate_canonical_rule_groups
+            status: mapped
+            pack_targets: [cuda_core]
+            canonical_rules: [CUDA.3, CUDA.6, CUDA.7]
+            reviewability_mix: [auto_review]
+            reason: Divergent barriers, dual-annotation drift, and shared-memory launch contracts now map to concrete CUDA rules.
+          - source_atom_id: hot_path_performance_traps
+            section_id: candidate_canonical_rule_groups
+            status: mapped
+            pack_targets: [cuda_core, cuda_performance]
+            canonical_rules: [CUDA.8, CUDA.PERF.1, CUDA.PERF.2]
+            reviewability_mix: [auto_review]
+            reason: Managed-memory latency risk, atomic contention, and warp divergence are active CUDA review signals.
+          - source_atom_id: occupancy_and_bank_conflict_tradeoffs
+            section_id: reference_only_guidance
+            status: reference_only
+            pack_targets: [cuda_core, cuda_performance]
+            canonical_rules: [CUDA.REF.1, CUDA.PERF.REF.1]
+            reviewability_mix: [reference_only]
+            reason: Occupancy and bank-conflict tuning stays advisory unless the defect is locally provable.
+          - source_atom_id: residency_prefetch_and_batching
+            section_id: reference_only_guidance
+            status: reference_only
+            pack_targets: [cuda_core, cuda_performance]
+            canonical_rules: [CUDA.REF.2, CUDA.8]
+            reviewability_mix: [reference_only, auto_review]
+            reason: Transfer batching and residency strategy remain hybrid guidance with managed-memory-specific active coverage.
+      - rule_source_id: cuda.cuda_async_runtime_deepening
+        section_counts:
+          candidate_canonical_rule_groups: 3
+          reference_only_guidance: 2
+        atoms:
+          - source_atom_id: explicit_stream_ownership_and_default_stream_semantics
+            section_id: candidate_canonical_rule_groups
+            status: mapped
+            pack_targets: [cuda_async_runtime]
+            canonical_rules: [CUDA.ASYNC.1]
+            reviewability_mix: [auto_review]
+            reason: Explicit default-stream async API usage is canonicalized as a dedicated overlap-contract rule.
+          - source_atom_id: callback_and_deferred_host_work_boundaries
+            section_id: candidate_canonical_rule_groups
+            status: mapped
+            pack_targets: [cuda_async_runtime]
+            canonical_rules: [CUDA.ASYNC.2]
+            reviewability_mix: [auto_review]
+            reason: Stream callback lifetime ambiguity is represented by a dedicated callback-boundary rule.
+          - source_atom_id: stream_lifecycle_and_graph_orchestration_boundaries
+            section_id: candidate_canonical_rule_groups
+            status: mapped
+            pack_targets: [cuda_async_runtime]
+            canonical_rules: [CUDA.ASYNC.3, CUDA.ASYNC.REF.2]
+            reviewability_mix: [auto_review, reference_only]
+            reason: Loop-local stream churn is active while graph-style orchestration remains hybrid guidance.
+          - source_atom_id: event_dependency_chains
+            section_id: reference_only_guidance
+            status: reference_only
+            pack_targets: [cuda_async_runtime]
+            canonical_rules: [CUDA.ASYNC.REF.1]
+            reviewability_mix: [reference_only]
+            reason: Event readiness chains are important but often span more code than one local defect claim proves.
+          - source_atom_id: graph_capture_and_async_teardown
+            section_id: reference_only_guidance
+            status: reference_only
+            pack_targets: [cuda_async_runtime]
+            canonical_rules: [CUDA.ASYNC.REF.2]
+            reviewability_mix: [reference_only]
+            reason: Graph capture and async teardown boundaries remain advisory unless the local ownership break is explicit.
+      - rule_source_id: cuda.cuda_pipeline_async_deepening
+        section_counts:
+          candidate_canonical_rule_groups: 3
+          reference_only_guidance: 2
+        atoms:
+          - source_atom_id: async_copy_completion_boundary_before_stage_consumption
+            section_id: candidate_canonical_rule_groups
+            status: mapped
+            pack_targets: [cuda_pipeline_async]
+            canonical_rules: [CUDA.PIPE.1]
+            reviewability_mix: [auto_review]
+            reason: Async copy sites that feed staged data before a visible wait boundary are canonicalized as an active readiness-contract rule.
+          - source_atom_id: producer_consumer_phase_ops_under_non_uniform_control_flow
+            section_id: candidate_canonical_rule_groups
+            status: mapped
+            pack_targets: [cuda_pipeline_async]
+            canonical_rules: [CUDA.PIPE.2]
+            reviewability_mix: [auto_review]
+            reason: Producer and consumer phase ownership under partial participation is represented as a dedicated collective-phase rule.
+          - source_atom_id: barrier_phase_arrival_and_wait_participation
+            section_id: candidate_canonical_rule_groups
+            status: mapped
+            pack_targets: [cuda_pipeline_async]
+            canonical_rules: [CUDA.PIPE.3]
+            reviewability_mix: [auto_review]
+            reason: Barrier-backed phase arrival and wait now map to an active barrier-parity rule when participation becomes non-uniform.
+          - source_atom_id: stage_shape_alignment_and_wait_prior_reconstructability
+            section_id: reference_only_guidance
+            status: reference_only
+            pack_targets: [cuda_pipeline_async]
+            canonical_rules: [CUDA.PIPE.REF.1]
+            reviewability_mix: [reference_only]
+            reason: Stage count, alignment, and wait-prior semantics often require broader kernel context and stay advisory first.
+          - source_atom_id: shared_staging_lifetime_and_helper_opacity
+            section_id: reference_only_guidance
+            status: reference_only
+            pack_targets: [cuda_pipeline_async]
+            canonical_rules: [CUDA.PIPE.REF.2]
+            reviewability_mix: [reference_only]
+            reason: Shared staging lifetime and helper-layer opacity are important review context even when the patch does not prove one local defect.
+      - rule_source_id: cuda.cuda_thread_block_cluster_deepening
+        section_counts:
+          candidate_canonical_rule_groups: 3
+          reference_only_guidance: 2
+        atoms:
+          - source_atom_id: cluster_launch_contract_visibility_between_kernel_and_launch_site
+            section_id: candidate_canonical_rule_groups
+            status: mapped
+            pack_targets: [cuda_thread_block_cluster]
+            canonical_rules: [CUDA.CLUSTER.3]
+            reviewability_mix: [auto_review]
+            reason: Cluster-aware kernels with local launch code but no explicit cluster contract now map to a dedicated launch-ownership rule.
+          - source_atom_id: cluster_collective_sync_under_partial_participation
+            section_id: candidate_canonical_rule_groups
+            status: mapped
+            pack_targets: [cuda_thread_block_cluster]
+            canonical_rules: [CUDA.CLUSTER.1]
+            reviewability_mix: [auto_review]
+            reason: Cluster-wide synchronization under non-uniform control flow is represented as a concrete collective-safety rule.
+          - source_atom_id: distributed_shared_memory_remote_rank_readiness_before_access
+            section_id: candidate_canonical_rule_groups
+            status: mapped
+            pack_targets: [cuda_thread_block_cluster]
+            canonical_rules: [CUDA.CLUSTER.2]
+            reviewability_mix: [auto_review]
+            reason: Remote DSM access before a visible cluster-wide readiness boundary is canonicalized as an active ownership-and-ordering rule.
+          - source_atom_id: cluster_topology_and_grid_multiple_contract_reconstructability
+            section_id: reference_only_guidance
+            status: reference_only
+            pack_targets: [cuda_thread_block_cluster]
+            canonical_rules: [CUDA.CLUSTER.REF.1]
+            reviewability_mix: [reference_only]
+            reason: Cluster topology, grid-multiple requirements, and launch-resource assumptions often require broader launch context and stay advisory first.
+          - source_atom_id: distributed_shared_memory_lifetime_and_helper_opacity
+            section_id: reference_only_guidance
+            status: reference_only
+            pack_targets: [cuda_thread_block_cluster]
+            canonical_rules: [CUDA.CLUSTER.REF.2]
+            reviewability_mix: [reference_only]
+            reason: DSM lifetime, helper opacity, and remote-rank reconstruction remain important review context even when one local defect is not fully provable.
+      - rule_source_id: cuda.cuda_tma_deepening
+        section_counts:
+          candidate_canonical_rule_groups: 3
+          reference_only_guidance: 2
+        atoms:
+          - source_atom_id: bulk_tensor_copy_completion_before_shared_tile_consumption
+            section_id: candidate_canonical_rule_groups
+            status: mapped
+            pack_targets: [cuda_tma]
+            canonical_rules: [CUDA.TMA.1]
+            reviewability_mix: [auto_review]
+            reason: TMA bulk tensor copies that feed shared tiles before a visible wait boundary are canonicalized as an active completion-contract rule.
+          - source_atom_id: tensor_map_transport_and_grid_constant_visibility
+            section_id: candidate_canonical_rule_groups
+            status: mapped
+            pack_targets: [cuda_tma]
+            canonical_rules: [CUDA.TMA.2]
+            reviewability_mix: [auto_review]
+            reason: Tensor-map ownership that hides behind raw pointer transport without a visible grid-constant or fence path is represented as a concrete contract rule.
+          - source_atom_id: tensor_map_mutation_and_proxy_fence_publication
+            section_id: candidate_canonical_rule_groups
+            status: mapped
+            pack_targets: [cuda_tma]
+            canonical_rules: [CUDA.TMA.3]
+            reviewability_mix: [auto_review]
+            reason: Tensor-map mutation without a visible proxy fence before later TMA use now maps to a dedicated descriptor-publication rule.
+          - source_atom_id: tensor_shape_alignment_and_multicast_reconstructability
+            section_id: reference_only_guidance
+            status: reference_only
+            pack_targets: [cuda_tma]
+            canonical_rules: [CUDA.TMA.REF.1]
+            reviewability_mix: [reference_only]
+            reason: Tensor shape, alignment, multicast, and coordinate assumptions often require broader kernel context and stay advisory first.
+          - source_atom_id: completion_mechanism_bytes_and_async_group_ownership
+            section_id: reference_only_guidance
+            status: reference_only
+            pack_targets: [cuda_tma]
+            canonical_rules: [CUDA.TMA.REF.2]
+            reviewability_mix: [reference_only]
+            reason: Barrier byte counts, complete-tx semantics, and async-group ownership remain valuable review context even when one local defect is not fully provable.
+      - rule_source_id: cuda.cuda_multigpu_deepening
+        section_counts:
+          candidate_canonical_rule_groups: 3
+          reference_only_guidance: 2
+        atoms:
+          - source_atom_id: current_device_ownership_and_repeated_set_device
+            section_id: candidate_canonical_rule_groups
+            status: mapped
+            pack_targets: [cuda_multigpu]
+            canonical_rules: [CUDA.MG.1]
+            reviewability_mix: [auto_review]
+            reason: Loop-local current-device mutation is canonicalized as a dedicated ownership rule.
+          - source_atom_id: peer_access_topology_and_fallback_visibility
+            section_id: candidate_canonical_rule_groups
+            status: mapped
+            pack_targets: [cuda_multigpu]
+            canonical_rules: [CUDA.MG.2]
+            reviewability_mix: [auto_review]
+            reason: Peer access and peer copy behavior is represented by an active topology-contract rule.
+          - source_atom_id: nccl_communicator_group_and_stream_ordering
+            section_id: candidate_canonical_rule_groups
+            status: mapped
+            pack_targets: [cuda_multigpu]
+            canonical_rules: [CUDA.MG.3]
+            reviewability_mix: [auto_review]
+            reason: NCCL collective and group-ordering guidance now maps to a concrete multi-GPU rule.
+          - source_atom_id: rank_device_mapping_and_communicator_lifetime
+            section_id: reference_only_guidance
+            status: reference_only
+            pack_targets: [cuda_multigpu]
+            canonical_rules: [CUDA.MG.REF.1]
+            reviewability_mix: [reference_only]
+            reason: Global rank-device and communicator lifetime contracts usually span broader orchestration context.
+          - source_atom_id: managed_memory_and_cross_gpu_movement_costs
+            section_id: reference_only_guidance
+            status: reference_only
+            pack_targets: [cuda_multigpu]
+            canonical_rules: [CUDA.MG.REF.2]
+            reviewability_mix: [reference_only]
+            reason: Cross-GPU movement cost assumptions remain advisory unless the patch shows a local correctness break.
+      - rule_source_id: cuda.cuda_wgmma_deepening
+        section_counts:
+          candidate_canonical_rule_groups: 3
+          reference_only_guidance: 2
+        atoms:
+          - source_atom_id: warpgroup_uniform_mma_issue_participation
+            section_id: candidate_canonical_rule_groups
+            status: mapped
+            pack_targets: [cuda_wgmma]
+            canonical_rules: [CUDA.WGMMA.1]
+            reviewability_mix: [auto_review]
+            reason: WGMMA issue sites under non-uniform warpgroup participation are canonicalized as an active collective-correctness rule.
+          - source_atom_id: async_group_commit_wait_and_fence_ownership
+            section_id: candidate_canonical_rule_groups
+            status: mapped
+            pack_targets: [cuda_wgmma]
+            canonical_rules: [CUDA.WGMMA.2]
+            reviewability_mix: [auto_review]
+            reason: Rank-dependent commit or wait ownership for WGMMA async groups is represented as a dedicated completion-contract rule.
+          - source_atom_id: epilogue_or_accumulator_use_before_wait_group
+            section_id: candidate_canonical_rule_groups
+            status: mapped
+            pack_targets: [cuda_wgmma]
+            canonical_rules: [CUDA.WGMMA.3]
+            reviewability_mix: [auto_review]
+            reason: Accumulator or epilogue use before a visible WGMMA wait boundary now maps to an active async-completion rule.
+          - source_atom_id: shared_descriptor_and_staging_visibility
+            section_id: reference_only_guidance
+            status: reference_only
+            pack_targets: [cuda_wgmma]
+            canonical_rules: [CUDA.WGMMA.REF.1]
+            reviewability_mix: [reference_only]
+            reason: Shared descriptors, staging shape, and fence placement often require broader kernel context and stay advisory first.
+          - source_atom_id: matrix_layout_and_result_narrowing_contract
+            section_id: reference_only_guidance
+            status: reference_only
+            pack_targets: [cuda_wgmma]
+            canonical_rules: [CUDA.WGMMA.REF.2]
+            reviewability_mix: [reference_only]
+            reason: Matrix layout, fragment shape, and accumulator narrowing tradeoffs remain important review context even when one local defect is not fully provable.
+      - rule_source_id: cuda.cuda_tensor_core_deepening
+        section_counts:
+          candidate_canonical_rule_groups: 3
+          reference_only_guidance: 2
+        atoms:
+          - source_atom_id: warp_uniform_tensor_core_collectives
+            section_id: candidate_canonical_rule_groups
+            status: mapped
+            pack_targets: [cuda_tensor_core]
+            canonical_rules: [CUDA.TC.1]
+            reviewability_mix: [auto_review]
+            reason: Warp-collective Tensor Core participation is canonicalized as a concrete correctness rule.
+          - source_atom_id: inline_tensor_core_ptx_layout_contracts
+            section_id: candidate_canonical_rule_groups
+            status: mapped
+            pack_targets: [cuda_tensor_core]
+            canonical_rules: [CUDA.TC.2]
+            reviewability_mix: [auto_review]
+            reason: Inline MMA and LDMATRIX staging contracts are represented as an active Tensor Core fast-path rule.
+          - source_atom_id: mixed_precision_epilogue_boundaries
+            section_id: candidate_canonical_rule_groups
+            status: mapped
+            pack_targets: [cuda_tensor_core]
+            canonical_rules: [CUDA.TC.3]
+            reviewability_mix: [auto_review]
+            reason: Tensor Core accumulator narrowing and mixed-precision epilogue guidance maps to an active rule.
+          - source_atom_id: architecture_gating_and_fallback_visibility
+            section_id: reference_only_guidance
+            status: reference_only
+            pack_targets: [cuda_tensor_core]
+            canonical_rules: [CUDA.TC.REF.1]
+            reviewability_mix: [reference_only]
+            reason: Architecture support and fallback routing usually span broader build or launch context than one local diff.
+          - source_atom_id: fragment_opacity_and_interface_boundaries
+            section_id: reference_only_guidance
+            status: reference_only
+            pack_targets: [cuda_tensor_core]
+            canonical_rules: [CUDA.TC.REF.2]
+            reviewability_mix: [reference_only]
+            reason: Fragment opacity and cross-boundary materialization are preserved as advisory Tensor Core review guidance.
+      - rule_source_id: cuda.cuda_cooperative_groups_deepening
+        section_counts:
+          candidate_canonical_rule_groups: 3
+          reference_only_guidance: 2
+        atoms:
+          - source_atom_id: collective_group_creation_and_partitioning
+            section_id: candidate_canonical_rule_groups
+            status: mapped
+            pack_targets: [cuda_cooperative_groups]
+            canonical_rules: [CUDA.CG.1]
+            reviewability_mix: [auto_review]
+            reason: Divergent cooperative-group creation is represented as a concrete correctness rule.
+          - source_atom_id: grid_wide_sync_and_cooperative_launch_ownership
+            section_id: candidate_canonical_rule_groups
+            status: mapped
+            pack_targets: [cuda_cooperative_groups]
+            canonical_rules: [CUDA.CG.2]
+            reviewability_mix: [auto_review]
+            reason: Grid-wide sync now maps to an active cooperative-launch ownership rule.
+          - source_atom_id: rank_dependent_group_sync
+            section_id: candidate_canonical_rule_groups
+            status: mapped
+            pack_targets: [cuda_cooperative_groups]
+            canonical_rules: [CUDA.CG.3]
+            reviewability_mix: [auto_review]
+            reason: Rank-dependent cooperative-group synchronization is canonicalized as a collective-safety rule.
+          - source_atom_id: specialized_group_shape_visibility
+            section_id: reference_only_guidance
+            status: reference_only
+            pack_targets: [cuda_cooperative_groups]
+            canonical_rules: [CUDA.CG.REF.1]
+            reviewability_mix: [reference_only]
+            reason: Tile shape and specialized-group ownership remain advisory when the patch does not prove a local bug.
+          - source_atom_id: cooperative_launch_residency_and_large_scope_sync
+            section_id: reference_only_guidance
+            status: reference_only
+            pack_targets: [cuda_cooperative_groups]
+            canonical_rules: [CUDA.CG.REF.2]
+            reviewability_mix: [reference_only]
+            reason: Cooperative launch sizing and large-scope sync assumptions often require broader launch context and stay reference guidance first.
+
   - language_id: python
     sources:
       - rule_source_id: python.python_runtime_baseline
@@ -227,6 +597,65 @@ languages:
             canonical_rules: [PY.DOC.4, PY.PROJ.8]
             reviewability_mix: [reference_only]
             reason: Trust-model and cleanup-shape review framing is preserved as reference guidance.
+      - rule_source_id: python.django_service_deepening
+        section_counts:
+          candidate_canonical_rule_groups: 3
+          reference_only_guidance: 1
+        atoms:
+          - source_atom_id: runtime_settings_and_request_trust_boundaries
+            section_id: candidate_canonical_rule_groups
+            status: mapped
+            pack_targets: [django_service]
+            canonical_rules: [PY.DJ.1, PY.DJ.2]
+            reviewability_mix: [auto_review]
+            reason: DEBUG and CSRF boundary guidance now maps to dedicated Django runtime rules.
+          - source_atom_id: orm_escape_hatches
+            section_id: candidate_canonical_rule_groups
+            status: mapped
+            pack_targets: [django_service]
+            canonical_rules: [PY.DJ.3]
+            reviewability_mix: [auto_review]
+            reason: Raw and extra query escape hatches are canonicalized as concrete reviewable signals.
+          - source_atom_id: template_trust_boundaries
+            section_id: candidate_canonical_rule_groups
+            status: mapped
+            pack_targets: [django_service]
+            canonical_rules: [PY.DJ.4]
+            reviewability_mix: [auto_review]
+            reason: mark_safe now maps to a dedicated HTML trust-boundary rule for Django rendering paths.
+          - source_atom_id: validation_and_queryset_ownership
+            section_id: reference_only_guidance
+            status: reference_only
+            pack_targets: [django_service]
+            canonical_rules: [PY.DJ.REF.1, PY.DJ.REF.2]
+            reviewability_mix: [reference_only]
+            reason: Broader serializer, validation, and loading-strategy ownership remains advisory.
+      - rule_source_id: python.fastapi_service_deepening
+        section_counts:
+          candidate_canonical_rule_groups: 2
+          reference_only_guidance: 1
+        atoms:
+          - source_atom_id: async_request_path_ownership
+            section_id: candidate_canonical_rule_groups
+            status: mapped
+            pack_targets: [fastapi_service]
+            canonical_rules: [PY.FAPI.1]
+            reviewability_mix: [auto_review]
+            reason: Blocking I/O inside async request handlers is promoted into a dedicated FastAPI rule.
+          - source_atom_id: http_validation_boundaries
+            section_id: candidate_canonical_rule_groups
+            status: mapped
+            pack_targets: [fastapi_service]
+            canonical_rules: [PY.FAPI.2]
+            reviewability_mix: [auto_review]
+            reason: Raw request parsing and model bypass are canonicalized as transport-boundary rules.
+          - source_atom_id: dependency_background_and_response_contracts
+            section_id: reference_only_guidance
+            status: reference_only
+            pack_targets: [fastapi_service]
+            canonical_rules: [PY.FAPI.REF.1, PY.FAPI.REF.2]
+            reviewability_mix: [reference_only]
+            reason: Dependency and lifecycle ownership stays advisory when the patch alone cannot prove the defect.
 
   - language_id: typescript
     sources:
@@ -277,6 +706,72 @@ languages:
             canonical_rules: [TS.REF.1, TS.API.REF.1]
             reviewability_mix: [reference_only]
             reason: The source review question is preserved through boundary-helper guidance.
+      - rule_source_id: typescript.react_frontend_deepening
+        section_counts:
+          candidate_canonical_rule_groups: 3
+          reference_only_guidance: 2
+        atoms:
+          - source_atom_id: rendering_trust_boundaries
+            section_id: candidate_canonical_rule_groups
+            status: mapped
+            pack_targets: [project_typescript]
+            canonical_rules: [TS.7, TS.REF.3]
+            reviewability_mix: [auto_review, reference_only]
+            reason: Raw HTML sinks in TSX now map to an explicit React rendering trust-boundary rule.
+          - source_atom_id: effect_lifetime_ownership
+            section_id: candidate_canonical_rule_groups
+            status: mapped
+            pack_targets: [project_typescript]
+            canonical_rules: [TS.6, TS.REF.3]
+            reviewability_mix: [auto_review, reference_only]
+            reason: Async effect callback guidance is canonicalized with a detector-backed lifecycle rule plus advisory context.
+          - source_atom_id: hook_dependency_suppression
+            section_id: candidate_canonical_rule_groups
+            status: mapped
+            pack_targets: [ts_api_design]
+            canonical_rules: [TS.API.8]
+            reviewability_mix: [auto_review]
+            reason: Exhaustive-deps suppression now has dedicated canonical coverage for React ownership drift.
+          - source_atom_id: stable_semantic_keys
+            section_id: reference_only_guidance
+            status: reference_only
+            pack_targets: [ts_api_design]
+            canonical_rules: [TS.API.REF.2]
+            reviewability_mix: [reference_only]
+            reason: Positional JSX key guidance remains advisory because correctness depends on list identity and local state semantics.
+          - source_atom_id: local_component_proof_review_question
+            section_id: reference_only_guidance
+            status: reference_only
+            pack_targets: [project_typescript, ts_api_design]
+            canonical_rules: [TS.REF.3, TS.API.REF.2]
+            reviewability_mix: [reference_only]
+            reason: The React-specific review question is preserved as lifecycle and identity-oriented reference guidance.
+      - rule_source_id: typescript.nextjs_frontend_deepening
+        section_counts:
+          candidate_canonical_rule_groups: 2
+          reference_only_guidance: 1
+        atoms:
+          - source_atom_id: route_and_action_input_boundaries
+            section_id: candidate_canonical_rule_groups
+            status: mapped
+            pack_targets: [nextjs_frontend]
+            canonical_rules: [TS.NEXT.1, TS.NEXT.2]
+            reviewability_mix: [auto_review]
+            reason: Next.js route and server-action validation guidance is now detector-backed and active.
+          - source_atom_id: server_and_client_file_responsibilities
+            section_id: candidate_canonical_rule_groups
+            status: mapped
+            pack_targets: [nextjs_frontend]
+            canonical_rules: [TS.NEXT.3, TS.NEXT.4]
+            reviewability_mix: [auto_review]
+            reason: Secret env usage and browser API leakage now map to explicit Next.js boundary rules.
+          - source_atom_id: cache_and_boundary_visibility
+            section_id: reference_only_guidance
+            status: reference_only
+            pack_targets: [nextjs_frontend]
+            canonical_rules: [TS.NEXT.REF.1, TS.NEXT.REF.2]
+            reviewability_mix: [reference_only]
+            reason: Cache and broader server-client ownership guidance remains advisory by design.
 
   - language_id: javascript
     sources:
@@ -327,6 +822,32 @@ languages:
             canonical_rules: [JS.REF.1]
             reviewability_mix: [reference_only]
             reason: The source review question is preserved as DOM-boundary guidance.
+      - rule_source_id: javascript.nextjs_frontend_deepening
+        section_counts:
+          candidate_canonical_rule_groups: 2
+          reference_only_guidance: 1
+        atoms:
+          - source_atom_id: route_and_action_input_boundaries
+            section_id: candidate_canonical_rule_groups
+            status: mapped
+            pack_targets: [nextjs_frontend]
+            canonical_rules: [JS.NEXT.1, JS.NEXT.2]
+            reviewability_mix: [auto_review]
+            reason: Next.js route and server-action validation guidance is now active for JavaScript code paths.
+          - source_atom_id: server_and_client_file_responsibilities
+            section_id: candidate_canonical_rule_groups
+            status: mapped
+            pack_targets: [nextjs_frontend]
+            canonical_rules: [JS.NEXT.3, JS.NEXT.4]
+            reviewability_mix: [auto_review]
+            reason: Secret env usage and browser API leakage now map to explicit Next.js JavaScript rules.
+          - source_atom_id: cache_and_boundary_visibility
+            section_id: reference_only_guidance
+            status: reference_only
+            pack_targets: [nextjs_frontend]
+            canonical_rules: [JS.NEXT.REF.1, JS.NEXT.REF.2]
+            reviewability_mix: [reference_only]
+            reason: Cache and broader server-client ownership guidance remains advisory by design.
 
   - language_id: java
     sources:
@@ -377,6 +898,39 @@ languages:
             canonical_rules: [JAVA.REF.2]
             reviewability_mix: [reference_only]
             reason: The source review question is kept as a reusable boundary reminder.
+      - rule_source_id: java.spring_backend_deepening
+        section_counts:
+          candidate_canonical_rule_groups: 3
+          reference_only_guidance: 1
+        atoms:
+          - source_atom_id: dependency_and_wiring_boundaries
+            section_id: candidate_canonical_rule_groups
+            status: mapped
+            pack_targets: [spring_backend]
+            canonical_rules: [JAVA.SPRING.1]
+            reviewability_mix: [auto_review]
+            reason: Spring wiring guidance is now captured by a dedicated constructor-vs-field injection rule.
+          - source_atom_id: request_and_transaction_boundaries
+            section_id: candidate_canonical_rule_groups
+            status: mapped
+            pack_targets: [spring_backend]
+            canonical_rules: [JAVA.SPRING.2, JAVA.SPRING.4]
+            reviewability_mix: [auto_review]
+            reason: Controller transaction ownership and broad request-path reads now have explicit Spring review rules.
+          - source_atom_id: configuration_binding_safety
+            section_id: candidate_canonical_rule_groups
+            status: mapped
+            pack_targets: [spring_backend]
+            canonical_rules: [JAVA.SPRING.3]
+            reviewability_mix: [auto_review]
+            reason: Typed configuration binding and validation concerns are promoted into an active Spring rule.
+          - source_atom_id: layered_validation_and_exception_translation
+            section_id: reference_only_guidance
+            status: reference_only
+            pack_targets: [spring_backend]
+            canonical_rules: [JAVA.SPRING.REF.1, JAVA.SPRING.REF.2]
+            reviewability_mix: [reference_only]
+            reason: DTO, validation, and exception-translation ownership remains advisory across layers.
 
   - language_id: go
     sources:
@@ -477,6 +1031,32 @@ languages:
             canonical_rules: [RUST.REF.2, RUST.9]
             reviewability_mix: [reference_only]
             reason: The source review question is preserved through invariant-oriented reference rules.
+      - rule_source_id: rust.tokio_async_deepening
+        section_counts:
+          candidate_canonical_rule_groups: 2
+          reference_only_guidance: 1
+        atoms:
+          - source_atom_id: async_runtime_hygiene
+            section_id: candidate_canonical_rule_groups
+            status: mapped
+            pack_targets: [tokio_async]
+            canonical_rules: [RUST.TOKIO.1]
+            reviewability_mix: [auto_review]
+            reason: Blocking work inside async Rust is promoted into a dedicated Tokio rule.
+          - source_atom_id: task_and_queue_ownership
+            section_id: candidate_canonical_rule_groups
+            status: mapped
+            pack_targets: [tokio_async]
+            canonical_rules: [RUST.TOKIO.2, RUST.TOKIO.3]
+            reviewability_mix: [auto_review]
+            reason: Spawn ownership and unbounded queue guidance are now active Tokio-specific rules.
+          - source_atom_id: cancellation_and_test_visibility
+            section_id: reference_only_guidance
+            status: reference_only
+            pack_targets: [tokio_async]
+            canonical_rules: [RUST.TOKIO.REF.1, RUST.TOKIO.REF.2]
+            reviewability_mix: [reference_only]
+            reason: Cancellation and deterministic test guidance remains advisory unless the local patch proves a concrete failure.
 
   - language_id: bash
     sources:
@@ -584,6 +1164,98 @@ languages:
             canonical_rules: [SQL.REF.1, SQL.PROJ.4]
             reviewability_mix: [reference_only]
             reason: The source review question is preserved as result-contract guidance.
+      - rule_source_id: sql.analytics_warehouse_baseline
+        section_counts:
+          candidate_canonical_rule_groups: 3
+          reference_only_guidance: 2
+        atoms:
+          - source_atom_id: stable_grouping_contracts
+            section_id: candidate_canonical_rule_groups
+            status: mapped
+            pack_targets: [analytics_sql, ansi_sql]
+            canonical_rules: [SQL.WH.1, SQL.4]
+            reviewability_mix: [auto_review]
+            reason: Ordinal grouping and projection-drift guidance is now canonicalized for analytics-oriented SQL paths.
+          - source_atom_id: result_stability_under_sampling_or_paging
+            section_id: candidate_canonical_rule_groups
+            status: mapped
+            pack_targets: [analytics_sql]
+            canonical_rules: [SQL.WH.2]
+            reviewability_mix: [auto_review]
+            reason: LIMIT-without-ordering guidance is elevated into a dedicated warehouse rule with context-aware retrieval.
+          - source_atom_id: warehouse_model_semantics
+            section_id: candidate_canonical_rule_groups
+            status: reference_only
+            pack_targets: [analytics_sql, project_sql]
+            canonical_rules: [SQL.WH.REF.1, SQL.WH.REF.2, SQL.PROJ.4]
+            reviewability_mix: [reference_only]
+            reason: Deduplication and freshness-boundary semantics are preserved as warehouse-model guidance when patch-local proof is weak.
+          - source_atom_id: union_vs_union_all_intent
+            section_id: reference_only_guidance
+            status: reference_only
+            pack_targets: [analytics_sql]
+            canonical_rules: [SQL.WH.REF.1]
+            reviewability_mix: [reference_only]
+            reason: UNION semantics often depend on downstream model intent, so the guidance remains advisory.
+          - source_atom_id: stable_reporting_contract_review_question
+            section_id: reference_only_guidance
+            status: reference_only
+            pack_targets: [analytics_sql, project_sql]
+            canonical_rules: [SQL.WH.REF.2]
+            reviewability_mix: [reference_only]
+            reason: Freshness and reporting-contract framing is captured as a reusable warehouse review question.
+      - rule_source_id: sql.dbt_warehouse_deepening
+        section_counts:
+          candidate_canonical_rule_groups: 2
+          reference_only_guidance: 1
+        atoms:
+          - source_atom_id: model_contract_stability
+            section_id: candidate_canonical_rule_groups
+            status: mapped
+            pack_targets: [dbt_sql]
+            canonical_rules: [SQL.DBT.1]
+            reviewability_mix: [auto_review]
+            reason: dbt ref/source projection drift now maps to a dedicated model-contract rule.
+          - source_atom_id: macro_execution_boundaries
+            section_id: candidate_canonical_rule_groups
+            status: mapped
+            pack_targets: [dbt_sql]
+            canonical_rules: [SQL.DBT.2]
+            reviewability_mix: [auto_review]
+            reason: run_query macro execution is promoted into an explicit canonical boundary rule.
+          - source_atom_id: incremental_and_freshness_visibility
+            section_id: reference_only_guidance
+            status: reference_only
+            pack_targets: [dbt_sql]
+            canonical_rules: [SQL.DBT.REF.1, SQL.DBT.REF.2]
+            reviewability_mix: [reference_only]
+            reason: Broader incremental and contract visibility guidance remains advisory.
+      - rule_source_id: sql.migration_sql_deepening
+        section_counts:
+          candidate_canonical_rule_groups: 2
+          reference_only_guidance: 1
+        atoms:
+          - source_atom_id: destructive_schema_changes
+            section_id: candidate_canonical_rule_groups
+            status: mapped
+            pack_targets: [migration_sql]
+            canonical_rules: [SQL.MIG.1, SQL.MIG.2, SQL.MIG.5]
+            reviewability_mix: [auto_review]
+            reason: DROP TABLE, DROP COLUMN, and CASCADE guidance is promoted into staged-rollout migration rules.
+          - source_atom_id: constraint_and_index_rollout
+            section_id: candidate_canonical_rule_groups
+            status: mapped
+            pack_targets: [migration_sql]
+            canonical_rules: [SQL.MIG.3, SQL.MIG.4]
+            reviewability_mix: [auto_review]
+            reason: Constraint tightening and lock-aware index rollout now map to explicit migration rules.
+          - source_atom_id: transaction_and_lock_window_visibility
+            section_id: reference_only_guidance
+            status: reference_only
+            pack_targets: [migration_sql]
+            canonical_rules: [SQL.MIG.REF.1]
+            reviewability_mix: [reference_only]
+            reason: Operational lock-window and rollback guidance remains advisory where the diff alone is insufficient.
 
   - language_id: yaml
     sources:
@@ -634,6 +1306,105 @@ languages:
             canonical_rules: [YAML.3, YAML.CI.REF.1]
             reviewability_mix: [reference_only]
             reason: The source review question is preserved through schema- and workflow-aware guidance.
+      - rule_source_id: yaml.ci_workflow_deepening
+        section_counts:
+          candidate_canonical_rule_groups: 4
+          reference_only_guidance: 2
+        atoms:
+          - source_atom_id: remote_bootstrap_in_ci_script_steps
+            section_id: candidate_canonical_rule_groups
+            status: mapped
+            pack_targets: [ci_yaml]
+            canonical_rules: [YAML.CI.6]
+            reviewability_mix: [auto_review]
+            reason: Pipe-to-shell bootstrap in CI now maps to a dedicated high-severity provenance rule.
+          - source_atom_id: ci_download_verification
+            section_id: candidate_canonical_rule_groups
+            status: mapped
+            pack_targets: [ci_yaml]
+            canonical_rules: [YAML.CI.7]
+            reviewability_mix: [auto_review]
+            reason: Insecure CI download flags are elevated into a concrete detector-backed rule.
+          - source_atom_id: helper_service_image_provenance
+            section_id: candidate_canonical_rule_groups
+            status: mapped
+            pack_targets: [ci_yaml]
+            canonical_rules: [YAML.CI.8]
+            reviewability_mix: [auto_review]
+            reason: Service and helper image tag drift is now covered by an explicit CI runtime rule.
+          - source_atom_id: privileged_pull_request_triggers
+            section_id: candidate_canonical_rule_groups
+            status: mapped
+            pack_targets: [ci_yaml]
+            canonical_rules: [YAML.CI.9]
+            reviewability_mix: [auto_review]
+            reason: pull_request_target now maps to a dedicated privileged-trigger trust-boundary rule.
+          - source_atom_id: deploy_and_migration_failure_boundaries
+            section_id: reference_only_guidance
+            status: reference_only
+            pack_targets: [ci_yaml]
+            canonical_rules: [YAML.CI.REF.2]
+            reviewability_mix: [reference_only]
+            reason: Approval and rollback semantics for release jobs remain advisory unless the local diff proves a concrete defect.
+          - source_atom_id: executable_artifact_trust_boundary_review_question
+            section_id: reference_only_guidance
+            status: reference_only
+            pack_targets: [ci_yaml]
+            canonical_rules: [YAML.CI.REF.1, YAML.CI.REF.2]
+            reviewability_mix: [reference_only]
+            reason: The deepened CI bundle preserves the broader trust-boundary review question as reusable guidance.
+      - rule_source_id: yaml.product_config_deepening
+        section_counts:
+          candidate_canonical_rule_groups: 2
+          reference_only_guidance: 1
+        atoms:
+          - source_atom_id: secret_material_in_committed_config
+            section_id: candidate_canonical_rule_groups
+            status: mapped
+            pack_targets: [product_yaml]
+            canonical_rules: [YAML.PROD.1]
+            reviewability_mix: [auto_review]
+            reason: Secret-like literals in product config now map to a dedicated canonical rule.
+          - source_atom_id: layered_config_clarity
+            section_id: candidate_canonical_rule_groups
+            status: reference_only
+            pack_targets: [product_yaml]
+            canonical_rules: [YAML.PROD.REF.1]
+            reviewability_mix: [reference_only]
+            reason: Merge-key and layered-config clarity remains advisory because override correctness often depends on broader deployment context.
+          - source_atom_id: override_precedence_visibility
+            section_id: reference_only_guidance
+            status: reference_only
+            pack_targets: [product_yaml]
+            canonical_rules: [YAML.PROD.REF.1]
+            reviewability_mix: [reference_only]
+            reason: Effective-value ownership across environments remains a reusable review question.
+      - rule_source_id: yaml.schema_config_deepening
+        section_counts:
+          candidate_canonical_rule_groups: 2
+          reference_only_guidance: 1
+        atoms:
+          - source_atom_id: contract_width
+            section_id: candidate_canonical_rule_groups
+            status: mapped
+            pack_targets: [schema_yaml]
+            canonical_rules: [YAML.SCHEMA.1]
+            reviewability_mix: [auto_review]
+            reason: additionalProperties width is promoted into a dedicated schema-boundary rule.
+          - source_atom_id: default_clarity
+            section_id: candidate_canonical_rule_groups
+            status: mapped
+            pack_targets: [schema_yaml]
+            canonical_rules: [YAML.SCHEMA.2]
+            reviewability_mix: [auto_review]
+            reason: Ambiguous boolean-like defaults now map to an explicit schema clarity rule.
+          - source_atom_id: aligned_required_nullable_and_default_semantics
+            section_id: reference_only_guidance
+            status: reference_only
+            pack_targets: [schema_yaml]
+            canonical_rules: [YAML.SCHEMA.REF.1]
+            reviewability_mix: [reference_only]
+            reason: Required/default/nullable alignment remains advisory when the broader producer-consumer contract is not fully visible.
 
   - language_id: dockerfile
     sources:
