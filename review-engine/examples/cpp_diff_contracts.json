@@ -54,6 +54,16 @@
     ]
   },
   {
+    "example_path": "examples/multilang_diffs/go_tx_late_rollback.diff",
+    "source_path": "examples/multilang/go_tx_late_rollback.go",
+    "focus_patterns": [
+      "transaction_commit_without_rollback"
+    ],
+    "expected_rules": [
+      "GO.12"
+    ]
+  },
+  {
     "example_path": "examples/multilang_diffs/go_wrapped_sentinel_named_err.diff",
     "source_path": "examples/multilang/go_wrapped_sentinel.go",
     "focus_patterns": [

@@ -1,0 +1,23 @@
+diff --git a/repository/users.go b/repository/users.go
+new file mode 100644
+index 0000000..1111111
+--- /dev/null
++++ b/repository/users.go
+@@ -0,0 +1,15 @@
++package repository
++
++import "database/sql"
++
++func createUser(db *sql.DB, name string) error {
++    tx, err := db.Begin()
++    if err != nil {
++        return err
++    }
++
++    if _, err := tx.Exec("insert into users(name) values (?)", name); err != nil {
++        tx.Rollback()
++        return err
++    }
++
++    return tx.Commit()
++}

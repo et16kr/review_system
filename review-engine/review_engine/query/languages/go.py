@@ -28,8 +28,8 @@ PLUGIN = LanguageQueryPlugin(
         ),
         PatternSpec(
             "transaction_commit_without_rollback",
-            r"(?s)(?P<tx>[A-Za-z_]\w*)\s*,\s*[A-Za-z_]\w*\s*(?::=|=)\s*.*?\.(?:Begin|BeginTx)\([^)]*\)(?:(?!\b(?P=tx)\.Rollback\(\)).)*?\b(?P=tx)\.Commit\(",
-            "Transaction starts and commits without a visible rollback guard; review failure-path cleanup ownership.",
+            r"(?s)(?P<tx>[A-Za-z_]\w*)\s*,\s*[A-Za-z_]\w*\s*(?::=|=)\s*.*?\.(?:Begin|BeginTx)\([^)]*\)(?:(?!\bdefer\b(?:(?!\b(?P=tx)\.Commit\().)*?\b(?P=tx)\.Rollback\(\)).)*?\b(?P=tx)\.Commit\(",
+            "Transaction starts and commits without an early deferred rollback guard; review failure-path cleanup ownership.",
             0.86,
         ),
         PatternSpec(

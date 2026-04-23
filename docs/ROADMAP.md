@@ -128,13 +128,20 @@
   local error variable rename이 있어도 wrapped sentinel branch 안정성이 핵심이라는 점을 명시하도록 갱신됐다.
 - `GO.11` bundled code/diff example과 safe regression이
   renamed local error variable compare shape와 `errors.Is(...)` fix path를 함께 포함하도록 갱신됐다.
+- `GO.12`가 transaction start 이후 later error branch 안에서만 `Rollback()`을 호출하고
+  그대로 `Commit()`까지 가는 경로도 다시 잡도록 넓어졌다.
+- `GO.12` Go runtime baseline source/rule wording이
+  branch-local rollback later path가 immediate deferred rollback guard를 대체하지 못한다는 점을 명시하도록 갱신됐다.
+- `GO.12` bundled code/diff example과 targeted query conversion regression이
+  late branch-only rollback shape를 포함하도록 갱신됐다.
 - 이번 slice의 deterministic release gate는 `review-engine` ingest/examples/diff contracts와
   관련 targeted pytest만 다시 돌렸고,
   `review-bot`/`review-platform`, GitLab lifecycle smoke, mixed-language smoke, direct OpenAI/provider validation은 범위 밖으로 유지했다.
 
 남아 있는 우선 gap:
 
-- `GO.12` transaction rollback visibility
+- 명시된 1순위 gap은 없음
+- 다음 후보는 telemetry나 smoke에 남아 있는 under-trigger evidence를 다시 추려서 정한다
 
 다음 작업:
 
@@ -145,7 +152,8 @@
 
 검증 메모:
 
-- 이번 slice는 `review-engine` source/rule/detector/example을 변경했고 ingest 결과 active guideline dataset도 함께 갱신했다.
+- 이번 slice는 `review-engine` source/rule/detector/code example/diff example을 변경했고
+  ingest 결과 Go active guideline dataset도 함께 갱신했다.
 - rerun:
   - `uv run --project review-engine pytest review-engine/tests/test_query_conversion.py -q`
   - `uv run --project review-engine pytest review-engine/tests/test_multilang_regressions.py -q`
@@ -157,7 +165,7 @@
 
 현재 1순위 후보:
 
-- Go: transaction rollback visibility
+- telemetry나 smoke에서 다시 고를 다음 under-trigger gap
 
 완료 기준:
 
@@ -203,16 +211,17 @@
 
 ## Suggested Next Step
 
-현재 가장 자연스러운 다음 작업은 `Targeted Rule Expansion`의
-`GO.12` transaction rollback visibility gap을 source/rule/example 단위로 닫는 것이다.
+현재 가장 자연스러운 다음 작업은 `Targeted Rule Expansion`에서
+telemetry나 smoke에 남아 있는 다음 under-trigger gap 하나를 다시 골라
+같은 source/rule/example 단위로 닫는 것이다.
 
 이유:
 
 - `Provider Runtime Guardrails`는 watch 상태로 내려갔고 남은 실행 단위가 없다.
 - `Targeted Rule Expansion`은 여전히 source/rule/detector/example/validation을 한 번에 닫을 수 있는
   가장 작은 product-facing 실행 단위를 유지하고 있다.
-- `GO.11` renamed-local sentinel compare hardening이 닫혔으므로,
-  남은 우선 gap 목록에서 다음 순서인 `GO.12`로 넘어가는 편이 roadmap order와 현재 단위 분할을 그대로 유지한다.
+- 명시돼 있던 `GO.12` 우선 gap이 닫혔으므로,
+  다음 순서는 큰 새 기능으로 넘어가기보다 남아 있는 evidence를 다시 추려 같은 단위 크기를 유지하는 편이 안전하다.
 
 ## Queued After Main Roadmap
 

@@ -36,6 +36,10 @@
     "expected_rules": ["GO.12"]
   },
   {
+    "input": "examples/multilang/go_tx_late_rollback.go",
+    "expected_rules": ["GO.12"]
+  },
+  {
     "input": "examples/multilang/go_http_handler_unvalidated_json.go",
     "expected_rules": ["GO.13"]
   },
@@ -255,6 +259,11 @@
     "input": "examples/multilang_diffs/go_missing_defer.diff",
     "review_path": "examples/multilang/go_missing_defer.go",
     "expected_rules": ["GO.1"]
+  },
+  {
+    "input": "examples/multilang_diffs/go_tx_late_rollback.diff",
+    "review_path": "examples/multilang/go_tx_late_rollback.go",
+    "expected_rules": ["GO.12"]
   },
   {
     "input": "examples/multilang_diffs/go_wrapped_sentinel_named_err.diff",
