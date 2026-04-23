@@ -6,6 +6,8 @@ Recommended files:
 
 - `baseline_v0_YYYY-MM-DD.md`
 - `baseline_v1_YYYY-MM-DD.md`
+- `lifecycle_smoke_YYYY-MM-DD.json`
+- `multilang_smoke_<fixture_id>_YYYY-MM-DD.json`
 - `wrong_language_28d_YYYY-MM-DD.md`
 - `wrong_language_backlog_28d_YYYY-MM-DD.md`
 - `provider_quality_stub_YYYY-MM-DD.md`
@@ -39,6 +41,19 @@ Provider review decision snapshots record the human decision for each comparison
 `accept_baseline`, `prompt_tune`, `ranking_tune`, `rule_gap`, or `defer`.
 Provider/ranking/density snapshots combine the deterministic provider quality gate with
 the smoke fixture density contract so publish volume and file spread changes are visible.
+Retained smoke JSON artifacts should live next to these Markdown baselines instead of
+only in `/tmp`.
+
+Regular checkpoint bundle:
+
+- keep retained smoke JSON as `lifecycle_smoke_YYYY-MM-DD.json` and
+  `multilang_smoke_<fixture_id>_YYYY-MM-DD.json`
+- pair wrong-language review work with `wrong_language_28d_YYYY-MM-DD.md` and
+  `wrong_language_backlog_28d_YYYY-MM-DD.md` from the same checkpoint date
+- use `/tmp` only for ad hoc iteration; if a smoke run is part of the baseline, rerun it
+  with the canonical `docs/baselines/review_bot/` output path
+- if local GitLab is unavailable and smoke is intentionally skipped, record that skip in
+  the roadmap or change note rather than creating an empty placeholder artifact
 
 Capture helper:
 
@@ -74,5 +89,19 @@ uv run pytest tests/test_multilang_smoke_fixture.py tests/test_provider_quality.
 cd /home/et16/work/review_system
 bash ops/scripts/smoke_local_gitlab_multilang_review.sh \
   --fixture synthetic-mixed-language \
-  --json-output /tmp/review-bot-multilang-smoke.json
+  --json-output docs/baselines/review_bot/multilang_smoke_synthetic-mixed-language_$(date -u +%F).json
+python3 ops/scripts/capture_wrong_language_telemetry.py \
+  --window 28d \
+  --output docs/baselines/review_bot/wrong_language_28d_$(date -u +%F).md
+python3 ops/scripts/build_wrong_language_backlog.py \
+  --window 28d \
+  --output docs/baselines/review_bot/wrong_language_backlog_28d_$(date -u +%F).md
+```
+
+Lifecycle smoke helper:
+
+```bash
+cd /home/et16/work/review_system
+bash ops/scripts/smoke_local_gitlab_lifecycle_review.sh \
+  --json-output docs/baselines/review_bot/lifecycle_smoke_$(date -u +%F).json
 ```

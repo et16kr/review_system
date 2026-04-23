@@ -280,6 +280,16 @@ python3 /home/et16/work/review_system/ops/scripts/capture_review_bot_baseline.py
 
 - `docs/baselines/review_bot/`
 
+정기 baseline checkpoint 규칙:
+
+- retained artifact는 `docs/baselines/review_bot/` 아래에 날짜 기준 파일명으로 남긴다.
+- smoke JSON은 `lifecycle_smoke_YYYY-MM-DD.json`,
+  `multilang_smoke_<fixture_id>_YYYY-MM-DD.json` 형식을 사용한다.
+- wrong-language snapshot은 `wrong_language_28d_YYYY-MM-DD.md`,
+  detector backlog는 `wrong_language_backlog_28d_YYYY-MM-DD.md` 형식을 사용한다.
+- 디버깅 중 임시 실행은 `/tmp`를 써도 되지만, baseline으로 보존할 최종 실행은 canonical 경로로 다시 남긴다.
+- local GitLab이 준비되지 않아 smoke를 생략했다면 빈 artifact를 만들지 말고 변경 기록에 skip reason을 남긴다.
+
 수집 항목:
 
 - `/health`
@@ -416,12 +426,33 @@ bash ops/scripts/smoke_local_gitlab_lifecycle_review.sh \
   --json-output /tmp/review-bot-smoke.json
 ```
 
+정기 baseline으로 남길 때는:
+
+```bash
+bash ops/scripts/smoke_local_gitlab_lifecycle_review.sh \
+  --json-output docs/baselines/review_bot/lifecycle_smoke_$(date -u +%F).json
+```
+
 framework/product/config 축까지 함께 검증하는 mixed-language pre-release smoke는 아래 wrapper를 사용한다.
 
 ```bash
 bash ops/scripts/smoke_local_gitlab_multilang_review.sh \
   --fixture synthetic-mixed-language \
   --json-output /tmp/review-bot-multilang-smoke.json
+```
+
+정기 baseline으로 남길 때는:
+
+```bash
+bash ops/scripts/smoke_local_gitlab_multilang_review.sh \
+  --fixture synthetic-mixed-language \
+  --json-output docs/baselines/review_bot/multilang_smoke_synthetic-mixed-language_$(date -u +%F).json
+python3 ops/scripts/capture_wrong_language_telemetry.py \
+  --window 28d \
+  --output docs/baselines/review_bot/wrong_language_28d_$(date -u +%F).md
+python3 ops/scripts/build_wrong_language_backlog.py \
+  --window 28d \
+  --output docs/baselines/review_bot/wrong_language_backlog_28d_$(date -u +%F).md
 ```
 
 이 시나리오는 아래를 한 번에 검증한다.

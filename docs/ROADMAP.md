@@ -65,12 +65,18 @@
 - `2026-04-23`: Validation Baseline과 운영 문서에서 deterministic `release gate`,
   local GitLab `pre-release smoke`, direct OpenAI provider 확인 경로를 분리했다.
   이 단위는 문서 정리 작업이라 local GitLab smoke는 다시 돌리지 않았다.
+- `2026-04-23`: regular baseline checkpoint 절차를 canonical 문서에 고정했다.
+  retained artifact는 `docs/baselines/review_bot/` 아래
+  `lifecycle_smoke_YYYY-MM-DD.json`,
+  `multilang_smoke_<fixture_id>_YYYY-MM-DD.json`,
+  `wrong_language_28d_YYYY-MM-DD.md`,
+  `wrong_language_backlog_28d_YYYY-MM-DD.md` 형식으로 남긴다.
+  이번 단위는 docs-only 작업이라 deterministic 검증과 local GitLab smoke는 재실행하지 않았다.
 
 남은 작업:
 
-1. smoke JSON artifact와 telemetry snapshot을 정기 baseline으로 남기는 절차를 고정한다.
-2. fixture별 실제 signal에 맞춰 `density_contract`를 세분화한다.
-3. synthetic wrong-language smoke event가 운영 backlog에 섞이지 않는지 정기 snapshot에서 확인한다.
+1. fixture별 실제 signal에 맞춰 `density_contract`를 세분화한다.
+2. synthetic wrong-language smoke event가 운영 backlog에 섞이지 않는지 정기 snapshot에서 확인한다.
 
 완료 기준:
 
