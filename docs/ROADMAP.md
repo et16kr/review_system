@@ -58,7 +58,7 @@
 
 ### 2. Smoke And Evaluation Hardening
 
-상태: `partial`
+상태: `watch`
 
 현재 진행:
 
@@ -77,10 +77,16 @@
   `cuda-targeted`는 `2`를 요구한다. 이 단위는 deterministic contract 조정이라
   `test_multilang_smoke_fixture`, `test_provider_quality`, `stub` provider quality gate만
   실행했고 local GitLab smoke는 다시 돌리지 않았다.
+- `2026-04-23`: wrong-language telemetry snapshot/backlog renderer를 deterministic
+  regression으로 고정했다. synthetic smoke candidate는 telemetry note와 dedicated
+  backlog section으로만 남고 detector fix candidate에는 섞이지 않는다. 이 단위는
+  snapshot hardening이라
+  `uv run --project review-bot pytest review-bot/tests/test_wrong_language_baseline_scripts.py -q`
+  만 실행했고 local GitLab smoke는 다시 돌리지 않았다.
 
 남은 작업:
 
-1. synthetic wrong-language smoke event가 운영 backlog에 섞이지 않는지 정기 snapshot에서 확인한다.
+- 없음. 정기 checkpoint에서는 wrong-language telemetry/backlog artifact를 계속 관찰만 한다.
 
 완료 기준:
 
