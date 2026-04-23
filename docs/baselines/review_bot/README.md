@@ -15,6 +15,7 @@ Recommended files:
 - `provider_comparison_YYYY-MM-DD.md`
 - `provider_review_decisions_YYYY-MM-DD.md`
 - `provider_ranking_density_YYYY-MM-DD.md`
+- `review_unit_split_audit_YYYY-MM-DD.md`
 - `baseline_v0_TEMPLATE.md`
 - `baseline_v1_TEMPLATE.md`
 
@@ -41,6 +42,8 @@ Provider review decision snapshots record the human decision for each comparison
 `accept_baseline`, `prompt_tune`, `ranking_tune`, `rule_gap`, or `defer`.
 Provider/ranking/density snapshots combine the deterministic provider quality gate with
 the smoke fixture density contract so publish volume and file spread changes are visible.
+Review-unit split audit snapshots record which languages still need syntax-aware split
+after the current fixed-line hunk splitter is applied to the deterministic long-hunk corpus.
 Retained smoke JSON artifacts should live next to these Markdown baselines instead of
 only in `/tmp`.
 
@@ -96,6 +99,14 @@ python3 ops/scripts/capture_wrong_language_telemetry.py \
 python3 ops/scripts/build_wrong_language_backlog.py \
   --window 28d \
   --output docs/baselines/review_bot/wrong_language_backlog_28d_$(date -u +%F).md
+```
+
+Review-unit split audit helper:
+
+```bash
+cd /home/et16/work/review_system/review-bot
+uv run python -m review_bot.cli.review_unit_split_audit \
+  --output ../docs/baselines/review_bot/review_unit_split_audit_$(date -u +%F).md
 ```
 
 Lifecycle smoke helper:

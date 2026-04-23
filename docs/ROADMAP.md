@@ -192,24 +192,33 @@
 
 - `full-report`/`backlog` general note가 각 항목의 `disposition`/`reason`을 짧은 한국어 surfacing reason으로 함께 보여 주도록 바뀌었다.
 - raw `reason` 코드는 그대로 유지해 운영자가 machine-readable state를 잃지 않으면서도, note만 읽는 사용자는 왜 backlog/suppress/pending 상태인지 바로 볼 수 있다.
+- review unit split 로직을 `review_bot.review_units` helper로 분리해
+  runtime과 audit가 같은 fixed-line hunk 분할 규칙을 공유하도록 고정했다.
+- deterministic `review_unit_split_audit` corpus/CLI와
+  repo-local artifact `docs/baselines/review_bot/review_unit_split_audit_2026-04-24.md`를 추가해
+  현재 기준 syntax-aware split 우선 언어를 `python`, `typescript`, `yaml`으로 고정하고,
+  `go`는 monitor-only로 남겼다.
 
 다음 작업:
 
-1. hunk 기반 review unit split의 한계를 측정하고 syntax-aware split이 필요한 언어를 고른다.
+1. `python`, `typescript`(TSX/React), `yaml` 중 하나를 골라 syntax-aware split prototype과 anchor/fingerprint 회귀를 붙인다.
 2. related file retrieval과 project-scoped codebase index를 분리 설계한다.
 3. project-local feedback이 global quality metric을 왜곡하지 않도록 learned weight granularity를 정한다.
 4. `.review-bot.yaml`, `summarize`, `ask`, walkthrough note의 우선순위를 재평가한다.
 
 검증 메모:
 
-- 이번 slice는 `review-bot` note rendering과 그 회귀 테스트만 바꿨다.
+- 이번 slice는 review unit split helper, deterministic audit corpus/CLI, repo-local audit artifact만 추가했다.
 - rerun:
-  - `env UV_CACHE_DIR=/tmp/uv-cache uv run --project review-bot pytest review-bot/tests/test_review_runner.py::test_post_full_report_note_posts_backlog_overview review-bot/tests/test_review_runner.py::test_render_full_report_note_includes_surfacing_reason_detail_for_suppressed_items review-bot/tests/test_review_runner.py::test_post_backlog_note_posts_backlog_only_view -q`
+  - `env UV_CACHE_DIR=/tmp/uv-cache uv run --project review-bot pytest review-bot/tests/test_review_runner.py::test_review_runner_keeps_distinct_findings_per_hunk review-bot/tests/test_review_unit_split_audit.py -q`
+  - `env UV_CACHE_DIR=/tmp/uv-cache uv run --project review-bot python -m review_bot.cli.review_unit_split_audit --output docs/baselines/review_bot/review_unit_split_audit_2026-04-24.md`
+- deterministic validation은 direct OpenAI도 lifecycle stub fallback도 쓰지 않고 static audit corpus만 사용했다.
 - broader `review-bot` pytest, GitLab lifecycle smoke, multilang smoke, direct OpenAI/provider validation은 adapter/lifecycle/provider path 비변경으로 생략했다.
 
 완료 기준:
 
 - backlog와 surfacing reason이 사용자에게 더 잘 설명된다.
+- syntax-aware split 우선 언어가 repo-local deterministic audit로 고정된다.
 - project-local feedback이 global quality metric을 왜곡하지 않는다.
 - context retrieval이 false-positive를 줄이는지 deterministic fixture로 확인된다.
 

@@ -33,10 +33,10 @@ from review_bot.contracts import (
     ReviewRequestMeta,
 )
 from review_bot.db.models import (
+    DeadLetterRecord,
     FeedbackEvent,
     FindingDecision,
     FindingEvidence,
-    DeadLetterRecord,
     FindingLifecycleEvent,
     PublicationState,
     ReviewRequest,
@@ -59,18 +59,23 @@ from review_bot.metrics import (
     verify_dropped_total,
 )
 from review_bot.policy import ReviewPolicy, load_review_policy
+from review_bot.providers.base import FindingDraft, ProviderRuntimeMetadata, VerifyDraftResult
 from review_bot.providers.change_analysis import (
     classify_issue,
     extract_changed_excerpt,
     requires_direct_signal,
     select_candidate_line,
 )
-from review_bot.providers.base import FindingDraft, ProviderRuntimeMetadata, VerifyDraftResult
 from review_bot.providers.factory import build_review_comment_provider
-from review_bot.review_systems.factory import build_review_system_adapter
 from review_bot.review_systems.base import render_general_note_purpose_marker
-HUNK_RE = re.compile(r"@@ -(?P<old>\d+)(?:,\d+)? \+(?P<new>\d+)(?:,\d+)? @@")
-MAX_LINES_PER_REVIEW_UNIT = 80
+from review_bot.review_systems.factory import build_review_system_adapter
+from review_bot.review_units import (
+    DEFAULT_MAX_LINES_PER_REVIEW_UNIT,
+    ReviewUnit,
+    iter_review_units,
+)
+
+MAX_LINES_PER_REVIEW_UNIT = DEFAULT_MAX_LINES_PER_REVIEW_UNIT
 MAX_COMMENT_BODY = 3800  # GitLab 4000자 제한 여유
 FILE_CONTEXT_MAX_CHARS = 4000  # LLM 프롬프트에 포함할 파일 컨텍스트 최대 길이
 _FILE_CONTEXT_KEY = "_file_context"  # raw_engine_payload 내 파일 컨텍스트 저장 키
@@ -184,23 +189,6 @@ def _compute_top_k(patch: str) -> int:
         return 12
     return 15
 logger = logging.getLogger(__name__)
-
-
-@dataclass(frozen=True)
-class ChangedPatchLine:
-    marker: str
-    text: str
-    old_line_no: int | None = None
-    new_line_no: int | None = None
-
-
-@dataclass(frozen=True)
-class ReviewUnit:
-    patch: str
-    change_snippet: str
-    default_line_no: int | None
-    candidate_line_nos: tuple[int, ...]
-    changed_lines: tuple[ChangedPatchLine, ...]
 
 
 @dataclass(frozen=True)
@@ -3866,122 +3854,11 @@ class ReviewRunner:
             logger.debug("fetch_file_context_skipped path=%s error=%s", path, exc)
         return None
 
-    def _extract_line_no(self, patch: str) -> int | None:
-        match = HUNK_RE.search(patch)
-        if match is None:
-            return None
-        return int(match.group("new"))
-
     def _iter_review_units(self, patch: str) -> list[ReviewUnit]:
-        lines = patch.splitlines()
-        units: list[ReviewUnit] = []
-        current_header: str | None = None
-        current_lines: list[str] = []
-
-        for line in lines:
-            if line.startswith("@@"):
-                if current_header is not None:
-                    units.append(self._build_review_unit(current_header, current_lines))
-                current_header = line
-                current_lines = []
-                continue
-            if current_header is not None:
-                current_lines.append(line)
-
-        if current_header is not None:
-            units.append(self._build_review_unit(current_header, current_lines))
-
-        if units:
-            expanded: list[ReviewUnit] = []
-            for unit in units:
-                expanded.extend(self._split_large_added_unit(unit))
-            return expanded
-        return [
-            ReviewUnit(
-                patch=patch,
-                change_snippet=patch,
-                default_line_no=self._extract_line_no(patch),
-                candidate_line_nos=(),
-                changed_lines=(),
-            )
-        ]
-
-    def _build_review_unit(self, header: str, hunk_lines: list[str]) -> ReviewUnit:
-        match = HUNK_RE.match(header)
-        old_line_no = int(match.group("old")) if match else None
-        new_line_no = int(match.group("new")) if match else None
-        changed_lines: list[ChangedPatchLine] = []
-        candidate_line_nos: list[int] = []
-        numbered_lines: list[str] = [header]
-
-        for raw_line in hunk_lines:
-            if raw_line.startswith("\\"):
-                continue
-            if raw_line.startswith("+") and not raw_line.startswith("+++"):
-                changed_lines.append(
-                    ChangedPatchLine(marker="+", text=raw_line[1:], new_line_no=new_line_no)
-                )
-                if new_line_no is not None:
-                    candidate_line_nos.append(new_line_no)
-                    numbered_lines.append(f"L{new_line_no} | + {raw_line[1:]}")
-                    new_line_no += 1
-                continue
-            if raw_line.startswith("-") and not raw_line.startswith("---"):
-                changed_lines.append(
-                    ChangedPatchLine(marker="-", text=raw_line[1:], old_line_no=old_line_no)
-                )
-                if old_line_no is not None:
-                    numbered_lines.append(f"OLD{old_line_no} | - {raw_line[1:]}")
-                    old_line_no += 1
-                continue
-            if raw_line.startswith(" "):
-                if old_line_no is not None:
-                    old_line_no += 1
-                if new_line_no is not None:
-                    new_line_no += 1
-
-        normalized_candidates = tuple(dict.fromkeys(candidate_line_nos))
-        default_line_no = normalized_candidates[0] if normalized_candidates else self._extract_line_no(header)
-        return ReviewUnit(
-            patch="\n".join([header, *hunk_lines]),
-            change_snippet="\n".join(numbered_lines),
-            default_line_no=default_line_no,
-            candidate_line_nos=normalized_candidates,
-            changed_lines=tuple(changed_lines),
+        return iter_review_units(
+            patch,
+            max_lines_per_review_unit=MAX_LINES_PER_REVIEW_UNIT,
         )
-
-    def _split_large_added_unit(self, unit: ReviewUnit) -> list[ReviewUnit]:
-        if len(unit.candidate_line_nos) <= MAX_LINES_PER_REVIEW_UNIT:
-            return [unit]
-        if not unit.changed_lines or any(line.marker != "+" for line in unit.changed_lines):
-            return [unit]
-
-        added_lines = [line for line in unit.changed_lines if line.new_line_no is not None]
-        if len(added_lines) <= MAX_LINES_PER_REVIEW_UNIT:
-            return [unit]
-
-        split_units: list[ReviewUnit] = []
-        for start in range(0, len(added_lines), MAX_LINES_PER_REVIEW_UNIT):
-            chunk = added_lines[start : start + MAX_LINES_PER_REVIEW_UNIT]
-            first_line_no = chunk[0].new_line_no
-            if first_line_no is None:
-                continue
-            header = f"@@ -0,0 +{first_line_no},{len(chunk)} @@"
-            patch_lines = [header, *[f"+{line.text}" for line in chunk]]
-            numbered_lines = [header, *[f"L{line.new_line_no} | + {line.text}" for line in chunk]]
-            candidate_line_nos = tuple(
-                line.new_line_no for line in chunk if line.new_line_no is not None
-            )
-            split_units.append(
-                ReviewUnit(
-                    patch="\n".join(patch_lines),
-                    change_snippet="\n".join(numbered_lines),
-                    default_line_no=candidate_line_nos[0] if candidate_line_nos else first_line_no,
-                    candidate_line_nos=candidate_line_nos,
-                    changed_lines=tuple(chunk),
-                )
-            )
-        return split_units or [unit]
 
     def _issue_signature(self, result: dict[str, object], review_unit: ReviewUnit) -> str:
         changed_lines = [
