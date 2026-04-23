@@ -257,10 +257,12 @@ wrong-language telemetry 해석 기준:
 - `top_language_pairs`로 가장 자주 틀리는 detect 조합을 본다.
 - `top_profiles`로 framework/profile/context 오분류 집중 구간을 본다.
 - `top_paths`로 `.github/workflows`, `src`, `db`, `docs` 같은 경로 기반 blind spot을 본다.
-- `triage_candidates`로 detector backlog를 바로 만들 우선순위 조합을 본다.
-- `root/review-system-multilang-smoke`, `root/review-system-curated-polyglot-smoke`, `root/review-system-cuda-smoke` 같은 smoke project의 wrong-language event는 telemetry flow 검증용 synthetic event다.
+- `triage_candidates`의 `provenance`, `triage_cause`, `actionability`를 함께 본다.
+- detector backlog로 바로 옮길 후보는 기본적으로 `actionability=fix_detector`뿐이다.
+- `root/review-system-multilang-smoke`, `root/review-system-curated-polyglot-smoke`, `root/review-system-cuda-smoke` 같은 smoke project의 wrong-language event는 `synthetic_smoke` 검증 이벤트다.
 - project filter 없이 전체 window를 보면 smoke event와 실제 운영 피드백이 섞일 수 있다.
-- detector backlog로 바꾸기 전에는 해당 thread가 실제 오분류인지, 사람이 다른 thread에 잘못 reply한 것인지, policy mismatch인지 먼저 확인한다.
+- `wrong_thread_target`은 사람이 다른 thread에 reply했거나 expected language가 잘못 지정됐을 가능성을 먼저 확인한다.
+- `policy_mismatch`는 detector보다 policy 또는 fixture contract를 먼저 맞춘다.
 
 standalone wrong-language telemetry snapshot이 필요하면:
 
@@ -283,9 +285,24 @@ telemetry를 바로 detector backlog 형태로 정리하려면:
 
 ```bash
 python3 /home/et16/work/review_system/ops/scripts/build_wrong_language_backlog.py \
-  --project-ref root/review-system-multilang-smoke \
   --window 28d \
   --min-count 1
+```
+
+backlog script의 기본 section:
+
+- `Detector Fix Candidates`: `actionability=fix_detector`인 detector 수정 후보
+- `Likely Wrong Thread Target`: detector 수정 전 thread 대상 확인이 필요한 후보
+- `Policy Or Fixture Candidates`: policy 또는 fixture expectation 정리가 우선인 후보
+- `Synthetic Smoke Events`: telemetry loop 검증용 이벤트
+
+필요한 경우:
+
+```bash
+python3 /home/et16/work/review_system/ops/scripts/build_wrong_language_backlog.py \
+  --window 28d \
+  --min-count 1 \
+  --show-needs-inspection
 ```
 
 ## 7. 로컬 GitLab E2E 검증

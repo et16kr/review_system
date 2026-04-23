@@ -4,6 +4,11 @@ from dataclasses import dataclass, field, replace as dataclass_replace
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 
+from review_bot.analytics.wrong_language import (
+    classify_wrong_language_cause,
+    classify_wrong_language_provenance,
+    wrong_language_actionability,
+)
 from review_bot.bot.review_runner import MAX_COMMENT_BODY, ReviewRunner
 from review_bot.contracts import (
     CheckPublishResult,
@@ -1945,6 +1950,9 @@ def test_wrong_language_feedback_analytics_reports_detected_vs_expected_language
         assert report["total_events"] == 1
         assert report["distinct_threads"] == 1
         assert report["distinct_findings"] == 1
+        assert report["smoke_events"] == 0
+        assert report["production_events"] == 1
+        assert report["unknown_provenance_events"] == 0
         assert report["top_language_pairs"][0] == {
             "detected_language_id": "cpp",
             "expected_language_id": "markdown",
@@ -1960,14 +1968,45 @@ def test_wrong_language_feedback_analytics_reports_detected_vs_expected_language
             "path_pattern": "src",
             "count": 1,
             "priority": "low",
+            "provenance": "production",
+            "triage_cause": "wrong_thread_target",
+            "actionability": "inspect_thread",
             "suggested_action": (
-                "문서형 경로가 아닌데 `markdown` 기대값이 들어왔습니다. "
-                "detector 오분류인지, wrong-language reply 대상 thread가 맞는지 먼저 확인하고 "
-                "feedback regression 예제를 함께 보강하세요."
+                "감지 언어가 파일 경로/context와 더 잘 맞습니다. detector 수정 전에 "
+                "wrong-language reply 대상 thread와 기대 언어가 맞는지 먼저 확인하세요."
             ),
         }
     finally:
         session.close()
+
+
+def test_wrong_language_classifier_marks_smoke_and_actionable_detector_miss() -> None:
+    smoke_provenance = classify_wrong_language_provenance(
+        "root/review-system-multilang-smoke",
+        "@review-bot wrong-language markdown\ntelemetry 점검",
+    )
+    smoke_cause = classify_wrong_language_cause(
+        detected_language_id="yaml",
+        expected_language_id="markdown",
+        profile_id="gitlab_ci",
+        context_id="gitlab_ci",
+        file_path=".gitlab-ci.yml",
+        provenance=smoke_provenance,
+    )
+    docs_cause = classify_wrong_language_cause(
+        detected_language_id="cpp",
+        expected_language_id="markdown",
+        profile_id="default",
+        context_id=None,
+        file_path="README.md",
+        provenance="production",
+    )
+
+    assert smoke_provenance == "smoke"
+    assert smoke_cause == "synthetic_smoke"
+    assert wrong_language_actionability(smoke_cause) == "ignore_for_detector_backlog"
+    assert docs_cause == "detector_miss"
+    assert wrong_language_actionability(docs_cause) == "fix_detector"
 
 
 def test_feedback_path_bucket_normalizes_root_markdown_paths_to_docs() -> None:

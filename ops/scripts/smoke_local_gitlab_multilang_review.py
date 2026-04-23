@@ -607,6 +607,29 @@ def main() -> int:
                     "wrong-language telemetry did not record the expected "
                     f"{detected_language_id} -> {expected_language_id} pair."
                 )
+            triage_candidate = next(
+                (
+                    item
+                    for item in telemetry.get("triage_candidates", [])
+                    if item.get("detected_language_id") == detected_language_id
+                    and item.get("expected_language_id") == expected_language_id
+                ),
+                None,
+            )
+            if triage_candidate is None:
+                raise RuntimeError(
+                    "wrong-language telemetry did not include a triage candidate for "
+                    f"{detected_language_id} -> {expected_language_id}."
+                )
+            if (
+                triage_candidate.get("provenance") != "smoke"
+                or triage_candidate.get("triage_cause") != "synthetic_smoke"
+                or triage_candidate.get("actionability") != "ignore_for_detector_backlog"
+            ):
+                raise RuntimeError(
+                    "wrong-language smoke telemetry was not separated from detector backlog: "
+                    f"{triage_candidate}"
+                )
 
         result = {
             "fixture_id": fixture.fixture_id,

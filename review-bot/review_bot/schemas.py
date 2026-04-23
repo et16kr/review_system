@@ -176,6 +176,20 @@ class WrongLanguageTriageCandidateResponse(BaseModel):
     path_pattern: str
     count: int
     priority: Literal["high", "medium", "low"] = "low"
+    provenance: Literal["smoke", "production", "unknown"] = "unknown"
+    triage_cause: Literal[
+        "synthetic_smoke",
+        "detector_miss",
+        "wrong_thread_target",
+        "policy_mismatch",
+        "needs_inspection",
+    ] = "needs_inspection"
+    actionability: Literal[
+        "ignore_for_detector_backlog",
+        "inspect_thread",
+        "update_policy_or_fixture",
+        "fix_detector",
+    ] = "inspect_thread"
     suggested_action: str
 
 
@@ -185,6 +199,9 @@ class WrongLanguageFeedbackResponse(BaseModel):
     total_events: int = 0
     distinct_threads: int = 0
     distinct_findings: int = 0
+    smoke_events: int = 0
+    production_events: int = 0
+    unknown_provenance_events: int = 0
     top_language_pairs: list[WrongLanguagePairResponse] = Field(default_factory=list)
     top_profiles: list[WrongLanguageProfileResponse] = Field(default_factory=list)
     top_paths: list[WrongLanguagePathResponse] = Field(default_factory=list)

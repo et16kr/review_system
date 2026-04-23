@@ -417,13 +417,17 @@ Query parameter:
 - 현재 구현은 window 안의 parsed `wrong-language` human reply event를 집계한다.
 - `distinct_threads`와 `distinct_findings`는 unique count지만, 같은 thread/finding에 repeated wrong-language reply가 있으면 `total_events`와 pair/profile/path count는 증가할 수 있다.
 - smoke fixture가 의도적으로 만든 wrong-language reply도 project filter 없이 보면 포함된다.
-- detector blind spot backlog로 전환하기 전에 `project_ref`, thread 대상, expected language가 실제 운영 피드백인지 확인한다.
+- response는 `provenance`, `triage_cause`, `actionability`를 함께 반환해 synthetic smoke, detector miss, wrong thread target, policy mismatch를 구분한다.
+- detector blind spot backlog로 바로 전환하는 대상은 `actionability=fix_detector` 후보로 제한한다.
 
 Response 공통 필드:
 
 - `total_events`
 - `distinct_threads`
 - `distinct_findings`
+- `smoke_events`
+- `production_events`
+- `unknown_provenance_events`
 - `top_language_pairs`
 - `top_profiles`
 - `top_paths`
@@ -459,6 +463,9 @@ Response 공통 필드:
 - `path_pattern`
 - `count`
 - `priority`
+- `provenance`: `smoke | production | unknown`
+- `triage_cause`: `synthetic_smoke | detector_miss | wrong_thread_target | policy_mismatch | needs_inspection`
+- `actionability`: `ignore_for_detector_backlog | inspect_thread | update_policy_or_fixture | fix_detector`
 - `suggested_action`
 
 운영 해석 가이드:
@@ -466,7 +473,8 @@ Response 공통 필드:
 - `top_language_pairs`는 어떤 언어 조합에서 detector가 흔들리는지 보여 준다.
 - `top_profiles`는 framework/context 오분류가 profile/context 축에서 집중되는지 확인하는 데 쓴다.
 - `top_paths`는 `.github/workflows`, `src`, `db`, `docs` 같은 경로 버킷별 blind spot을 찾는 데 쓴다.
-- `triage_candidates`는 detector backlog를 바로 만들 때 우선 손대야 할 조합을 보여 준다.
+- `triage_candidates` 중 `actionability=fix_detector`만 detector backlog 후보로 본다.
+- `synthetic_smoke`는 telemetry loop 검증 이벤트이고, `wrong_thread_target`은 detector 수정 전에 reply 대상 thread를 먼저 확인해야 한다.
 
 Response 예시:
 
@@ -477,6 +485,9 @@ Response 예시:
   "total_events": 3,
   "distinct_threads": 3,
   "distinct_findings": 3,
+  "smoke_events": 1,
+  "production_events": 2,
+  "unknown_provenance_events": 0,
   "top_language_pairs": [
     {
       "detected_language_id": "cpp",
@@ -510,7 +521,10 @@ Response 예시:
       "path_pattern": ".gitlab-ci.yml",
       "count": 1,
       "priority": "high",
-      "suggested_action": "문서 경로를 reviewable 대상에서 더 명확히 제외하고, 유사 확장자/경로 예외 규칙을 detector backlog에 추가하세요."
+      "provenance": "smoke",
+      "triage_cause": "synthetic_smoke",
+      "actionability": "ignore_for_detector_backlog",
+      "suggested_action": "Smoke telemetry 검증 이벤트입니다. 운영 detector backlog에서는 제외하고 telemetry loop 회귀 여부만 확인하세요."
     }
   ]
 }

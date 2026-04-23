@@ -40,6 +40,15 @@ def render_markdown(
 ) -> str:
     generated_at = datetime.now(UTC).isoformat()
     payload = report if isinstance(report, dict) else {}
+    smoke_events = int(payload.get("smoke_events") or 0)
+    smoke_candidates = [
+        item
+        for item in payload.get("triage_candidates", [])
+        if str(item.get("provenance") or "unknown") == "smoke"
+        or str(item.get("triage_cause") or "needs_inspection") == "synthetic_smoke"
+        or str(item.get("actionability") or "inspect_thread")
+        == "ignore_for_detector_backlog"
+    ]
     lines = [
         "# Review Bot Wrong-Language Telemetry",
         "",
@@ -51,12 +60,26 @@ def render_markdown(
         "## Summary",
         "",
         f"- total_events: `{payload.get('total_events', 0)}`",
+        f"- smoke_events: `{payload.get('smoke_events', 0)}`",
+        f"- production_events: `{payload.get('production_events', 0)}`",
+        f"- unknown_provenance_events: `{payload.get('unknown_provenance_events', 0)}`",
         f"- distinct_threads: `{payload.get('distinct_threads', 0)}`",
         f"- distinct_findings: `{payload.get('distinct_findings', 0)}`",
         "",
-        "## Top Language Pairs",
-        "",
     ]
+    if smoke_events > 0 or smoke_candidates:
+        lines.extend(
+            [
+                "## Interpretation Note",
+                "",
+                (
+                    "Smoke provenance가 포함되어 있습니다. 이 항목은 telemetry loop 검증용으로 "
+                    "보존하되 detector backlog로 바로 옮기지 마세요."
+                ),
+                "",
+            ]
+        )
+    lines.extend(["## Top Language Pairs", ""])
     lines.extend(
         _markdown_table(
             ["detected", "expected", "count"],
@@ -124,6 +147,9 @@ def render_markdown(
         _markdown_table(
             [
                 "priority",
+                "provenance",
+                "triage_cause",
+                "actionability",
                 "detected",
                 "expected",
                 "profile",
@@ -135,6 +161,9 @@ def render_markdown(
             [
                 [
                     str(item.get("priority") or "low"),
+                    str(item.get("provenance") or "unknown"),
+                    str(item.get("triage_cause") or "needs_inspection"),
+                    str(item.get("actionability") or "inspect_thread"),
                     str(item.get("detected_language_id") or "unknown"),
                     str(item.get("expected_language_id") or "unknown"),
                     str(item.get("profile_id") or "default"),

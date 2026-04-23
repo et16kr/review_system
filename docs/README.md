@@ -22,7 +22,8 @@
 
 1. 현재 구조 설명이면 `CURRENT_SYSTEM.md`에 합친다.
 2. 앞으로 할 일이면 `ROADMAP.md`에 합친다.
-3. API contract면 `API_CONTRACTS.md`에 합친다.
-4. 실행 절차나 smoke 명령이면 `OPERATIONS_RUNBOOK.md`에 합친다.
+3. 새 workflow/API/DB/prompt contract 설계면 구현 전에는 별도 설계 문서를 둘 수 있지만, 구현이 끝나면 canonical 문서로 합치고 설계 문서는 제거한다.
+4. API contract면 `API_CONTRACTS.md`에 합친다.
+5. 실행 절차나 smoke 명령이면 `OPERATIONS_RUNBOOK.md`에 합친다.
 
 별도 문서는 새 API/DB/workflow/prompt contract처럼 독립적인 변경 축이 생길 때만 만든다.

@@ -24,7 +24,7 @@
 - 지원 note command는 `review`, `full-report`, `backlog`, `help`다. `apply`, `ask`, `summarize` 같은 automation/interactive command는 아직 없다.
 - `review-engine`에는 extension rule root, prompt overlay, entry point, detector plugin, strict loading 골격이 있다. 다만 private/public CI split과 운영 배포 계약은 아직 정리되지 않았다.
 - `review-bot`에는 hunk 기반 review unit split, 큰 add-only hunk chunking, file context fetch, optional codebase similarity search가 있다. AST/syntax-aware split이나 project-scoped memory는 아직 없다.
-- mixed-language smoke fixture들은 의도적으로 `wrong_language_feedback`을 주입한다. 따라서 smoke project의 telemetry를 detector blind spot으로 바로 해석하면 안 된다.
+- wrong-language analytics는 `smoke/production/unknown` provenance, `triage_cause`, `actionability`를 반환한다. smoke fixture의 synthetic feedback은 detector backlog에서 기본 분리된다.
 
 ## Already Closed
 
@@ -36,36 +36,11 @@
 | Multi-language core canonicalization | current seed source bundle coverage, language/profile/context/dialect runtime routing, provider C++ fixed prior 제거 |
 | CUDA native capability expansion | pipeline async, thread block cluster, TMA, WGMMA |
 | Smoke fixture expansion baseline | lifecycle smoke entrypoint, synthetic mixed-language fixture, curated polyglot fixture, CUDA targeted fixture |
+| Wrong-language telemetry loop hardening | provenance/cause/actionability classifier, smoke 분리, detector fix backlog section, telemetry snapshot warning |
 
 ## Execution Order
 
-### 1. Wrong-Language Telemetry Loop
-
-상태: `active`
-
-현재 코드 상태:
-
-- `GET /internal/analytics/wrong-language-feedback`가 있다.
-- `ops/scripts/capture_wrong_language_telemetry.py`와 `ops/scripts/build_wrong_language_backlog.py`가 있다.
-- endpoint는 현재 window 안의 parsed `wrong-language` human reply event를 집계한다. `distinct_threads`와 `distinct_findings`는 별도 unique count지만, repeated reply event 자체는 count에 들어갈 수 있다.
-- smoke fixture의 `wrong_language_feedback`은 telemetry flow 검증용 synthetic event다.
-- 현재 analytics payload에는 `source=smoke`, `triage_cause=detector_miss|wrong_thread|policy_mismatch` 같은 원인 분류 필드가 없다.
-
-다음 실행 단위:
-
-1. non-smoke 프로젝트와 smoke 프로젝트 telemetry를 운영 해석에서 분리한다.
-2. backlog Markdown에 `detector miss`, `wrong thread target`, `policy mismatch`, `synthetic smoke`를 구분하는 절차를 명확히 한다.
-3. 필요하면 analytics payload나 backlog script에 provenance/cause field를 추가한다.
-4. 실제 high priority 후보가 확인될 때만 detector blind spot을 고친다.
-5. 수정 후 mixed-language smoke와 telemetry snapshot을 다시 남긴다.
-
-완료 기준:
-
-- smoke 검증 이벤트가 운영 detector backlog로 오인되지 않는다.
-- 반복 오분류를 detector backlog로 바로 전환할 수 있다.
-- detector miss, thread 대상 오류, policy mismatch를 구분할 수 있다.
-
-### 2. Provider / Ranking / Density Tuning
+### 1. Provider / Ranking / Density Tuning
 
 상태: `partial`
 
@@ -92,7 +67,7 @@
 - rule을 더 추가하지 않아도 현재 corpus의 false-positive와 under-trigger가 안정된다.
 - density 관련 회귀가 smoke나 deterministic evaluation에서 잡힌다.
 
-### 3. Smoke And Evaluation Hardening
+### 2. Smoke And Evaluation Hardening
 
 상태: `partial`
 
@@ -118,7 +93,7 @@
 - routing, expected rule, density, wrong-language telemetry contract가 fixture별로 검증된다.
 - local GitLab smoke는 pre-release 또는 adapter/lifecycle 변경 시 표준 검증으로 유지된다.
 
-### 4. Targeted Rule Expansion
+### 3. Targeted Rule Expansion
 
 상태: `partial`
 
@@ -149,7 +124,7 @@
 - ingest 결과 확인
 - engine/bot/smoke 영향 검증
 
-### 5. Review-Bot Context And UX
+### 4. Review-Bot Context And UX
 
 상태: `partial`
 
@@ -178,7 +153,7 @@
 - project-local feedback이 global rule quality를 왜곡하지 않는다.
 - context retrieval이 false-positive를 줄이는지 deterministic fixture로 확인된다.
 
-### 6. Organization Rule Extension
+### 5. Organization Rule Extension
 
 상태: `partial`
 
@@ -214,7 +189,7 @@
 - private rule이 retrieval/rerank/prompt/detector에서 일관되게 우선순위를 가진다.
 - CI에서 public/private 경계가 깨지면 바로 잡힌다.
 
-### 7. Multi-SCM Adapter Expansion
+### 6. Multi-SCM Adapter Expansion
 
 상태: `not_started`
 
@@ -241,7 +216,7 @@ GitHub가 먼저인 이유:
 - GitLab과 GitHub가 같은 lifecycle analytics schema를 공유한다.
 - GitHub smoke 또는 replay fixture가 최소 하나 있다.
 
-### 8. Automation
+### 7. Automation
 
 상태: `not_started`
 

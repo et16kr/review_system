@@ -10,6 +10,12 @@ from urllib import parse, request
 ROOT = Path("/home/et16/work/review_system")
 DEFAULT_OUTPUT_DIR = ROOT / "docs" / "baselines" / "review_bot"
 PRIORITY_ORDER = {"high": 0, "medium": 1, "low": 2}
+ACTIONABILITY_ORDER = {
+    "fix_detector": 0,
+    "inspect_thread": 1,
+    "update_policy_or_fixture": 2,
+    "ignore_for_detector_backlog": 3,
+}
 
 
 def fetch_json(url: str) -> dict | list:
@@ -30,6 +36,62 @@ def _format_candidate_title(item: dict[str, object]) -> str:
     return f"`{detected}` -> `{expected}` x{count}"
 
 
+def _candidate_sort_key(item: dict[str, object]) -> tuple[object, ...]:
+    return (
+        PRIORITY_ORDER.get(str(item.get("priority") or "low"), 99),
+        ACTIONABILITY_ORDER.get(str(item.get("actionability") or "inspect_thread"), 99),
+        -int(item.get("count") or 0),
+        str(item.get("detected_language_id") or ""),
+        str(item.get("expected_language_id") or ""),
+        str(item.get("path_pattern") or ""),
+    )
+
+
+def _is_smoke_candidate(item: dict[str, object]) -> bool:
+    return (
+        str(item.get("provenance") or "unknown") == "smoke"
+        or str(item.get("triage_cause") or "needs_inspection") == "synthetic_smoke"
+        or str(item.get("actionability") or "inspect_thread")
+        == "ignore_for_detector_backlog"
+    )
+
+
+def _append_candidate_section(
+    lines: list[str],
+    *,
+    title: str,
+    candidates: list[dict[str, object]],
+    empty_message: str,
+) -> None:
+    lines.extend([f"## {title}", ""])
+    if not candidates:
+        lines.extend([empty_message, ""])
+        return
+    for index, item in enumerate(candidates, start=1):
+        profile_id = str(item.get("profile_id") or "default")
+        context_id = str(item.get("context_id") or "generic")
+        path_pattern = str(item.get("path_pattern") or "<unknown>")
+        priority = str(item.get("priority") or "low")
+        provenance = str(item.get("provenance") or "unknown")
+        triage_cause = str(item.get("triage_cause") or "needs_inspection")
+        actionability = str(item.get("actionability") or "inspect_thread")
+        suggested_action = str(item.get("suggested_action") or "")
+        lines.extend(
+            [
+                f"### {index}. {_format_candidate_title(item)}",
+                "",
+                f"- priority: `{priority}`",
+                f"- provenance: `{provenance}`",
+                f"- triage_cause: `{triage_cause}`",
+                f"- actionability: `{actionability}`",
+                f"- profile/context: `{profile_id}` / `{context_id}`",
+                f"- path_pattern: `{path_pattern}`",
+                f"- suggested_action: {suggested_action}",
+                "",
+            ]
+        )
+
+
 def render_markdown(
     *,
     bot_base_url: str,
@@ -38,24 +100,42 @@ def render_markdown(
     report: dict | list,
     min_count: int,
     max_items: int,
+    include_smoke: bool = False,
+    only_actionable: bool = False,
+    show_needs_inspection: bool = False,
 ) -> str:
     generated_at = datetime.now(UTC).isoformat()
     payload = report if isinstance(report, dict) else {}
-    candidates = [
+    all_candidates = [
         item
         for item in payload.get("triage_candidates", [])
         if int(item.get("count") or 0) >= min_count
     ]
-    candidates = sorted(
-        candidates,
-        key=lambda item: (
-            PRIORITY_ORDER.get(str(item.get("priority") or "low"), 99),
-            -int(item.get("count") or 0),
-            str(item.get("detected_language_id") or ""),
-            str(item.get("expected_language_id") or ""),
-            str(item.get("path_pattern") or ""),
-        ),
-    )[:max_items]
+    candidates = sorted(all_candidates, key=_candidate_sort_key)[:max_items]
+    non_smoke_candidates = [
+        item for item in candidates if include_smoke or not _is_smoke_candidate(item)
+    ]
+    detector_fix_candidates = [
+        item
+        for item in non_smoke_candidates
+        if str(item.get("actionability") or "inspect_thread") == "fix_detector"
+    ]
+    wrong_thread_candidates = [
+        item
+        for item in non_smoke_candidates
+        if str(item.get("triage_cause") or "needs_inspection") == "wrong_thread_target"
+    ]
+    policy_candidates = [
+        item
+        for item in non_smoke_candidates
+        if str(item.get("actionability") or "inspect_thread") == "update_policy_or_fixture"
+    ]
+    needs_inspection_candidates = [
+        item
+        for item in non_smoke_candidates
+        if str(item.get("triage_cause") or "needs_inspection") == "needs_inspection"
+    ]
+    smoke_candidates = [item for item in candidates if _is_smoke_candidate(item)]
 
     lines = [
         "# Review Bot Wrong-Language Backlog",
@@ -66,54 +146,66 @@ def render_markdown(
         f"- window: `{window}`",
         f"- min_count: `{min_count}`",
         f"- max_items: `{max_items}`",
+        f"- include_smoke: `{include_smoke}`",
+        f"- only_actionable: `{only_actionable}`",
+        f"- show_needs_inspection: `{show_needs_inspection}`",
         "",
         "## Summary",
         "",
         f"- total_events: `{payload.get('total_events', 0)}`",
+        f"- smoke_events: `{payload.get('smoke_events', 0)}`",
+        f"- production_events: `{payload.get('production_events', 0)}`",
+        f"- unknown_provenance_events: `{payload.get('unknown_provenance_events', 0)}`",
         f"- distinct_threads: `{payload.get('distinct_threads', 0)}`",
         f"- distinct_findings: `{payload.get('distinct_findings', 0)}`",
-        f"- backlog_items: `{len(candidates)}`",
+        f"- detector_fix_candidates: `{len(detector_fix_candidates)}`",
+        f"- inspection_candidates: `{len(wrong_thread_candidates) + len(needs_inspection_candidates)}`",
+        f"- policy_or_fixture_candidates: `{len(policy_candidates)}`",
+        f"- synthetic_smoke_candidates: `{len(smoke_candidates)}`",
         "",
         "## Execution Order",
         "",
-        "1. `high` priority pair/path/profile 조합부터 detector blind spot을 수정합니다.",
-        "2. 같은 pair가 특정 `profile/context`에 몰리면 registry와 prompt routing을 함께 봅니다.",
-        "3. 같은 pair가 `docs`나 `.github/workflows` 같은 경로 버킷에 몰리면 path classification을 먼저 조정합니다.",
-        "4. 수정 후 mixed-language smoke와 telemetry snapshot을 다시 돌려 재발 여부를 확인합니다.",
+        "1. `actionability=fix_detector` 후보만 detector blind spot backlog로 옮깁니다.",
+        "2. `wrong_thread_target`은 thread 대상과 expected language를 먼저 확인합니다.",
+        "3. `policy_mismatch`는 detector보다 policy나 fixture contract를 먼저 맞춥니다.",
+        "4. `synthetic_smoke`는 telemetry loop 검증 이벤트로 보존하되 detector backlog에서는 제외합니다.",
+        "5. 수정 후 mixed-language smoke와 telemetry snapshot을 다시 돌려 재발 여부를 확인합니다.",
         "",
     ]
 
-    if not candidates:
-        lines.extend(
-            [
-                "## Prioritized Items",
-                "",
-                "(no backlog items above threshold)",
-                "",
-            ]
+    _append_candidate_section(
+        lines,
+        title="Detector Fix Candidates",
+        candidates=detector_fix_candidates,
+        empty_message="(no detector fix candidates above threshold)",
+    )
+
+    if not only_actionable:
+        _append_candidate_section(
+            lines,
+            title="Likely Wrong Thread Target",
+            candidates=wrong_thread_candidates,
+            empty_message="(none)",
         )
-    else:
-        for priority in ("high", "medium", "low"):
-            grouped = [item for item in candidates if str(item.get("priority") or "low") == priority]
-            lines.extend([f"## {priority.title()} Priority", ""])
-            if not grouped:
-                lines.extend(["(none)", ""])
-                continue
-            for index, item in enumerate(grouped, start=1):
-                profile_id = str(item.get("profile_id") or "default")
-                context_id = str(item.get("context_id") or "generic")
-                path_pattern = str(item.get("path_pattern") or "<unknown>")
-                suggested_action = str(item.get("suggested_action") or "")
-                lines.extend(
-                    [
-                        f"### {index}. {_format_candidate_title(item)}",
-                        "",
-                        f"- profile/context: `{profile_id}` / `{context_id}`",
-                        f"- path_pattern: `{path_pattern}`",
-                        f"- suggested_action: {suggested_action}",
-                        "",
-                    ]
-                )
+        _append_candidate_section(
+            lines,
+            title="Policy Or Fixture Candidates",
+            candidates=policy_candidates,
+            empty_message="(none)",
+        )
+        if show_needs_inspection:
+            _append_candidate_section(
+                lines,
+                title="Needs Inspection",
+                candidates=needs_inspection_candidates,
+                empty_message="(none)",
+            )
+        _append_candidate_section(
+            lines,
+            title="Synthetic Smoke Events",
+            candidates=smoke_candidates,
+            empty_message="(none)",
+        )
 
     lines.extend(
         [
@@ -165,6 +257,21 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help="Output markdown path. Defaults to docs/baselines/review_bot/wrong_language_backlog_<window>_<date>.md",
     )
+    parser.add_argument(
+        "--include-smoke",
+        action="store_true",
+        help="Include smoke candidates in ranked non-smoke sections when their actionability matches.",
+    )
+    parser.add_argument(
+        "--only-actionable",
+        action="store_true",
+        help="Emit only detector fix candidates and raw JSON.",
+    )
+    parser.add_argument(
+        "--show-needs-inspection",
+        action="store_true",
+        help="Emit candidates that require manual inspection.",
+    )
     return parser.parse_args()
 
 
@@ -192,6 +299,9 @@ def main() -> int:
             report=report,
             min_count=args.min_count,
             max_items=args.max_items,
+            include_smoke=args.include_smoke,
+            only_actionable=args.only_actionable,
+            show_needs_inspection=args.show_needs_inspection,
         )
         + "\n",
         encoding="utf-8",

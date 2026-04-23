@@ -13,6 +13,14 @@ from fastapi import HTTPException
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+from review_bot.analytics.wrong_language import (
+    WrongLanguageActionability,
+    WrongLanguageCause,
+    WrongLanguageProvenance,
+    classify_wrong_language_cause,
+    classify_wrong_language_provenance,
+    wrong_language_actionability,
+)
 from review_bot.clients.engine_client import EngineClient
 from review_bot.config import get_settings
 from review_bot.contracts import (
@@ -2280,8 +2288,11 @@ class ReviewRunner:
             .all()
         )
 
-        filtered_feedback: list[tuple[str, dict[str, Any], datetime, str]] = []
+        filtered_feedback: list[
+            tuple[str, dict[str, Any], datetime, str, WrongLanguageProvenance]
+        ] = []
         thread_refs: set[str] = set()
+        provenance_counts = {"smoke": 0, "production": 0, "unknown": 0}
         for thread_ref, payload, occurred_at, event_key, feedback_project_ref in feedback_rows:
             if not thread_ref:
                 continue
@@ -2293,12 +2304,19 @@ class ReviewRunner:
             normalized_occurred_at = self._as_utc(occurred_at)
             if normalized_occurred_at is None or normalized_occurred_at < boundary:
                 continue
+            payload_dict = dict(payload or {})
+            provenance = classify_wrong_language_provenance(
+                feedback_project_ref,
+                str(payload_dict.get("body") or ""),
+            )
+            provenance_counts[provenance] += 1
             filtered_feedback.append(
                 (
                     thread_ref,
-                    dict(payload or {}),
+                    payload_dict,
                     normalized_occurred_at,
                     event_key or "",
+                    provenance,
                 )
             )
             thread_refs.add(thread_ref)
@@ -2310,6 +2328,9 @@ class ReviewRunner:
                 "total_events": 0,
                 "distinct_threads": 0,
                 "distinct_findings": 0,
+                "smoke_events": 0,
+                "production_events": 0,
+                "unknown_provenance_events": 0,
                 "top_language_pairs": [],
                 "top_profiles": [],
                 "top_paths": [],
@@ -2354,9 +2375,20 @@ class ReviewRunner:
         pair_counts: dict[tuple[str, str], int] = {}
         profile_counts: dict[tuple[str, str, str | None, str | None], int] = {}
         path_counts: dict[tuple[str, str, str], int] = {}
+        classification_counts: dict[
+            tuple[str, str, str | None, str | None],
+            dict[
+                tuple[
+                    WrongLanguageProvenance,
+                    WrongLanguageCause,
+                    WrongLanguageActionability,
+                ],
+                int,
+            ],
+        ] = {}
         fingerprints: set[str] = set()
 
-        for thread_ref, payload, _occurred_at, _event_key in filtered_feedback:
+        for thread_ref, payload, _occurred_at, _event_key, provenance in filtered_feedback:
             metadata = metadata_by_thread.get(thread_ref, {})
             detected_language_id = str(metadata.get("detected_language_id") or "unknown")
             expected_language_id = str(payload.get("expected_language_id") or "unknown").strip() or "unknown"
@@ -2370,6 +2402,20 @@ class ReviewRunner:
             )
             profile_key = (detected_language_id, expected_language_id, profile_id, context_id)
             profile_counts[profile_key] = profile_counts.get(profile_key, 0) + 1
+            triage_cause = classify_wrong_language_cause(
+                detected_language_id=detected_language_id,
+                expected_language_id=expected_language_id,
+                profile_id=profile_id,
+                context_id=context_id,
+                file_path=file_path,
+                provenance=provenance,
+            )
+            actionability = wrong_language_actionability(triage_cause)
+            classification_key = (provenance, triage_cause, actionability)
+            profile_classifications = classification_counts.setdefault(profile_key, {})
+            profile_classifications[classification_key] = (
+                profile_classifications.get(classification_key, 0) + 1
+            )
             path_key = (
                 detected_language_id,
                 expected_language_id,
@@ -2419,6 +2465,7 @@ class ReviewRunner:
             pair_counts=pair_counts,
             profile_counts=profile_counts,
             path_counts=path_counts,
+            classification_counts=classification_counts,
         )
 
         return {
@@ -2427,6 +2474,9 @@ class ReviewRunner:
             "total_events": len(filtered_feedback),
             "distinct_threads": len(thread_refs),
             "distinct_findings": len(fingerprints),
+            "smoke_events": provenance_counts["smoke"],
+            "production_events": provenance_counts["production"],
+            "unknown_provenance_events": provenance_counts["unknown"],
             "top_language_pairs": top_language_pairs,
             "top_profiles": top_profiles,
             "top_paths": top_paths,
@@ -2534,6 +2584,17 @@ class ReviewRunner:
         pair_counts: dict[tuple[str, str], int],
         profile_counts: dict[tuple[str, str, str | None, str | None], int],
         path_counts: dict[tuple[str, str, str], int],
+        classification_counts: dict[
+            tuple[str, str, str | None, str | None],
+            dict[
+                tuple[
+                    WrongLanguageProvenance,
+                    WrongLanguageCause,
+                    WrongLanguageActionability,
+                ],
+                int,
+            ],
+        ],
     ) -> list[dict[str, Any]]:
         best_path_by_pair: dict[tuple[str, str], tuple[str, int]] = {}
         for (detected_language_id, expected_language_id, path_pattern), count in path_counts.items():
@@ -2550,7 +2611,11 @@ class ReviewRunner:
             key=lambda item: (-item[1], item[0][0], item[0][1], item[0][2] or "", item[0][3] or ""),
         )[:12]:
             pair = (detected_language_id, expected_language_id)
+            profile_key = (detected_language_id, expected_language_id, profile_id, context_id)
             path_pattern = best_path_by_pair.get(pair, ("<unknown>", 0))[0]
+            provenance, triage_cause, actionability = self._wrong_language_classification_for_candidate(
+                classification_counts.get(profile_key, {})
+            )
             candidates.append(
                 {
                     "detected_language_id": detected_language_id,
@@ -2564,16 +2629,47 @@ class ReviewRunner:
                         profile_id=profile_id,
                         context_id=context_id,
                     ),
+                    "provenance": provenance,
+                    "triage_cause": triage_cause,
+                    "actionability": actionability,
                     "suggested_action": self._wrong_language_suggested_action(
                         detected_language_id=detected_language_id,
                         expected_language_id=expected_language_id,
                         profile_id=profile_id,
                         context_id=context_id,
                         path_pattern=path_pattern,
+                        triage_cause=triage_cause,
+                        actionability=actionability,
                     ),
                 }
             )
         return candidates
+
+    def _wrong_language_classification_for_candidate(
+        self,
+        counts: dict[
+            tuple[WrongLanguageProvenance, WrongLanguageCause, WrongLanguageActionability],
+            int,
+        ],
+    ) -> tuple[WrongLanguageProvenance, WrongLanguageCause, WrongLanguageActionability]:
+        if not counts:
+            return ("unknown", "needs_inspection", "inspect_thread")
+        actionability_order = {
+            "fix_detector": 0,
+            "inspect_thread": 1,
+            "update_policy_or_fixture": 2,
+            "ignore_for_detector_backlog": 3,
+        }
+        return sorted(
+            counts.items(),
+            key=lambda item: (
+                -item[1],
+                actionability_order.get(item[0][2], 99),
+                item[0][0],
+                item[0][1],
+                item[0][2],
+            ),
+        )[0][0]
 
     def _wrong_language_priority(
         self,
@@ -2596,7 +2692,30 @@ class ReviewRunner:
         profile_id: str | None,
         context_id: str | None,
         path_pattern: str,
+        triage_cause: WrongLanguageCause | None = None,
+        actionability: WrongLanguageActionability | None = None,
     ) -> str:
+        if triage_cause == "synthetic_smoke" or actionability == "ignore_for_detector_backlog":
+            return (
+                "Smoke telemetry 검증 이벤트입니다. 운영 detector backlog에서는 제외하고 "
+                "telemetry loop 회귀 여부만 확인하세요."
+            )
+        if triage_cause == "wrong_thread_target":
+            return (
+                "감지 언어가 파일 경로/context와 더 잘 맞습니다. detector 수정 전에 "
+                "wrong-language reply 대상 thread와 기대 언어가 맞는지 먼저 확인하세요."
+            )
+        if triage_cause == "policy_mismatch" or actionability == "update_policy_or_fixture":
+            return (
+                "언어 detector보다는 reviewability policy나 fixture 기대값이 어긋났을 가능성이 큽니다. "
+                "운영 policy와 fixture contract를 먼저 맞춰 보세요."
+            )
+        if triage_cause == "detector_miss" or actionability == "fix_detector":
+            return (
+                f"`{path_pattern}` 경로에서 `{detected_language_id}` 대신 "
+                f"`{expected_language_id}`로 분류되어야 합니다. path/content/context detector "
+                "힌트를 보강하고 regression fixture를 추가하세요."
+            )
         if path_pattern == "docs" or detected_language_id == "markdown":
             return (
                 "문서 경로를 reviewable 대상에서 더 명확히 제외하고, "

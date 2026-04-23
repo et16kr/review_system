@@ -66,6 +66,7 @@
 - Rule learning / effectiveness는 rerun row 수가 아니라 distinct fingerprint latest meaningful state를 기준으로 본다.
 - Wrong-language 분석은 `FeedbackEvent.payload`의 immutable event와 `GET /internal/analytics/wrong-language-feedback`를 기준으로 한다.
 - 현재 wrong-language analytics는 parsed human reply event를 집계한다. repeated reply는 event count에 들어갈 수 있고, smoke fixture가 만든 synthetic feedback도 project filter 없이 보면 같이 보인다.
+- Wrong-language response는 `provenance`, `triage_cause`, `actionability`를 포함한다. 운영 detector backlog는 기본적으로 `actionability=fix_detector` 후보만 사용하고, smoke/synthetic event는 telemetry loop 검증으로 분리한다.
 
 ## Review-Engine Current State
 
@@ -143,7 +144,7 @@ Adapter V2 capability는 [API_CONTRACTS.md](/home/et16/work/review_system/docs/A
   - `ops/fixtures/review_smoke/synthetic-mixed-language`
   - `ops/fixtures/review_smoke/curated-polyglot`
   - `ops/fixtures/review_smoke/cuda-targeted`
-- 일부 smoke fixture는 telemetry flow 검증을 위해 intentional `wrong_language_feedback` reply를 만든다. 이 이벤트는 detector blind spot으로 바로 해석하지 않는다.
+- 일부 smoke fixture는 telemetry flow 검증을 위해 intentional `wrong_language_feedback` reply를 만든다. 이 이벤트는 `provenance=smoke`, `triage_cause=synthetic_smoke`로 분리되며 detector blind spot으로 바로 해석하지 않는다.
 - Standard local GitLab smoke:
   - `ops/scripts/smoke_local_gitlab_lifecycle_review.sh`
   - `ops/scripts/smoke_local_gitlab_multilang_review.sh`

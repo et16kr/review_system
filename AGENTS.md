@@ -56,6 +56,8 @@
 - `review-bot`의 verify는 runner-level canonical flow입니다
   - provider 내부 ad hoc verify에 의존하지 않습니다
 - Phase A 이후 lifecycle analytics의 source of truth는 mutable state가 아니라 immutable event입니다
+- wrong-language detector backlog는 `actionability=fix_detector` 후보만 바로 수정 대상으로 봅니다
+- smoke fixture가 만든 wrong-language event는 `synthetic_smoke` 검증 이벤트로 분리합니다
 
 ## 4. Important Files
 
@@ -65,6 +67,8 @@
   - [review-bot/review_bot/api/main.py](/home/et16/work/review_system/review-bot/review_bot/api/main.py:1)
 - detect / publish / sync / verify / lifecycle
   - [review-bot/review_bot/bot/review_runner.py](/home/et16/work/review_system/review-bot/review_bot/bot/review_runner.py:1)
+- wrong-language telemetry classification
+  - [review-bot/review_bot/analytics/wrong_language.py](/home/et16/work/review_system/review-bot/review_bot/analytics/wrong_language.py:1)
 - GitLab adapter
   - [review-bot/review_bot/review_systems/gitlab.py](/home/et16/work/review_system/review-bot/review_bot/review_systems/gitlab.py:1)
 - local harness adapter

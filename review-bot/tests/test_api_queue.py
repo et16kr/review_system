@@ -279,6 +279,9 @@ def test_wrong_language_feedback_endpoint_returns_runner_payload() -> None:
         "total_events": 3,
         "distinct_threads": 2,
         "distinct_findings": 2,
+        "smoke_events": 1,
+        "production_events": 2,
+        "unknown_provenance_events": 0,
         "top_language_pairs": [
             {
                 "detected_language_id": "cpp",
@@ -312,6 +315,9 @@ def test_wrong_language_feedback_endpoint_returns_runner_payload() -> None:
                 "path_pattern": "docs",
                 "count": 2,
                 "priority": "medium",
+                "provenance": "production",
+                "triage_cause": "detector_miss",
+                "actionability": "fix_detector",
                 "suggested_action": "문서 경로 exclusion과 unreviewable 규칙을 우선 보강하세요.",
             }
         ],
@@ -331,8 +337,10 @@ def test_wrong_language_feedback_endpoint_returns_runner_payload() -> None:
     assert response.status_code == 200
     body = response.json()
     assert body["total_events"] == 3
+    assert body["smoke_events"] == 1
     assert body["top_language_pairs"][0]["expected_language_id"] == "markdown"
     assert body["triage_candidates"][0]["path_pattern"] == "docs"
+    assert body["triage_candidates"][0]["actionability"] == "fix_detector"
     assert mock_analytics.call_args.kwargs["project_ref"] == "group/project-a"
     assert mock_analytics.call_args.kwargs["window"] == "28d"
 
