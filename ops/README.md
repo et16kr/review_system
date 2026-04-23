@@ -33,7 +33,7 @@ GitLab에 실제 Merge Request를 먼저 만들 때:
 bash /home/et16/work/review_system/ops/scripts/create_gitlab_tde_review.sh --dry-run
 ```
 
-상세 절차는 [GITLAB_TDE_REVIEW_SETUP.md](/home/et16/work/review_system/docs/GITLAB_TDE_REVIEW_SETUP.md:1)에 정리했다.
+상세 절차와 표준 smoke 흐름은 [OPERATIONS_RUNBOOK.md](/home/et16/work/review_system/docs/OPERATIONS_RUNBOOK.md:1)에 정리했다.
 
 로컬 GitLab 인스턴스를 함께 띄워서 smoke MR까지 자동 생성하려면:
 

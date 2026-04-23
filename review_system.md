@@ -26,9 +26,11 @@
 현재 동작/운영 기준은 아래 문서를 우선합니다.
 
 - [README.md](/home/et16/work/review_system/README.md:1)
+- [docs/README.md](/home/et16/work/review_system/docs/README.md:1)
+- [docs/CURRENT_SYSTEM.md](/home/et16/work/review_system/docs/CURRENT_SYSTEM.md:1)
+- [docs/ROADMAP.md](/home/et16/work/review_system/docs/ROADMAP.md:1)
 - [docs/API_CONTRACTS.md](/home/et16/work/review_system/docs/API_CONTRACTS.md:1)
 - [docs/OPERATIONS_RUNBOOK.md](/home/et16/work/review_system/docs/OPERATIONS_RUNBOOK.md:1)
-- [docs/GITLAB_TDE_REVIEW_SETUP.md](/home/et16/work/review_system/docs/GITLAB_TDE_REVIEW_SETUP.md:1)
 - [AGENTS.md](/home/et16/work/review_system/AGENTS.md:1)
 
 루트 legacy `app/`, 루트 `tests/`, 루트 `data/`는 더 이상 공식 public surface가 아닙니다.

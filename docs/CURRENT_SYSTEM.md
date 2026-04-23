@@ -1,0 +1,142 @@
+# Current Review System
+
+## Purpose
+
+이 문서는 현재 구현 기준의 구조와 운영 전제를 한 곳에 고정한다.
+과거 설계 문서의 결론 중 아직 유효한 내용만 남기고, 완료된 구현 지시나 토론 이력은 포함하지 않는다.
+
+## Workspace
+
+- `review-engine/`: 다언어 rule ingestion, retrieval, diff/code review candidate 생성
+- `review-bot/`: webhook/API, `detect -> publish -> sync` lifecycle, thread/feedback 상태 관리
+- `review-platform/`: 로컬 데모와 통합 테스트용 harness
+- `ops/`: compose, local GitLab, smoke/replay/baseline/telemetry 스크립트
+
+루트 `docker-compose.yml`은 engine 단독 실행용이고, 통합 스택은 `ops/docker-compose.yml` 기준이다.
+
+## Canonical Invariants
+
+- Business identity는 `ReviewRequestKey(review_system, project_ref, review_request_id)`다.
+- GitLab `project_ref`는 webhook payload의 `project.path_with_namespace`를 canonical source로 쓴다.
+- `review-bot`은 `detect -> publish -> sync` lifecycle을 책임진다.
+- `review-platform`은 운영 표준이 아니라 local harness다.
+- GitLab MR open/update만으로 자동 inline review를 게시하지 않는다.
+- GitLab 리뷰 트리거는 MR note의 `@review-bot ...` 또는 `/review-bot ...` 명령이다.
+- 지원 명령은 `review`, `full-report`, `backlog`, `help`다.
+- Provider는 1차 탐지기가 아니라 finding 설명과 수정 가이드 생성기에 가깝다.
+- 품질 KPI는 Prometheus counter가 아니라 distinct fingerprint 기반 analytics에서 계산한다.
+
+## Review-Bot Lifecycle
+
+1. `detect`
+   - adapter에서 MR metadata와 diff를 가져온다.
+   - file별 language/profile/context/dialect를 판별한다.
+   - `review-engine`에서 rule 후보와 evidence를 받아 `FindingDecision`을 만든다.
+   - 현재 thread snapshot과 human feedback을 먼저 반영해 suppress/rerank를 수행한다.
+2. `publish`
+   - batch cap, file round-robin, rule family cap, same-line/category duplicate suppression을 적용한다.
+   - 기존 open/reopened thread update를 새 finding보다 우선한다.
+   - inline anchor가 불가능한 finding은 실패/억제 상태로 남긴다.
+3. `sync`
+   - remote discussion 상태, human reply, resolved/reopened transition을 수집한다.
+   - feedback command와 lifecycle event를 immutable history로 남긴다.
+   - 수동 resolve와 follow-up commit 기반 fix는 `remote_resolved_manual_only`와 `fixed_in_followup_commit`로 구분한다.
+
+## Data Model
+
+핵심 테이블:
+
+- `review_requests`
+- `review_runs`
+- `finding_evidences`
+- `finding_decisions`
+- `publication_states`
+- `thread_sync_states`
+- `feedback_events`
+- `finding_lifecycle_events`
+- `dead_letter_records`
+
+`ThreadSyncState`는 current-state snapshot이고, Phase A 이후 lifecycle analytics의 source of truth는 `finding_lifecycle_events`다.
+
+## Metrics And Analytics
+
+- Prometheus는 운영 이벤트 볼륨을 본다.
+- Quality analytics는 distinct fingerprint를 기준으로 계산한다.
+- Canonical quality endpoint는 `GET /internal/analytics/finding-outcomes`다.
+- Rule learning / effectiveness는 rerun row 수가 아니라 distinct fingerprint latest meaningful state를 기준으로 본다.
+- Wrong-language 분석은 `FeedbackEvent.payload`의 immutable event와 `GET /internal/analytics/wrong-language-feedback`를 기준으로 한다.
+
+## Review-Engine Current State
+
+현재 멀티 랭귀지 core canonicalization은 current seed source bundle 기준으로 완료된 상태다.
+
+- `rules/**/*.yaml`에 language별 canonical pack/profile/policy가 있다.
+- `rule_sources/coverage_matrix.yaml`은 source atom 단위 coverage를 관리한다.
+- current seed source bundle 기준 `pending` atom은 없다.
+- `auto_review`와 `reference_only`는 의도적으로 분리한다.
+- language/profile/context/dialect routing은 registry와 query detector가 담당한다.
+- provider prompt는 C++ 고정 가정 없이 language/profile/context hint를 사용한다.
+- Markdown 문서는 명시적 unreviewable `markdown`으로 분류한다.
+
+현재 주요 지원 축:
+
+- `cpp`, `c`, `cuda`
+- `python`, `typescript`, `javascript`, `java`, `go`, `rust`, `bash`
+- `sql`, `yaml`, `dockerfile`
+- YAML contexts: GitLab CI, GitHub Actions, Kubernetes, Helm, product/schema config
+- SQL profiles/dialects: warehouse, dbt, migration, PostgreSQL 등
+- CUDA profiles: default, async runtime, multigpu, tensor core, cooperative groups, pipeline async, thread block cluster, TMA, WGMMA
+
+## Rule And Extension Model
+
+- 사람이 수정하는 기준은 canonical YAML rule source다.
+- Generated dataset/vector collection은 ingest 산출물로 본다.
+- Public core는 public rule pack만으로 동작해야 한다.
+- Private/organization rule은 extension root, prompt root, detector plugin 같은 확장 지점으로 붙인다.
+- 우선순위는 특정 조직명 하드코딩이 아니라 pack/profile policy로 표현한다.
+
+## Adapter State
+
+현재 구현:
+
+- `local_platform`: local harness adapter
+- `gitlab`: GitLab MR discussion/status/general note adapter
+
+Adapter V2 capability는 [API_CONTRACTS.md](/home/et16/work/review_system/docs/API_CONTRACTS.md:1)에 고정한다.
+다음 SCM 확장 후보는 GitHub, 그 다음 Gerrit이다.
+
+## User-Facing Review UX
+
+- Inline comment는 high-signal finding만 제한적으로 게시한다.
+- Summary note는 게시 수, backlog, feedback suppress 상태를 구분한다.
+- `full-report`는 최신 완료 run과 현재 MR backlog를 함께 보여 준다.
+- `backlog`는 현재 MR에 실제로 남아 있는 backlog 중심으로 보여 준다.
+- `ignore`, `false-positive`, `later`, `allow`, `wrong-language <lang>` feedback을 지원한다.
+- 반복 검출은 허용하지만 반복 게시는 줄인다.
+
+## Security And Retention
+
+- GitLab token은 MR metadata/diff/discussion/status에 필요한 최소 권한만 사용한다.
+- `GITLAB_TOKEN`, `GITLAB_WEBHOOK_SECRET`, `OPENAI_API_KEY`는 secret manager 또는 orchestrator secret으로 주입한다.
+- Local `.env`는 dev 전용이다.
+- 권장 retention:
+  - `review_runs`, `finding_evidences`, `finding_decisions`, `publication_states`: 90일
+  - `thread_sync_states`: open thread 유지, resolved/stale 180일
+  - `feedback_events`: 180일
+  - `dead_letter_records`: 30일
+
+## Validation Assets
+
+- Engine examples:
+  - `review-engine/examples/expected_retrieval_examples.json`
+  - `review-engine/examples/cpp_diff_contracts.json`
+  - `review-engine/examples/*_diffs/*.diff`
+- Smoke fixtures:
+  - `ops/fixtures/review_smoke/synthetic-mixed-language`
+  - `ops/fixtures/review_smoke/curated-polyglot`
+  - `ops/fixtures/review_smoke/cuda-targeted`
+- Standard local GitLab smoke:
+  - `ops/scripts/smoke_local_gitlab_lifecycle_review.sh`
+  - `ops/scripts/smoke_local_gitlab_multilang_review.sh`
+
+검증 명령과 운영 절차는 [OPERATIONS_RUNBOOK.md](/home/et16/work/review_system/docs/OPERATIONS_RUNBOOK.md:1)를 따른다.

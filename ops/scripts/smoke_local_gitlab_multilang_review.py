@@ -124,12 +124,102 @@ def load_smoke_fixture(fixture_id: str) -> SmokeFixture:
 
 def validate_fixture_contract(fixture: SmokeFixture) -> None:
     required_paths = _as_string_list(fixture.expected.get("required_paths"))
+    changed_paths = set(_changed_fixture_paths(fixture))
     missing_required_paths = [
         path for path in required_paths if path not in fixture.feature_files
     ]
     if missing_required_paths:
         raise SystemExit(
             f"{fixture.fixture_id} missing required fixture paths: {missing_required_paths}"
+        )
+    unchanged_required_paths = [
+        path for path in required_paths if path not in changed_paths
+    ]
+    if unchanged_required_paths:
+        raise SystemExit(
+            f"{fixture.fixture_id} required fixture paths are not changed: "
+            f"{unchanged_required_paths}"
+        )
+
+    expected_engine_rules = _as_rule_expectations(
+        fixture.expected.get("expected_engine_rules")
+    )
+    empty_rule_paths = [
+        path for path, rule_nos in expected_engine_rules.items() if not rule_nos
+    ]
+    if empty_rule_paths:
+        raise SystemExit(
+            f"{fixture.fixture_id} expected_engine_rules has empty rule lists: "
+            f"{empty_rule_paths}"
+        )
+    rule_paths_not_required = [
+        path for path in expected_engine_rules if path not in required_paths
+    ]
+    if rule_paths_not_required:
+        raise SystemExit(
+            f"{fixture.fixture_id} expected engine rule paths must also be required: "
+            f"{rule_paths_not_required}"
+        )
+    missing_rule_paths = [
+        path for path in expected_engine_rules if path not in fixture.feature_files
+    ]
+    if missing_rule_paths:
+        raise SystemExit(
+            f"{fixture.fixture_id} expected engine rule paths not present in feature: "
+            f"{missing_rule_paths}"
+        )
+    unchanged_rule_paths = [
+        path for path in expected_engine_rules if path not in changed_paths
+    ]
+    if unchanged_rule_paths:
+        raise SystemExit(
+            f"{fixture.fixture_id} expected engine rule paths are not changed: "
+            f"{unchanged_rule_paths}"
+        )
+
+    expected_language_tags = _as_string_list(fixture.expected.get("expected_language_tags"))
+    forbidden_language_tags = _as_string_list(fixture.expected.get("forbidden_language_tags"))
+    overlapping_language_tags = sorted(
+        set(expected_language_tags).intersection(forbidden_language_tags)
+    )
+    if overlapping_language_tags:
+        raise SystemExit(
+            f"{fixture.fixture_id} language tags are both expected and forbidden: "
+            f"{overlapping_language_tags}"
+        )
+    minimum_review_comments = int(fixture.expected.get("minimum_review_comments") or 0)
+    if minimum_review_comments < len(expected_language_tags):
+        raise SystemExit(
+            f"{fixture.fixture_id} minimum_review_comments={minimum_review_comments} "
+            f"is lower than expected_language_tags={len(expected_language_tags)}"
+        )
+
+    wrong_language_feedback = fixture.expected.get("wrong_language_feedback")
+    if wrong_language_feedback is None:
+        return
+    if not isinstance(wrong_language_feedback, dict):
+        raise SystemExit(
+            f"{fixture.fixture_id} wrong_language_feedback must be an object when set."
+        )
+    detected_language_id = str(
+        wrong_language_feedback.get("detected_language_id") or ""
+    ).strip()
+    expected_language_id = str(
+        wrong_language_feedback.get("expected_language_id") or ""
+    ).strip()
+    if not detected_language_id or not expected_language_id:
+        raise SystemExit(
+            f"{fixture.fixture_id} wrong_language_feedback requires detected and expected "
+            "language ids."
+        )
+    if detected_language_id == expected_language_id:
+        raise SystemExit(
+            f"{fixture.fixture_id} wrong_language_feedback must change language ids."
+        )
+    if expected_language_tags and detected_language_id not in expected_language_tags:
+        raise SystemExit(
+            f"{fixture.fixture_id} wrong_language_feedback detected_language_id must be one "
+            f"of expected_language_tags: {detected_language_id}"
         )
 
 
@@ -336,6 +426,24 @@ def _as_string_list(value: object) -> list[str]:
     if not isinstance(value, list):
         return []
     return [str(item) for item in value if str(item).strip()]
+
+
+def _as_rule_expectations(value: object) -> dict[str, list[str]]:
+    if not isinstance(value, dict):
+        return {}
+    return {
+        str(path): _as_string_list(rule_nos)
+        for path, rule_nos in value.items()
+        if str(path).strip()
+    }
+
+
+def _changed_fixture_paths(fixture: SmokeFixture) -> list[str]:
+    return sorted(
+        path
+        for path, feature_content in fixture.feature_files.items()
+        if fixture.base_files.get(path) != feature_content
+    )
 
 
 def validate_bot_comments(bot_bodies: list[str], expected: dict) -> dict:
