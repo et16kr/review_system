@@ -149,8 +149,9 @@ Adapter V2 capability는 [API_CONTRACTS.md](/home/et16/work/review_system/docs/A
   - `ops/fixtures/review_smoke/curated-polyglot`
   - `ops/fixtures/review_smoke/cuda-targeted`
 - `expected_smoke.json`은 language/rule/routing contract와 함께 density contract를 가진다.
-  현재 density contract는 기본 local GitLab smoke batch cap `5`, 최소 comment path 분산 `2`,
-  path별 최대 comment 수 `2`를 검증한다.
+  현재 density contract는 기본 local GitLab smoke batch cap `5`와 fixture별 comment path
+  분산을 검증한다. `synthetic-mixed-language`와 `curated-polyglot`은 최소 distinct path
+  `3`, `cuda-targeted`는 `2`, path별 최대 comment 수는 공통으로 `2`다.
 - 일부 smoke fixture는 telemetry flow 검증을 위해 intentional `wrong_language_feedback` reply를 만든다. 이 이벤트는 `provenance=smoke`, `triage_cause=synthetic_smoke`로 분리되며 detector blind spot으로 바로 해석하지 않는다.
 - Standard local GitLab smoke:
   - `ops/scripts/smoke_local_gitlab_lifecycle_review.sh`

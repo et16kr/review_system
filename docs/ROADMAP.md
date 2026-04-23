@@ -72,11 +72,15 @@
   `wrong_language_28d_YYYY-MM-DD.md`,
   `wrong_language_backlog_28d_YYYY-MM-DD.md` 형식으로 남긴다.
   이번 단위는 docs-only 작업이라 deterministic 검증과 local GitLab smoke는 재실행하지 않았다.
+- `2026-04-23`: fixture `density_contract`를 reviewable signal 기준으로 세분화했다.
+  `synthetic-mixed-language`와 `curated-polyglot`은 최소 distinct comment path `3`,
+  `cuda-targeted`는 `2`를 요구한다. 이 단위는 deterministic contract 조정이라
+  `test_multilang_smoke_fixture`, `test_provider_quality`, `stub` provider quality gate만
+  실행했고 local GitLab smoke는 다시 돌리지 않았다.
 
 남은 작업:
 
-1. fixture별 실제 signal에 맞춰 `density_contract`를 세분화한다.
-2. synthetic wrong-language smoke event가 운영 backlog에 섞이지 않는지 정기 snapshot에서 확인한다.
+1. synthetic wrong-language smoke event가 운영 backlog에 섞이지 않는지 정기 snapshot에서 확인한다.
 
 완료 기준:
 

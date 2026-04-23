@@ -14,7 +14,7 @@
   "minimum_review_comments": 1,
   "density_contract": {
     "maximum_review_comments": 5,
-    "minimum_distinct_comment_paths": 2,
+    "minimum_distinct_comment_paths": 3,
     "maximum_comments_per_path": 2
   },
   "required_paths": [
