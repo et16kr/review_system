@@ -101,6 +101,10 @@ def _build_extension_root(tmp_path: Path) -> Path:
     return root
 
 
+def _sample_extension_root(project_root: Path) -> Path:
+    return project_root / "examples" / "extensions" / "private_org_cpp"
+
+
 def test_public_ingest_uses_canonical_yaml_rule_root(fixture_settings) -> None:
     summary = ingest_all_sources(fixture_settings)
 
@@ -129,6 +133,24 @@ def test_extension_rule_root_can_override_and_exclude_public_rules(
     assert "ES.6" in excluded_rules
     assert runtime.extension_rule_roots == [str(extension_root.resolve())]
     assert runtime.prompt_overlay_refs == ["org"]
+
+
+def test_repo_sample_extension_root_can_override_and_exclude_public_rules(
+    fixture_settings,
+) -> None:
+    extension_root = _sample_extension_root(fixture_settings.project_root)
+    settings = replace(fixture_settings, extension_rule_roots=(extension_root,))
+
+    runtime = load_rule_runtime(settings)
+
+    active_rules = {record.rule_no for record in runtime.active_records}
+    excluded_rules = {record.rule_no for record in runtime.excluded_records}
+
+    assert extension_root.exists()
+    assert "ORG.MEM.1" in active_rules
+    assert "R.11" in excluded_rules
+    assert "ES.6" in excluded_rules
+    assert runtime.extension_rule_roots == [str(extension_root.resolve())]
 
 
 def test_extension_entry_point_loading_matches_filesystem_loading(

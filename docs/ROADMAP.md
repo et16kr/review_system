@@ -217,13 +217,27 @@
 
 상태: `partial`
 
+최근 완료:
+
+- `review-engine/examples/extensions/private_org_cpp/`에
+  manifest/pack/profile/policy를 갖춘 opt-in private extension sample root를 추가했다.
+- `review-engine/tests/test_rule_runtime.py`가 repo sample root를 직접 로드해
+  organization rule 활성화와 public rule override/exclude 경로를 회귀로 고정한다.
+
 다음 작업:
 
-1. 실제 private extension 샘플 root를 하나 만든다.
-2. CI에서 public-only와 private-enabled 경로를 분리한다.
-3. extension failure policy를 dev/prod별로 문서화하고 설정 예제를 추가한다.
-4. `source_family` legacy alias 제거 또는 장기 호환 방침을 결정한다.
-5. `pack_weight`, `reference_only`, conflict action의 운영 표현 방식을 확정한다.
+1. CI에서 public-only와 private-enabled 경로를 분리한다.
+2. extension failure policy를 dev/prod별로 문서화하고 설정 예제를 추가한다.
+3. `source_family` legacy alias 제거 또는 장기 호환 방침을 결정한다.
+4. `pack_weight`, `reference_only`, conflict action의 운영 표현 방식을 확정한다.
+
+검증 메모:
+
+- 이번 slice는 opt-in sample extension root와 loader regression test만 추가했다.
+- rerun:
+  - `env UV_CACHE_DIR=/tmp/uv-cache uv run --project review-engine pytest review-engine/tests/test_rule_runtime.py -q`
+- broader `review-engine` pytest, ingest/retrieval baseline, `review-bot`/`review-platform` tests,
+  GitLab smoke, provider/direct OpenAI validation은 public runtime 비변경과 sample root opt-in 범위로 생략했다.
 
 완료 기준:
 

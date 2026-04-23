@@ -1,0 +1,22 @@
+schema_version: 1
+pack_id: org_cpp
+namespace: organization
+language_id: cpp
+source_kind: organization_policy
+description: Sample private organization extension pack for ownership rules.
+default_enabled: true
+default_priority_tier: override
+entries:
+  - rule_no: ORG.MEM.1
+    section: ORG
+    title: Prefer explicit owner abstractions over raw owning pointers
+    summary: Ownership must stay explicit in project-specific wrappers.
+    text: Organization rule that replaces direct raw ownership guidance with a project-specific owner wrapper.
+    category: memory
+    trigger_patterns: [raw_new, manual_delete, ownership_ambiguity]
+    fix_guidance: Wrap dynamic ownership in the project owner type instead of a raw pointer.
+    base_score: 0.97
+    severity_default: 0.98
+    priority_tier: override
+    specificity: 0.99
+    false_positive_risk: low

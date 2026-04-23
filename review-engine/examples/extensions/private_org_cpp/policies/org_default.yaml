@@ -1,0 +1,17 @@
+schema_version: 1
+policy_id: org_default
+language_id: cpp
+pack_weights:
+  cpp_core: 0.72
+  org_cpp: 0.97
+overrides:
+  - match:
+      rule_no: R.11
+    action: overridden
+    overridden_by:
+      - org_cpp:ORG.MEM.1
+    rationale: Organization owner wrapper rule replaces the public raw-new guidance.
+exclusions:
+  - match:
+      rule_no: ES.6
+    rationale: This profile excludes the for-initializer style preference.

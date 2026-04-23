@@ -1,0 +1,9 @@
+schema_version: 1
+profile_id: default
+language_id: cpp
+enabled_packs:
+  - org_cpp
+shared_packs: []
+prompt_overlay_refs: []
+detector_refs: []
+priority_policy_ref: org_default
