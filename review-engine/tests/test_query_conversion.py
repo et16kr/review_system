@@ -246,6 +246,11 @@ def test_query_analysis_does_not_treat_ide_rc_declaration_as_error_flow() -> Non
         ),
         (
             "dockerfile",
+            "FROM golang:1.22-bookworm@sha256:1111111111111111111111111111111111111111111111111111111111111111 AS build\nFROM debian:bookworm-slim@sha256:2222222222222222222222222222222222222222222222222222222222222222 AS runtime\nCOPY --from=build /usr/local /usr/local\n",
+            {"copy_from_builder_usr_local"},
+        ),
+        (
+            "dockerfile",
             "ADD https://example.com/install.sh /tmp/install.sh\nRUN curl https://example.com/install.sh | bash\n",
             {"add_remote_url", "curl_pipe_shell_run"},
         ),

@@ -1417,7 +1417,7 @@ languages:
     sources:
       - rule_source_id: dockerfile.dockerfile_runtime_baseline
         section_counts:
-          candidate_canonical_rule_groups: 5
+          candidate_canonical_rule_groups: 6
           reference_only_guidance: 2
         atoms:
           - source_atom_id: base_image_reproducibility
@@ -1441,6 +1441,13 @@ languages:
             canonical_rules: [DOCKER.4, DOCKER.SEC.2, DOCKER.SEC.4]
             reviewability_mix: [auto_review]
             reason: COPY-scope and context-hygiene guidance is fully active.
+          - source_atom_id: multi_stage_runtime_prefix_copy
+            section_id: candidate_canonical_rule_groups
+            status: mapped
+            pack_targets: [dockerfile_best_practices]
+            canonical_rules: [DOCKER.7]
+            reviewability_mix: [auto_review]
+            reason: Broad `/usr/local` copies from builder to runtime stages now map to a concrete runtime-surface rule.
           - source_atom_id: build_time_secret_handling
             section_id: candidate_canonical_rule_groups
             status: mapped
@@ -1455,17 +1462,17 @@ languages:
             canonical_rules: [DOCKER.5, DOCKER.SEC.5, DOCKER.SEC.6]
             reviewability_mix: [auto_review]
             reason: Remote fetch and pipe-to-shell build steps are fully canonicalized.
-          - source_atom_id: multi_stage_and_runtime_surface
+          - source_atom_id: ownership_fixing_layers_and_build_cache_strategy
             section_id: reference_only_guidance
             status: reference_only
             pack_targets: [dockerfile_best_practices]
             canonical_rules: [DOCKER.REF.1]
             reviewability_mix: [reference_only]
-            reason: Multi-stage structure remains advisory unless the diff exposes a concrete hazard.
+            reason: Ownership-fixing layers and build-cache strategy remain advisory unless the diff exposes a narrower concrete hazard.
           - source_atom_id: reproducible_artifact_and_privilege_review_question
             section_id: reference_only_guidance
             status: reference_only
             pack_targets: [dockerfile_best_practices]
             canonical_rules: [DOCKER.REF.1]
             reviewability_mix: [reference_only]
-            reason: The source review question is preserved through stage- and runtime-surface guidance.
+            reason: The broader build-ownership review question remains reference guidance after extracting the concrete builder-prefix copy hazard.

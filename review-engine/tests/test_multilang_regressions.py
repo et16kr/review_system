@@ -37,7 +37,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
         ),
         (
             "examples/multilang_safe/Dockerfile",
-            {"DOCKER.1", "DOCKER.SEC.1", "DOCKER.SEC.5"},
+            {"DOCKER.1", "DOCKER.7", "DOCKER.SEC.1", "DOCKER.SEC.5"},
             "dockerfile",
             None,
         ),

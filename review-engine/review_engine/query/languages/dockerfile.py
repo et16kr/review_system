@@ -39,6 +39,12 @@ PLUGIN = LanguageQueryPlugin(
             0.82,
         ),
         PatternSpec(
+            "copy_from_builder_usr_local",
+            r"(?im)^[+-]?\s*COPY\s+--from=\S+\s+/usr/local/?\s+/usr/local/?\s*$",
+            "Builder-stage /usr/local tree copied wholesale into runtime image; review whether toolchain residue is leaking past the stage boundary.",
+            0.84,
+        ),
+        PatternSpec(
             "build_secret_arg_env",
             r"(?im)^[+-]?\s*(?:ARG|ENV)\s+[A-Z0-9_]*(?:TOKEN|SECRET|PASSWORD|PASSWD|API[_-]?KEY|ACCESS[_-]?KEY|SECRET[_-]?KEY)\b",
             "Credential-bearing ARG/ENV detected in Dockerfile; review whether BuildKit secret mounts should carry this instead of image metadata.",
@@ -69,6 +75,7 @@ PLUGIN = LanguageQueryPlugin(
         "root_user": ("DOCKER.SEC.1", "DOCKER.SEC.3"),
         "apt_get_update_install_split": ("DOCKER.2",),
         "copy_dot": ("DOCKER.SEC.2", "DOCKER.SEC.4", "DOCKER.4"),
+        "copy_from_builder_usr_local": ("DOCKER.7",),
         "build_secret_arg_env": ("DOCKER.SEC.7",),
         "add_remote_url": ("DOCKER.5", "DOCKER.SEC.6"),
         "apt_upgrade": ("DOCKER.6",),
@@ -80,6 +87,7 @@ PLUGIN = LanguageQueryPlugin(
         "root_user",
         "apt_get_update_install_split",
         "copy_dot",
+        "copy_from_builder_usr_local",
         "build_secret_arg_env",
         "add_remote_url",
         "apt_upgrade",

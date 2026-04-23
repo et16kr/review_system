@@ -36,10 +36,11 @@ status: drafted
 - Base image reproducibility: mutable `latest`, version tags without digests, and upgrade drift.
 - Runtime privilege: `USER root`, build-vs-runtime separation, and least-privilege final stages.
 - Build context hygiene: `COPY . .`, `.dockerignore`, and secret or cache bleed-through.
+- Multi-stage runtime surface: broad `COPY --from=... /usr/local /usr/local` patterns should be treated as a concrete runtime-surface leak, not just an advisory stage-structure question.
 - Build-time secret handling: credential-bearing `ARG`/`ENV`, secret mounts, and image-history exposure.
 - Artifact bootstrap: remote URL `ADD`, `curl | sh`, provenance checks, and explicit version pinning.
 
 ## Reference-Only Guidance
 
-- Multi-stage builds, ownership-fixing layers, and build cache strategy often belong in reference-only guidance unless the diff shows a concrete hazard.
+- Ownership-fixing layers and build cache strategy often belong in reference-only guidance unless the diff shows a concrete hazard.
 - Review Dockerfiles through the question "what exact artifact do we build, from which pinned inputs, with which runtime privileges?"

@@ -171,6 +171,10 @@
     "expected_rules": ["DOCKER.SEC.7"]
   },
   {
+    "input": "examples/multilang/Dockerfile.runtime_prefix_copy",
+    "expected_rules": ["DOCKER.7"]
+  },
+  {
     "input": "examples/multilang/.github/workflows/unpinned.yml",
     "expected_rules": ["YAML.CI.1", "YAML.CI.5", "YAML.CI.9"]
   },

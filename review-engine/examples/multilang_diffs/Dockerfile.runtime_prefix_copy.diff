@@ -1,0 +1,11 @@
+diff --git a/Dockerfile b/Dockerfile
+index 1111111..2222222 100644
+--- a/Dockerfile
++++ b/Dockerfile
+@@ -5,4 +5,5 @@
+ RUN go build -o /out/service ./cmd/service
+ 
+ FROM debian:bookworm-slim@sha256:2222222222222222222222222222222222222222222222222222222222222222 AS runtime
++COPY --from=build /usr/local /usr/local
+ COPY --from=build /out/service /usr/local/bin/service
+ ENTRYPOINT ["/usr/local/bin/service"]
