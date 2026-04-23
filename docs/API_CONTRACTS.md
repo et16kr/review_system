@@ -28,8 +28,15 @@
 - `resolve_thread(key, thread_ref, reason=...)`
 - `publish_check(key, request)`
 - `collect_feedback(key, since=None)`
+
+### Optional capability 메서드
+
+- `fetch_file_content(key, path, ref)`
 - `post_general_note(key, body)`
 - `upsert_general_note(key, body=..., purpose=...)`
+
+위 optional method는 protocol default가 `not_supported`를 반환한다.
+지원하지 않는 adapter에서는 full-report/backlog/help note 게시가 response-level ignored 또는 501로 끝날 수 있다.
 
 현재 구현 상태:
 
@@ -407,8 +414,10 @@ Query parameter:
 
 집계 단위:
 
-- raw comment row가 아니라 latest parsed wrong-language feedback event 기준
-- 동일 finding/thread에 여러 reply가 있어도 최신 canonical command만 반영한다
+- 현재 구현은 window 안의 parsed `wrong-language` human reply event를 집계한다.
+- `distinct_threads`와 `distinct_findings`는 unique count지만, 같은 thread/finding에 repeated wrong-language reply가 있으면 `total_events`와 pair/profile/path count는 증가할 수 있다.
+- smoke fixture가 의도적으로 만든 wrong-language reply도 project filter 없이 보면 포함된다.
+- detector blind spot backlog로 전환하기 전에 `project_ref`, thread 대상, expected language가 실제 운영 피드백인지 확인한다.
 
 Response 공통 필드:
 
@@ -628,7 +637,13 @@ Request:
 ```json
 {
   "diff": "@@ -10,6 +10,10 @@ ...",
-  "top_k": 10
+  "top_k": 10,
+  "file_path": "src/a.cpp",
+  "file_context": "optional full or partial file content",
+  "language_id": "cpp",
+  "profile_id": "default",
+  "context_id": null,
+  "dialect_id": null
 }
 ```
 
@@ -655,7 +670,12 @@ Response:
       "text": "...",
       "category": "memory",
       "reviewability": "auto_review",
-      "fix_guidance": "free() 이후 포인터를 NULL로 재설정한다."
+      "fix_guidance": "free() 이후 포인터를 NULL로 재설정한다.",
+      "language_id": "cpp",
+      "profile_id": "default",
+      "context_id": null,
+      "dialect_id": null,
+      "prompt_overlay_refs": []
     }
   ]
 }
@@ -679,6 +699,42 @@ Response:
 
 - 규칙셋 재적재
 - active/reference/excluded 컬렉션 summary 반환
+
+현재 컬렉션 이름은 language suffix를 가진다.
+예: `guideline_rules_active_cpp`, `guideline_rules_reference_yaml`, `guideline_rules_excluded_cuda`
+
+### `POST /codebase/index`
+
+용도:
+
+- 허용된 local root 아래의 reviewable file을 chunk로 나누어 `codebase_chunks` 컬렉션에 적재한다.
+- `REVIEW_ENGINE_CODEBASE_ALLOWED_ROOTS`가 있으면 그 경로 아래만 허용한다.
+- 설정이 없으면 기본적으로 `review-engine` parent workspace 아래를 허용한다.
+
+Request:
+
+```json
+{
+  "root_path": "/home/et16/work/review_system",
+  "clear_first": true
+}
+```
+
+### `POST /codebase/search`
+
+용도:
+
+- `codebase_chunks`에서 similar code snippet을 검색한다.
+- 현재 collection은 project-scoped memory가 아니라 engine instance 단위 shared collection이다.
+
+Request:
+
+```json
+{
+  "query": "changed code snippet",
+  "top_k": 3
+}
+```
 
 ## 4. `review-platform` local harness API
 

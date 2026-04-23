@@ -65,6 +65,7 @@
 - Canonical quality endpoint는 `GET /internal/analytics/finding-outcomes`다.
 - Rule learning / effectiveness는 rerun row 수가 아니라 distinct fingerprint latest meaningful state를 기준으로 본다.
 - Wrong-language 분석은 `FeedbackEvent.payload`의 immutable event와 `GET /internal/analytics/wrong-language-feedback`를 기준으로 한다.
+- 현재 wrong-language analytics는 parsed human reply event를 집계한다. repeated reply는 event count에 들어갈 수 있고, smoke fixture가 만든 synthetic feedback도 project filter 없이 보면 같이 보인다.
 
 ## Review-Engine Current State
 
@@ -77,6 +78,8 @@
 - language/profile/context/dialect routing은 registry와 query detector가 담당한다.
 - provider prompt는 C++ 고정 가정 없이 language/profile/context hint를 사용한다.
 - Markdown 문서는 명시적 unreviewable `markdown`으로 분류한다.
+- 마지막 점검 기준 rule count는 public/shared seed 기준 `344`개다.
+- extension rule root, prompt overlay, entry point, detector plugin hook, strict loading 골격은 구현되어 있다.
 
 현재 주요 지원 축:
 
@@ -92,7 +95,8 @@
 - 사람이 수정하는 기준은 canonical YAML rule source다.
 - Generated dataset/vector collection은 ingest 산출물로 본다.
 - Public core는 public rule pack만으로 동작해야 한다.
-- Private/organization rule은 extension root, prompt root, detector plugin 같은 확장 지점으로 붙인다.
+- Private/organization rule을 붙일 수 있는 extension root, prompt root, detector plugin 경로는 코드에 있다.
+- 다만 private/public CI split, private rule packaging, 운영 fail-fast 정책은 아직 roadmap 대상이다.
 - 우선순위는 특정 조직명 하드코딩이 아니라 pack/profile policy로 표현한다.
 
 ## Adapter State
@@ -113,6 +117,10 @@ Adapter V2 capability는 [API_CONTRACTS.md](/home/et16/work/review_system/docs/A
 - `backlog`는 현재 MR에 실제로 남아 있는 backlog 중심으로 보여 준다.
 - `ignore`, `false-positive`, `later`, `allow`, `wrong-language <lang>` feedback을 지원한다.
 - 반복 검출은 허용하지만 반복 게시는 줄인다.
+- review unit은 현재 hunk 기반이며, 큰 add-only hunk는 작은 unit으로 나눈다.
+- adapter가 지원하면 head 파일 내용을 일부 가져와 file context로 쓴다.
+- `review-engine` codebase index/search가 있으면 similar code를 evidence/provider input에 넣을 수 있다.
+- AST 기반 syntax-aware split, project-scoped memory, `.review-bot.yaml`, `ask`/`summarize` command는 아직 없다.
 
 ## Security And Retention
 
@@ -135,6 +143,7 @@ Adapter V2 capability는 [API_CONTRACTS.md](/home/et16/work/review_system/docs/A
   - `ops/fixtures/review_smoke/synthetic-mixed-language`
   - `ops/fixtures/review_smoke/curated-polyglot`
   - `ops/fixtures/review_smoke/cuda-targeted`
+- 일부 smoke fixture는 telemetry flow 검증을 위해 intentional `wrong_language_feedback` reply를 만든다. 이 이벤트는 detector blind spot으로 바로 해석하지 않는다.
 - Standard local GitLab smoke:
   - `ops/scripts/smoke_local_gitlab_lifecycle_review.sh`
   - `ops/scripts/smoke_local_gitlab_multilang_review.sh`

@@ -188,9 +188,26 @@ docker compose exec review-engine uv run python -m review_engine.cli.ingest_guid
 
 Chroma 컬렉션:
 
-- `guideline_rules_active`
-- `guideline_rules_reference`
-- `guideline_rules_excluded`
+- `guideline_rules_active_<language>`
+- `guideline_rules_reference_<language>`
+- `guideline_rules_excluded_<language>`
+
+예를 들어 기본 `cpp` 컬렉션은 `guideline_rules_active_cpp`,
+`guideline_rules_reference_cpp`, `guideline_rules_excluded_cpp`다.
+
+선택적으로 codebase similarity 검색을 쓰려면 reviewable file chunk를 별도 collection에 적재한다.
+
+```bash
+curl -X POST http://127.0.0.1:18082/codebase/index \
+  -H "Content-Type: application/json" \
+  -d '{"root_path":"/home/et16/work/review_system","clear_first":true}'
+```
+
+주의:
+
+- 기본 collection 이름은 `codebase_chunks`다.
+- 현재 이 collection은 project-scoped memory가 아니라 engine instance 단위 shared collection이다.
+- 허용 root는 `REVIEW_ENGINE_CODEBASE_ALLOWED_ROOTS`로 제한할 수 있다.
 
 ## 6. 로컬 harness 검증
 
@@ -241,6 +258,9 @@ wrong-language telemetry 해석 기준:
 - `top_profiles`로 framework/profile/context 오분류 집중 구간을 본다.
 - `top_paths`로 `.github/workflows`, `src`, `db`, `docs` 같은 경로 기반 blind spot을 본다.
 - `triage_candidates`로 detector backlog를 바로 만들 우선순위 조합을 본다.
+- `root/review-system-multilang-smoke`, `root/review-system-curated-polyglot-smoke`, `root/review-system-cuda-smoke` 같은 smoke project의 wrong-language event는 telemetry flow 검증용 synthetic event다.
+- project filter 없이 전체 window를 보면 smoke event와 실제 운영 피드백이 섞일 수 있다.
+- detector backlog로 바꾸기 전에는 해당 thread가 실제 오분류인지, 사람이 다른 thread에 잘못 reply한 것인지, policy mismatch인지 먼저 확인한다.
 
 standalone wrong-language telemetry snapshot이 필요하면:
 
@@ -256,6 +276,8 @@ python3 /home/et16/work/review_system/ops/scripts/capture_wrong_language_telemet
   --project-ref root/review-system-multilang-smoke \
   --window 28d
 ```
+
+위 smoke project 예시는 telemetry flow 확인용이다. 운영 detector backlog를 만들 때는 실제 서비스 project_ref로 필터링하거나 smoke project를 해석에서 제외한다.
 
 telemetry를 바로 detector backlog 형태로 정리하려면:
 
@@ -378,6 +400,7 @@ bash ops/scripts/smoke_local_gitlab_multilang_review.sh \
 - mixed-language smoke는 comment/tag/routing 검증을 안정적으로 하기 위해 실행 중에 provider를 일시적으로 `stub/stub`로 전환한다.
 - 기본 경로는 smoke 종료 시 원래 provider env로 복구한다.
 - 디버깅 중에는 `--skip-provider-restore`를 써서 반복 rebuild 비용을 줄일 수 있다.
+- fixture의 `wrong_language_feedback`은 의도적으로 human reply를 추가해 analytics loop를 검증한다. 이 결과를 운영 detector miss로 바로 분류하지 않는다.
 
 선택적으로 첫 open bot thread에 human reply / resolve / sync까지 포함할 수 있다.
 
@@ -456,6 +479,7 @@ curl http://127.0.0.1:18081/internal/review/requests/gitlab/root%2Freview-system
 2. feedback collector는 GitLab discussion 기준 `resolved`, `unresolved`, `reply`만 수집한다.
 3. `review-platform`은 운영 필수 구성요소가 아니다.
 4. current-state의 canonical identity는 `ReviewRequestKey`이며, legacy `pr_id` endpoint는 제거되었다.
+5. wrong-language analytics는 repeated reply event를 count에 포함할 수 있으므로 `distinct_threads`와 `distinct_findings`를 함께 봐야 한다.
 
 ## 10. Dead Letter / 복구
 
