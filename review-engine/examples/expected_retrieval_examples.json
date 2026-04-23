@@ -36,6 +36,10 @@
     "expected_rules": ["GO.12"]
   },
   {
+    "input": "examples/multilang/go_http_handler_unvalidated_json.go",
+    "expected_rules": ["GO.13"]
+  },
+  {
     "input": "examples/multilang/java_concat_sql.java",
     "expected_rules": ["JAVA.PROJ.1"]
   },
@@ -235,6 +239,11 @@
     "input": "examples/multilang_diffs/go_missing_defer.diff",
     "review_path": "examples/multilang/go_missing_defer.go",
     "expected_rules": ["GO.1"]
+  },
+  {
+    "input": "examples/multilang_diffs/go_http_handler_unvalidated_json.diff",
+    "review_path": "examples/multilang/go_http_handler_unvalidated_json.go",
+    "expected_rules": ["GO.13"]
   },
   {
     "input": "examples/multilang_diffs/Dockerfile.buildkit_secret.diff",

@@ -936,7 +936,7 @@ languages:
     sources:
       - rule_source_id: go.go_runtime_baseline
         section_counts:
-          candidate_canonical_rule_groups: 6
+          candidate_canonical_rule_groups: 7
           reference_only_guidance: 2
         atoms:
           - source_atom_id: error_handling
@@ -967,6 +967,13 @@ languages:
             canonical_rules: [GO.12]
             reviewability_mix: [auto_review]
             reason: Transaction begin/commit paths now map to a dedicated rollback-visibility rule.
+          - source_atom_id: http_handler_validation_boundary
+            section_id: candidate_canonical_rule_groups
+            status: mapped
+            pack_targets: [project_go]
+            canonical_rules: [GO.13]
+            reviewability_mix: [auto_review]
+            reason: Direct net/http JSON decoding without a visible request-contract check now maps to an active handler-boundary rule.
           - source_atom_id: concurrency
             section_id: candidate_canonical_rule_groups
             status: mapped

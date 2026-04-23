@@ -6,7 +6,7 @@ from review_engine.query.languages.base import LanguageQueryPlugin, PatternSpec
 PLUGIN = LanguageQueryPlugin(
     plugin_id="go",
     display_name="Go",
-    default_focus="error propagation, defer-based cleanup, context propagation, and goroutine lifetime",
+    default_focus="error propagation, defer-based cleanup, HTTP handler validation boundaries, context propagation, and goroutine lifetime",
     pattern_specs=(
         PatternSpec(
             "ignored_error",
@@ -31,6 +31,12 @@ PLUGIN = LanguageQueryPlugin(
             r"(?s)(?P<tx>[A-Za-z_]\w*)\s*,\s*[A-Za-z_]\w*\s*(?::=|=)\s*.*?\.(?:Begin|BeginTx)\([^)]*\)(?:(?!\b(?P=tx)\.Rollback\(\)).)*?\b(?P=tx)\.Commit\(",
             "Transaction starts and commits without a visible rollback guard; review failure-path cleanup ownership.",
             0.86,
+        ),
+        PatternSpec(
+            "http_handler_json_decode_without_validation",
+            r"(?is)func\s+(?:\([^)]*\)\s*)?\w+\s*\([^)]*http\.ResponseWriter[^)]*\*http\.Request[^)]*\)\s*\{[\s\S]{0,700}(?:(?!\bDisallowUnknownFields\s*\().)*?\bjson\.NewDecoder\(\s*[A-Za-z_]\w*\.Body\s*\)\.Decode\(\s*&(?P<payload>[A-Za-z_]\w+)\s*\)(?:(?!\b(?:[A-Za-z_]\w*\.)?(?:Validate|Struct)\s*\().){0,220}\b(?:(?P=payload)\.(?!Validate\b)[A-Za-z_]\w+|(?!Validate\b|Struct\b)[A-Za-z_]\w+\([^)]*\b(?P=payload)\b)",
+            "net/http handler decodes request JSON and uses it without a visible validation step; review the boundary contract.",
+            0.9,
         ),
         PatternSpec(
             "context_missing",
@@ -62,6 +68,7 @@ PLUGIN = LanguageQueryPlugin(
         "sentinel_error_compare": ("GO.11",),
         "defer_close_missing": ("GO.1", "GO.6"),
         "transaction_commit_without_rollback": ("GO.12",),
+        "http_handler_json_decode_without_validation": ("GO.13",),
         "context_missing": ("GO.2", "GO.5"),
         "goroutine_leak": ("GO.4", "GO.10"),
         "context_background": ("GO.8",),
@@ -72,6 +79,7 @@ PLUGIN = LanguageQueryPlugin(
         "sentinel_error_compare",
         "defer_close_missing",
         "transaction_commit_without_rollback",
+        "http_handler_json_decode_without_validation",
         "context_missing",
         "goroutine_leak",
         "context_background",

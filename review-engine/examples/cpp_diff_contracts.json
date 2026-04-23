@@ -22,5 +22,15 @@
     "expected_rules": [
       "DOCKER.7"
     ]
+  },
+  {
+    "example_path": "examples/multilang_diffs/go_http_handler_unvalidated_json.diff",
+    "source_path": "examples/multilang/go_http_handler_unvalidated_json.go",
+    "focus_patterns": [
+      "http_handler_json_decode_without_validation"
+    ],
+    "expected_rules": [
+      "GO.13"
+    ]
   }
 ]

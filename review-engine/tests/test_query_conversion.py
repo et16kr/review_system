@@ -63,6 +63,11 @@ def test_query_analysis_does_not_treat_ide_rc_declaration_as_error_flow() -> Non
             {"transaction_commit_without_rollback"},
         ),
         (
+            "go",
+            "func createUser(w http.ResponseWriter, r *http.Request) {\n    var req createUserRequest\n    if err := json.NewDecoder(r.Body).Decode(&req); err != nil {\n        http.Error(w, \"bad request\", http.StatusBadRequest)\n        return\n    }\n    if err := saveUser(req); err != nil {\n        http.Error(w, \"failed\", http.StatusInternalServerError)\n    }\n}\n",
+            {"http_handler_json_decode_without_validation"},
+        ),
+        (
             "java",
             "try {\n    work();\n} catch (Exception ex) {\n    log(ex);\n}\nnew Thread(() -> work()).start();\n",
             {"catch_exception", "new_thread"},

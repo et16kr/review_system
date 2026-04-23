@@ -105,16 +105,27 @@
 - `DOCKER.7` runtime prefix copy rule
 - `GO.11` sentinel error matching
 - `GO.12` transaction rollback visibility
+- `GO.13` net/http handler raw JSON decode boundary validation
 
 다음 작업:
 
 1. telemetry나 smoke에서 남아 있는 under-trigger gap 하나를 고른다.
 2. source atom 또는 source 문서, detector/rule/example을 같은 단위에서 갱신한다.
 3. `review-engine`만 바뀌면 rule/retrieval baseline만 다시 돌리고, `review-bot`이나 lifecycle 영향이 생기면 그에 맞는 regression과 smoke 범위를 추가한다.
+4. 같은 Go handler family에서 under-trigger가 남아 있으면 direct chained `json.NewDecoder(...).Decode(...)` 밖의 shape(`decoder := json.NewDecoder(...)`, framework binding)를 별도 slice로 넓힐지 결정한다.
+
+검증 메모:
+
+- 이번 slice는 `review-engine` source/rule/detector/example만 변경했다.
+- rerun:
+  - `uv run --project review-engine python -m review_engine.cli.ingest_guidelines`
+  - `uv run --project review-engine python -m review_engine.cli.evaluate_examples`
+  - `uv run --project review-engine python -m review_engine.cli.evaluate_diff_contracts`
+- `review-bot`/`review-platform` tests, GitLab lifecycle smoke, mixed-language smoke, direct OpenAI/provider validation은 이번 범위 밖이라 생략했다.
 
 현재 1순위 후보:
 
-- Go: HTTP handler boundary validation
+- Go: HTTP handler boundary validation follow-up (`decoder := json.NewDecoder(...)` / framework binding path widening 여부 재판단)
 
 완료 기준:
 
@@ -161,15 +172,15 @@
 ## Suggested Next Step
 
 현재 가장 자연스러운 다음 작업은 `Targeted Rule Expansion`의
-Go HTTP handler boundary validation gap을 닫는 것이다.
+Go HTTP handler boundary validation follow-up 범위를 재판단하는 것이다.
 
 이유:
 
 - `Provider Runtime Guardrails`는 watch 상태로 내려갔고 남은 실행 단위가 없다.
-- `Targeted Rule Expansion`은 source/rule/detector/example/validation을 한 번에 닫을 수 있는
-  가장 작은 product-facing 실행 단위를 아직 갖고 있다.
-- 현재 1순위 후보가 이미 `Go: HTTP handler boundary validation`으로 좁혀져 있어
-  다음 slice 선택 비용이 가장 낮다.
+- `Targeted Rule Expansion`은 여전히 source/rule/detector/example/validation을 한 번에 닫을 수 있는
+  가장 작은 product-facing 실행 단위를 유지하고 있다.
+- `GO.13` 최소 slice가 direct chained `json.NewDecoder(...).Decode(...)` case를 닫았으므로,
+  다음에는 같은 family를 더 넓힐지 아니면 다른 under-trigger gap으로 넘어갈지를 telemetry 기준으로 바로 결정할 수 있다.
 
 ## Queued After Main Roadmap
 

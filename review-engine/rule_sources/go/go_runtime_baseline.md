@@ -11,7 +11,7 @@ source_ref:
 chunking:
   strategy: heading_sections
   max_chars: 2200
-vector_ingest_tags: [go, errors, defer, context]
+vector_ingest_tags: [go, errors, defer, context, http, validation]
 status: drafted
 ---
 
@@ -19,7 +19,7 @@ status: drafted
 
 ## Scope
 
-- This bundle covers Go request-scoped work, cleanup, goroutine ownership, and error propagation.
+- This bundle covers Go request-scoped work, cleanup, goroutine ownership, error propagation, and HTTP transport boundaries.
 - The review emphasis is on control over lifetime and failure visibility rather than purely stylistic Effective Go advice.
 
 ## High-Signal Review Areas
@@ -28,6 +28,7 @@ status: drafted
 - Prefer `errors.Is` or `errors.As` when sentinel or typed errors may cross wrapping boundaries.
 - Attach cleanup with `defer` as soon as the resource is acquired.
 - Propagate `context` through request-scoped work and reason about goroutine ownership.
+- Make HTTP request decoding and validation boundaries visible before handler code reaches domain work.
 - Treat `context.Background()` or `context.TODO()` in service paths as an explicit ownership decision.
 - Review `panic` in request, worker, or library code as a crash-boundary decision that usually deserves typed errors instead.
 
@@ -37,6 +38,7 @@ status: drafted
 - Sentinel error matching: `errors.Is` / `errors.As` for wrapper-aware branches on typed or sentinel failures.
 - Cleanup: prompt `defer`, response body closure, and lexical ownership.
 - Transaction cleanup: `Begin` / `Commit` paths should keep rollback ownership visible from the start.
+- HTTP handler validation boundaries: raw JSON decoding should be followed by an explicit request contract check before domain use.
 - Concurrency: goroutine launch ownership, cancellation, and anonymous goroutine behavior.
 - Context propagation: request cancellation, deadline inheritance, and detached work.
 
