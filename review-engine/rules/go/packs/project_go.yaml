@@ -150,6 +150,19 @@ entries:
     priority_tier: default
     specificity: 0.82
     false_positive_risk: medium
+  - rule_no: GO.12
+    section: GO
+    title: Transactions that commit should keep rollback cleanup visible from the start
+    summary: A transaction begin/commit path is easier to review when rollback ownership is established immediately.
+    text: In Go, transaction error paths become fragile when the code opens a transaction, performs work, and reaches `Commit` without any visible rollback guard in the same local scope. A prompt `Rollback` path makes later edits less likely to strand partial writes or duplicate failure cleanup.
+    category: resource_management
+    trigger_patterns: [transaction_commit_without_rollback]
+    fix_guidance: Register `defer tx.Rollback()` or an equally obvious rollback path immediately after the successful `Begin`/`BeginTx` call, then let `Commit` close the happy path.
+    base_score: 0.87
+    severity_default: 0.89
+    priority_tier: default
+    specificity: 0.85
+    false_positive_risk: medium
   - rule_no: GO.REF.1
     section: GOREF
     title: Public Go APIs should make zero-value behavior and ownership expectations obvious

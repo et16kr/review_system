@@ -27,6 +27,12 @@ PLUGIN = LanguageQueryPlugin(
             0.9,
         ),
         PatternSpec(
+            "transaction_commit_without_rollback",
+            r"(?s)(?P<tx>[A-Za-z_]\w*)\s*,\s*[A-Za-z_]\w*\s*(?::=|=)\s*.*?\.(?:Begin|BeginTx)\([^)]*\)(?:(?!\b(?P=tx)\.Rollback\(\)).)*?\b(?P=tx)\.Commit\(",
+            "Transaction starts and commits without a visible rollback guard; review failure-path cleanup ownership.",
+            0.86,
+        ),
+        PatternSpec(
             "context_missing",
             r"http\.NewRequest\(",
             "Request construction detected; review whether context propagation should be explicit.",
@@ -55,6 +61,7 @@ PLUGIN = LanguageQueryPlugin(
         "ignored_error": ("GO.3", "GO.7"),
         "sentinel_error_compare": ("GO.11",),
         "defer_close_missing": ("GO.1", "GO.6"),
+        "transaction_commit_without_rollback": ("GO.12",),
         "context_missing": ("GO.2", "GO.5"),
         "goroutine_leak": ("GO.4", "GO.10"),
         "context_background": ("GO.8",),
@@ -64,6 +71,7 @@ PLUGIN = LanguageQueryPlugin(
         "ignored_error",
         "sentinel_error_compare",
         "defer_close_missing",
+        "transaction_commit_without_rollback",
         "context_missing",
         "goroutine_leak",
         "context_background",

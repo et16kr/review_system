@@ -58,6 +58,11 @@ def test_query_analysis_does_not_treat_ide_rc_declaration_as_error_flow() -> Non
             {"sentinel_error_compare"},
         ),
         (
+            "go",
+            "tx, err := db.Begin()\nif err != nil {\n    return err\n}\nif _, err := tx.Exec(query); err != nil {\n    return err\n}\nreturn tx.Commit()\n",
+            {"transaction_commit_without_rollback"},
+        ),
+        (
             "java",
             "try {\n    work();\n} catch (Exception ex) {\n    log(ex);\n}\nnew Thread(() -> work()).start();\n",
             {"catch_exception", "new_thread"},

@@ -36,6 +36,7 @@ status: drafted
 - Error handling: ignored errors, wrapped errors, and operation context in returned failures.
 - Sentinel error matching: `errors.Is` / `errors.As` for wrapper-aware branches on typed or sentinel failures.
 - Cleanup: prompt `defer`, response body closure, and lexical ownership.
+- Transaction cleanup: `Begin` / `Commit` paths should keep rollback ownership visible from the start.
 - Concurrency: goroutine launch ownership, cancellation, and anonymous goroutine behavior.
 - Context propagation: request cancellation, deadline inheritance, and detached work.
 

@@ -100,6 +100,18 @@
 
 현재 진행:
 
+- `2026-04-23`: Go transaction rollback visibility under-trigger gap을 `GO.12`로
+  canonicalize했다. `transaction_cleanup` source atom, detector hint
+  `transaction_commit_without_rollback`, retrieval example
+  `go_tx_commit_without_rollback.go`, safe regression
+  `go_tx_deferred_rollback.go`를 추가했다.
+- Validation은 `ingest_guidelines`, `evaluate_examples`,
+  `evaluate_diff_contracts`,
+  `pytest review-engine/tests/test_query_conversion.py review-engine/tests/test_source_coverage_matrix.py review-engine/tests/test_expected_examples.py review-engine/tests/test_multilang_regressions.py -q`
+  를 통과했다. 이 환경에서는 `uv run`이 build dependency 해석 중 network를 요구해
+  같은 baseline을 `review-engine/.venv/bin/python`으로 등가 실행했다.
+- 이번 단위도 `review-engine` rule/retrieval 변경만 포함하므로 `review-bot`
+  regression, provider quality gate, local GitLab smoke는 다시 돌리지 않았다.
 - `2026-04-23`: Go wrapped sentinel error matching gap을 `GO.11`로
   canonicalize했다. `sentinel_error_matching` source atom,
   `sentinel_error_compare` detector hint, retrieval example
@@ -153,7 +165,7 @@
 
 우선 후보:
 
-- Go: HTTP handler boundary validation, transaction/resource cleanup.
+- Go: HTTP handler boundary validation.
 
 완료 기준:
 
