@@ -100,6 +100,12 @@
 
 최근 완료:
 
+- `DOCKER.3`이 stage alias 뒤 trailing inline comment가 붙은
+  digestless `FROM image:tag` 경로까지 잡도록 넓어졌다.
+- `DOCKER.3` Dockerfile runtime baseline source wording이
+  stage alias나 inline note가 있어도 digest pinning 필요성이 그대로라는 점을 명시하도록 갱신됐다.
+- `DOCKER.3` bundled code/diff example과 diff contract spec가
+  inline-comment digest pinning drift shape를 포함하도록 갱신됐다.
 - `DOCKER.SEC.7`이 secret-shaped `ARG`/`ENV` 이름뿐 아니라
   authenticated package/artifact URL을 `ARG`/`ENV`에 직접 싣는 경로까지 잡도록 넓어졌다.
 - `DOCKER.SEC.7` source/rule wording이 inline authenticated URL leakage까지 같은 hazard family로 설명하도록 갱신됐다.
@@ -116,7 +122,6 @@
 
 남아 있는 우선 gap:
 
-- `DOCKER.3` digestless base tag retrieval hardening
 - `DOCKER.7` runtime prefix copy rule
 - `GO.11` sentinel error matching
 - `GO.12` transaction rollback visibility
@@ -130,17 +135,18 @@
 
 검증 메모:
 
-- 이번 slice는 `review-engine` source/rule/detector/example/diff contract만 변경했다.
+- 이번 slice는 `review-engine` source/detector/example/diff contract만 변경했다.
 - rerun:
-  - `uv run --project review-engine pytest review-engine/tests/test_query_conversion.py review-engine/tests/test_expected_examples.py review-engine/tests/test_multilang_regressions.py -q`
+  - `uv run --project review-engine pytest review-engine/tests/test_query_conversion.py -q`
   - `uv run --project review-engine python -m review_engine.cli.ingest_guidelines`
   - `uv run --project review-engine python -m review_engine.cli.evaluate_examples`
   - `uv run --project review-engine python -m review_engine.cli.evaluate_diff_contracts`
-- `review-bot`/`review-platform` tests, GitLab lifecycle smoke, mixed-language smoke, direct OpenAI/provider validation은 이번 범위 밖이라 생략했다.
+- broader `review-engine` pytest, `review-bot`/`review-platform` tests,
+  GitLab lifecycle smoke, mixed-language smoke, direct OpenAI/provider validation은 이번 범위 밖이라 생략했다.
 
 현재 1순위 후보:
 
-- Dockerfile: digestless base tag retrieval hardening
+- Dockerfile: runtime prefix copy rule hardening
 
 완료 기준:
 
@@ -187,15 +193,15 @@
 ## Suggested Next Step
 
 현재 가장 자연스러운 다음 작업은 `Targeted Rule Expansion`의
-`DOCKER.3` digestless base tag retrieval hardening gap을 source/rule/example 단위로 닫는 것이다.
+`DOCKER.7` runtime prefix copy rule gap을 source/rule/example 단위로 닫는 것이다.
 
 이유:
 
 - `Provider Runtime Guardrails`는 watch 상태로 내려갔고 남은 실행 단위가 없다.
 - `Targeted Rule Expansion`은 여전히 source/rule/detector/example/validation을 한 번에 닫을 수 있는
   가장 작은 product-facing 실행 단위를 유지하고 있다.
-- `DOCKER.SEC.7` build-time secret handling gap이 닫혔으므로,
-  다음에는 남아 있는 Dockerfile family under-trigger 중 digest pinning 쪽처럼 detector와 diff contract를 같이 갱신하기 쉬운 항목으로 넘어가는 편이 작다.
+- `DOCKER.3` digestless base tag retrieval hardening이 닫혔으므로,
+  다음에는 남아 있는 Dockerfile family gap 중 `DOCKER.7`처럼 detector와 diff contract를 같이 갱신하기 쉬운 항목으로 넘어가는 편이 작다.
 
 ## Queued After Main Roadmap
 

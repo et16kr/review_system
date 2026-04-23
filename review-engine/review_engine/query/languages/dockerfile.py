@@ -16,7 +16,7 @@ PLUGIN = LanguageQueryPlugin(
         ),
         PatternSpec(
             "base_tag_without_digest",
-            r"(?im)^[+-]?\s*FROM\s+(?:--platform=\S+\s+)?(?!\S+@sha256:)(?!\S+:latest(?:\s|$))\S+:[^\s@]+(?:\s+AS\s+\S+)?\s*$",
+            r"(?im)^[+-]?\s*FROM\s+(?:--platform=\S+\s+)?(?!\S+@sha256:)(?!\S+:latest(?:\s|$))\S+:[^\s@]+(?:\s+AS\s+\S+)?(?:\s+#.*)?\s*$",
             "Version-tagged base image without an immutable digest detected; review reproducibility and supply-chain traceability.",
             0.86,
         ),

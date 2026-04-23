@@ -325,3 +325,22 @@ def test_dockerfile_safe_index_url_does_not_trigger_authenticated_secret_pattern
 
     assert "build_secret_arg_env" not in names
     assert "build_secret_arg_env_authenticated_url" not in names
+
+
+def test_dockerfile_digestless_base_with_inline_comment_triggers_without_matching_digest_pinned_variant() -> None:
+    digestless = build_query_analysis(
+        "FROM python:3.12-slim AS runtime # official runtime base\n",
+        input_kind="code",
+        language_id="dockerfile",
+    )
+    digestless_names = {pattern.name for pattern in digestless.patterns}
+
+    digest_pinned = build_query_analysis(
+        "FROM python:3.12-slim@sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef AS runtime # official runtime base\n",
+        input_kind="code",
+        language_id="dockerfile",
+    )
+    digest_pinned_names = {pattern.name for pattern in digest_pinned.patterns}
+
+    assert "base_tag_without_digest" in digestless_names
+    assert "base_tag_without_digest" not in digest_pinned_names

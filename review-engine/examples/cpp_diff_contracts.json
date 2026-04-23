@@ -34,6 +34,16 @@
     ]
   },
   {
+    "example_path": "examples/multilang_diffs/Dockerfile.digest_pinning_comment.diff",
+    "source_path": "examples/multilang/Dockerfile.digest_pinning_comment",
+    "focus_patterns": [
+      "base_tag_without_digest"
+    ],
+    "expected_rules": [
+      "DOCKER.3"
+    ]
+  },
+  {
     "example_path": "examples/multilang_diffs/go_http_handler_unvalidated_json.diff",
     "source_path": "examples/multilang/go_http_handler_unvalidated_json.go",
     "focus_patterns": [

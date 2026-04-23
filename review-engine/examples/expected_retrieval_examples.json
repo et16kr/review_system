@@ -179,6 +179,10 @@
     "expected_rules": ["DOCKER.3"]
   },
   {
+    "input": "examples/multilang/Dockerfile.digest_pinning_comment",
+    "expected_rules": ["DOCKER.3"]
+  },
+  {
     "input": "examples/multilang/Dockerfile.remote",
     "expected_rules": ["DOCKER.5", "DOCKER.SEC.5"]
   },
@@ -335,6 +339,11 @@
   {
     "input": "examples/multilang_diffs/Dockerfile.digest_pinning.diff",
     "review_path": "examples/multilang/Dockerfile.digest_pinning",
+    "expected_rules": ["DOCKER.3"]
+  },
+  {
+    "input": "examples/multilang_diffs/Dockerfile.digest_pinning_comment.diff",
+    "review_path": "examples/multilang/Dockerfile.digest_pinning_comment",
     "expected_rules": ["DOCKER.3"]
   },
   {

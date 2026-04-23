@@ -24,7 +24,7 @@ status: drafted
 
 ## High-Signal Review Areas
 
-- Pin base images deliberately, and treat tag-only references as still mutable unless a digest locks the exact artifact; keep package index refresh coupled to install steps.
+- Pin base images deliberately, and treat tag-only references as still mutable unless a digest locks the exact artifact, even when the `FROM` line carries a stage alias or inline note; keep package index refresh coupled to install steps.
 - Avoid root runtime defaults unless the workload explicitly requires them.
 - Keep COPY scopes narrow enough to reduce cache churn and accidental secret inclusion.
 - Keep build-time credentials out of `ARG`/`ENV`, including authenticated package or artifact URLs, when BuildKit secret mounts or external secret injection can carry them without ending up in image history.
