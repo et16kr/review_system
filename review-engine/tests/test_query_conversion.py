@@ -73,6 +73,11 @@ def test_query_analysis_does_not_treat_ide_rc_declaration_as_error_flow() -> Non
             {"http_handler_json_decoder_variable_without_validation"},
         ),
         (
+            "go",
+            "func createUser(c *gin.Context) {\n    var req createUserRequest\n    if err := c.ShouldBindJSON(&req); err != nil {\n        c.JSON(http.StatusBadRequest, gin.H{\"error\": \"bad request\"})\n        return\n    }\n    if err := saveUser(req.Email, req.Role); err != nil {\n        c.JSON(http.StatusInternalServerError, gin.H{\"error\": \"failed\"})\n    }\n}\n",
+            {"gin_handler_json_bind_without_validation"},
+        ),
+        (
             "java",
             "try {\n    work();\n} catch (Exception ex) {\n    log(ex);\n}\nnew Thread(() -> work()).start();\n",
             {"catch_exception", "new_thread"},

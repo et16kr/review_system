@@ -42,6 +42,12 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
             None,
         ),
         (
+            "examples/multilang_safe/go_gin_handler_validated.go",
+            {"GO.13"},
+            "go",
+            None,
+        ),
+        (
             "examples/multilang_safe/typescript_validated_parse.ts",
             {"TS.1", "TS.API.5", "TS.API.6", "TS.API.7"},
             "typescript",
