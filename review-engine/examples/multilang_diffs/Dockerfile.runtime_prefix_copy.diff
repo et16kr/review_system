@@ -6,6 +6,6 @@ index 1111111..2222222 100644
  RUN go build -o /out/service ./cmd/service
  
  FROM debian:bookworm-slim@sha256:2222222222222222222222222222222222222222222222222222222222222222 AS runtime
-+COPY --from=build /usr/local /usr/local
++COPY --from=build --chown=10001:10001 /usr/local/ /usr/local/ # keep builder-installed runtime libs
  COPY --from=build /out/service /usr/local/bin/service
  ENTRYPOINT ["/usr/local/bin/service"]

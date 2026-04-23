@@ -36,7 +36,7 @@ status: drafted
 - Base image reproducibility: mutable `latest`, version tags without digests, and upgrade drift.
 - Runtime privilege: `USER root`, build-vs-runtime separation, and least-privilege final stages.
 - Build context hygiene: `COPY . .`, `.dockerignore`, and secret or cache bleed-through.
-- Multi-stage runtime surface: broad `COPY --from=... /usr/local /usr/local` patterns should be treated as a concrete runtime-surface leak, not just an advisory stage-structure question.
+- Multi-stage runtime surface: broad `COPY --from=... /usr/local /usr/local` patterns should be treated as a concrete runtime-surface leak, not just an advisory stage-structure question, even when the copy also carries ownership-fixing flags or an inline note.
 - Build-time secret handling: credential-bearing `ARG`/`ENV`, authenticated URLs assigned through them, secret mounts, and image-history exposure.
 - Artifact bootstrap: remote URL `ADD`, `curl | sh`, provenance checks, and explicit version pinning.
 

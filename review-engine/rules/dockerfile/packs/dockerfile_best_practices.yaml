@@ -88,8 +88,8 @@ entries:
   - rule_no: DOCKER.7
     section: DOCKER
     title: Multi-stage runtime stages should not inherit an entire /usr/local tree from the builder
-    summary: Whole-prefix builder copies hide which toolchain and bootstrap artifacts reach the production image.
-    text: Copying `/usr/local` wholesale from a builder stage into the runtime image can drag compilers, package-manager state, or bootstrap residue across the stage boundary even when the final image only needs one built artifact.
+    summary: Whole-prefix builder copies hide which toolchain and bootstrap artifacts reach the production image even when ownership-fixing COPY flags are present.
+    text: Copying `/usr/local` wholesale from a builder stage into the runtime image can drag compilers, package-manager state, or bootstrap residue across the stage boundary even when the final image only needs one built artifact and the COPY line adds ownership-fixing flags or inline notes.
     category: container_hygiene
     trigger_patterns: [copy_from_builder_usr_local]
     fix_guidance: Copy only the built binary, wheel, dist directory, or other minimal runtime artifact paths from the builder stage instead of mirroring `/usr/local` wholesale.

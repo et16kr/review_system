@@ -40,7 +40,7 @@ PLUGIN = LanguageQueryPlugin(
         ),
         PatternSpec(
             "copy_from_builder_usr_local",
-            r"(?im)^[+-]?\s*COPY\s+--from=\S+\s+/usr/local/?\s+/usr/local/?\s*$",
+            r"(?im)^[+-]?\s*COPY\s+(?=[^\n]*--from=\S+)(?:--\S+\s+)+/usr/local/?\s+/usr/local/?(?:\s+#.*)?\s*$",
             "Builder-stage /usr/local tree copied wholesale into runtime image; review whether toolchain residue is leaking past the stage boundary.",
             0.84,
         ),

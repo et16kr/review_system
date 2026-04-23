@@ -111,6 +111,12 @@
 - `DOCKER.SEC.7` source/rule wording이 inline authenticated URL leakage까지 같은 hazard family로 설명하도록 갱신됐다.
 - `DOCKER.SEC.7` bundled code/diff example과 diff contract spec가
   authenticated URL shape를 포함하도록 갱신됐다.
+- `DOCKER.7`이 bare whole-prefix copy뿐 아니라 ownership-fixing `COPY` option과
+  inline note가 붙은 `COPY --from=... /usr/local /usr/local` 경로까지 잡도록 넓어졌다.
+- `DOCKER.7` Dockerfile runtime baseline source/rule wording이
+  ownership-fixing COPY flags나 inline note가 있어도 runtime surface leak라는 점을 명시하도록 갱신됐다.
+- `DOCKER.7` bundled code/diff example과 targeted query conversion regression이
+  flagged whole-prefix copy shape를 포함하도록 갱신됐다.
 - `GO.13`이 direct chained `json.NewDecoder(...).Decode(...)`뿐 아니라
   `decoder := json.NewDecoder(...)` 뒤 `decoder.Decode(...)` 경로까지 잡도록 넓어졌다.
 - `GO.13` bundled code/diff example과 safe regression이 retained decoder shape를 포함하도록 갱신됐다.
@@ -122,7 +128,6 @@
 
 남아 있는 우선 gap:
 
-- `DOCKER.7` runtime prefix copy rule
 - `GO.11` sentinel error matching
 - `GO.12` transaction rollback visibility
 
@@ -135,7 +140,7 @@
 
 검증 메모:
 
-- 이번 slice는 `review-engine` source/detector/example/diff contract만 변경했다.
+- 이번 slice는 `review-engine` source/rule/detector/example을 변경했고 ingest 결과 active guideline dataset도 함께 갱신했다.
 - rerun:
   - `uv run --project review-engine pytest review-engine/tests/test_query_conversion.py -q`
   - `uv run --project review-engine python -m review_engine.cli.ingest_guidelines`
@@ -146,7 +151,7 @@
 
 현재 1순위 후보:
 
-- Dockerfile: runtime prefix copy rule hardening
+- Go: sentinel error matching hardening
 
 완료 기준:
 
@@ -193,15 +198,15 @@
 ## Suggested Next Step
 
 현재 가장 자연스러운 다음 작업은 `Targeted Rule Expansion`의
-`DOCKER.7` runtime prefix copy rule gap을 source/rule/example 단위로 닫는 것이다.
+`GO.11` sentinel error matching gap을 source/rule/example 단위로 닫는 것이다.
 
 이유:
 
 - `Provider Runtime Guardrails`는 watch 상태로 내려갔고 남은 실행 단위가 없다.
 - `Targeted Rule Expansion`은 여전히 source/rule/detector/example/validation을 한 번에 닫을 수 있는
   가장 작은 product-facing 실행 단위를 유지하고 있다.
-- `DOCKER.3` digestless base tag retrieval hardening이 닫혔으므로,
-  다음에는 남아 있는 Dockerfile family gap 중 `DOCKER.7`처럼 detector와 diff contract를 같이 갱신하기 쉬운 항목으로 넘어가는 편이 작다.
+- `DOCKER.7` runtime prefix copy hardening이 닫혔으므로,
+  남은 우선 gap 목록에서 다음 순서인 `GO.11`으로 넘어가는 편이 roadmap order와 현재 단위 분할을 그대로 유지한다.
 
 ## Queued After Main Roadmap
 
