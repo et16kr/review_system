@@ -60,12 +60,17 @@
 
 상태: `partial`
 
+현재 진행:
+
+- `2026-04-23`: Validation Baseline과 운영 문서에서 deterministic `release gate`,
+  local GitLab `pre-release smoke`, direct OpenAI provider 확인 경로를 분리했다.
+  이 단위는 문서 정리 작업이라 local GitLab smoke는 다시 돌리지 않았다.
+
 남은 작업:
 
-1. deterministic engine evaluation과 local GitLab smoke의 역할을 `release gate`와 `pre-release smoke`로 분리한다.
-2. smoke JSON artifact와 telemetry snapshot을 정기 baseline으로 남기는 절차를 고정한다.
-3. fixture별 실제 signal에 맞춰 `density_contract`를 세분화한다.
-4. synthetic wrong-language smoke event가 운영 backlog에 섞이지 않는지 정기 snapshot에서 확인한다.
+1. smoke JSON artifact와 telemetry snapshot을 정기 baseline으로 남기는 절차를 고정한다.
+2. fixture별 실제 signal에 맞춰 `density_contract`를 세분화한다.
+3. synthetic wrong-language smoke event가 운영 backlog에 섞이지 않는지 정기 snapshot에서 확인한다.
 
 완료 기준:
 
@@ -175,6 +180,11 @@
 
 ## Validation Baseline
 
+`release gate`:
+
+- network 없이 재현 가능한 deterministic 검증이다.
+- 일반 PR 확인이나 기본 CI 후보는 이 범주를 기본으로 사용한다.
+
 일반 변경:
 
 ```bash
@@ -198,13 +208,12 @@ uv run --project review-bot pytest review-bot/tests/test_multilang_smoke_fixture
 uv run --project review-bot python -m review_bot.cli.evaluate_provider_quality \
   --provider stub \
   --json-output /tmp/provider_quality_stub.json
-uv run --project review-bot python -m review_bot.cli.evaluate_provider_quality \
-  --provider openai \
-  --json-output /tmp/provider_quality_openai.json
-uv run --project review-bot python -m review_bot.cli.compare_provider_quality \
-  --stub-json /tmp/provider_quality_stub.json \
-  --openai-json /tmp/provider_quality_openai.json
 ```
+
+`pre-release smoke`:
+
+- local GitLab 상태, webhook, replay fixture가 준비된 환경에서만 돌린다.
+- adapter/lifecycle/routing 변경이나 배포 전 확인에 사용한다.
 
 GitLab/lifecycle 변경:
 
@@ -218,4 +227,21 @@ Multilanguage/routing 변경:
 bash ops/scripts/smoke_local_gitlab_multilang_review.sh --fixture synthetic-mixed-language
 bash ops/scripts/smoke_local_gitlab_multilang_review.sh --fixture curated-polyglot --project-ref root/review-system-curated-polyglot-smoke
 bash ops/scripts/smoke_local_gitlab_multilang_review.sh --fixture cuda-targeted --project-ref root/review-system-cuda-smoke
+```
+
+direct provider / comparison artifact:
+
+- deterministic release gate와 별개로 본다.
+- `evaluate_provider_quality --provider openai`는 `OPENAI_API_KEY`가 없으면 `skipped`
+  artifact를 남기고 성공 종료할 수 있다.
+- fallback이 켜져 있으면 lifecycle smoke만으로 live OpenAI direct 성공을 증명할 수 없다.
+
+```bash
+uv run --project review-bot python -m review_bot.cli.evaluate_provider_quality \
+  --provider openai \
+  --json-output /tmp/provider_quality_openai.json
+uv run --project review-bot python -m review_bot.cli.compare_provider_quality \
+  --stub-json /tmp/provider_quality_stub.json \
+  --openai-json /tmp/provider_quality_openai.json
+bash ops/scripts/smoke_openai_provider_direct.sh
 ```

@@ -227,6 +227,25 @@ curl -X POST http://127.0.0.1:18082/codebase/index \
 - 현재 이 collection은 project-scoped memory가 아니라 engine instance 단위 shared collection이다.
 - 허용 root는 `REVIEW_ENGINE_CODEBASE_ALLOWED_ROOTS`로 제한할 수 있다.
 
+## 5-a. Release Gate와 Pre-release Smoke
+
+검증은 아래 두 등급으로 나눠서 본다.
+
+- `release gate`
+  - network 없이 재현 가능한 deterministic 검증이다.
+  - 일반 PR 확인이나 기본 CI 후보는 여기에 둔다.
+  - `review-engine` ingest/evaluation, `review-bot` pytest, provider quality `stub` gate가 여기에 속한다.
+- `pre-release smoke`
+  - local GitLab 상태, webhook, adapter, replay fixture를 함께 확인하는 운영 smoke다.
+  - adapter/lifecycle 변경 직후나 배포 전 검증에서만 표준으로 돌린다.
+  - lifecycle smoke와 mixed-language smoke가 여기에 속한다.
+
+추가 신호:
+
+- direct OpenAI provider smoke는 별도 provider 신호다.
+- lifecycle smoke가 fallback으로 통과해도 live OpenAI direct 성공을 증명하지 않는다.
+- live OpenAI 경로는 `ops/scripts/smoke_openai_provider_direct.sh`로만 별도 확인한다.
+
 ## 6. 로컬 harness 검증
 
 로컬 데모 모드에서는 아래 흐름으로 확인한다.
@@ -366,7 +385,7 @@ python3 ops/scripts/replay_local_gitlab_tde_review.py \
   --replay-default-updates
 ```
 
-표준 smoke 검증 명령은 아래 wrapper를 사용한다.
+표준 pre-release smoke 검증 명령은 아래 wrapper를 사용한다.
 
 ```bash
 bash ops/scripts/smoke_local_gitlab_lifecycle_review.sh
@@ -397,7 +416,7 @@ bash ops/scripts/smoke_local_gitlab_lifecycle_review.sh \
   --json-output /tmp/review-bot-smoke.json
 ```
 
-framework/product/config 축까지 함께 검증하는 mixed-language smoke는 아래 wrapper를 사용한다.
+framework/product/config 축까지 함께 검증하는 mixed-language pre-release smoke는 아래 wrapper를 사용한다.
 
 ```bash
 bash ops/scripts/smoke_local_gitlab_multilang_review.sh \
@@ -446,8 +465,11 @@ uv run python -m review_bot.cli.evaluate_provider_quality \
   --provider stub
 ```
 
-provider/ranking/density baseline을 남길 때는 provider quality gate 결과와 smoke fixture density
-contract 검증 결과를 함께 기록한다.
+provider/ranking/density baseline은 아래 세 신호를 분리해서 기록한다.
+
+- deterministic `release gate`: pytest와 `stub` provider quality gate
+- opt-in provider comparison artifact: OpenAI quality artifact와 comparison summary
+- local GitLab `pre-release smoke`: fixture density contract와 wrong-language telemetry 확인
 
 ```bash
 cd /home/et16/work/review_system/review-bot
@@ -456,6 +478,10 @@ uv run python -m review_bot.cli.evaluate_provider_quality \
   --provider stub \
   --output ../docs/baselines/review_bot/provider_quality_stub_$(date -u +%F).md \
   --json-output /tmp/provider_quality_stub.json
+```
+
+```bash
+cd /home/et16/work/review_system/review-bot
 uv run python -m review_bot.cli.evaluate_provider_quality \
   --provider openai \
   --output ../docs/baselines/review_bot/provider_quality_openai_$(date -u +%F).md \
@@ -465,6 +491,9 @@ uv run python -m review_bot.cli.compare_provider_quality \
   --openai-json /tmp/provider_quality_openai.json \
   --output ../docs/baselines/review_bot/provider_comparison_$(date -u +%F).md \
   --json-output /tmp/provider_comparison.json
+```
+
+```bash
 cd /home/et16/work/review_system
 bash ops/scripts/smoke_local_gitlab_multilang_review.sh \
   --fixture synthetic-mixed-language \
