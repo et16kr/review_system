@@ -98,6 +98,19 @@
 
 상태: `partial`
 
+현재 진행:
+
+- `2026-04-23`: Dockerfile build-time secret handling gap을 `DOCKER.SEC.7`로
+  canonicalize했다. `build_time_secret_handling` source atom, `build_secret_arg_env`
+  detector hint, code/diff retrieval example을 추가했다.
+- Validation은 `ingest_guidelines`, `evaluate_diff_contracts`,
+  `pytest review-engine/tests/test_query_conversion.py review-engine/tests/test_expected_examples.py -q`
+  를 통과했다. 기본 `evaluate_examples` CLI는 로컬 persistent Chroma metadata가
+  `Nothing found on disk`를 반환해 같은 spec를 fresh temp store에서 등가 검증으로
+  다시 실행했고 통과했다.
+- 이번 단위는 `review-engine` rule/retrieval 변경만 포함하므로 `review-bot` regression,
+  provider quality gate, local GitLab smoke는 다시 돌리지 않았다.
+
 남은 작업:
 
 1. telemetry나 smoke에서 under-trigger가 확인된 얇은 gap 하나를 고른다.
@@ -109,7 +122,7 @@
 우선 후보:
 
 - Go: sentinel error, `errors.Is/As`, HTTP handler boundary validation, transaction/resource cleanup.
-- Dockerfile: BuildKit secret mount, digest/provenance 세분화, multi-stage runtime hardening.
+- Dockerfile: digest/provenance 세분화, multi-stage runtime hardening.
 
 완료 기준:
 

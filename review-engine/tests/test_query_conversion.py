@@ -240,6 +240,11 @@ def test_query_analysis_does_not_treat_ide_rc_declaration_as_error_flow() -> Non
             {"add_remote_url", "curl_pipe_shell_run"},
         ),
         (
+            "dockerfile",
+            "ARG NPM_TOKEN\nENV PIP_INDEX_TOKEN=$NPM_TOKEN\n",
+            {"build_secret_arg_env"},
+        ),
+        (
             "sql",
             "select user_id, count(*) from events group by 1 limit 10;\n",
             {"group_by_ordinal", "limit_without_order"},

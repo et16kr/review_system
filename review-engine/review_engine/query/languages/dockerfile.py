@@ -33,6 +33,12 @@ PLUGIN = LanguageQueryPlugin(
             0.82,
         ),
         PatternSpec(
+            "build_secret_arg_env",
+            r"(?im)^[+-]?\s*(?:ARG|ENV)\s+[A-Z0-9_]*(?:TOKEN|SECRET|PASSWORD|PASSWD|API[_-]?KEY|ACCESS[_-]?KEY|SECRET[_-]?KEY)\b",
+            "Credential-bearing ARG/ENV detected in Dockerfile; review whether BuildKit secret mounts should carry this instead of image metadata.",
+            0.93,
+        ),
+        PatternSpec(
             "add_remote_url",
             r"(?im)^[+-]?\s*ADD\s+https?://",
             "Remote URL ADD detected; review supply-chain visibility and cache behavior.",
@@ -56,6 +62,7 @@ PLUGIN = LanguageQueryPlugin(
         "root_user": ("DOCKER.SEC.1", "DOCKER.SEC.3"),
         "apt_get_update_install_split": ("DOCKER.2",),
         "copy_dot": ("DOCKER.SEC.2", "DOCKER.SEC.4", "DOCKER.4"),
+        "build_secret_arg_env": ("DOCKER.SEC.7",),
         "add_remote_url": ("DOCKER.5", "DOCKER.SEC.6"),
         "apt_upgrade": ("DOCKER.6",),
         "curl_pipe_shell_run": ("DOCKER.SEC.5",),
@@ -65,6 +72,7 @@ PLUGIN = LanguageQueryPlugin(
         "root_user",
         "apt_get_update_install_split",
         "copy_dot",
+        "build_secret_arg_env",
         "add_remote_url",
         "apt_upgrade",
         "curl_pipe_shell_run",

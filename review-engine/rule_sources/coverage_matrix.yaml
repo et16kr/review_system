@@ -1410,7 +1410,7 @@ languages:
     sources:
       - rule_source_id: dockerfile.dockerfile_runtime_baseline
         section_counts:
-          candidate_canonical_rule_groups: 4
+          candidate_canonical_rule_groups: 5
           reference_only_guidance: 2
         atoms:
           - source_atom_id: base_image_reproducibility
@@ -1434,6 +1434,13 @@ languages:
             canonical_rules: [DOCKER.4, DOCKER.SEC.2, DOCKER.SEC.4]
             reviewability_mix: [auto_review]
             reason: COPY-scope and context-hygiene guidance is fully active.
+          - source_atom_id: build_time_secret_handling
+            section_id: candidate_canonical_rule_groups
+            status: mapped
+            pack_targets: [container_security]
+            canonical_rules: [DOCKER.SEC.7]
+            reviewability_mix: [auto_review]
+            reason: Credential-bearing ARG/ENV usage now maps to a dedicated BuildKit secret-mount guidance rule.
           - source_atom_id: artifact_bootstrap
             section_id: candidate_canonical_rule_groups
             status: mapped

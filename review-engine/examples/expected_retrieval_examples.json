@@ -159,6 +159,10 @@
     "expected_rules": ["DOCKER.5", "DOCKER.SEC.5"]
   },
   {
+    "input": "examples/multilang/Dockerfile.buildkit_secret",
+    "expected_rules": ["DOCKER.SEC.7"]
+  },
+  {
     "input": "examples/multilang/.github/workflows/unpinned.yml",
     "expected_rules": ["YAML.CI.1", "YAML.CI.5", "YAML.CI.9"]
   },
@@ -215,6 +219,11 @@
     "input": "examples/multilang_diffs/go_missing_defer.diff",
     "review_path": "examples/multilang/go_missing_defer.go",
     "expected_rules": ["GO.1"]
+  },
+  {
+    "input": "examples/multilang_diffs/Dockerfile.buildkit_secret.diff",
+    "review_path": "examples/multilang/Dockerfile.buildkit_secret",
+    "expected_rules": ["DOCKER.SEC.7"]
   },
   {
     "input": "examples/multilang_diffs/python_mutable_default.diff",
