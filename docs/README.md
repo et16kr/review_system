@@ -14,7 +14,7 @@
 - [OPERATIONS_RUNBOOK.md](/home/et16/work/review_system/docs/OPERATIONS_RUNBOOK.md:1)
   - 로컬/운영 실행, GitLab smoke, migration, baseline, telemetry 절차
 - [baselines/review_bot/](/home/et16/work/review_system/docs/baselines/review_bot/README.md:1)
-  - review-bot 운영 baseline, wrong-language telemetry snapshot, backlog 템플릿
+  - review-bot 운영 baseline, wrong-language telemetry snapshot, provider comparison artifact
 
 ## Maintenance Rule
 

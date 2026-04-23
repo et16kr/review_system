@@ -437,15 +437,29 @@ cd /home/et16/work/review_system/review-bot
 uv run pytest tests/test_multilang_smoke_fixture.py tests/test_provider_quality.py -q
 uv run python -m review_bot.cli.evaluate_provider_quality \
   --provider stub \
-  --output ../docs/baselines/review_bot/provider_quality_stub_$(date -u +%F).md
+  --output ../docs/baselines/review_bot/provider_quality_stub_$(date -u +%F).md \
+  --json-output /tmp/provider_quality_stub.json
+uv run python -m review_bot.cli.evaluate_provider_quality \
+  --provider openai \
+  --output ../docs/baselines/review_bot/provider_quality_openai_$(date -u +%F).md \
+  --json-output /tmp/provider_quality_openai.json
+uv run python -m review_bot.cli.compare_provider_quality \
+  --stub-json /tmp/provider_quality_stub.json \
+  --openai-json /tmp/provider_quality_openai.json \
+  --output ../docs/baselines/review_bot/provider_comparison_$(date -u +%F).md \
+  --json-output /tmp/provider_comparison.json
 cd /home/et16/work/review_system
 bash ops/scripts/smoke_local_gitlab_multilang_review.sh \
   --fixture synthetic-mixed-language \
   --json-output /tmp/review-bot-multilang-smoke.json
 ```
 
-OpenAI provider 비교 artifact가 필요하면 API key가 있는 환경에서만 실행한다.
-`OPENAI_API_KEY`가 없으면 명령은 `skipped` report를 출력하고 성공 종료한다.
+OpenAI provider 비교 artifact는 API key가 있으면 실제 provider 결과를 담고,
+`OPENAI_API_KEY`가 없으면 `skipped` report와 comparison summary를 남긴다.
+comparison summary만으로 prompt/ranking weight를 바로 바꾸지 말고, 먼저 사람이 rubric으로 검토한다.
+검토 결과는 `docs/baselines/review_bot/provider_review_decisions_$(date -u +%F).md`에
+`accept_baseline`, `prompt_tune`, `ranking_tune`, `rule_gap`, `defer` 중 하나로 남긴다.
+API key가 없어 skipped 된 경우에는 prompt/ranking/rule 변경 없이 `defer`로 기록한다.
 
 ```bash
 cd /home/et16/work/review_system/review-bot

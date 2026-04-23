@@ -80,6 +80,8 @@
 - provider prompt는 C++ 고정 가정 없이 language/profile/context hint를 사용한다.
 - Provider quality gate는 packaged corpus와 `python -m review_bot.cli.evaluate_provider_quality --provider stub` 기준으로 network 없이 실행할 수 있다.
 - Provider quality corpus는 YAML CI, FastAPI, SQL, CUDA async stream, CUDA cooperative groups regression case를 포함한다.
+- Provider comparison artifact는 `python -m review_bot.cli.compare_provider_quality`로 생성한다.
+  OpenAI API key가 없으면 `openai_status=skipped` baseline으로 남길 수 있다.
 - Markdown 문서는 명시적 unreviewable `markdown`으로 분류한다.
 - 마지막 점검 기준 rule count는 public/shared seed 기준 `344`개다.
 - extension rule root, prompt overlay, entry point, detector plugin hook, strict loading 골격은 구현되어 있다.

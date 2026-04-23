@@ -26,7 +26,7 @@
 | CUDA native capability expansion | pipeline async, thread block cluster, TMA, WGMMA rule/profile 축 |
 | Smoke fixture baseline | lifecycle smoke, mixed-language, curated polyglot, CUDA targeted fixture |
 | Wrong-language telemetry loop | provenance/cause/actionability 분리, smoke event와 detector backlog 분리 |
-| Provider quality / density gate | packaged provider quality corpus, deterministic `stub` gate, OpenAI opt-in skip path, fixture `density_contract` |
+| Provider quality / comparison / density gate | packaged provider quality corpus, deterministic `stub` gate, OpenAI opt-in skip path, provider comparison CLI, fixture `density_contract` |
 
 ## Execution Order
 
@@ -34,11 +34,19 @@
 
 상태: `active`
 
+현재 진행:
+
+- `2026-04-23`: `stub` provider quality artifact, OpenAI skipped artifact, comparison artifact,
+  decision artifact를 남겼다. 현재 환경에는 `OPENAI_API_KEY`가 없어 실제 OpenAI
+  case 비교는 `defer` 상태다.
+- Self review에서 provider comparison의 missing comparable case가 human review로
+  잡히도록 regression을 추가했다.
+
 남은 작업:
 
-1. `OPENAI_API_KEY`가 있는 환경에서 OpenAI comparison artifact를 수집한다.
+1. `OPENAI_API_KEY`가 있는 환경에서 실제 OpenAI comparison artifact를 재수집한다.
 2. OpenAI와 `stub` 결과의 title/summary/fix guidance 길이, claim strength, evidence anchoring을 사람이 검토한다.
-3. `docs/baselines/review_bot/provider_ranking_density_*.md`를 운영 window별로 갱신해 tuning 전후 차이를 비교한다.
+3. `prompt_tune`, `ranking_tune`, `rule_gap`, `defer` 판정을 decision artifact에 남긴다.
 4. ranking weight를 조정해야 할 경우 먼저 deterministic regression을 추가하고, rule expansion보다 앞서 고정한다.
 5. project-local feedback이 필요한지 판단하고, 필요하면 전역 `rule_no` weight와 분리하는 설계를 만든다.
 
@@ -170,15 +178,15 @@
 일반 변경:
 
 ```bash
-cd review-engine && uv run pytest -q
-cd review-bot && uv run pytest -q
-cd review-platform && uv run pytest tests/test_pr_flow.py -q
+uv run --project review-engine pytest review-engine/tests -q
+uv run --project review-bot pytest review-bot/tests -q
+uv run --project review-platform pytest review-platform/tests/test_pr_flow.py -q
 ```
 
 Rule/retrieval 변경:
 
 ```bash
-cd review-engine && uv run python -m review_engine.cli.ingest_guidelines
+uv run --project review-engine python -m review_engine.cli.ingest_guidelines
 uv run --project review-engine python -m review_engine.cli.evaluate_examples
 uv run --project review-engine python -m review_engine.cli.evaluate_diff_contracts
 ```
@@ -186,8 +194,16 @@ uv run --project review-engine python -m review_engine.cli.evaluate_diff_contrac
 Provider/ranking/density 변경:
 
 ```bash
-cd review-bot && uv run pytest tests/test_multilang_smoke_fixture.py tests/test_provider_quality.py -q
-cd review-bot && uv run python -m review_bot.cli.evaluate_provider_quality --provider stub
+uv run --project review-bot pytest review-bot/tests/test_multilang_smoke_fixture.py review-bot/tests/test_provider_quality.py -q
+uv run --project review-bot python -m review_bot.cli.evaluate_provider_quality \
+  --provider stub \
+  --json-output /tmp/provider_quality_stub.json
+uv run --project review-bot python -m review_bot.cli.evaluate_provider_quality \
+  --provider openai \
+  --json-output /tmp/provider_quality_openai.json
+uv run --project review-bot python -m review_bot.cli.compare_provider_quality \
+  --stub-json /tmp/provider_quality_stub.json \
+  --openai-json /tmp/provider_quality_openai.json
 ```
 
 GitLab/lifecycle 변경:

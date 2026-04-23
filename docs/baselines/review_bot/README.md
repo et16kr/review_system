@@ -10,6 +10,8 @@ Recommended files:
 - `wrong_language_backlog_28d_YYYY-MM-DD.md`
 - `provider_quality_stub_YYYY-MM-DD.md`
 - `provider_quality_openai_YYYY-MM-DD.md`
+- `provider_comparison_YYYY-MM-DD.md`
+- `provider_review_decisions_YYYY-MM-DD.md`
 - `provider_ranking_density_YYYY-MM-DD.md`
 - `baseline_v0_TEMPLATE.md`
 - `baseline_v1_TEMPLATE.md`
@@ -30,6 +32,11 @@ production project filter or interpreted with smoke project refs excluded.
 Provider quality snapshots compare provider draft quality against the packaged corpus.
 The `stub` snapshot is deterministic and network-free; `openai` is an opt-in artifact
 for human review and should not be required in default CI.
+Provider comparison snapshots summarize stub/OpenAI deltas and include a human-review
+checklist. If `OPENAI_API_KEY` is unavailable, the comparison can still be captured as
+`openai_status=skipped` without changing prompt or ranking weights.
+Provider review decision snapshots record the human decision for each comparison case:
+`accept_baseline`, `prompt_tune`, `ranking_tune`, `rule_gap`, or `defer`.
 Provider/ranking/density snapshots combine the deterministic provider quality gate with
 the smoke fixture density contract so publish volume and file spread changes are visible.
 
@@ -46,7 +53,17 @@ Provider quality helper:
 cd /home/et16/work/review_system/review-bot
 uv run python -m review_bot.cli.evaluate_provider_quality \
   --provider stub \
-  --output ../docs/baselines/review_bot/provider_quality_stub_$(date -u +%F).md
+  --output ../docs/baselines/review_bot/provider_quality_stub_$(date -u +%F).md \
+  --json-output /tmp/provider_quality_stub.json
+uv run python -m review_bot.cli.evaluate_provider_quality \
+  --provider openai \
+  --output ../docs/baselines/review_bot/provider_quality_openai_$(date -u +%F).md \
+  --json-output /tmp/provider_quality_openai.json
+uv run python -m review_bot.cli.compare_provider_quality \
+  --stub-json /tmp/provider_quality_stub.json \
+  --openai-json /tmp/provider_quality_openai.json \
+  --output ../docs/baselines/review_bot/provider_comparison_$(date -u +%F).md \
+  --json-output /tmp/provider_comparison.json
 ```
 
 Provider/ranking/density helper:
