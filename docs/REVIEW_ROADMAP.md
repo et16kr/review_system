@@ -106,7 +106,9 @@ ops/scripts/advance_review_roadmap_with_codex.sh --model gpt-5.5 --until-done
 
 ### 2. Product Direction And Scope Review
 
-상태: `active`
+상태: `watch`
+
+완료: `2026-04-24`
 
 이번 작업의 범위:
 
@@ -119,6 +121,17 @@ ops/scripts/advance_review_roadmap_with_codex.sh --model gpt-5.5 --until-done
 
 - 방향성을 유지할지, 줄일지, 더 투자할지에 대한 1차 결론이 문서에 남는다.
 - 필요 없거나 과한 기능 후보가 backlog에 들어간다.
+
+완료 기록:
+
+- [CURRENT_STATE_REVIEW.md](/home/et16/work/review_system/docs/reviews/CURRENT_STATE_REVIEW.md:1)에
+  제품 방향성 1차 결론을 남겼다. 현재 방향은 유지하되, 넓은 surface는 contract-first
+  또는 deferred/readiness packet 상태로 두는 것이 맞다고 평가했다.
+- 새 actionable backlog entry는 만들지 않았다. 과한 기능 후보로 볼 수 있는
+  `ask`, `.review-bot.yaml`, provider tuning, multi-SCM, auto-fix, manual editor는
+  이미 implementation roadmap 또는 deferred 문서에서 선행 조건과 함께 분리되어 있다.
+- 검증은 `git diff --check`로 제한했다. local GitLab smoke와 OpenAI direct smoke는
+  이 문서-only product review의 근거로 필요하지 않아 실행하지 않았다.
 
 ### 3. Architecture And Boundary Review
 
@@ -297,14 +310,16 @@ ops/scripts/advance_review_roadmap_with_codex.sh --model gpt-5.5 --until-done
 
 ## Suggested Next Step
 
-현재 다음 실행 단위는 `2. Product Direction And Scope Review`다.
+현재 다음 실행 단위는 `3. Architecture And Boundary Review`다.
 
 이유:
 
 - `1. Review Frame And Evidence Reset`에서 새 라운드의 evidence, validation, finding,
   backlog intake contract를 고정했다.
-- 다음에는 README, CURRENT_SYSTEM, API contracts, implementation roadmap, deferred 문서를
-  기준으로 제품 방향성과 scope를 리뷰한다.
+- `2. Product Direction And Scope Review`에서 현재 제품 방향은 유지하고,
+  넓은 surface는 contract-first 또는 deferred 상태로 유지하는 것이 맞다고 평가했다.
+- 다음에는 canonical identity, local harness boundary, adapter/runner/API/DB lifecycle
+  경계가 실제 코드와 문서에서 일관되는지 점검한다.
 
 ## Validation Baseline
 

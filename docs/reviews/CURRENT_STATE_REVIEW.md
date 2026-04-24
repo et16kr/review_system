@@ -18,7 +18,13 @@
 
 첫 unit에서는 기술 영역별 판단을 시작하지 않고, 이후 unit이 같은 기준으로
 finding과 backlog를 남기도록 scope, evidence level, finding format, validation
-rule을 고정한다.
+rule을 고정했다.
+
+Product direction review 기준으로는 현재 방향이 유지 가능하다. 제품의 중심은
+새 리뷰 UI가 아니라 기존 Git review surface 안에서 rule-backed finding, backlog,
+feedback loop, lifecycle analytics를 제공하는 것이다. 지금 roadmap의 active 항목은
+그 방향에서 벗어나지 않고, 아직 넓거나 외부 신호가 필요한 surface는 contract-first
+또는 deferred 상태로 남아 있다.
 
 ## Evidence Inventory
 
@@ -51,9 +57,88 @@ rule을 고정한다.
 - Skipped validation: local GitLab smoke and OpenAI direct smoke were not needed for this
   document-only frame reset.
 
+### Unit 2 Evidence
+
+- Product entry point and workspace boundary: [README.md](/home/et16/work/review_system/README.md:3)
+- Current system invariants and provider/runtime boundaries:
+  [docs/CURRENT_SYSTEM.md](/home/et16/work/review_system/docs/CURRENT_SYSTEM.md:17)
+- Adapter/API responsibility split:
+  [docs/API_CONTRACTS.md](/home/et16/work/review_system/docs/API_CONTRACTS.md:5)
+- Implementation roadmap and deferred split:
+  [docs/ROADMAP.md](/home/et16/work/review_system/docs/ROADMAP.md:24)
+- Deferred provider/model work:
+  [docs/deferred/provider_and_model_work.md](/home/et16/work/review_system/docs/deferred/provider_and_model_work.md:10)
+- Deferred authoring/editor work:
+  [docs/deferred/rule_authoring_and_editor.md](/home/et16/work/review_system/docs/deferred/rule_authoring_and_editor.md:10)
+- Deferred platform expansion:
+  [docs/deferred/platform_expansion.md](/home/et16/work/review_system/docs/deferred/platform_expansion.md:9)
+- Deferred auto-fix automation:
+  [docs/deferred/automation_work.md](/home/et16/work/review_system/docs/deferred/automation_work.md:9)
+- Static scan: `rg -n "review-platform|ask|review-bot.yaml|GitHub|Gerrit|auto|OpenAI|fallback|stub|local harness|local backend|provider|roadmap|deferred|manual rule editor" README.md docs/CURRENT_SYSTEM.md docs/API_CONTRACTS.md docs/ROADMAP.md docs/deferred`
+- Validation: `git diff --check`
+- Skipped validation: local GitLab smoke and OpenAI direct smoke were not needed for this
+  document-only product direction review.
+
 ## Findings
 
-아직 product, architecture, code, ops finding은 없다.
+### F-product-01 Existing Git review surface remains the right product center
+
+- Severity: `info`
+- Area: `cross-cutting`
+- Evidence level: `static_doc`
+- Evidence: [README.md](/home/et16/work/review_system/README.md:3) defines the goal as adding
+  rule-backed review to existing Git PR/MR systems instead of creating a new review UI.
+  [docs/API_CONTRACTS.md](/home/et16/work/review_system/docs/API_CONTRACTS.md:7) keeps the
+  external Git review system as the canonical UI and `review-platform` as harness-only.
+- Impact: This keeps user value concentrated on high-signal inline comments, backlog/status notes,
+  feedback capture, and analytics where reviewers already work.
+- Recommended action: Keep new product work anchored to Git review comments, notes, checks, and
+  adapter capabilities. Avoid promoting `review-platform` or separate dashboards into the primary
+  user surface without a new product decision.
+- Follow-up target: `none`
+- Post-review bucket: `keep`
+- Validation note: Static document review only. No runtime smoke needed.
+
+### F-product-02 Current roadmap sequencing matches user value and blocker risk
+
+- Severity: `info`
+- Area: `docs`
+- Evidence level: `static_doc`
+- Evidence: [docs/ROADMAP.md](/home/et16/work/review_system/docs/ROADMAP.md:34) prioritizes
+  fresh evidence for targeted rule expansion, `.review-bot.yaml` and `ask` contract boundaries,
+  local backend retained artifact prep, and deferred readiness packets before broader execution.
+- Impact: The active work is not feature accumulation for its own sake. It clears ambiguity around
+  rule gaps, note-first configuration, provider provenance, and deferred prerequisites before
+  implementation expands user-facing behavior.
+- Recommended action: Keep the current ordering. Treat `.review-bot.yaml` and `ask` as contract
+  definition work until their precedence, session, provider, and "what not to answer" boundaries
+  are explicit.
+- Follow-up target: `none`
+- Post-review bucket: `keep`
+- Validation note: Static document review only. No targeted tests needed because no code contract
+  changed.
+
+### F-product-03 Broad expansion surfaces are correctly deferred
+
+- Severity: `info`
+- Area: `cross-cutting`
+- Evidence level: `static_doc`
+- Evidence: Provider tuning is blocked on quota, direct provider success, and human review in
+  [docs/deferred/provider_and_model_work.md](/home/et16/work/review_system/docs/deferred/provider_and_model_work.md:12).
+  Manual editor work is deferred behind rule state and validation boundaries in
+  [docs/deferred/rule_authoring_and_editor.md](/home/et16/work/review_system/docs/deferred/rule_authoring_and_editor.md:12).
+  Multi-SCM expansion is deferred behind GitLab stability and GitHub test permissions in
+  [docs/deferred/platform_expansion.md](/home/et16/work/review_system/docs/deferred/platform_expansion.md:11).
+  Auto-fix is deferred behind trust metrics, low-risk class definition, approval, audit, and
+  rollback policy in [docs/deferred/automation_work.md](/home/et16/work/review_system/docs/deferred/automation_work.md:11).
+- Impact: The roadmap avoids committing to large, trust-sensitive, or externally blocked features
+  before the review bot has enough evidence and operational control to support them.
+- Recommended action: Keep these surfaces deferred. Reconsider them only through the readiness
+  packets already queued in `docs/ROADMAP.md`.
+- Follow-up target: `none`
+- Post-review bucket: `keep`
+- Validation note: Static document review only. Direct OpenAI and local GitLab smoke were not
+  required because no provider or lifecycle success claim was made.
 
 이후 finding은 아래 형식을 따른다.
 
@@ -80,8 +165,23 @@ Finding rules:
 
 ## Direction Check
 
-아직 평가 전. Unit 2에서 README, CURRENT_SYSTEM, API contracts, implementation roadmap,
-deferred 문서를 기준으로 방향성을 재평가한다.
+유지한다.
+
+- Core value: 기존 Git review UI 안에서 high-signal inline review, backlog/status note,
+  feedback loop, lifecycle analytics를 제공한다.
+- Scope boundary: `review-engine`은 rule/retrieval candidate 생성, `review-bot`은
+  detect/publish/sync lifecycle, adapter는 외부 review system bridge, `review-platform`은
+  local harness 역할로 유지한다.
+- Investment direction: 다음 구현 투자는 rule gap evidence, note-first UX contract,
+  provider provenance/retained artifact, deferred readiness처럼 현재 product boundary를
+  더 실행 가능하게 만드는 준비 작업에 둔다.
+- Defer/avoid: Multi-SCM, auto-fix, manual editor, provider tuning처럼 권한, quota,
+  trust metric, human review가 필요한 surface는 현재처럼 deferred 또는 readiness packet
+  단계에 둔다.
+
+Unit 2에서는 새로운 actionable backlog entry를 만들지 않았다. 확인된 판단은 현재 방향을
+유지해야 한다는 `keep` 성격이고, 넓은 surface의 선행 조건은 이미 implementation
+roadmap과 deferred 문서에 분리되어 있다.
 
 ## Interface And UX Assessment
 
@@ -102,4 +202,4 @@ deferred 문서를 기준으로 방향성을 재평가한다.
 
 ## Recommended Actions
 
-다음 review unit은 `2. Product Direction And Scope Review`다.
+다음 review unit은 `3. Architecture And Boundary Review`다.
