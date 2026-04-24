@@ -35,16 +35,14 @@
 - minimal rule lifecycle CLI의 좁은 운영 범위
 - `review`, `summarize`, `walkthrough`, `full-report`, `backlog`, `help` note command surface
 - deterministic gate, local GitLab runtime smoke, direct provider smoke를 분리하는 운영 원칙
+- `review-bot` / `review-platform` TestClient gate와 OpenAI direct smoke preflight의 bounded
+  runtime diagnostic guardrail
 - lifecycle `provider_runtime` provenance가 configured/effective provider, fallback, configured model,
   sanitized endpoint base URL, transport class를 run state, finding evidence, structured log,
   summary note에 일관되게 남기는 구조
 
 반대로 아래 항목은 닫힌 기반으로 보면 안 된다. 리뷰 결과상 즉시 수정 또는 문서 보정이 남아 있다.
 
-- Smoke / evaluation hardening
-  - `review-bot` API queue TestClient gate는 bounded diagnostic을 갖췄다.
-  - `review-platform` API client gate는 deterministic ASGI transport와 bounded diagnostic을 갖췄다.
-  - OpenAI direct smoke preflight가 bounded runtime 안에서 끝나야 한다.
 - Organization/private rule packaging
   - filesystem extension support는 있으나 package shape와 validation owner는 deferred readiness로 남아 있다.
 
@@ -421,7 +419,7 @@ bash -n ops/scripts/advance_review_roadmap_with_codex.sh ops/scripts/advance_roa
 
 ### 9. Bound OpenAI Direct Smoke Preflight Runtime
 
-상태: `active`
+상태: `watch`
 
 왜 지금 하나:
 
@@ -445,6 +443,20 @@ bash -n ops/scripts/advance_review_roadmap_with_codex.sh ops/scripts/advance_roa
 bash -n ops/scripts/advance_review_roadmap_with_codex.sh ops/scripts/advance_roadmap_with_codex.sh ops/scripts/smoke_openai_provider_direct.sh
 cd review-bot && uv run pytest tests/test_openai_provider_direct_smoke.py -q
 ```
+
+완료 기록:
+
+- `smoke_openai_provider_direct.sh`가 모든 direct `curl` probe에 configurable
+  connect/overall timeout을 적용한다.
+- probe transport failure는 `<probe>_curl_exit=<status>`로 출력되어 timeout exit status가
+  preflight output에 남는다.
+- fake-curl tests가 timeout flag 전달, `/models` timeout, live `/responses` timeout을 검증한다.
+- 검증 통과:
+  - `bash -n ops/scripts/advance_review_roadmap_with_codex.sh ops/scripts/advance_roadmap_with_codex.sh ops/scripts/smoke_openai_provider_direct.sh`
+  - `cd review-bot && UV_CACHE_DIR=/tmp/uv-cache-review-bot-roadmap-9 uv run --no-sync pytest tests/test_openai_provider_direct_smoke.py -q`
+- direct OpenAI smoke는 preflight skipped configuration이어서 실행하지 않았고,
+  validation은 deterministic fake-curl path만 사용했다. stub fallback은 이 direct-smoke unit에
+  관여하지 않는다.
 
 관련 backlog: `B-ops-02`
 
@@ -797,7 +809,7 @@ python3 -m py_compile ops/scripts/create_gitlab_merge_request.py ops/scripts/boo
 
 ## Suggested Next Step
 
-현재 가장 자연스러운 다음 작업은 `9. Bound OpenAI Direct Smoke Preflight Runtime`이다.
+현재 가장 자연스러운 다음 작업은 `10. Fail Fast On Unresolved Or Duplicate Selected Packs`이다.
 
 이유:
 
@@ -809,7 +821,8 @@ python3 -m py_compile ops/scripts/create_gitlab_merge_request.py ops/scripts/boo
 - directed unknown note command는 visible feedback을 남기고 no-enqueue 경로를 유지한다.
 - local harness bot bridge는 key-based bot API를 사용하고 legacy `pr_id` endpoint에 의존하지 않는다.
 - review-roadmap blocked unit artifact는 retained baseline으로 남는다.
-- 다음 `active` 항목은 OpenAI direct smoke preflight runtime을 bounded 처리하는 일이다.
+- OpenAI direct smoke preflight는 bounded curl timeout과 timeout exit diagnostic을 남긴다.
+- 다음 `active` 항목은 review-engine selected pack resolution을 fail-fast로 만드는 일이다.
 
 ## Validation Baseline
 

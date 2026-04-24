@@ -16,6 +16,8 @@ fi
 MODEL_OVERRIDE="${BOT_OPENAI_MODEL_OVERRIDE:-}"
 DEFAULT_OPENAI_BASE_URL="https://api.openai.com/v1"
 EXPECT_LIVE_OPENAI=0
+OPENAI_DIRECT_SMOKE_CONNECT_TIMEOUT_SECONDS="${OPENAI_DIRECT_SMOKE_CONNECT_TIMEOUT_SECONDS:-5}"
+OPENAI_DIRECT_SMOKE_MAX_TIME_SECONDS="${OPENAI_DIRECT_SMOKE_MAX_TIME_SECONDS:-30}"
 
 usage() {
   cat <<'EOF'
@@ -30,13 +32,37 @@ Exit codes:
 - 0: probe completed; live OpenAI may still be unavailable if summary says insufficient_quota
 - 1: usage or assertion failure
 - 2: live OpenAI was required but direct provider call did not succeed
+- curl exit status: direct probe transport failure, for example 28 on timeout
 
 Environment overrides:
 - REVIEW_SYSTEM_ROOT: repository root. Default resolves from this script path.
 - REVIEW_SYSTEM_ENV_FILE: env file to load. Default: $REVIEW_SYSTEM_ROOT/ops/.env
 - BOT_OPENAI_BASE_URL: OpenAI-compatible base URL. Default: https://api.openai.com/v1
 - BOT_OPENAI_MODEL_OVERRIDE: model override if --model is not provided.
+- OPENAI_DIRECT_SMOKE_CONNECT_TIMEOUT_SECONDS: curl connect timeout. Default: 5
+- OPENAI_DIRECT_SMOKE_MAX_TIME_SECONDS: curl overall timeout per probe. Default: 30
 EOF
+}
+
+run_curl_probe() {
+  local probe_name="$1"
+  local url="$2"
+  local output_path="$3"
+  shift 3
+
+  local exit_code=0
+  if curl -sS \
+    --connect-timeout "$OPENAI_DIRECT_SMOKE_CONNECT_TIMEOUT_SECONDS" \
+    --max-time "$OPENAI_DIRECT_SMOKE_MAX_TIME_SECONDS" \
+    "$url" \
+    "$@" \
+    -o "$output_path"; then
+    return 0
+  else
+    exit_code=$?
+  fi
+  printf '%s\n' "${probe_name}_curl_exit=$exit_code"
+  return "$exit_code"
 }
 
 while [[ $# -gt 0 ]]; do
@@ -83,6 +109,8 @@ printf '%s\n' "repo_root_source=$ROOT_SOURCE"
 printf '%s\n' "env_file=$ENV_FILE"
 printf '%s\n' "env_file_source=$ENV_FILE_SOURCE"
 printf '%s\n' "endpoint_base_url=$BASE_URL"
+printf '%s\n' "curl_connect_timeout_seconds=$OPENAI_DIRECT_SMOKE_CONNECT_TIMEOUT_SECONDS"
+printf '%s\n' "curl_max_time_seconds=$OPENAI_DIRECT_SMOKE_MAX_TIME_SECONDS"
 
 if [[ -z "${OPENAI_API_KEY:-}" ]]; then
   echo "OPENAI_API_KEY is not set." >&2
@@ -92,9 +120,8 @@ fi
 tmpdir="$(mktemp -d)"
 trap 'rm -rf "$tmpdir"' EXIT
 
-curl -sS "$BASE_URL/models" \
-  -H "Authorization: Bearer $OPENAI_API_KEY" \
-  -o "$tmpdir/models.json"
+run_curl_probe "models_probe" "$BASE_URL/models" "$tmpdir/models.json" \
+  -H "Authorization: Bearer $OPENAI_API_KEY"
 
 python3 - "$tmpdir/models.json" <<'PY'
 import json
@@ -112,11 +139,10 @@ print("models_probe_status=ok")
 PY
 
 if [[ "$BASE_URL" == "$DEFAULT_OPENAI_BASE_URL" ]]; then
-  curl -sS "$BASE_URL/responses" \
+  run_curl_probe "invalid_key_probe" "$BASE_URL/responses" "$tmpdir/invalid.json" \
     -H "Authorization: Bearer sk-invalid-test" \
     -H "Content-Type: application/json" \
-    -d "{\"model\":\"$MODEL\",\"input\":\"ping\",\"max_output_tokens\":16}" \
-    -o "$tmpdir/invalid.json"
+    -d "{\"model\":\"$MODEL\",\"input\":\"ping\",\"max_output_tokens\":16}"
 
   python3 - "$tmpdir/invalid.json" <<'PY'
 import json
@@ -136,11 +162,10 @@ else
   printf '%s\n' "invalid_key_probe_status=skipped_non_default_base_url"
 fi
 
-curl -sS "$BASE_URL/responses" \
+run_curl_probe "live_probe" "$BASE_URL/responses" "$tmpdir/live.json" \
   -H "Authorization: Bearer $OPENAI_API_KEY" \
   -H "Content-Type: application/json" \
-  -d "{\"model\":\"$MODEL\",\"input\":\"ping\",\"max_output_tokens\":16}" \
-  -o "$tmpdir/live.json"
+  -d "{\"model\":\"$MODEL\",\"input\":\"ping\",\"max_output_tokens\":16}"
 
 live_status="$(
   python3 - "$tmpdir/live.json" <<'PY'
