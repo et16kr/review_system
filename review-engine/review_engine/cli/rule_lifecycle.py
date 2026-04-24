@@ -3,21 +3,24 @@ from __future__ import annotations
 import argparse
 import json
 import shlex
+from collections.abc import Iterable
 from pathlib import Path
 from typing import Literal
 
 from review_engine.config import Settings, get_settings
 from review_engine.ingest.rule_loader import load_rule_runtime, load_rule_runtime_selection
-from review_engine.models import GuidelineRecord, LoadedRuleContext, RulePackManifest
+from review_engine.models import GuidelineRecord, LoadedRuleContext, RuleEntry, RulePackManifest
 
-RuntimeState = Literal["active", "reference", "excluded"]
+RuntimeState = Literal["active", "reference", "excluded", "disabled"]
 MutationAction = Literal["enable", "disable"]
 RUNTIME_STATE_FIELDS: tuple[tuple[RuntimeState, str], ...] = (
     ("active", "active_records"),
     ("reference", "reference_records"),
     ("excluded", "excluded_records"),
 )
-RUNTIME_STATE_ORDER = {state: index for index, (state, _field) in enumerate(RUNTIME_STATE_FIELDS)}
+RUNTIME_STATE_ORDER = {
+    state: index for index, state in enumerate(("active", "reference", "excluded", "disabled"))
+}
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -33,7 +36,7 @@ def _build_parser() -> argparse.ArgumentParser:
     _add_runtime_args(list_parser)
     list_parser.add_argument(
         "--state",
-        choices=["all", "active", "reference", "excluded"],
+        choices=["all", "active", "reference", "excluded", "disabled"],
         default="all",
         help="Optional runtime state filter.",
     )
@@ -101,11 +104,12 @@ def _add_runtime_args(parser: argparse.ArgumentParser) -> None:
 
 
 def _handle_list(args: argparse.Namespace) -> dict[str, object]:
-    runtime = _load_runtime(args)
+    _settings, runtime, selected_pack_index = _load_runtime_selection(args)
     rules = [
         _serialize_list_item(record, runtime_state=runtime_state)
-        for runtime_state, record in _iter_runtime_records(
+        for runtime_state, record in _iter_inspection_records(
             runtime,
+            selected_pack_index=selected_pack_index,
             state_filter=args.state,
             pack_id=args.pack_id,
         )
@@ -119,11 +123,12 @@ def _handle_list(args: argparse.Namespace) -> dict[str, object]:
 
 
 def _handle_show(args: argparse.Namespace) -> dict[str, object]:
-    runtime = _load_runtime(args)
+    _settings, runtime, selected_pack_index = _load_runtime_selection(args)
     matches = [
         (runtime_state, record)
-        for runtime_state, record in _iter_runtime_records(
+        for runtime_state, record in _iter_inspection_records(
             runtime,
+            selected_pack_index=selected_pack_index,
             state_filter="all",
             pack_id=args.pack_id,
         )
@@ -345,6 +350,108 @@ def _iter_runtime_records(
         )
     )
     return collected
+
+
+def _iter_inspection_records(
+    runtime: LoadedRuleContext,
+    *,
+    selected_pack_index: dict[str, tuple[RulePackManifest, Path]],
+    state_filter: str,
+    pack_id: str | None,
+) -> list[tuple[RuntimeState, GuidelineRecord]]:
+    collected = _iter_runtime_records(
+        runtime,
+        state_filter=state_filter,
+        pack_id=pack_id,
+    )
+    if state_filter in {"all", "disabled"}:
+        collected.extend(
+            _iter_disabled_records(
+                selected_pack_index=selected_pack_index,
+                pack_id=pack_id,
+            )
+        )
+    collected.sort(
+        key=lambda item: (
+            RUNTIME_STATE_ORDER[item[0]],
+            item[1].rule_no,
+            item[1].pack_id or "",
+            item[1].context_id or "",
+            item[1].dialect_id or "",
+        )
+    )
+    return collected
+
+
+def _iter_disabled_records(
+    *,
+    selected_pack_index: dict[str, tuple[RulePackManifest, Path]],
+    pack_id: str | None,
+) -> Iterable[tuple[RuntimeState, GuidelineRecord]]:
+    for candidate_pack_id, (pack, source_path) in selected_pack_index.items():
+        if pack_id and candidate_pack_id != pack_id:
+            continue
+        for entry in pack.entries:
+            if entry.enabled:
+                continue
+            yield (
+                "disabled",
+                _build_disabled_record(
+                    pack=pack,
+                    entry=entry,
+                    source_path=source_path,
+                ),
+            )
+
+
+def _build_disabled_record(
+    *,
+    pack: RulePackManifest,
+    entry: RuleEntry,
+    source_path: Path,
+) -> GuidelineRecord:
+    base_score = entry.base_score if entry.base_score is not None else 0.6
+    severity_default = entry.severity_default if entry.severity_default is not None else base_score
+    return GuidelineRecord(
+        id=f"{pack.pack_id}:{entry.rule_no}",
+        rule_uid=f"{pack.language_id}:{pack.pack_id}:{entry.rule_no}",
+        rule_pack=pack.pack_id,
+        rule_no=entry.rule_no,
+        source=str(source_path),
+        pack_id=pack.pack_id,
+        source_kind=pack.source_kind,
+        language_id=pack.language_id,
+        context_id=entry.context_id or pack.context_id,
+        dialect_id=entry.dialect_id or pack.dialect_id,
+        namespace=pack.namespace,
+        section=entry.section,
+        title=entry.title,
+        text=entry.text,
+        summary=entry.summary,
+        keywords=entry.keywords,
+        tags=entry.tags,
+        base_score=base_score,
+        priority_tier=entry.priority_tier or pack.default_priority_tier,
+        specificity=entry.specificity,
+        severity_default=severity_default,
+        conflict_action=entry.default_action,
+        conflict_reason=entry.rationale,
+        active=False,
+        reviewability=entry.reviewability,
+        applies_to=entry.applies_to,
+        category=entry.category,
+        false_positive_risk=entry.false_positive_risk,
+        trigger_patterns=entry.trigger_patterns,
+        bot_comment_template=entry.bot_comment_template,
+        fix_guidance=entry.fix_guidance,
+        review_rank_default=(
+            entry.review_rank_default
+            if entry.review_rank_default is not None
+            else base_score
+        ),
+        file_globs=entry.file_globs or pack.file_globs,
+        symbol_hints=entry.symbol_hints,
+    )
 
 
 def _serialize_runtime(runtime: LoadedRuleContext) -> dict[str, object]:

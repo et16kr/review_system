@@ -397,6 +397,11 @@ main `ROADMAP.md`의 현재 항목을 다 돌린 뒤 곧바로 이어서 할 후
 - `review-engine/tests/test_rule_lifecycle_cli.py`가
   mutation payload의 `validation_plan` scope, runtime selector, follow-up command bundle 회귀를
   추가해 post-mutation deterministic validation 연결을 고정했다.
+- `list --state disabled`와 `show --rule ...`가 selected pack의 canonical YAML을 함께 읽어
+  runtime에서 빠진 `enabled: false` entry도 `runtime_state=disabled`로 다시 조회할 수 있게 됐다.
+- `review-engine/tests/test_rule_lifecycle_cli.py`가
+  disabled entry list/show가 temp rule root 기준으로 canonical YAML만 읽고
+  temp data dir을 건드리지 않는 회귀를 추가해 re-enable 전 inspection 경로를 고정했다.
 
 범위:
 
@@ -407,21 +412,21 @@ main `ROADMAP.md`의 현재 항목을 다 돌린 뒤 곧바로 이어서 할 후
 
 다음 작업:
 
-1. full editor/UI 없이도 운영에 도움이 되는 작은 on/off 관리 흐름을 더 닫는다.
-2. 필요하면 profile-level pack on/off와 entry-level toggle의 운영 경계를 분리해 문서화한다.
+1. profile-level pack on/off를 추가할지 결정할 때 default-enabled fallback과 profile YAML write boundary를 같이 고정한다.
+2. pack-level mutation을 넣게 되면 entry-level toggle과 운영 경계를 분리해 문서화한다.
 
 검증 메모:
 
-- 이번 slice는 lifecycle CLI mutation payload에 post-mutation `validation_plan`
-  (selected runtime 재조회, ingest, targeted pytest command bundle)을 추가했다.
+- 이번 slice는 lifecycle CLI inspection path를 넓혀
+  selected runtime pack의 disabled canonical entry도 deterministic하게 조회할 수 있게 했다.
 - rerun:
   - `env UV_CACHE_DIR=/tmp/uv-cache uv run --project review-engine ruff check review-engine/review_engine/cli/rule_lifecycle.py review-engine/tests/test_rule_lifecycle_cli.py`
   - `env UV_CACHE_DIR=/tmp/uv-cache uv run --project review-engine pytest review-engine/tests/test_rule_lifecycle_cli.py review-engine/tests/test_rule_runtime.py -q`
-- mutation command path는 temp rule root를 쓰는 CLI test로 검증했고, repo canonical YAML 자체는 validation 중 수정하지 않았다.
-- `ingest_guidelines`와 broader retrieval baseline은 이번 slice가 ingest 실행 자체가 아니라
-  follow-up command bundle surface를 추가한 범위라 직접 rerun하지 않았다.
+- disabled inspection path는 temp rule root를 쓰는 CLI test로 검증했고,
+  repo canonical YAML 자체는 validation 중 수정하지 않았다.
+- `ingest_guidelines`와 broader retrieval baseline은 이번 slice가 canonical YAML inspection CLI 범위라 직접 rerun하지 않았다.
 - broader `review-engine` pytest, `review-bot`/`review-platform` tests,
-  GitLab smoke, provider/direct OpenAI validation은 lifecycle CLI mutation 범위라 생략했다.
+  GitLab smoke, provider/direct OpenAI validation은 lifecycle CLI inspection 범위라 생략했다.
 
 완료 기준:
 

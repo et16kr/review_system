@@ -98,6 +98,91 @@ def test_rule_lifecycle_show_fails_when_rule_is_absent_from_selected_runtime(
         ])
 
 
+def test_rule_lifecycle_list_includes_disabled_entries_from_selected_packs(
+    fixture_settings,
+    monkeypatch,
+    capsys,
+    tmp_path,
+) -> None:
+    copied_rule_root = _copy_rule_root(fixture_settings.project_root, tmp_path)
+    settings = replace(fixture_settings, public_rule_root=copied_rule_root)
+    pack_path = copied_rule_root / "python" / "packs" / "fastapi_service.yaml"
+    pack_path.write_text(
+        pack_path.read_text(encoding="utf-8").replace(
+            "  - rule_no: PY.FAPI.1\n",
+            "  - rule_no: PY.FAPI.1\n    enabled: false\n",
+            1,
+        ),
+        encoding="utf-8",
+    )
+
+    payload = _run_cli(
+        [
+            "list",
+            "--language-id",
+            "python",
+            "--profile-id",
+            "fastapi_service",
+            "--state",
+            "disabled",
+        ],
+        settings,
+        monkeypatch,
+        capsys,
+    )
+
+    rules = {rule["rule_no"]: rule for rule in payload["rules"]}
+
+    assert payload["source_of_truth"] == "canonical_yaml"
+    assert payload["state_filter"] == "disabled"
+    assert rules["PY.FAPI.1"]["runtime_state"] == "disabled"
+    assert rules["PY.FAPI.1"]["source_path"] == str(pack_path)
+    assert not any(settings.data_dir.iterdir())
+
+
+def test_rule_lifecycle_show_returns_disabled_rule_details_from_canonical_pack_yaml(
+    fixture_settings,
+    monkeypatch,
+    capsys,
+    tmp_path,
+) -> None:
+    copied_rule_root = _copy_rule_root(fixture_settings.project_root, tmp_path)
+    settings = replace(fixture_settings, public_rule_root=copied_rule_root)
+    pack_path = copied_rule_root / "python" / "packs" / "fastapi_service.yaml"
+    pack_path.write_text(
+        pack_path.read_text(encoding="utf-8").replace(
+            "  - rule_no: PY.FAPI.1\n",
+            "  - rule_no: PY.FAPI.1\n    enabled: false\n",
+            1,
+        ),
+        encoding="utf-8",
+    )
+
+    payload = _run_cli(
+        [
+            "show",
+            "--language-id",
+            "python",
+            "--profile-id",
+            "fastapi_service",
+            "--rule",
+            "PY.FAPI.1",
+        ],
+        settings,
+        monkeypatch,
+        capsys,
+    )
+
+    rule = payload["rule"]
+
+    assert payload["source_of_truth"] == "canonical_yaml"
+    assert rule["rule_no"] == "PY.FAPI.1"
+    assert rule["runtime_state"] == "disabled"
+    assert rule["active"] is False
+    assert rule["source_path"] == str(pack_path)
+    assert not any(settings.data_dir.iterdir())
+
+
 def test_rule_lifecycle_disable_updates_canonical_pack_yaml_only(
     fixture_settings,
     monkeypatch,
