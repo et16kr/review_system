@@ -417,6 +417,41 @@ python3 /home/et16/work/review_system/ops/scripts/build_wrong_language_backlog.p
   --show-needs-inspection
 ```
 
+targeted rule expansion을 시작하기 전에는 먼저 evidence refresh를 한다.
+
+증거 우선순위:
+
+1. repo-local retained artifact
+   `docs/baselines/review_bot/targeted_rule_expansion_evidence_YYYY-MM-DD.md`
+2. local analytics endpoint
+   - `/internal/analytics/finding-outcomes?window=28d`
+   - `/internal/analytics/rule-effectiveness`
+   - `/internal/analytics/wrong-language-feedback?window=28d`
+3. local smoke artifact
+   - `docs/baselines/review_bot/multilang_smoke_<fixture_id>_YYYY-MM-DD.json`
+   - 같은 날짜의 `wrong_language_28d_YYYY-MM-DD.md` 또는
+     `wrong_language_backlog_28d_YYYY-MM-DD.md`
+
+freshness 기준:
+
+- automation 기본값은 같은 UTC 날짜의
+  `targeted_rule_expansion_evidence_YYYY-MM-DD.md`만 바로 사용한다.
+- 사람이 특정 artifact를 지정한 경우에는 현재 branch와 validation baseline에 맞는다는 전제에서
+  최대 7 UTC일 전 artifact까지 재사용할 수 있다.
+- endpoint가 비어 있거나 smoke artifact가 단순 pass만 담고 있으면 임의로 다음 rule family를 고르지 않는다.
+- smoke refresh가 필요한데 local GitLab이 꺼져 있으면 빈 artifact를 만들지 말고 blocker로 남긴다.
+
+blocker 표준:
+
+```text
+BLOCKED_UNIT: Evidence Refresh Path For Targeted Rule Expansion
+BLOCKER_TYPE: external_services
+BLOCKED_REASON: review-bot analytics were unavailable or empty, and no fresh retained smoke artifact identified a concrete rule gap.
+```
+
+local GitLab 준비 상태 때문에 smoke artifact를 갱신할 수 없으면
+`BLOCKER_TYPE: local_gitlab_state`를 사용한다.
+
 ## 7. 로컬 GitLab E2E 검증
 
 ### 1. GitLab과 테스트 MR 준비

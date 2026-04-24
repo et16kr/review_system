@@ -766,7 +766,7 @@ python3 -m py_compile ops/scripts/create_gitlab_merge_request.py ops/scripts/boo
 
 ### 17. Evidence Refresh Path For Targeted Rule Expansion
 
-상태: `queued`
+상태: `watch`
 
 이번 작업의 범위:
 
@@ -776,6 +776,22 @@ python3 -m py_compile ops/scripts/create_gitlab_merge_request.py ops/scripts/boo
    - local smoke artifact
 2. endpoint가 비어 있거나 local GitLab이 꺼져 있어도 blocker가 같은 형식으로 남게 한다.
 3. fresh evidence가 없을 때 임의로 다음 rule family를 고르지 않도록 freshness 기준과 artifact 위치를 고정한다.
+
+완료 기록:
+
+- targeted rule expansion 후보를 고르기 전 evidence order를
+  repo-local retained artifact -> local analytics endpoint -> retained local smoke artifact로 고정했다.
+- retained artifact 위치와 filename은
+  `docs/baselines/review_bot/targeted_rule_expansion_evidence_YYYY-MM-DD.md`로 정했다.
+- automation 기본 freshness는 같은 UTC 날짜 artifact이고, 사람이 명시한 artifact는 현재 branch와
+  validation baseline에 맞을 때 최대 7 UTC일까지 재사용할 수 있게 문서화했다.
+- endpoint가 비어 있거나 local GitLab state 때문에 smoke refresh가 불가능하면 임의 rule family를
+  고르지 않고 standard blocked output을 남기도록 runbook/baseline contract를 보강했다.
+- 검증 통과:
+  - `git diff --check`
+  - `bash -n ops/scripts/advance_roadmap_with_codex.sh ops/scripts/advance_review_roadmap_with_codex.sh`
+- local GitLab lifecycle smoke와 direct OpenAI smoke는 문서/계약 변경이고 provider/runtime success
+  claim이 아니어서 실행하지 않았다.
 
 ### 18. `.review-bot.yaml` Contract Definition
 
@@ -921,7 +937,7 @@ python3 -m py_compile ops/scripts/create_gitlab_merge_request.py ops/scripts/boo
 
 ## Suggested Next Step
 
-현재 가장 자연스러운 다음 작업은 `17. Evidence Refresh Path For Targeted Rule Expansion`이다.
+현재 가장 자연스러운 다음 작업은 `18. .review-bot.yaml Contract Definition`이다.
 
 이유:
 
@@ -947,8 +963,10 @@ python3 -m py_compile ops/scripts/create_gitlab_merge_request.py ops/scripts/boo
   중복된 내용만 담고 있어 제거됐다.
 - local GitLab smoke internals는 lifecycle-named entrypoint를 primary로 노출하고,
   `tde` 이름은 compatibility/backing fixture surface로 낮췄다.
+- targeted rule expansion evidence refresh path는 retained artifact, local analytics endpoint,
+  local smoke artifact 순서와 freshness/blocker 기준을 고정했다.
 - post-review immediate active cleanup batch가 닫혔으므로 다음은 queued product contract work의
-  첫 항목인 targeted rule expansion evidence refresh path다.
+  다음 항목인 `.review-bot.yaml` contract definition이다.
 
 ## Validation Baseline
 
