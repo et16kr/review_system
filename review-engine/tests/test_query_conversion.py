@@ -83,6 +83,11 @@ def test_query_analysis_does_not_treat_ide_rc_declaration_as_error_flow() -> Non
             {"gin_handler_json_bind_without_validation"},
         ),
         (
+            "go",
+            "func fetch(url string) ([]byte, error) {\n    client := &http.Client{}\n    resp, err := client.Get(url)\n    if err != nil {\n        return nil, err\n    }\n    return io.ReadAll(resp.Body)\n}\n",
+            {"http_client_without_timeout", "http_response_body_without_close"},
+        ),
+        (
             "java",
             "try {\n    work();\n} catch (Exception ex) {\n    log(ex);\n}\nnew Thread(() -> work()).start();\n",
             {"catch_exception", "new_thread"},
@@ -339,6 +344,26 @@ def test_go_errors_is_does_not_trigger_direct_sentinel_compare_pattern() -> None
     names = {pattern.name for pattern in analysis.patterns}
 
     assert "sentinel_error_compare" not in names
+
+
+def test_go_http_client_timeout_and_body_close_do_not_trigger_when_visible() -> None:
+    analysis = build_query_analysis(
+        "func fetch(url string) ([]byte, error) {\n"
+        "    client := &http.Client{Timeout: 5 * time.Second}\n"
+        "    resp, err := client.Get(url)\n"
+        "    if err != nil {\n"
+        "        return nil, err\n"
+        "    }\n"
+        "    defer resp.Body.Close()\n"
+        "    return io.ReadAll(resp.Body)\n"
+        "}\n",
+        input_kind="code",
+        language_id="go",
+    )
+    names = {pattern.name for pattern in analysis.patterns}
+
+    assert "http_client_without_timeout" not in names
+    assert "http_response_body_without_close" not in names
 
 
 def test_dockerfile_safe_index_url_does_not_trigger_authenticated_secret_pattern() -> None:

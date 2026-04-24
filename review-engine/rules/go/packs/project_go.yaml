@@ -176,6 +176,32 @@ entries:
     priority_tier: high
     specificity: 0.89
     false_positive_risk: medium
+  - rule_no: GO.14
+    section: GO
+    title: Outbound HTTP clients should make timeout ownership visible
+    summary: Package-level HTTP helpers and client literals without Timeout can leave request paths without an obvious deadline.
+    text: Go outbound HTTP calls need a visible deadline owner. Package-level helpers such as `http.Get` and local `http.Client{}` literals without `Timeout` make it hard to verify that a call is bounded unless the surrounding code clearly supplies a request context with its own deadline.
+    category: resource_management
+    trigger_patterns: [http_client_without_timeout]
+    fix_guidance: Set an explicit `Timeout` on the client, use a request context with a visible deadline, or route the call through a shared bounded client.
+    base_score: 0.86
+    severity_default: 0.88
+    priority_tier: default
+    specificity: 0.84
+    false_positive_risk: medium
+  - rule_no: GO.15
+    section: GO
+    title: Outbound HTTP response bodies need local close ownership
+    summary: Reading an HTTP response body without a nearby close path can leak connections and hide ownership from review.
+    text: Successful Go HTTP responses own an open body. Reviewers should be able to see `resp.Body.Close()` attached in the same local scope before the body is read or otherwise consumed, so connection reuse and cleanup do not depend on distant control flow.
+    category: resource_management
+    trigger_patterns: [http_response_body_without_close]
+    fix_guidance: After checking the HTTP call succeeded, add `defer resp.Body.Close()` or transfer body ownership through an explicit helper that closes it.
+    base_score: 0.9
+    severity_default: 0.92
+    priority_tier: high
+    specificity: 0.88
+    false_positive_risk: low
   - rule_no: GO.REF.1
     section: GOREF
     title: Public Go APIs should make zero-value behavior and ownership expectations obvious

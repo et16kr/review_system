@@ -64,40 +64,9 @@ contract readiness packet은 닫혔다. OpenAI direct smoke는 live provider로 
 
 ## Now
 
-### Expand Go Review Rule Coverage
-
-Status: `active`
-
-목표:
-
-- Go는 현재 단일 pack 중심이고 rule 수가 얇으므로, Effective Go 기반 detector-backed
-  auto-review 규칙을 먼저 보강한다.
-- HTTP client timeout, response body handling, strict JSON decoding, goroutine/error ownership처럼
-  changed snippet에서 직접 확인 가능한 패턴을 우선한다.
-
-범위:
-
-- `review-engine/rule_sources/go/`에 보강 source를 추가하거나 기존 source를 갱신한다.
-- `review-engine/rules/go/packs/project_go.yaml`에 2~3개 narrow auto-review rule을 추가한다.
-- `review-engine/review_engine/query/languages/go.py`에 대응 pattern과 hinted rule을 추가한다.
-- `review-engine/rule_sources/coverage_matrix.yaml`을 새 source atom 기준으로 갱신한다.
-- broad design guidance나 whole-program 판단은 `reference_only`로 두고 auto-review로 올리지 않는다.
-
-검증:
-
-```bash
-cd review-engine && uv run pytest tests/test_query_conversion.py tests/test_rule_runtime.py tests/test_source_coverage_matrix.py -q
-git diff --check
-```
-
-완료 기준:
-
-- 새 Go rule이 source coverage matrix에 mapped 또는 reference_only로 연결된다.
-- 새 direct pattern이 최소 하나의 deterministic query/conversion test로 재현된다.
-
 ### Expand Bash And Dockerfile Automation Safety Rules
 
-Status: `queued`
+Status: `active`
 
 목표:
 

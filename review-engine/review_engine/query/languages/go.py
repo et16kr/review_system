@@ -6,7 +6,7 @@ from review_engine.query.languages.base import LanguageQueryPlugin, PatternSpec
 PLUGIN = LanguageQueryPlugin(
     plugin_id="go",
     display_name="Go",
-    default_focus="error propagation, defer-based cleanup, HTTP handler validation boundaries, context propagation, and goroutine lifetime",
+    default_focus="error propagation, defer-based cleanup, HTTP timeout and body ownership, handler validation boundaries, context propagation, and goroutine lifetime",
     pattern_specs=(
         PatternSpec(
             "ignored_error",
@@ -51,6 +51,18 @@ PLUGIN = LanguageQueryPlugin(
             0.89,
         ),
         PatternSpec(
+            "http_client_without_timeout",
+            r"(?s)(?:\bhttp\.(?:Get|Head|Post|PostForm)\s*\(|\bhttp\.DefaultClient\.(?:Do|Get|Head|Post|PostForm)\s*\(|&?http\.Client\s*\{(?:(?!Timeout\s*:).){0,260}\})",
+            "Outbound HTTP client call or client literal without a visible timeout detected; review deadline ownership.",
+            0.86,
+        ),
+        PatternSpec(
+            "http_response_body_without_close",
+            r"(?s)\b(?P<resp>[A-Za-z_]\w*)\s*,\s*[A-Za-z_]\w*\s*:?=\s*(?:http\.(?:Get|Post|PostForm)|[A-Za-z_]\w*\.(?:Do|Get|Post|PostForm))\([^)]*\)(?:(?!\bdefer\s+(?P=resp)\.Body\.Close\(\)).){0,500}\b(?:io\.ReadAll\(\s*(?P=resp)\.Body\s*\)|json\.NewDecoder\(\s*(?P=resp)\.Body\s*\)|(?P=resp)\.Body\.)",
+            "HTTP response body is consumed without a nearby deferred close; review body ownership and connection cleanup.",
+            0.9,
+        ),
+        PatternSpec(
             "context_missing",
             r"http\.NewRequest\(",
             "Request construction detected; review whether context propagation should be explicit.",
@@ -83,6 +95,8 @@ PLUGIN = LanguageQueryPlugin(
         "http_handler_json_decode_without_validation": ("GO.13",),
         "http_handler_json_decoder_variable_without_validation": ("GO.13",),
         "gin_handler_json_bind_without_validation": ("GO.13",),
+        "http_client_without_timeout": ("GO.14",),
+        "http_response_body_without_close": ("GO.15",),
         "context_missing": ("GO.2", "GO.5"),
         "goroutine_leak": ("GO.4", "GO.10"),
         "context_background": ("GO.8",),
@@ -96,6 +110,8 @@ PLUGIN = LanguageQueryPlugin(
         "http_handler_json_decode_without_validation",
         "http_handler_json_decoder_variable_without_validation",
         "gin_handler_json_bind_without_validation",
+        "http_client_without_timeout",
+        "http_response_body_without_close",
         "context_missing",
         "goroutine_leak",
         "context_background",

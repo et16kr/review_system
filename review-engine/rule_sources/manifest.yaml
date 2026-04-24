@@ -105,6 +105,9 @@ languages:
       - rule_source_id: go.go_runtime_baseline
         path: go/go_runtime_baseline.md
         pack_targets: [project_go]
+      - rule_source_id: go.go_http_client_deepening
+        path: go/go_http_client_deepening.md
+        pack_targets: [project_go]
   - language_id: rust
     sources:
       - rule_source_id: rust.rust_runtime_baseline

@@ -1002,6 +1002,25 @@ languages:
             canonical_rules: [GO.REF.2]
             reviewability_mix: [reference_only]
             reason: Goroutine and cancellation ownership framing is preserved as advisory guidance.
+      - rule_source_id: go.go_http_client_deepening
+        section_counts:
+          candidate_canonical_rule_groups: 2
+          reference_only_guidance: 0
+        atoms:
+          - source_atom_id: http_client_timeout_ownership
+            section_id: candidate_canonical_rule_groups
+            status: mapped
+            pack_targets: [project_go]
+            canonical_rules: [GO.14]
+            reviewability_mix: [auto_review]
+            reason: Package-level HTTP helpers, default clients, and client literals without Timeout now map to a dedicated outbound deadline-ownership rule.
+          - source_atom_id: response_body_ownership
+            section_id: candidate_canonical_rule_groups
+            status: mapped
+            pack_targets: [project_go]
+            canonical_rules: [GO.15]
+            reviewability_mix: [auto_review]
+            reason: Response bodies consumed without a nearby close path now map to a dedicated local cleanup ownership rule.
 
   - language_id: rust
     sources:
