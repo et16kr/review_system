@@ -368,6 +368,7 @@ def test_query_analysis_does_not_treat_ide_rc_declaration_as_error_flow() -> Non
             {
                 "dbt_select_star_ref",
                 "dbt_run_query",
+                "dbt_run_query_side_effect_without_command_scope",
                 "migration_drop_table",
                 "migration_drop_cascade",
                 "migration_drop_column",
@@ -386,6 +387,20 @@ def test_query_analysis_detects_multilang_patterns(
     names = {pattern.name for pattern in analysis.patterns}
 
     assert expected_patterns <= names
+
+
+def test_dbt_run_query_side_effect_with_command_scope_does_not_trigger_specific_pattern() -> None:
+    analysis = build_query_analysis(
+        "{% if execute and flags.WHICH in ['run', 'build'] %}\n"
+        "{{ run_query('vacuum analytics.events') }}\n"
+        "{% endif %}\n",
+        input_kind="code",
+        language_id="sql",
+    )
+    names = {pattern.name for pattern in analysis.patterns}
+
+    assert "dbt_run_query" in names
+    assert "dbt_run_query_side_effect_without_command_scope" not in names
 
 
 def test_go_errors_is_does_not_trigger_direct_sentinel_compare_pattern() -> None:

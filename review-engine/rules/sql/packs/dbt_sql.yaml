@@ -34,6 +34,19 @@ entries:
     priority_tier: high
     specificity: 0.89
     false_positive_risk: medium
+  - rule_no: SQL.DBT.3
+    section: SQLDBT
+    title: Side-effecting dbt run_query calls should be scoped to intended commands
+    summary: Maintenance or DML SQL in run_query can execute during compile-like dbt workflows.
+    text: Side-effecting SQL inside run_query can run when dbt compiles a project with a live connection, including docs generation and compile workflows. Review direct DML, DDL, or maintenance run_query calls unless the macro makes the intended command boundary explicit.
+    category: security
+    trigger_patterns: [dbt_run_query_side_effect_without_command_scope]
+    fix_guidance: Guard side-effecting run_query calls with an explicit command condition such as flags.WHICH, or move the operation to a path that cannot run during unintended dbt commands.
+    base_score: 0.94
+    severity_default: 0.95
+    priority_tier: high
+    specificity: 0.92
+    false_positive_risk: low
   - rule_no: SQL.DBT.REF.1
     section: SQLDBTREF
     title: Incremental dbt models should make unique-key and freshness boundaries obvious

@@ -43,14 +43,14 @@ contract readiness packet은 닫혔다. OpenAI direct smoke는 live provider로 
 
 현재 즉시 실행 가능한 방향:
 
-- 외부 서비스 없이 deterministic 검증으로 닫을 수 있는 rule coverage breadth pass를 계속 진행한다.
+- 없음. 새 source-backed deterministic slice가 식별되면 `Now`에 올린다.
 - CUDA official documentation gap check는 `CUDA.ASYNC.4` pinned-memory async transfer rule로
-  닫혔다. 다음 즉시 실행 대상은 dbt, CI YAML, OpenAPI schema official source gap check다.
-- `coverage_matrix.yaml` 기준 pending source atom은 없지만, public source 근거가 명확하고
-  detector-backed direct pattern을 더 만들 수 있는 언어를 순차적으로 보강한다.
-- rule expansion 후보는 `review-engine/rule_sources/manifest.yaml`의 `source_ref.url`이
-  실제 public guideline/documentation인 영역으로 제한한다. `example.invalid` 기반 내부
-  baseline은 먼저 source provenance를 보강한 뒤 `Now`에 올린다.
+  닫혔다.
+- dbt/CI YAML/OpenAPI schema official source gap check는 `SQL.DBT.3` side-effecting
+  `run_query` command-scope rule로 닫혔다. CI YAML과 OpenAPI schema 쪽은 이번 pass에서
+  추가 detector-backed direct pattern gap이 없어 `no_yaml_sql_rule_gap_from_official_sources`로
+  retained 한다.
+- `coverage_matrix.yaml` 기준 pending source atom은 없다.
 
 현재 바로 실행하지 않는 방향:
 
@@ -66,33 +66,7 @@ contract readiness packet은 닫혔다. OpenAI direct smoke는 live provider로 
 
 ## Now
 
-### Expand Official dbt, CI YAML, And OpenAPI Schema Rules
-
-Status: `active`
-
-목표:
-
-- dbt docs, GitLab CI YAML docs, OpenAPI spec처럼 source_ref가 명확한 하위 영역만 rule gap을 점검한다.
-- generic SQL runtime, migration SQL, product config YAML처럼 현재 `example.invalid` 또는 내부
-  baseline만 가진 영역은 이 unit에서 다루지 않는다.
-
-범위:
-
-- dbt macro/model contract, CI executable provenance, OpenAPI/schema contract width 중
-  changed snippet에서 직접 확인 가능한 패턴만 다룬다.
-- provider quality artifact의 prompt/required-term 문제와 rule 보강을 섞지 않는다.
-
-검증:
-
-```bash
-cd review-engine && uv run pytest tests/test_query_conversion.py tests/test_rule_runtime.py tests/test_source_coverage_matrix.py -q
-git diff --check
-```
-
-완료 기준:
-
-- 실제 source-backed rule gap이 있으면 rule과 deterministic query regression이 추가된다.
-- gap이 없으면 retained note나 roadmap update로 `no_yaml_sql_rule_gap_from_official_sources`를 남긴다.
+현재 `active` unit은 없다.
 
 ## Deferred But Not Yet Executable
 

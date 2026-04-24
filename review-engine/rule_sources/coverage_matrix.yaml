@@ -1277,6 +1277,18 @@ languages:
             canonical_rules: [SQL.DBT.REF.1, SQL.DBT.REF.2]
             reviewability_mix: [reference_only]
             reason: Broader incremental and contract visibility guidance remains advisory.
+      - rule_source_id: sql.dbt_run_query_command_scope
+        section_counts:
+          candidate_canonical_rule_groups: 1
+          reference_only_guidance: 0
+        atoms:
+          - source_atom_id: side_effecting_run_query_command_scope
+            section_id: candidate_canonical_rule_groups
+            status: mapped
+            pack_targets: [dbt_sql]
+            canonical_rules: [SQL.DBT.3]
+            reviewability_mix: [auto_review]
+            reason: Direct side-effecting run_query calls without flags.WHICH command scoping now map to a dedicated dbt command-boundary rule.
       - rule_source_id: sql.migration_sql_deepening
         section_counts:
           candidate_canonical_rule_groups: 2

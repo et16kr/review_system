@@ -75,6 +75,18 @@ PLUGIN = LanguageQueryPlugin(
             0.9,
         ),
         PatternSpec(
+            "dbt_run_query_side_effect_without_command_scope",
+            (
+                r"(?is)\A(?!.*\bflags\.WHICH\b).*?\brun_query\s*\(\s*['\"]\s*"
+                r"(?:delete|insert|update|merge|drop|alter|create|truncate|vacuum)\b"
+            ),
+            (
+                "Side-effecting dbt run_query call lacks an explicit flags.WHICH command scope; "
+                "review compile/docs execution paths."
+            ),
+            0.96,
+        ),
+        PatternSpec(
             "migration_drop_table",
             r"(?i)\bdrop\s+table\b",
             "DROP TABLE detected; review staged rollout and compatibility impact.",
@@ -117,6 +129,7 @@ PLUGIN = LanguageQueryPlugin(
         "union_distinct": ("SQL.WH.REF.1",),
         "dbt_select_star_ref": ("SQL.DBT.1",),
         "dbt_run_query": ("SQL.DBT.2",),
+        "dbt_run_query_side_effect_without_command_scope": ("SQL.DBT.3",),
         "migration_drop_table": ("SQL.MIG.1",),
         "migration_drop_cascade": ("SQL.MIG.5", "SQL.MIG.1", "SQL.MIG.2"),
         "migration_drop_column": ("SQL.MIG.2",),
@@ -135,6 +148,7 @@ PLUGIN = LanguageQueryPlugin(
         "union_distinct",
         "dbt_select_star_ref",
         "dbt_run_query",
+        "dbt_run_query_side_effect_without_command_scope",
         "migration_drop_table",
         "migration_drop_cascade",
         "migration_drop_column",
