@@ -234,7 +234,41 @@ curl -X POST http://127.0.0.1:18082/codebase/index \
 - `project_ref`를 주면 project-scoped codebase collection을 만들고, 생략하면 legacy shared scope를 쓴다.
 - 허용 root는 `REVIEW_ENGINE_CODEBASE_ALLOWED_ROOTS`로 제한할 수 있다.
 
-## 5-a. Release Gate와 Pre-release Smoke
+## 5-a. Rule lifecycle CLI
+
+canonical YAML rule/profile state를 generated dataset 없이 바로 확인하거나 최소 mutation을 걸 때는 아래 CLI를 쓴다.
+
+```bash
+uv run --project review-engine python -m review_engine.cli.rule_lifecycle \
+  list --language-id python --profile-id fastapi_service
+
+uv run --project review-engine python -m review_engine.cli.rule_lifecycle \
+  disable --language-id python --profile-id fastapi_service --rule PY.FAPI.1
+
+uv run --project review-engine python -m review_engine.cli.rule_lifecycle \
+  disable-pack --language-id python --profile-id fastapi_service --pack-id fastapi_service
+```
+
+운영 경계:
+
+- `list`/`show`는 read-only inspection이며 ingest나 generated dataset을 읽지 않는다.
+- `disable`/`enable`은 single canonical pack YAML entry 하나의 `enabled` field만 수정한다.
+  output의 `source_path`, `previous_enabled`, `updated_enabled`, `write_boundary=canonical_pack_yaml`를 확인한다.
+- `disable-pack`/`enable-pack`은 selected runtime의 single canonical profile YAML만 수정한다.
+  output의 `profile_source_path`, `pack_membership_field`, `write_boundary=canonical_profile_yaml`를 확인한다.
+- target pack이 shared pack이면 `shared_packs`, language-local pack이면 `enabled_packs`만 바뀐다.
+- profile이 explicit `enabled_packs`/`shared_packs` 없이 `default_enabled` fallback으로 선택됐다면,
+  pack mutation은 현재 runtime selection을 explicit pack list로 materialize한 뒤 적용한다.
+- selected runtime이 여러 profile YAML merge 결과면 pack mutation은 single write boundary를 잃으므로 fail-fast 한다.
+
+mutation 후 검증:
+
+- CLI output의 `validation_plan` 순서를 그대로 따른다.
+- 기본 후속 검증은 selected runtime 재조회, `uv run --project review-engine python -m review_engine.cli.ingest_guidelines`,
+  `uv run --project review-engine pytest review-engine/tests/test_rule_lifecycle_cli.py review-engine/tests/test_rule_runtime.py -q`다.
+- canonical YAML mutation은 deterministic release gate 범위로 보고, local GitLab smoke나 provider validation을 기본으로 요구하지 않는다.
+
+## 5-b. Release Gate와 Pre-release Smoke
 
 검증은 아래 두 등급으로 나눠서 본다.
 

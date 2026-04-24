@@ -89,6 +89,9 @@
 - Markdown 문서는 명시적 unreviewable `markdown`으로 분류한다.
 - 마지막 점검 기준 rule count는 public/shared seed 기준 `344`개다.
 - extension rule root, prompt overlay, entry point, detector plugin hook, strict loading 골격은 구현되어 있다.
+- `python -m review_engine.cli.rule_lifecycle`는 canonical YAML runtime을 직접 읽는
+  `list`/`show`와 canonical source mutation `disable`/`enable`/`disable-pack`/`enable-pack`
+  범위를 제공한다.
 - 다만 summary/log surface에서 같은 provenance를 더 직접 읽게 하는 작업은 아직 roadmap에 남아 있다.
 
 현재 주요 지원 축:
@@ -124,6 +127,13 @@
 - extension authoring에서 `pack_weight`는 policy YAML `pack_weights`에만 둔다.
 - `reference_only`는 rule entry `reviewability`로만 표현하고,
   `conflict_action`은 policy override/exclusion이 해석된 runtime state로만 본다.
+- lifecycle CLI의 `disable`/`enable`은 single canonical pack YAML entry의 `enabled` field만 바꾸고,
+  mutation output에서 `write_boundary=canonical_pack_yaml`를 반환한다.
+- lifecycle CLI의 `disable-pack`/`enable-pack`은 single canonical profile YAML의
+  `enabled_packs` 또는 `shared_packs`만 바꾸고, pack entry YAML 자체는 수정하지 않는다.
+- profile YAML이 explicit `enabled_packs`/`shared_packs` 없이 `default_enabled` fallback에 의존하면,
+  pack mutation은 현재 runtime selection을 explicit profile pack list로 materialize한 뒤 적용한다.
+- selected runtime이 여러 profile YAML merge 결과면 pack mutation은 single write boundary를 잃으므로 fail-fast 한다.
 - private rule packaging은 아직 roadmap 대상이다.
 - 우선순위는 특정 조직명 하드코딩이 아니라 pack/profile policy로 표현한다.
 

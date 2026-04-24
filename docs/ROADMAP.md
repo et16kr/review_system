@@ -371,7 +371,7 @@ main `ROADMAP.md`의 현재 항목을 다 돌린 뒤 곧바로 이어서 할 후
 
 ### 7. Minimal Rule Lifecycle CLI
 
-상태: `partial`
+상태: `watch`
 
 최근 완료:
 
@@ -410,6 +410,10 @@ main `ROADMAP.md`의 현재 항목을 다 돌린 뒤 곧바로 이어서 할 후
   pack mutation이 single write boundary를 잃지 않도록 fail-fast 하게 막았다.
 - `review-engine/tests/test_rule_lifecycle_cli.py`가
   explicit profile pack toggle, fallback materialization, new pack enable, merged-profile write-boundary refusal 회귀를 추가했다.
+- `docs/CURRENT_SYSTEM.md`와 `docs/OPERATIONS_RUNBOOK.md`가
+  lifecycle CLI의 entry-level `canonical_pack_yaml` mutation과
+  pack-level `canonical_profile_yaml` mutation 경계, `default_enabled` fallback materialization,
+  merged-profile refusal, post-mutation `validation_plan` follow-up을 canonical 운영 문서로 고정했다.
 
 범위:
 
@@ -420,20 +424,17 @@ main `ROADMAP.md`의 현재 항목을 다 돌린 뒤 곧바로 이어서 할 후
 - `disable-pack`
 - `enable-pack`
 
-다음 작업:
+남은 구현 작업:
 
-1. pack-level mutation을 넣게 되면 entry-level toggle과 운영 경계를 분리해 문서화한다.
+- 없음
 
 검증 메모:
 
-- 이번 slice는 lifecycle CLI에 profile-level pack on/off를 추가해
-  canonical profile YAML write boundary, `default_enabled` fallback materialization, merged-profile refusal contract를 고정했다.
+- 이번 slice는 lifecycle CLI의 pack-level/entry-level write boundary와
+  mutation 후 deterministic validation follow-up을 canonical 문서에 고정했다.
 - rerun:
-  - `env UV_CACHE_DIR=/tmp/uv-cache uv run --project review-engine ruff check review-engine/review_engine/cli/rule_lifecycle.py review-engine/tests/test_rule_lifecycle_cli.py`
   - `env UV_CACHE_DIR=/tmp/uv-cache uv run --project review-engine pytest review-engine/tests/test_rule_lifecycle_cli.py review-engine/tests/test_rule_runtime.py -q`
-- profile pack mutation path는 temp rule root를 쓰는 CLI test로 검증했고,
-  repo canonical YAML 자체는 validation 중 수정하지 않았다.
-- `ingest_guidelines`와 broader retrieval baseline은 이번 slice가 canonical YAML inspection CLI 범위라 직접 rerun하지 않았다.
+- 이번 문서화 slice는 구현 변경이 없으므로 `ingest_guidelines`와 broader retrieval baseline은 직접 rerun하지 않았다.
 - broader `review-engine` pytest, `review-bot`/`review-platform` tests,
   GitLab smoke, provider/direct OpenAI validation은 lifecycle CLI inspection 범위라 생략했다.
 
