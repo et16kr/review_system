@@ -807,7 +807,7 @@ python3 -m py_compile ops/scripts/create_gitlab_merge_request.py ops/scripts/boo
 완료 기록:
 
 - `.review-bot.yaml` v1 repository config contract를
-  [API_CONTRACTS.md](/home/et16/work/review_system/docs/API_CONTRACTS.md:669)에 정의했다.
+  [API_CONTRACTS.md](/home/et16/work/review_system/docs/API_CONTRACTS.md:718)에 정의했다.
 - v1 최소 surface는 `version`, `review.enabled`, `review.paths.include/exclude`,
   `publish.batch_size`, `publish.rule_family_cap`, `publish.file_comment_cap`,
   `publish.minimum_publish_score`로 제한했다.
@@ -830,7 +830,7 @@ python3 -m py_compile ops/scripts/create_gitlab_merge_request.py ops/scripts/boo
 
 ### 19. `ask` Command Boundary Definition
 
-상태: `queued`
+상태: `watch`
 
 이번 작업의 범위:
 
@@ -838,6 +838,29 @@ python3 -m py_compile ops/scripts/create_gitlab_merge_request.py ops/scripts/boo
 2. session 저장 여부와 최소 저장 경계를 정한다.
 3. provider unavailable / timeout / empty evidence 응답 정책을 정한다.
 4. `summarize` / `walkthrough` 이후 note-family command로서의 UX 목적을 정리한다.
+
+완료 기록:
+
+- future `ask` note command boundary를
+  [API_CONTRACTS.md](/home/et16/work/review_system/docs/API_CONTRACTS.md:669)에 정의했다.
+- 현재 live `review-bot`은 아직 `ask`를 지원 명령으로 파싱하지 않고 directed unknown command로
+  처리한다는 점을 유지했다.
+- v1 `ask`는 `ReviewRequestKey` 안의 최신 run/full-report/backlog/finding/thread/feedback state와
+  adapter-supported file snippets, same-project review-engine similar-code evidence만 참조하는
+  note-family read path로 제한했다.
+- provider chat session은 저장하지 않고, durable record는 existing webhook/general-note/log/provenance
+  diagnostic으로 제한했다.
+- provider unavailable, timeout, empty evidence는 detect/publish enqueue 없이 same-purpose visible note
+  reason으로 응답하는 정책으로 고정했다.
+- `summarize`/`walkthrough` 이후 좁은 Q&A 목적이며 inline finding 생성이나 backlog disposition 변경은
+  기존 feedback command와 분리된다고 명시했다.
+- [CURRENT_SYSTEM.md](/home/et16/work/review_system/docs/CURRENT_SYSTEM.md:185)는 future boundary와
+  아직 없는 runtime command를 분리해 설명한다.
+- 검증 통과:
+  - `git diff --check`
+  - `bash -n ops/scripts/advance_roadmap_with_codex.sh ops/scripts/advance_review_roadmap_with_codex.sh`
+- local GitLab lifecycle smoke와 direct OpenAI smoke는 문서/계약 변경이고 provider/runtime success
+  claim이 아니어서 실행하지 않았다. OpenAI direct smoke preflight는 configuration에 의해 skipped였다.
 
 ### 20. Local Backend Retained Artifact Capture Prep
 
@@ -961,7 +984,7 @@ python3 -m py_compile ops/scripts/create_gitlab_merge_request.py ops/scripts/boo
 
 ## Suggested Next Step
 
-현재 가장 자연스러운 다음 작업은 `19. ask Command Boundary Definition`이다.
+현재 가장 자연스러운 다음 작업은 `20. Local Backend Retained Artifact Capture Prep`이다.
 
 이유:
 
@@ -991,8 +1014,10 @@ python3 -m py_compile ops/scripts/create_gitlab_merge_request.py ops/scripts/boo
   local smoke artifact 순서와 freshness/blocker 기준을 고정했다.
 - `.review-bot.yaml` v1 contract는 최소 repo config surface, env/repo/note command precedence,
   fail-fast/ignore/warn 경계, note-first report command 관계를 고정했다.
-- post-review immediate active cleanup batch가 닫혔으므로 다음은 queued product contract work의
-  다음 항목인 `ask` command boundary definition이다.
+- future `ask` note command boundary는 context source, session/retention, unavailable/timeout/empty
+  evidence response, summarize/walkthrough 이후 UX 목적을 고정했다.
+- 다음 queued product contract work는 local backend 실험 artifact가 direct OpenAI artifact와 섞이지
+  않도록 env/provenance/retained filename 기준을 고정하는 작업이다.
 
 ## Validation Baseline
 

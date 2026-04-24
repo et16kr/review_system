@@ -180,8 +180,11 @@ Adapter V2 capability는 [API_CONTRACTS.md](/home/et16/work/review_system/docs/A
 - adapter가 지원하면 head 파일 내용을 일부 가져와 same-file `file_context`로 쓴다.
 - `review-engine` codebase index/search가 있으면 project-scoped similar code를 evidence/provider input에 넣을 수 있다.
 - `.review-bot.yaml` v1 repository config는
-  [API_CONTRACTS.md](/home/et16/work/review_system/docs/API_CONTRACTS.md:669)에 계약만 정의되어 있다.
+  [API_CONTRACTS.md](/home/et16/work/review_system/docs/API_CONTRACTS.md:718)에 계약만 정의되어 있다.
   runtime loader는 아직 없고, 실제 동작은 env/default와 note command가 결정한다.
+- 미래 `ask` command의 context/session/error boundary는
+  [API_CONTRACTS.md](/home/et16/work/review_system/docs/API_CONTRACTS.md:669)에 계약만 정의되어 있다.
+  현재 live bot은 `ask`를 지원 명령으로 파싱하지 않으며, directed unknown command로 처리한다.
 - AST 기반 syntax-aware split, broader project-scoped memory, `.review-bot.yaml` runtime support,
   `ask` command는 아직 없다.
 - provider 설정값은 문자열 환경 변수 기반이며,

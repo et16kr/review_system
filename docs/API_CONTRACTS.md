@@ -666,6 +666,55 @@ Response 예시:
 }
 ```
 
+### Future `ask` note command boundary
+
+상태:
+
+- 이 섹션은 `ask` command를 구현하기 전의 boundary contract다.
+- 현재 live `review-bot`은 아직 `ask`를 지원 명령으로 파싱하지 않는다. 구현 전까지
+  `@review-bot ask ...`는 directed unknown command로 처리된다.
+- `ask`는 구현되더라도 `review`처럼 detect/publish lifecycle을 만들지 않는 note-family read path다.
+
+Context source 범위:
+
+- `ReviewRequestKey(review_system, project_ref, review_request_id)`가 가리키는 현재 MR/request 안에서만
+  context를 모은다.
+- 사용할 수 있는 context는 최신 run state, 최신 full-report/backlog view, inline finding evidence,
+  publication/thread/feedback state, provider runtime provenance, adapter가 이미 지원하는 same-file
+  head/base snippet, 그리고 같은 `project_ref`의 review-engine index/search가 반환한 similar-code
+  evidence로 제한한다.
+- 기본 v1은 MR source branch 전체 checkout, 임의 repository crawl, 외부 ticket/wiki, 다른 project의
+  review history, provider-side chat memory를 context source로 쓰지 않는다.
+- `ask` 답변은 사용한 context category와 stale/missing context reason을 note 안에 짧게 남긴다.
+
+Session / retention boundary:
+
+- v1 `ask`는 provider chat session을 저장하거나 다음 `ask` 호출에 이어 붙이지 않는다.
+- durable 저장은 기존 webhook/request metadata, same-purpose general note, structured log,
+  provider runtime provenance, timeout/error diagnostic에 한정한다.
+- 질문 원문을 별도 장기 conversation store에 저장하는 기능은 v1 범위가 아니다. 필요해지면 retention,
+  redaction, access boundary를 별도 contract로 먼저 정의한다.
+
+Unavailable / timeout / empty-evidence policy:
+
+- provider unavailable 또는 provider timeout이면 detect/publish를 enqueue하지 않고, same-purpose `ask`
+  general note에 `temporarily_unavailable` 또는 `provider_timeout` reason을 남긴다.
+- review state가 아직 없거나 context source가 비어 있으면 answer를 생성하지 않고 `empty_evidence`
+  reason을 남긴다. 이때 `@review-bot review`, `@review-bot summarize`, `@review-bot walkthrough`
+  중 다음에 볼 command를 안내할 수 있다.
+- adapter가 general note를 지원하지 않으면 webhook response는 posted 없이 ignored/unsupported로 끝날 수 있다.
+- provider fallback이 설정되어 있더라도 `ask` note에는 effective provider, fallback 여부,
+  configured model, sanitized endpoint base URL, transport class를 lifecycle provenance와 같은 형식으로 남긴다.
+
+Note-family UX 목적:
+
+- `summarize`는 aggregate state를 빠르게 보여 주고, `walkthrough`는 어떤 note를 어떤 순서로 읽을지 안내한다.
+- `ask`는 그 다음 단계에서 사용자가 MR에 남은 finding/backlog/current run에 대해 좁은 질문을 할 때 쓰는
+  scoped Q&A command다.
+- `ask`는 inline finding을 새로 만들거나 backlog disposition을 바꾸지 않는다. 사용자가 disposition을
+  바꾸려면 기존 feedback command(`bot:ignore`, `bot:false-positive`, `bot:later`, `bot:allow`,
+  `bot:wrong-language <lang>`)를 사용한다.
+
 ### `.review-bot.yaml` repository config contract
 
 상태:
@@ -717,7 +766,8 @@ v1에서 다루지 않는 값:
   database/Redis URL, provider/model/base URL/API key, bot author identity는 env/orchestrator
   source of truth로만 유지한다.
 - `ask`, provider session, codebase retrieval memory, prompt override, rule pack/profile authoring,
-  private extension install/update는 `.review-bot.yaml` v1 surface가 아니다.
+  private extension install/update는 `.review-bot.yaml` v1 surface가 아니다. `ask` command 자체의
+  future boundary는 위 섹션에서 별도 관리한다.
 
 Precedence:
 
