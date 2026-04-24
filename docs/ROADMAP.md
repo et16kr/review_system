@@ -677,7 +677,7 @@ cd review-engine && uv run pytest tests/test_language_registry.py tests/test_mul
 
 ### 15. Remove Or Merge Orphan Root Workspace Note
 
-상태: `active`
+상태: `watch`
 
 왜 지금 하나:
 
@@ -700,11 +700,25 @@ rg -n "review_system\\.md" . -g '!ops/gitlab/**'
 git diff --check
 ```
 
+완료 기록:
+
+- root `review_system.md`는 canonical docs/code/ops/agent workflow에서 참조되지 않고,
+  durable content가 `README.md`, `docs/README.md`, `docs/CURRENT_SYSTEM.md`,
+  `docs/OPERATIONS_RUNBOOK.md`에 이미 소유된 중복 workspace note임을 확인해 제거했다.
+- 검증 통과:
+  - `rg -n "review_system\\.md" . -g '!ops/gitlab/**'`
+  - `git diff --check`
+  - `bash -n ops/scripts/advance_roadmap_with_codex.sh ops/scripts/advance_review_roadmap_with_codex.sh`
+- `rg` 결과는 roadmap/review history와 이번 완료 기록만 남았고, canonical docs, code,
+  ops scripts, AGENTS guidance에는 root note dependency가 없다.
+- local GitLab lifecycle smoke와 direct OpenAI smoke는 orphan docs cleanup이고
+  provider/runtime success claim이 아니어서 실행하지 않았다.
+
 관련 backlog: `B-docs-03`
 
 ### 16. Rename Local GitLab Smoke Internals Away From TDE As Primary Surface
 
-상태: `queued`
+상태: `active`
 
 왜 지금 하나:
 
@@ -912,8 +926,10 @@ python3 -m py_compile ops/scripts/create_gitlab_merge_request.py ops/scripts/boo
 - canonical YAML authoring typo는 Pydantic validation error로 fail-fast 한다.
 - unowned `review-engine/app/` scaffold 파일은 제거되어 engine runtime/package/fixture boundary
   밖의 tracked Next.js app-looking 파일이 남지 않는다.
-- 다음 `active` 항목은 root `review_system.md`가 외부 workflow에 쓰이지 않는지 확인하고
-  필요한 내용만 canonical docs로 병합한 뒤 orphan doc을 제거하는 cleanup이다.
+- root `review_system.md` orphan workspace note는 canonical docs/code/ops dependency 없이
+  중복된 내용만 담고 있어 제거됐다.
+- 다음 `active` 항목은 local GitLab smoke internals에서 lifecycle-named entrypoint를 primary로
+  노출하고 `tde` 이름은 compatibility/backing fixture surface로 낮추는 cleanup이다.
 
 ## Validation Baseline
 
