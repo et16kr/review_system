@@ -101,7 +101,7 @@
 
 ### 3. `review-engine` Deep Review
 
-상태: `active`
+상태: `watch`
 
 이번 작업의 범위:
 
@@ -115,6 +115,12 @@
 
 - `review-engine` 영역의 핵심 findings가 누적 리뷰 문서에 정리된다.
 - 유지할 것, 줄일 것, deferred로 남길 것이 구분된다.
+
+`2026-04-24` 업데이트:
+
+- [docs/reviews/CURRENT_STATE_REVIEW.md](/home/et16/work/review_system/docs/reviews/CURRENT_STATE_REVIEW.md:1)에 `review-engine` deep review 결과를 추가했고, minimal lifecycle CLI와 source coverage matrix가 canonical YAML write boundary를 잘 지키는 반면, duplicate `pack_id`/`policy_id` collision은 runtime loader와 lifecycle CLI에서 조용히 덮어써진다는 finding을 남겼다.
+- [docs/reviews/REVIEW_FINDINGS_BACKLOG.md](/home/et16/work/review_system/docs/reviews/REVIEW_FINDINGS_BACKLOG.md:1)에 duplicate identity collision fail-fast direct fix와 manual editor deferred 유지 판단을 backlog로 정리했다.
+- 이번 unit은 docs/code static evidence review로 처리해 deterministic validation은 `git diff --check`만 사용했다. targeted test, local GitLab smoke, provider-direct smoke는 새 runtime claim이 없어 생략했고, direct OpenAI와 stub fallback도 사용하지 않았다.
 
 ### 4. `review-bot` Deep Review
 
@@ -196,12 +202,12 @@
 
 ## Suggested Next Step
 
-현재 가장 자연스러운 다음 단계는 `3. review-engine Deep Review`다.
+현재 가장 자연스러운 다음 단계는 `4. review-bot Deep Review`다.
 
 이유:
 
-- architecture review로 top-level 방향성과 남은 compatibility drift를 먼저 고정했으므로, 이제 `review-engine` 내부 경계를 같은 finding contract로 깊게 점검할 수 있다.
-- local harness stale contract는 이미 backlog로 분리했기 때문에, 다음 단계에서는 engine rule/retrieval/authoring 경계 자체에 집중해도 된다.
+- architecture review와 `review-engine` deep review로 top-level 방향성, harness compatibility drift, engine authoring boundary까지 한 번 정리됐으므로 이제 lifecycle/provider/UX surface가 더 큰 미확인 영역으로 남았다.
+- `review-engine`에서는 duplicate identity collision과 manual editor deferred 판단을 이미 backlog/deferred로 고정했기 때문에, 다음 단계는 `review-bot`의 detect/publish/sync/verify 경계와 provider signal 분리를 같은 finding contract로 점검하는 편이 맞다.
 
 ## Validation Baseline
 
@@ -214,6 +220,12 @@
 
 - architecture/direction review도 docs/code static evidence unit으로 처리해 `git diff --check`만 deterministic validation으로 사용한다.
 - targeted test, local GitLab smoke, provider-direct smoke는 runtime claim을 새로 만들지 않는 범위라 생략한다.
+
+`2026-04-24` unit 3 실행 메모:
+
+- `review-engine` deep review도 docs/code static evidence unit으로 처리해 `git diff --check`만 deterministic validation으로 사용한다.
+- targeted test, local GitLab smoke, provider-direct smoke는 runtime claim을 새로 만들지 않는 범위라 생략한다.
+- 이번 unit은 provider나 lifecycle runtime 검증을 다루지 않았으므로 direct OpenAI와 stub fallback은 둘 다 사용하지 않았다.
 
 리뷰 문서 작업:
 

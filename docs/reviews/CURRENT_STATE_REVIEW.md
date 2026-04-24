@@ -9,6 +9,7 @@
 
 - `2026-04-24` 기준 review frame과 evidence inventory를 먼저 고정했다.
 - 같은 날짜 architecture and direction review를 추가로 수행했고, top-level boundary 결론과 legacy compatibility drift를 누적했다.
+- 같은 날짜 `review-engine` deep review를 추가로 수행했고, canonical YAML write boundary 강점과 extension identity collision 리스크를 누적했다.
 - 이후 unit은 아래 scope, validation mode, finding contract를 그대로 재사용한다.
 
 ## Review Scope And Evidence Inventory
@@ -42,6 +43,9 @@
 - external Git review system을 canonical UI로 두고 `review-bot`이 `detect -> publish -> sync` lifecycle을 책임지는 현재 방향은 여전히 일관된다.
 - 가장 큰 drift는 구조 방향 자체보다 local harness compatibility residue다. `review-platform` bot facade는 current-state에서 제거됐다고 적은 legacy `pr_id` bot endpoint를 아직 호출하고, 테스트는 이 경계를 mock으로만 덮는다.
 - `ReviewRunner`와 `local_platform` adapter 안에도 `_legacy_key`, `BOT_LEGACY_*`, `pr_id` helper가 남아 있어 문서가 말하는 canonical `ReviewRequestKey` boundary보다 구현이 더 느슨하다.
+- `review-engine` 쪽은 source atom coverage matrix, model validator, minimal lifecycle CLI가 canonical YAML write boundary를 꽤 잘 지키고 있다.
+- 다만 extension rule root에 같은 `pack_id` 또는 `policy_id`가 들어오면 runtime loader와 lifecycle CLI가 마지막 항목으로 조용히 덮어써서, 문서가 말하는 canonical identity/fail-fast 규칙보다 구현이 느슨하다.
+- manual editor는 지금 끌어올릴 시점이 아니다. 먼저 extension identity collision을 명시적 오류로 바꾸고, canonical file path와 source-atom maintenance를 더 선명하게 드러내는 편이 맞다.
 
 ## Finding Contract
 
@@ -82,19 +86,43 @@
 - Impact: deep review 단계는 top-level 방향 자체를 다시 뒤집기보다, current-state 문서와 남은 compatibility residue의 간극을 줄이는 쪽에 집중하면 된다.
 - Action: `keep as-is with reason`
 
+### F-engine-01 Extension rule root identity collisions silently overwrite prior pack or policy definitions
+- Severity: `medium`
+- Evidence: [docs/CURRENT_SYSTEM.md](/home/et16/work/review_system/docs/CURRENT_SYSTEM.md:126)는 extension rule root 오류를 fail-fast 하며 `pack_id`를 canonical identity로 다룬다고 적지만, [review-engine/review_engine/ingest/rule_loader.py](/home/et16/work/review_system/review-engine/review_engine/ingest/rule_loader.py:69)는 resolved root를 순회하면서 `pack_index[pack.pack_id]`와 `policy_index[policy.policy_id]`에 마지막 값을 그대로 대입한다. [review-engine/review_engine/cli/rule_lifecycle.py](/home/et16/work/review_system/review-engine/review_engine/cli/rule_lifecycle.py:728)도 inspection/mutation 경로에서 같은 방식으로 available pack index를 구성한다. 반면 현재 targeted regression은 [review-engine/tests/test_rule_runtime.py](/home/et16/work/review_system/review-engine/tests/test_rule_runtime.py:267)의 noncanonical conflict surface 거부와 [review-engine/tests/test_rule_lifecycle_cli.py](/home/et16/work/review_system/review-engine/tests/test_rule_lifecycle_cli.py:561)의 merged profile write boundary 거부까지는 덮지만, duplicate identity collision 자체를 명시적으로 검증하지 않는다.
+- Impact: public root와 extension root, 또는 extension root끼리 같은 `pack_id`/`policy_id`를 재사용하면 어떤 정의가 실제 runtime과 lifecycle CLI에서 선택됐는지 조용히 바뀔 수 있다. 이 상태는 authoring 실수나 packaging drift를 늦게 발견하게 만들고, `disable`/`enable` 같은 최소 mutation 도구도 ambiguous identity를 드러내지 못하게 만든다.
+- Action: `direct fix`
+
+### F-engine-02 Minimal lifecycle CLI and source coverage matrix preserve the canonical YAML write boundary
+- Severity: `low`
+- Evidence: [docs/CURRENT_SYSTEM.md](/home/et16/work/review_system/docs/CURRENT_SYSTEM.md:146)는 lifecycle CLI mutation이 single canonical pack/profile YAML만 수정해야 한다고 고정하고, [review-engine/review_engine/models.py](/home/et16/work/review_system/review-engine/review_engine/models.py:111)와 [review-engine/review_engine/models.py](/home/et16/work/review_system/review-engine/review_engine/models.py:176)는 noncanonical conflict surface를 모델 단계에서 거부한다. 이 경계는 [review-engine/tests/test_rule_lifecycle_cli.py](/home/et16/work/review_system/review-engine/tests/test_rule_lifecycle_cli.py:362)의 canonical profile YAML-only mutation, [review-engine/tests/test_rule_lifecycle_cli.py](/home/et16/work/review_system/review-engine/tests/test_rule_lifecycle_cli.py:561)의 merged profile write boundary fail-fast, [review-engine/tests/test_source_coverage_matrix.py](/home/et16/work/review_system/review-engine/tests/test_source_coverage_matrix.py:60)의 source atom coverage completeness 검증으로 계속 고정된다.
+- Impact: generated dataset나 merged runtime state를 직접 수정하는 우회 surface 없이, canonical YAML과 source atom inventory를 기준으로 운영한다는 현재 rule authoring 원칙은 여전히 방어 가능하다.
+- Action: `keep as-is with reason`
+
+### F-engine-03 Manual editor should stay deferred until authoring boundary evidence is tighter
+- Severity: `low`
+- Evidence: [docs/deferred/rule_authoring_and_editor.md](/home/et16/work/review_system/docs/deferred/rule_authoring_and_editor.md:12)는 editor/UI를 미루는 이유로 rule state model, validation, public/private extension boundary 정리를 먼저 요구한다. 실제 코드도 [review-engine/review_engine/cli/rule_lifecycle.py](/home/et16/work/review_system/review-engine/review_engine/cli/rule_lifecycle.py:740)에서 single profile write boundary가 없으면 pack mutation을 거부하고, [review-engine/tests/test_source_coverage_matrix.py](/home/et16/work/review_system/review-engine/tests/test_source_coverage_matrix.py:60)는 source coverage가 source atom 단위까지 완결돼야 함을 강제한다. 여기에 `F-engine-01`의 duplicate identity collision이 아직 unresolved다.
+- Impact: 지금 editor를 올리면 public/shared/extension root 중 어디를 수정하는지, source atom coverage와 canonical YAML이 어떻게 함께 유지되는지 UI가 대신 추론해야 한다. 그 결과 별도 저장 모델이나 숨은 write path가 다시 생길 가능성이 높다.
+- Action: `defer with reason`
+
 ## Direction Check
 
 - top-level 방향성은 맞다. external review system canonical UI, `review-bot` lifecycle ownership, `review-platform` harness-only positioning은 문서와 핵심 코드가 일치한다.
 - 다만 local harness와 runner 내부에 남은 legacy `pr_id` compatibility seam 때문에 current-state 문서보다 구현 경계가 더 넓다.
-- 이후 deep review는 구조 전환 제안보다, stale harness contract와 runner compatibility residue가 어디까지 남아 있는지 줄이는 관점으로 진행하는 편이 맞다.
+- `review-engine`도 큰 방향은 맞다. source atom coverage matrix, model validator, minimal lifecycle CLI는 canonical YAML boundary를 유지하는 데 실제로 기여하고 있다.
+- `review-engine`에서 줄여야 할 표면은 editor 부재가 아니라 duplicate pack/policy identity를 조용히 허용하는 부분이다.
+- 이후 deep review는 구조 전환 제안보다, stale harness contract, runner compatibility residue, engine identity collision 같은 느슨한 seam을 줄이는 관점으로 진행하는 편이 맞다.
 
 ## Roadmap / Deferred Assessment
 
 - `F-arch-01`은 review 단위 backlog를 넘어 실제 direct fix 후보다. local harness가 current API를 따라가도록 바꾸거나 unsupported path를 명시적으로 닫아야 한다.
 - `F-arch-02`는 harness migration 이후 `docs/ROADMAP.md` 또는 cleanup review에서 다룰 후속 항목으로 남기는 편이 안전하다.
+- `F-engine-01`은 `review-engine` 내부 direct fix 후보다. runtime loader와 lifecycle CLI가 resolved root 간 duplicate `pack_id`/`policy_id`를 명시적 ambiguity로 fail-fast 하도록 맞추는 편이 맞다.
+- `F-engine-03`은 deferred에 그대로 남겨야 한다. duplicate identity guard와 authoring path evidence가 더 쌓이기 전에는 manual editor를 active roadmap으로 끌어올릴 이유가 약하다.
 
 ## Recommended Actions
 
 - `review-platform` bot facade를 current key-based `review-bot` API에 맞추고, mock이 아닌 contract test를 하나 추가한다.
 - harness migration 뒤에는 runner core의 `_legacy_key`, `BOT_LEGACY_*`, `pr_id` helper를 test-only shim 또는 명시적 compatibility layer로 밀어낸다.
-- 다음 review unit은 `review-engine` deep review로 넘어가되, local harness evidence는 `F-arch-01` 해결 전까지 current-state runtime proof로 과신하지 않는다.
+- `review-engine` loader와 lifecycle CLI에 duplicate pack/policy identity collision guard를 넣고, public+extension 및 extension+extension collision regression을 추가한다.
+- manual editor/editor UI는 deferred에 유지하고, 대신 canonical file path preview와 authoring failure evidence를 나중에 별도 수집한다.
+- 다음 review unit은 `review-bot` deep review로 넘어가되, local harness evidence는 `F-arch-01` 해결 전까지 current-state runtime proof로 과신하지 않는다.

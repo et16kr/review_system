@@ -52,3 +52,21 @@
 - Recommended action: local harness와 older test caller를 current key-based API로 옮긴 뒤, `ReviewRunner` public helper에서 `pr_id` compatibility를 제거하거나 test-only shim으로 격리한다. 같은 시점에 `BOT_LEGACY_REVIEW_SYSTEM`, `BOT_LEGACY_PROJECT_REF`를 current-state 운영 surface에서 내린다.
 - Follow-up target: `docs/ROADMAP.md`
 - Validation note: runner와 local adapter targeted test를 `ReviewRequestKey` 중심으로 바꾼 뒤 `cd review-bot && uv run pytest tests/test_review_runner.py tests/test_integration_phase1_4.py -q`로 회귀를 확인한다. local GitLab smoke와 provider-direct smoke는 직접 필요하지 않다.
+
+### B-engine-01 Fail fast on duplicate pack and policy identities across resolved rule roots
+- Finding: `F-engine-01 Extension rule root identity collisions silently overwrite prior pack or policy definitions`
+- Severity: `medium`
+- Area: `review-engine`
+- Evidence: [docs/CURRENT_SYSTEM.md](/home/et16/work/review_system/docs/CURRENT_SYSTEM.md:126), [review-engine/review_engine/ingest/rule_loader.py](/home/et16/work/review_system/review-engine/review_engine/ingest/rule_loader.py:69), [review-engine/review_engine/cli/rule_lifecycle.py](/home/et16/work/review_system/review-engine/review_engine/cli/rule_lifecycle.py:728), [review-engine/tests/test_rule_runtime.py](/home/et16/work/review_system/review-engine/tests/test_rule_runtime.py:267), [review-engine/tests/test_rule_lifecycle_cli.py](/home/et16/work/review_system/review-engine/tests/test_rule_lifecycle_cli.py:561)
+- Recommended action: resolved public/shared/extension root를 합칠 때 duplicate `pack_id`와 `policy_id`를 명시적 오류로 거부한다. 같은 ambiguity guard를 lifecycle CLI의 available pack lookup에도 적용하고, 에러 메시지에 충돌한 source path를 같이 노출한다.
+- Follow-up target: `direct fix`
+- Validation note: duplicate fixture를 public+extension, extension+extension 두 방향으로 추가한 뒤 `cd review-engine && uv run pytest tests/test_rule_runtime.py tests/test_rule_lifecycle_cli.py -q`로 회귀를 확인한다. local GitLab smoke, provider-direct smoke, direct OpenAI 검증은 관련 없다.
+
+### B-engine-02 Keep manual editor work deferred until authoring path evidence is broader
+- Finding: `F-engine-03 Manual editor should stay deferred until authoring boundary evidence is tighter`
+- Severity: `low`
+- Area: `review-engine`
+- Evidence: [docs/deferred/rule_authoring_and_editor.md](/home/et16/work/review_system/docs/deferred/rule_authoring_and_editor.md:12), [review-engine/review_engine/cli/rule_lifecycle.py](/home/et16/work/review_system/review-engine/review_engine/cli/rule_lifecycle.py:740), [review-engine/tests/test_source_coverage_matrix.py](/home/et16/work/review_system/review-engine/tests/test_source_coverage_matrix.py:60)
+- Recommended action: manual editor/editor UI는 deferred에 유지하고, 먼저 canonical file path preview, authoring failure telemetry, duplicate identity guard 같은 선행 증거를 쌓는다.
+- Follow-up target: `deferred`
+- Validation note: 현재는 docs/code review 결정만 있으면 충분하다. editor work를 실제로 끌어올릴 때 targeted test를 다시 정하고, local GitLab smoke, provider-direct smoke, direct OpenAI 검증은 계속 범위 밖으로 둔다.
