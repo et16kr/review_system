@@ -1,0 +1,22 @@
+schema_version: 1
+package_id: com.example.private_org_cpp
+package_version: 0.1.0
+package_kind: review_engine_rule_extension
+compatible_review_engine:
+  rule_schema_version: 1
+  min_review_engine_version: 0.1.0
+extension_roots:
+  - .
+included:
+  pack_files:
+    - packs/org_cpp.yaml
+  profile_files:
+    - profiles/default.yaml
+  policy_files:
+    - policies/org_default.yaml
+  source_manifest_files: []
+provenance:
+  builder: review-engine example fixture
+  source_revision: fixture
+  build_timestamp: "2026-04-24T00:00:00Z"
+  checksums: []

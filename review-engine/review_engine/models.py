@@ -1,14 +1,22 @@
 from __future__ import annotations
 
+import re
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 PriorityTier = Literal["reference", "default", "high", "override"]
 ConflictAction = Literal["compatible", "overridden", "excluded", "reference_only"]
 Reviewability = Literal["auto_review", "manual_only", "reference_only"]
 AppliesTo = Literal["code", "diff", "comment", "docs"]
+
+_PACKAGE_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]*$")
+_SEMVER_RE = re.compile(
+    r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)"
+    r"(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$"
+)
+_SHA256_RE = re.compile(r"^[0-9a-fA-F]{64}$")
 
 
 def _legacy_authority(source_kind: str) -> str:
@@ -243,6 +251,72 @@ class RuleRootManifest(StrictAuthoringModel):
     pack_files: list[str] = Field(default_factory=list)
     profile_files: list[str] = Field(default_factory=list)
     policy_files: list[str] = Field(default_factory=list)
+
+
+class RulePackageCompatibility(StrictAuthoringModel):
+    rule_schema_version: int = 1
+    min_review_engine_version: str | None = None
+    max_review_engine_version: str | None = None
+    build_identifier: str | None = None
+
+    @model_validator(mode="after")
+    def _enforce_supported_rule_schema(self) -> RulePackageCompatibility:
+        if self.rule_schema_version != 1:
+            raise ValueError("compatible_review_engine.rule_schema_version must be 1")
+        return self
+
+
+class RulePackageIncludedFiles(StrictAuthoringModel):
+    pack_files: list[str] = Field(default_factory=list)
+    profile_files: list[str] = Field(default_factory=list)
+    policy_files: list[str] = Field(default_factory=list)
+    source_manifest_files: list[str] = Field(default_factory=list)
+
+
+class RulePackageChecksum(StrictAuthoringModel):
+    path: str
+    sha256: str
+
+    @field_validator("sha256")
+    @classmethod
+    def _validate_sha256(cls, value: str) -> str:
+        if not _SHA256_RE.fullmatch(value):
+            raise ValueError("checksum sha256 must be 64 hexadecimal characters")
+        return value
+
+
+class RulePackageProvenance(StrictAuthoringModel):
+    builder: str
+    source_revision: str
+    build_timestamp: str
+    checksums: list[RulePackageChecksum] = Field(default_factory=list)
+
+
+class RulePackageManifest(StrictAuthoringModel):
+    schema_version: Literal[1] = 1
+    package_id: str
+    package_version: str
+    package_kind: Literal["review_engine_rule_extension"]
+    compatible_review_engine: RulePackageCompatibility
+    extension_roots: list[str] = Field(min_length=1, max_length=1)
+    included: RulePackageIncludedFiles
+    provenance: RulePackageProvenance
+
+    @field_validator("package_id")
+    @classmethod
+    def _validate_package_id(cls, value: str) -> str:
+        if not _PACKAGE_ID_RE.fullmatch(value):
+            raise ValueError(
+                "package_id must be stable ASCII using letters, digits, dot, underscore, or hyphen"
+            )
+        return value
+
+    @field_validator("package_version")
+    @classmethod
+    def _validate_package_version(cls, value: str) -> str:
+        if not _SEMVER_RE.fullmatch(value):
+            raise ValueError("package_version must be SemVer-compatible")
+        return value
 
 
 class RuleSourceManifestEntry(StrictAuthoringModel):
