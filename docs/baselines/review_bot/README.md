@@ -10,6 +10,8 @@ Recommended files:
 - `multilang_smoke_<fixture_id>_YYYY-MM-DD.json`
 - `wrong_language_28d_YYYY-MM-DD.md`
 - `wrong_language_backlog_28d_YYYY-MM-DD.md`
+- `direct_openai_smoke_YYYY-MM-DD.txt`
+- `direct_openai_smoke_openai_compatible_local_YYYY-MM-DD.txt`
 - `provider_quality_stub_YYYY-MM-DD.md`
 - `provider_quality_openai_YYYY-MM-DD.md`
 - `provider_quality_openai_compatible_local_YYYY-MM-DD.md`
@@ -41,6 +43,10 @@ for human review and should not be required in default CI.
 If `BOT_OPENAI_BASE_URL` is non-default, keep a separate local-backend artifact name and
 use the embedded `provider_runtime` provenance (`configured_model`, `endpoint_base_url`,
 `transport_class`) to distinguish it from the default OpenAI baseline.
+Direct smoke stdout captures use separate filenames for default OpenAI and local backend
+endpoints. A direct smoke capture is provider-success evidence only when it was run with
+`--expect-live-openai`, exited `0`, and includes both `models_probe_status=ok` and a
+`live_probe_model=...` line. Otherwise it is a diagnostic artifact.
 Provider comparison snapshots summarize stub/OpenAI deltas and include a human-review
 checklist. If `OPENAI_API_KEY` is unavailable, the comparison can still be captured as
 `openai_status=skipped` without changing prompt or ranking weights.
@@ -93,8 +99,25 @@ uv run python -m review_bot.cli.compare_provider_quality \
 ```
 
 For a non-default `BOT_OPENAI_BASE_URL`, use separate retained filenames such as
+`direct_openai_smoke_openai_compatible_local_YYYY-MM-DD.txt`,
 `provider_quality_openai_compatible_local_YYYY-MM-DD.md` and
 `provider_comparison_openai_compatible_local_YYYY-MM-DD.md`.
+
+Local backend capture checklist:
+
+- `BOT_OPENAI_BASE_URL` is non-default and points at the intended OpenAI-compatible `/v1`
+  endpoint.
+- `BOT_OPENAI_MODEL` names the backend model under test.
+- `OPENAI_API_KEY` is set to the real key or backend-accepted placeholder used for the run.
+- direct smoke, provider quality, and comparison retained filenames use the
+  `openai_compatible_local` suffix.
+- artifact `provider_runtime.endpoint_base_url`, `configured_model`, and `transport_class`
+  match the intended backend.
+- `capture_success` means direct smoke provider-success evidence plus provider quality
+  `status=passed`; comparison `human_review_required=true` still requires a decision
+  artifact before tuning.
+- `skipped`, transport failure, provenance mismatch, or missing provider-quality JSON means
+  `defer`, not tuning evidence.
 
 Provider/ranking/density helper:
 

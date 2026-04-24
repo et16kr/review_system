@@ -864,7 +864,7 @@ python3 -m py_compile ops/scripts/create_gitlab_merge_request.py ops/scripts/boo
 
 ### 20. Local Backend Retained Artifact Capture Prep
 
-상태: `queued`
+상태: `watch`
 
 이번 작업의 범위:
 
@@ -872,6 +872,26 @@ python3 -m py_compile ops/scripts/create_gitlab_merge_request.py ops/scripts/boo
 2. direct smoke, provider-quality, comparison artifact의 retained filename 규칙을 고정한다.
 3. “capture 성공”과 “human review required”를 구분하는 기준을 적는다.
 4. local backend artifact가 direct OpenAI artifact와 섞이지 않도록 provenance 표현을 고정한다.
+
+완료 기록:
+
+- OpenAI-compatible local backend capture env contract를
+  [OPERATIONS_RUNBOOK.md](/home/et16/work/review_system/docs/OPERATIONS_RUNBOOK.md:93)에
+  고정했다.
+- direct smoke, provider-quality, comparison retained filename은 default OpenAI와
+  `openai_compatible_local` suffix를 쓰는 local backend artifact로 분리했다.
+- direct provider success artifact 기준은 `--expect-live-openai`, exit `0`,
+  `models_probe_status=ok`, `live_probe_model=...`으로 고정했고,
+  provider quality `status=passed`와 provenance match를 capture success 기준으로 적었다.
+- comparison `human_review_required=true`, skipped/failure/provenance mismatch/missing JSON은
+  tuning evidence가 아니라 decision artifact 또는 `defer`로 처리한다고 문서화했다.
+- [docs/baselines/review_bot/README.md](/home/et16/work/review_system/docs/baselines/review_bot/README.md:1)는
+  retained filename 목록과 local backend capture checklist를 포함한다.
+- 검증 통과:
+  - `git diff --check`
+  - `bash -n ops/scripts/advance_roadmap_with_codex.sh ops/scripts/advance_review_roadmap_with_codex.sh`
+- local GitLab lifecycle smoke와 direct OpenAI smoke는 문서/계약 prep이고 live provider success
+  claim이 아니어서 실행하지 않았다. OpenAI direct smoke preflight는 configuration에 의해 skipped였다.
 
 ## Prepare Deferred Work
 
@@ -984,7 +1004,7 @@ python3 -m py_compile ops/scripts/create_gitlab_merge_request.py ops/scripts/boo
 
 ## Suggested Next Step
 
-현재 가장 자연스러운 다음 작업은 `20. Local Backend Retained Artifact Capture Prep`이다.
+현재 가장 자연스러운 다음 작업은 `21. Provider / Ranking / Density Tuning Readiness Packet`이다.
 
 이유:
 
@@ -1016,8 +1036,10 @@ python3 -m py_compile ops/scripts/create_gitlab_merge_request.py ops/scripts/boo
   fail-fast/ignore/warn 경계, note-first report command 관계를 고정했다.
 - future `ask` note command boundary는 context source, session/retention, unavailable/timeout/empty
   evidence response, summarize/walkthrough 이후 UX 목적을 고정했다.
-- 다음 queued product contract work는 local backend 실험 artifact가 direct OpenAI artifact와 섞이지
-  않도록 env/provenance/retained filename 기준을 고정하는 작업이다.
+- local backend capture prep은 default OpenAI와 OpenAI-compatible local backend artifact가 섞이지
+  않도록 env/provenance/retained filename 기준과 capture success/human-review/defer 판정을 고정했다.
+- 다음 queued readiness work는 provider/ranking/density tuning을 시작하기 전 direct smoke 성공 조건과
+  human comparison checklist, quota 정상 환경에서의 재수집 순서를 정리하는 작업이다.
 
 ## Validation Baseline
 
