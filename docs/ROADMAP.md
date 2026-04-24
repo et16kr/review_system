@@ -938,7 +938,7 @@ python3 -m py_compile ops/scripts/create_gitlab_merge_request.py ops/scripts/boo
 
 ### 22. Manual Rule Editor Readiness Packet
 
-상태: `queued`
+상태: `watch`
 
 연결 문서:
 
@@ -953,6 +953,27 @@ python3 -m py_compile ops/scripts/create_gitlab_merge_request.py ops/scripts/boo
 이 사전 작업이 끝나면:
 
 - manual rule editor를 UI/preview/validate 단위로 잘라 시작할 수 있다.
+
+완료 기록:
+
+- manual rule editor readiness packet을
+  [rule_authoring_and_editor.md](/home/et16/work/review_system/docs/deferred/rule_authoring_and_editor.md:1)에
+  추가했다.
+- lifecycle CLI의 기존 write boundary는 `list`/`show` read-only inspection,
+  single pack entry `enabled` mutation, single profile pack membership mutation으로 고정하고,
+  future editor surface는 canonical rule entry metadata, profile/policy preview, source coverage,
+  strict YAML validation, ingest/retrieval preview로 분리했다.
+- authoring typo와 validation failure 후보를 unknown YAML key, `pack_id`/`source_family` mismatch,
+  duplicate/unknown selected pack, invalid conflict-state authoring, literal mismatch, source coverage miss,
+  default profile inference ambiguity로 정리했다.
+- editor는 canonical YAML diff와 validation result를 남기고 Git workflow를 우회하지 않으며,
+  generated artifacts나 별도 DB-backed rule state를 source of truth로 만들지 않는다고 고정했다.
+- 검증 통과:
+  - `git diff --check`
+  - `bash -n ops/scripts/advance_roadmap_with_codex.sh ops/scripts/advance_review_roadmap_with_codex.sh`
+- local GitLab lifecycle smoke와 direct OpenAI smoke는 deferred readiness 문서/계약 변경이고
+  provider/runtime success claim이 아니어서 실행하지 않았다. OpenAI direct smoke preflight는
+  configuration에 의해 skipped였다.
 
 ### 23. Private Rule Packaging Readiness Packet
 
@@ -1024,7 +1045,7 @@ python3 -m py_compile ops/scripts/create_gitlab_merge_request.py ops/scripts/boo
 
 ## Suggested Next Step
 
-현재 가장 자연스러운 다음 작업은 `22. Manual Rule Editor Readiness Packet`이다.
+현재 가장 자연스러운 다음 작업은 `23. Private Rule Packaging Readiness Packet`이다.
 
 이유:
 
@@ -1060,8 +1081,10 @@ python3 -m py_compile ops/scripts/create_gitlab_merge_request.py ops/scripts/boo
   않도록 env/provenance/retained filename 기준과 capture success/human-review/defer 판정을 고정했다.
 - provider/ranking/density tuning readiness packet은 default OpenAI direct smoke 성공 조건과
   human comparison checklist, quota 정상 환경에서의 재수집 순서를 고정했다.
-- 다음 queued readiness work는 manual rule editor가 lifecycle CLI와 canonical YAML/Git history
-  boundary를 우회하지 않도록 실행 전 packet을 정리하는 작업이다.
+- manual rule editor readiness packet은 lifecycle CLI와 canonical YAML/Git history boundary를
+  우회하지 않는 future editor scope를 정리했다.
+- 다음 queued readiness work는 private/organization rule packaging의 manifest metadata,
+  artifact 분리, install/update/rollback validation gate를 implementation-ready slice로 정리하는 작업이다.
 
 ## Validation Baseline
 
