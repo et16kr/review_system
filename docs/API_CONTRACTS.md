@@ -666,6 +666,94 @@ Response 예시:
 }
 ```
 
+### `.review-bot.yaml` repository config contract
+
+상태:
+
+- 이 섹션은 `.review-bot.yaml` runtime loader를 구현하기 전의 v1 계약이다.
+- 현재 live `review-bot`은 아직 이 파일을 읽지 않는다. 구현 전까지는 env/default와 note command가
+  실제 동작의 source of truth다.
+- 파일 위치는 repository root의 `.review-bot.yaml`이다.
+- config는 MR source head가 아니라 target/base revision에서 읽는다. config 변경 자체는 리뷰를 거쳐
+  target branch에 들어간 뒤 다음 review request부터 적용된다.
+
+v1 최소 surface:
+
+```yaml
+version: 1
+review:
+  enabled: true
+  paths:
+    include:
+      - "**/*"
+    exclude:
+      - "docs/generated/**"
+publish:
+  batch_size: 5
+  rule_family_cap: 2
+  file_comment_cap: 2
+  minimum_publish_score: 0.70
+```
+
+필드 의미:
+
+- `version`: required. v1에서는 정수 `1`만 허용한다.
+- `review.enabled`: optional bool. `false`이면 `review` command는 detect/publish를 만들지 않고,
+  가능하면 visible config-disabled note를 남긴다.
+- `review.paths.include`: optional string list. 비어 있거나 생략되면 모든 adapter 제공 diff path를
+  후보로 둔다.
+- `review.paths.exclude`: optional string list. include 이후 제거할 path glob이다.
+- `publish.batch_size`: optional positive int. env `BOT_BATCH_SIZE`의 hard cap 안에서만 낮출 수 있다.
+- `publish.rule_family_cap`: optional positive int. env `BOT_RULE_FAMILY_CAP`의 hard cap 안에서만
+  낮출 수 있다.
+- `publish.file_comment_cap`: optional positive int. env `BOT_FILE_COMMENT_CAP`의 hard cap 안에서만
+  낮출 수 있다.
+- `publish.minimum_publish_score`: optional number between `0` and `1`. env
+  `BOT_MINIMUM_PUBLISH_SCORE`보다 낮게 설정할 수 없다.
+
+v1에서 다루지 않는 값:
+
+- `ReviewRequestKey`, `project_ref`, adapter 선택, GitLab URL/token/webhook secret, queue 이름,
+  database/Redis URL, provider/model/base URL/API key, bot author identity는 env/orchestrator
+  source of truth로만 유지한다.
+- `ask`, provider session, codebase retrieval memory, prompt override, rule pack/profile authoring,
+  private extension install/update는 `.review-bot.yaml` v1 surface가 아니다.
+
+Precedence:
+
+| 결정 영역 | 우선순위 | 정책 |
+| --- | --- | --- |
+| Security / identity / adapter | env/orchestrator only | repo config에 해당 key가 있으면 fail-fast |
+| Per-invocation action | MR note command | `review`만 detect enqueue, report-style commands는 enqueue하지 않음 |
+| Review enablement | env service availability -> repo `review.enabled` | repo config는 review를 끌 수 있지만 service/env disabled 상태를 켤 수 없음 |
+| File eligibility | adapter diff -> built-in reviewability -> repo include/exclude | repo config는 후보를 좁힐 수 있지만 unreviewable type을 강제로 reviewable로 만들 수 없음 |
+| Publish volume | env hard cap -> repo value -> runtime suppress/rerank | repo config는 cap을 낮추거나 score threshold를 올리는 방향만 허용 |
+| Provider behavior | env/provider runtime only | repo config가 provider/model/endpoint/fallback을 바꾸지 않음 |
+
+Validation / error policy:
+
+| 상태 | 정책 |
+| --- | --- |
+| 파일 없음 | ignore, env/default 사용 |
+| adapter가 target/base file fetch를 지원하지 않음 | warn metadata를 남기고 env/default 사용 |
+| malformed YAML, unsupported `version`, unknown key, invalid type | fail-fast config error |
+| forbidden key(provider, token, adapter, queue, identity 등) | fail-fast config error |
+| repo value가 env hard cap보다 완화적임 | fail-fast config error |
+| include/exclude 이후 reviewable file이 없음 | no-op success, provider 호출과 inline publish 없음 |
+
+Note-first UX 관계:
+
+- `@review-bot review`와 `/review-bot review`만 config를 적용한 detect/publish lifecycle을 시작한다.
+- `summarize`, `walkthrough`, `backlog`, `full-report`는 current state를 읽는 note-family
+  command다. 이 명령들은 새 review run을 만들지 않고, invalid config가 source branch에 추가되어도
+  그 자체만으로 실패하지 않는다.
+- `help`는 supported command 안내 note이며 새 review run을 만들지 않는다.
+- `summarize`는 최신 run/head, provider provenance, aggregate backlog/suppress count를 보여 준다.
+- `walkthrough`는 summarize -> backlog -> full-report 읽기 순서를 안내한다.
+- `backlog`는 현재 MR thread state 기준 backlog만 보여 준다.
+- `full-report`는 최신 완료 run 결과와 현재 backlog를 함께 보여 준다.
+- unknown directed command는 config와 무관하게 no-enqueue visible feedback 경로를 유지한다.
+
 ## 3. `review-engine` API
 
 Base URL:

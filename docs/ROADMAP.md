@@ -795,7 +795,7 @@ python3 -m py_compile ops/scripts/create_gitlab_merge_request.py ops/scripts/boo
 
 ### 18. `.review-bot.yaml` Contract Definition
 
-상태: `queued`
+상태: `watch`
 
 이번 작업의 범위:
 
@@ -803,6 +803,30 @@ python3 -m py_compile ops/scripts/create_gitlab_merge_request.py ops/scripts/boo
 2. env, repo config, note command precedence 표를 고정한다.
 3. 허용하지 않을 값과 fail-fast / ignore / warn 경계를 정한다.
 4. `summarize`, `walkthrough`, `backlog`, `full-report`와의 관계를 note-first UX 기준으로 적는다.
+
+완료 기록:
+
+- `.review-bot.yaml` v1 repository config contract를
+  [API_CONTRACTS.md](/home/et16/work/review_system/docs/API_CONTRACTS.md:669)에 정의했다.
+- v1 최소 surface는 `version`, `review.enabled`, `review.paths.include/exclude`,
+  `publish.batch_size`, `publish.rule_family_cap`, `publish.file_comment_cap`,
+  `publish.minimum_publish_score`로 제한했다.
+- config는 MR source head가 아니라 target/base revision에서 읽는 계약으로 고정했고,
+  env/orchestrator setting은 security/identity/provider/adapter source of truth와 publish hard cap으로
+  유지했다.
+- note command가 per-invocation action selector이며 `review`만 detect/publish lifecycle을 만들고,
+  `summarize`, `walkthrough`, `backlog`, `full-report`는 note-first read path,
+  `help`는 supported command 안내 note로 남는다고 명시했다.
+- malformed YAML, unknown key, unsupported version, forbidden secret/provider/identity key,
+  env hard cap보다 완화적인 repo value는 fail-fast config error로 정했다. 파일 없음은 ignore,
+  target/base file fetch 미지원은 warn/default, reviewable file 없음은 no-op success로 정했다.
+- [CURRENT_SYSTEM.md](/home/et16/work/review_system/docs/CURRENT_SYSTEM.md:181)는 contract definition과
+  아직 없는 runtime loader를 분리해 설명한다.
+- 검증 통과:
+  - `git diff --check`
+  - `bash -n ops/scripts/advance_roadmap_with_codex.sh ops/scripts/advance_review_roadmap_with_codex.sh`
+- local GitLab lifecycle smoke와 direct OpenAI smoke는 문서/계약 변경이고 provider/runtime success
+  claim이 아니어서 실행하지 않았다. OpenAI direct smoke preflight는 configuration에 의해 skipped였다.
 
 ### 19. `ask` Command Boundary Definition
 
@@ -937,7 +961,7 @@ python3 -m py_compile ops/scripts/create_gitlab_merge_request.py ops/scripts/boo
 
 ## Suggested Next Step
 
-현재 가장 자연스러운 다음 작업은 `18. .review-bot.yaml Contract Definition`이다.
+현재 가장 자연스러운 다음 작업은 `19. ask Command Boundary Definition`이다.
 
 이유:
 
@@ -965,8 +989,10 @@ python3 -m py_compile ops/scripts/create_gitlab_merge_request.py ops/scripts/boo
   `tde` 이름은 compatibility/backing fixture surface로 낮췄다.
 - targeted rule expansion evidence refresh path는 retained artifact, local analytics endpoint,
   local smoke artifact 순서와 freshness/blocker 기준을 고정했다.
+- `.review-bot.yaml` v1 contract는 최소 repo config surface, env/repo/note command precedence,
+  fail-fast/ignore/warn 경계, note-first report command 관계를 고정했다.
 - post-review immediate active cleanup batch가 닫혔으므로 다음은 queued product contract work의
-  다음 항목인 `.review-bot.yaml` contract definition이다.
+  다음 항목인 `ask` command boundary definition이다.
 
 ## Validation Baseline
 
