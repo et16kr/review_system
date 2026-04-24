@@ -77,7 +77,12 @@ def load_rule_runtime_selection(
             pack = RulePackManifest.model_validate(_load_yaml(path))
             if pack.language_id not in {selected_language, "shared"}:
                 continue
-            pack_index[pack.pack_id] = (pack, path)
+            _add_pack_to_index(
+                pack_index,
+                pack=pack,
+                path=path,
+                selected_language=selected_language,
+            )
         for relative in manifest.profile_files:
             path = root / relative
             profile = ProfileConfig.model_validate(_load_yaml(path))
@@ -110,8 +115,15 @@ def load_rule_runtime_selection(
             if pack.language_id in {selected_language, "shared"}
         ]
     else:
-        selected_pack_ids = _dedupe(profile.enabled_packs + profile.shared_packs)
-        if not selected_pack_ids:
+        explicit_pack_ids = profile.enabled_packs + profile.shared_packs
+        selected_pack_ids = _dedupe(explicit_pack_ids)
+        if selected_pack_ids:
+            _validate_selected_pack_ids(
+                selected_pack_ids,
+                pack_index=pack_index,
+                profile=profile,
+            )
+        else:
             selected_pack_ids = [
                 pack_id
                 for pack_id, (pack, _path) in pack_index.items()
@@ -207,6 +219,42 @@ def _load_rule_root_manifest(root: Path) -> RuleRootManifest:
 
 def _load_yaml(path: Path) -> dict:
     return yaml.safe_load(path.read_text(encoding="utf-8"))
+
+
+def _add_pack_to_index(
+    pack_index: dict[str, tuple[RulePackManifest, Path]],
+    *,
+    pack: RulePackManifest,
+    path: Path,
+    selected_language: str,
+) -> None:
+    existing = pack_index.get(pack.pack_id)
+    if existing is not None:
+        _existing_pack, existing_path = existing
+        raise ValueError(
+            f"Duplicate rule pack id {pack.pack_id!r} for language "
+            f"{selected_language!r}: {existing_path} and {path}. "
+            "Explicit extension replacement is not supported."
+        )
+    pack_index[pack.pack_id] = (pack, path)
+
+
+def _validate_selected_pack_ids(
+    selected_pack_ids: list[str],
+    *,
+    pack_index: dict[str, tuple[RulePackManifest, Path]],
+    profile: ProfileConfig,
+) -> None:
+    missing_pack_ids = [
+        pack_id for pack_id in selected_pack_ids if pack_id not in pack_index
+    ]
+    if missing_pack_ids:
+        missing = ", ".join(missing_pack_ids)
+        raise ValueError(
+            f"Profile {profile.profile_id!r} for language {profile.language_id!r} "
+            "selects unknown rule pack ids from enabled_packs/shared_packs: "
+            f"{missing}"
+        )
 
 
 def _merge_profiles(

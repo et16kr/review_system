@@ -462,7 +462,7 @@ cd review-bot && uv run pytest tests/test_openai_provider_direct_smoke.py -q
 
 ### 10. Fail Fast On Unresolved Or Duplicate Selected Packs
 
-상태: `active`
+상태: `watch`
 
 왜 지금 하나:
 
@@ -484,6 +484,20 @@ cd review-bot && uv run pytest tests/test_openai_provider_direct_smoke.py -q
 ```bash
 cd review-engine && uv run pytest tests/test_rule_runtime.py tests/test_rule_lifecycle_cli.py -q
 ```
+
+완료 기록:
+
+- `review-engine` rule loader가 duplicate loaded `pack_id`를 발견하면 silent override를 하지 않고
+  explicit extension replacement unsupported error로 fail-fast 한다.
+- explicit `enabled_packs`/`shared_packs`가 없는 경우의 기존 default-enabled fallback은 유지하되,
+  explicit profile selection이 unknown pack id를 가리키면 fail-fast 한다.
+- duplicate pack id와 missing explicit profile pack reference regression test를 추가했다.
+- 검증 통과:
+  - `cd review-engine && UV_CACHE_DIR=/tmp/uv-cache-review-engine-roadmap-10 uv run --no-sync pytest tests/test_rule_runtime.py tests/test_rule_lifecycle_cli.py -q`
+  - `cd review-engine && UV_CACHE_DIR=/tmp/uv-cache-review-engine-roadmap-10-source uv run --no-sync pytest tests/test_source_coverage_matrix.py -q`
+  - `git diff --check`
+- local GitLab lifecycle smoke와 direct OpenAI smoke는 rule loader guardrail 변경이고
+  provider/runtime success claim이 아니어서 실행하지 않았다.
 
 관련 backlog: `B-review-engine-01`
 
@@ -809,7 +823,7 @@ python3 -m py_compile ops/scripts/create_gitlab_merge_request.py ops/scripts/boo
 
 ## Suggested Next Step
 
-현재 가장 자연스러운 다음 작업은 `10. Fail Fast On Unresolved Or Duplicate Selected Packs`이다.
+현재 가장 자연스러운 다음 작업은 `11. Clarify Or Remove Default Profile Configuration`이다.
 
 이유:
 
@@ -822,7 +836,9 @@ python3 -m py_compile ops/scripts/create_gitlab_merge_request.py ops/scripts/boo
 - local harness bot bridge는 key-based bot API를 사용하고 legacy `pr_id` endpoint에 의존하지 않는다.
 - review-roadmap blocked unit artifact는 retained baseline으로 남는다.
 - OpenAI direct smoke preflight는 bounded curl timeout과 timeout exit diagnostic을 남긴다.
-- 다음 `active` 항목은 review-engine selected pack resolution을 fail-fast로 만드는 일이다.
+- review-engine selected pack resolution은 duplicate loaded pack id와 unknown explicit
+  `enabled_packs`/`shared_packs` reference를 fail-fast로 처리한다.
+- 다음 `active` 항목은 default profile configuration의 실제 runtime 의미를 명확히 하는 일이다.
 
 ## Validation Baseline
 

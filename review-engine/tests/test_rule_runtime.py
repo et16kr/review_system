@@ -239,6 +239,69 @@ def test_invalid_filesystem_extension_manifest_fails_fast_even_when_strict_is_di
         )
 
 
+def test_duplicate_extension_rule_pack_id_fails_fast(fixture_settings, tmp_path) -> None:
+    extension_root = tmp_path / "duplicate-pack-extension"
+    _write(
+        extension_root / "manifest.yaml",
+        """
+        schema_version: 1
+        language_id: cpp
+        pack_files:
+          - packs/cpp_core_shadow.yaml
+        """,
+    )
+    _write(
+        extension_root / "packs" / "cpp_core_shadow.yaml",
+        """
+        schema_version: 1
+        pack_id: cpp_core
+        language_id: cpp
+        entries: []
+        """,
+    )
+
+    with pytest.raises(
+        ValueError,
+        match=r"Duplicate rule pack id 'cpp_core'.*Explicit extension replacement",
+    ):
+        load_rule_runtime(replace(fixture_settings, extension_rule_roots=(extension_root,)))
+
+
+def test_missing_profile_selected_pack_fails_fast(fixture_settings, tmp_path) -> None:
+    bad_root = tmp_path / "missing-selected-pack-root"
+    _write(
+        bad_root / "manifest.yaml",
+        """
+        schema_version: 1
+        language_id: cpp
+        profile_files:
+          - profiles/default.yaml
+        """,
+    )
+    _write(
+        bad_root / "profiles" / "default.yaml",
+        """
+        schema_version: 1
+        profile_id: default
+        language_id: cpp
+        enabled_packs:
+          - missing_cpp_pack
+        shared_packs:
+          - missing_shared_pack
+        priority_policy_ref: cpp_default
+        """,
+    )
+
+    with pytest.raises(
+        ValueError,
+        match=(
+            r"selects unknown rule pack ids from enabled_packs/shared_packs: "
+            r"missing_cpp_pack, missing_shared_pack"
+        ),
+    ):
+        load_rule_runtime(replace(fixture_settings, public_rule_root=bad_root))
+
+
 @pytest.mark.parametrize(
     ("entry_default_action", "policy_default_conflict_action", "message"),
     [
