@@ -322,13 +322,26 @@ main `ROADMAP.md`의 현재 항목을 다 돌린 뒤 곧바로 이어서 할 후
 
 ### 6. Roadmap Automation Audit Artifact
 
-상태: `not_started`
+상태: `partial`
+
+최근 완료:
+
+- `docs/baselines/roadmap_automation/README.md`가
+  retained blocker artifact의 canonical directory, filename, required entry fields
+  (`date`, `attempt`, `blocked_unit`, `reason`)와 Markdown entry shape를 고정했다.
 
 다음 작업:
 
-1. blocked unit / reason / attempt / date를 어떤 형식으로 남길지 정한다.
-2. `advance_roadmap_with_codex.sh`가 영속 artifact를 남기게 만든다.
-3. repeated blocker를 집계할 최소 운영 절차를 문서화한다.
+1. `advance_roadmap_with_codex.sh`가 위 형식의 영속 artifact를 남기게 만든다.
+2. repeated blocker를 집계할 최소 운영 절차를 문서화한다.
+
+검증 메모:
+
+- 이번 slice는 docs-only format decision이라 release gate 코드나 smoke 범위를 건드리지 않았다.
+- rerun:
+  - `bash -n ops/scripts/advance_roadmap_with_codex.sh`
+- broader `review-engine`/`review-bot`/`review-platform` tests, GitLab smoke,
+  provider/direct OpenAI validation은 아직 script append logic을 구현하지 않았으므로 생략했다.
 
 완료 기준:
 
