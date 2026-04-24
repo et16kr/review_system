@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi.testclient import TestClient
+from asgi_test_client import TestClient
 
 from app.api.main import app
 

@@ -5,12 +5,12 @@ import subprocess
 from pathlib import Path
 from unittest.mock import patch
 
-from fastapi.testclient import TestClient
+from asgi_test_client import TestClient
 
 from app.api.main import app
 from app.config import get_settings
 from app.db.models import PullRequestComment, PullRequestStatus
-from app.db.session import SessionLocal, engine
+from app.db.session import SessionLocal, engine, init_db
 
 
 def test_repository_and_pull_request_flow(tmp_path: Path) -> None:
@@ -266,6 +266,7 @@ def _reset_platform_state():
         db_path.unlink()
     if settings.storage_root.exists():
         shutil.rmtree(settings.storage_root)
+    init_db()
     return settings
 
 

@@ -42,7 +42,7 @@
   - model/base URL/transport provenance가 lifecycle API, log, summary note에 충분히 드러나야 한다.
 - Smoke / evaluation hardening
   - `review-bot` API queue TestClient gate는 bounded diagnostic을 갖췄다.
-  - `review-platform` FastAPI/TestClient gate는 아직 hang 없이 실패 신호를 내야 한다.
+  - `review-platform` API client gate는 deterministic ASGI transport와 bounded diagnostic을 갖췄다.
   - OpenAI direct smoke preflight가 bounded runtime 안에서 끝나야 한다.
 - Roadmap automation blocked artifact retention
   - implementation roadmap wrapper는 retained artifact 경로가 있지만 review-roadmap wrapper는 아직 `/tmp` scratch에 의존한다.
@@ -119,7 +119,7 @@
 
 ### 2. Make Review-Platform TestClient Gates Bounded And Diagnosable
 
-상태: `active`
+상태: `watch`
 
 왜 지금 하나:
 
@@ -137,6 +137,16 @@
 
 - `cd review-platform && uv run pytest tests/test_health.py tests/test_pr_flow.py -q`가 outer timeout 없이 끝난다.
 - 실패 시에도 pytest 결과나 hang diagnostic이 남는다.
+
+완료 기록:
+
+- `review-platform` health/PR flow suite는 deterministic ASGI test client와 per-test
+  watchdog으로 TestClient/threadpool hang diagnostic을 남긴다.
+- 검증 통과:
+  - `cd review-platform && UV_CACHE_DIR=/tmp/uv-cache-review-platform-testclient-validation uv run pytest tests/test_health.py tests/test_pr_flow.py -q`
+- 첫 검증은 기존 blocking TestClient path에서 output 없이 `124`로 종료되어 hang path를 재현했다.
+  이후 deterministic ASGI client로 같은 gate가 `4 passed`로 종료되는 것을 확인했다.
+- local GitLab lifecycle smoke와 direct OpenAI smoke는 이 harness test guardrail 변경에 필요하지 않아 실행하지 않았다.
 
 관련 backlog: `B-cross-cutting-01`
 
@@ -692,14 +702,15 @@ python3 -m py_compile ops/scripts/create_gitlab_merge_request.py ops/scripts/boo
 
 ## Suggested Next Step
 
-현재 가장 자연스러운 다음 작업은 `2. Make Review-Platform TestClient Gates Bounded And Diagnosable`이다.
+현재 가장 자연스러운 다음 작업은 `3. Fail Or Defer GitLab Note-Trigger When Expected Head Never Settles`이다.
 
 이유:
 
 - review-bot API queue gate reliability는 닫혔다.
-- review-platform TestClient gate는 여전히 표준 검증 경로에 포함되어 있고,
-  harness bridge fix 전에 hang diagnostic을 먼저 갖춰야 한다.
-- gate reliability를 먼저 닫아야 이후 harness guardrail 수정이 작은 commit 단위로 안정적으로 진행된다.
+- review-platform API client gate reliability도 닫혔다.
+- 다음 `active` 항목은 GitLab note-trigger stale head handling의 correctness guardrail이다.
+- GitLab head handling 변경은 deterministic runner test를 먼저 요구하고,
+  local GitLab lifecycle smoke는 환경이 준비된 경우에만 추가한다.
 
 ## Validation Baseline
 
