@@ -36,42 +36,21 @@ contract readiness packet은 닫혔다. OpenAI direct smoke는 live provider로 
 생길 때만 `Now`에 올린다. 사람의 품질 판단이나 정책 승인이 필요한 작업은 내일
 결정 대상으로 미룬다.
 
-닫힌 기반:
-
-- 기존 Git review surface 중심 제품 방향
-- canonical `ReviewRequestKey(review_system, project_ref, review_request_id)` identity
-- runner-owned `detect -> publish -> sync` lifecycle boundary
-- immutable lifecycle event-backed analytics direction
-- bounded `review-bot` / `review-platform` TestClient gates
-- bounded OpenAI direct smoke preflight
-- lifecycle provider runtime provenance: provider, fallback, configured model, sanitized endpoint,
-  transport class
-- GitLab stale-head retryable detect failure guardrail
-- request-scoped adapter thread/feedback identity
-- local harness key-based bot bridge
-- strict canonical YAML unknown-key rejection
-- duplicate/missing selected pack fail-fast
-- default profile fallback semantics
-- canonical rule reverse source coverage
-- private rule package manifest validation CLI, strict `package.yaml` metadata model, sample package fixture
-- private rule package split validation gate with package-specific private artifact boundary,
-  runtime retrieval, public-only regression, and deterministic JSON summary
-- private rule package install plan output with versioned runtime root, private artifact root,
-  dataset path, collection preview, and pointer-only update/rollback plan
-- private rule packaging, manual editor, provider tuning, multi-SCM, auto-fix readiness packets
-- CLI-first rule authoring validation preview command with strict canonical YAML validation,
-  selected pack/profile resolution, source coverage guardrail, and read-only ingest/retrieval
-  impact summary
-- default OpenAI direct smoke success with `gpt-5.2`
-- ad hoc `reference_only` LLM applicability evidence artifact for `CPP.REF.4`
-- provider comparison triage packet for the 2026-04-24 OpenAI/stub artifact set
+완료된 작업은 이 문서에 반복해서 남기지 않는다. 완료 이력은 git history,
+[CURRENT_SYSTEM.md](/home/et16/work/review_system/docs/CURRENT_SYSTEM.md:1),
+[CURRENT_STATE_REVIEW.md](/home/et16/work/review_system/docs/reviews/CURRENT_STATE_REVIEW.md:1),
+그리고 관련 baseline artifact를 기준으로 확인한다.
 
 현재 즉시 실행 가능한 방향:
 
-- `reference_only` LLM applicability 확인을 ad hoc 실행에서 재실행 가능한 smoke script로 승격한다.
+- 외부 서비스 없이 deterministic 검증으로 닫을 수 있는 rule coverage breadth pass를 진행한다.
+- `coverage_matrix.yaml` 기준 pending source atom은 없지만, rule 수가 얇거나 detector-backed
+  direct pattern을 더 만들 수 있는 언어를 순차적으로 보강한다.
 
 현재 바로 실행하지 않는 방향:
 
+- `reference_only` LLM applicability smoke packaging: OpenAI direct smoke가
+  `api.openai.com` DNS 해석 실패로 막혀 있어 지금 자동 진행할 수 없다.
 - provider/ranking/density tuning: OpenAI direct smoke와 comparison artifact는 생겼지만,
   comparison이 `failed` / `human_review_required=true`이고 triage packet도 review input일 뿐이므로
   사람의 품질 판단이 필요하다.
@@ -82,37 +61,145 @@ contract readiness packet은 닫혔다. OpenAI direct smoke는 live provider로 
 
 ## Now
 
-### Package reference-only LLM applicability smoke
+### Expand Go Review Rule Coverage
 
 Status: `active`
 
 목표:
 
-- `CPP.REF.4` 대조 테스트를 one-off 실행 결과가 아니라 반복 가능한 smoke로 만든다.
-- LLM verifier가 잠금 scope 안/밖의 blocking work와 callback hazard를 구분하는지
-  OpenAI와 stub 대조 결과를 같은 artifact에 남긴다.
+- Go는 현재 단일 pack 중심이고 rule 수가 얇으므로, detector-backed auto-review 규칙을 먼저 보강한다.
+- HTTP client timeout, response body handling, strict JSON decoding, goroutine/error ownership처럼
+  changed snippet에서 직접 확인 가능한 패턴을 우선한다.
 
 범위:
 
-- `ops/scripts/` 아래에 `reference_only` applicability smoke를 추가한다.
-- 현재처럼 `provider.verify_draft`를 직접 호출하고, publish lifecycle이나
-  `reference_only` suppression policy는 바꾸지 않는다.
-- 결과 artifact는 `docs/baselines/review_bot/reference_only_verify_openai_YYYY-MM-DD.*`
-  형식으로 provider runtime, expected/openai/stub applies, reason, pass/fail을 포함한다.
-- OpenAI key가 없거나 direct smoke가 실패하면 구현을 진행하지 않고 blocked로 기록한다.
+- `review-engine/rule_sources/go/`에 보강 source를 추가하거나 기존 source를 갱신한다.
+- `review-engine/rules/go/packs/project_go.yaml`에 2~3개 narrow auto-review rule을 추가한다.
+- `review-engine/review_engine/query/languages/go.py`에 대응 pattern과 hinted rule을 추가한다.
+- `review-engine/rule_sources/coverage_matrix.yaml`을 새 source atom 기준으로 갱신한다.
+- broad design guidance나 whole-program 판단은 `reference_only`로 두고 auto-review로 올리지 않는다.
 
 검증:
 
 ```bash
-bash ops/scripts/smoke_openai_provider_direct.sh --expect-live-openai
-bash ops/scripts/smoke_reference_only_llm_applicability.sh --provider openai
+cd review-engine && uv run pytest tests/test_query_conversion.py tests/test_rule_runtime.py tests/test_source_coverage_matrix.py -q
 git diff --check
 ```
 
 완료 기준:
 
-- 새 smoke를 재실행하면 현재 ad hoc artifact와 같은 의미의 pass/fail summary가 생성된다.
-- stub verifier가 negative contrast case를 구분하지 못한다는 사실이 artifact에 보존된다.
+- 새 Go rule이 source coverage matrix에 mapped 또는 reference_only로 연결된다.
+- 새 direct pattern이 최소 하나의 deterministic query/conversion test로 재현된다.
+
+### Expand Bash And Dockerfile Automation Safety Rules
+
+Status: `queued`
+
+목표:
+
+- checked-in automation과 container build surface에서 아직 얇은 안전 규칙을 보강한다.
+- Bash는 temporary file/trap/lock cleanup, glob/path validation, command argv shaping을 우선한다.
+- Dockerfile은 package pinning, BuildKit secret mount, runtime surface minimization을 우선한다.
+
+범위:
+
+- Bash와 Dockerfile source/rule/query pattern을 각각 작고 직접 검출 가능한 패턴으로 확장한다.
+- CI/YAML remote execution 규칙과 중복되는 경우에는 shared source 또는 cross-language rationale만
+  맞추고 같은 defect를 중복 게시하지 않게 rule text를 조정한다.
+
+검증:
+
+```bash
+cd review-engine && uv run pytest tests/test_query_conversion.py tests/test_rule_runtime.py tests/test_source_coverage_matrix.py -q
+git diff --check
+```
+
+완료 기준:
+
+- Bash와 Dockerfile에서 각각 최소 하나 이상의 새 detector-backed rule 또는 source-backed
+  reference rule이 추가된다.
+
+### Expand Rust Async And Boundary Rules
+
+Status: `queued`
+
+목표:
+
+- Rust/Tokio 규칙을 async cancellation, FFI/unsafe boundary, serialization/trust boundary 중심으로 보강한다.
+- panic/unwrap 계열과 중복되지 않는 changed-snippet direct signal만 auto-review로 둔다.
+
+범위:
+
+- `review-engine/rule_sources/rust/`, `review-engine/rules/rust/`,
+  `review_engine/query/languages/rust.py`를 함께 갱신한다.
+- direct signal이 약한 API design guidance는 `reference_only`로 유지한다.
+
+검증:
+
+```bash
+cd review-engine && uv run pytest tests/test_query_conversion.py tests/test_rule_runtime.py tests/test_source_coverage_matrix.py -q
+git diff --check
+```
+
+완료 기준:
+
+- Rust 또는 Tokio pack에 source-backed rule 보강이 들어가고, query pattern test가 추가된다.
+
+### Expand C, JavaScript, And Java Service Boundary Rules
+
+Status: `queued`
+
+목표:
+
+- C, JavaScript, Java의 service/API boundary 규칙을 얇은 direct-signal 중심으로 보강한다.
+- C는 size/null/errno contracts, JavaScript는 Express/Node request boundary, Java는 Spring/Jackson
+  request validation과 resource ownership 후보를 우선한다.
+
+범위:
+
+- 한 iteration에서 한 언어만 구현해도 된다. 여러 언어를 동시에 묶지 말고 가장 작은
+  detector-backed slice부터 처리한다.
+- source coverage, canonical YAML rule, query pattern, deterministic test를 함께 갱신한다.
+
+검증:
+
+```bash
+cd review-engine && uv run pytest tests/test_query_conversion.py tests/test_rule_runtime.py tests/test_source_coverage_matrix.py -q
+git diff --check
+```
+
+완료 기준:
+
+- 선택한 언어에 최소 하나 이상의 새 source-backed rule과 direct pattern regression이 생긴다.
+- 남은 언어는 `ROADMAP.md`에 계속 queued 상태로 유지한다.
+
+### Expand Targeted YAML, SQL, And Python Rule Gaps
+
+Status: `queued`
+
+목표:
+
+- provider quality artifact에 등장한 YAML, SQL, Python/FastAPI 영역을 rule gap 관점에서도 점검한다.
+- 단, 현재 artifact의 주된 신호는 OpenAI draft length/required term 문제이므로 prompt tuning과
+  rule 보강을 섞지 않는다.
+
+범위:
+
+- existing source corpus에서 직접 detector-backed rule로 승격할 수 있는 gap만 추가한다.
+- FastAPI, SQL, CI YAML의 existing rule expectation 또는 required-term gate를 바꾸는 작업은
+  human provider review decision 없이는 하지 않는다.
+
+검증:
+
+```bash
+cd review-engine && uv run pytest tests/test_query_conversion.py tests/test_rule_runtime.py tests/test_source_coverage_matrix.py -q
+git diff --check
+```
+
+완료 기준:
+
+- 실제 rule gap이 있으면 source-backed rule과 test가 추가된다.
+- rule gap이 없으면 retained note나 roadmap update로 `no_rule_gap_without_human_provider_decision`을 남긴다.
 
 ## Deferred But Not Yet Executable
 
@@ -124,6 +211,12 @@ git diff --check
     comparison이 `failed` / `human_review_required=true`다. 2026-04-24 triage packet은
     review input이며 tuning approval이 아니다.
   - 필요 조건: human comparison decision artifact
+  - owner: [provider_and_model_work.md](/home/et16/work/review_system/docs/deferred/provider_and_model_work.md:1)
+- Reference-only LLM applicability smoke packaging
+  - 현재 상태: `CPP.REF.4` 직접 verifier 대조 테스트에서는 OpenAI가 적용/비적용을 구분했지만,
+    재실행 가능한 smoke script 작업은 `api.openai.com` DNS 해석 실패로 blocked 됐다.
+  - 필요 조건: `bash ops/scripts/smoke_openai_provider_direct.sh --expect-live-openai` 성공
+  - 준비되면 `Now`에 `Package reference-only LLM applicability smoke` unit으로 다시 올린다.
   - owner: [provider_and_model_work.md](/home/et16/work/review_system/docs/deferred/provider_and_model_work.md:1)
 - Reference-only auto-review promotion
   - 현재 상태: `CPP.REF.4` 직접 verifier 대조 테스트에서는 OpenAI가 적용/비적용을 구분했다.
