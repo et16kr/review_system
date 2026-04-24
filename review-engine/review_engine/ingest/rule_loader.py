@@ -28,6 +28,26 @@ def load_rule_runtime(
     dialect_id: str | None = None,
     include_all_packs: bool = False,
 ) -> LoadedRuleContext:
+    runtime, _selected_pack_index = load_rule_runtime_selection(
+        settings,
+        language_id=language_id,
+        profile_id=profile_id,
+        context_id=context_id,
+        dialect_id=dialect_id,
+        include_all_packs=include_all_packs,
+    )
+    return runtime
+
+
+def load_rule_runtime_selection(
+    settings: Settings,
+    *,
+    language_id: str | None = None,
+    profile_id: str | None = None,
+    context_id: str | None = None,
+    dialect_id: str | None = None,
+    include_all_packs: bool = False,
+) -> tuple[LoadedRuleContext, dict[str, tuple[RulePackManifest, Path]]]:
     registry = get_language_registry()
     selected_language = language_id or settings.default_language_id
     default_profile_id = profile_id or registry.get(selected_language).default_profile
@@ -78,7 +98,10 @@ def load_rule_runtime(
     )
     policy = policy_index.get(profile.priority_policy_ref)
     if policy is None:
-        policy = PriorityPolicy(policy_id=f"{selected_language}_default", language_id=selected_language)
+        policy = PriorityPolicy(
+            policy_id=f"{selected_language}_default",
+            language_id=selected_language,
+        )
 
     if include_all_packs:
         selected_pack_ids = [
@@ -97,11 +120,13 @@ def load_rule_runtime(
 
     all_records: list[GuidelineRecord] = []
     parsed_pack_counts: dict[str, int] = {}
+    selected_pack_index: dict[str, tuple[RulePackManifest, Path]] = {}
     for pack_id in selected_pack_ids:
         pack_and_path = pack_index.get(pack_id)
         if pack_and_path is None:
             continue
         pack, source_path = pack_and_path
+        selected_pack_index[pack_id] = (pack, source_path)
         parsed_pack_counts[pack_id] = len(pack.entries)
         for entry in pack.entries:
             if not entry.enabled:
@@ -124,7 +149,7 @@ def load_rule_runtime(
         if pack_index.get(pack_id, (None, None))[0] is not None
         and pack_index[pack_id][0].language_id == "shared"
     ]
-    return LoadedRuleContext(
+    runtime = LoadedRuleContext(
         language_id=selected_language,
         profile=profile,
         policy=policy,
@@ -141,6 +166,7 @@ def load_rule_runtime(
         prompt_overlay_refs=list(profile.prompt_overlay_refs),
         detector_refs=list(profile.detector_refs),
     )
+    return runtime, selected_pack_index
 
 
 def discover_rule_languages(settings: Settings) -> list[str]:
@@ -278,7 +304,11 @@ def _build_record(
         trigger_patterns=entry.trigger_patterns,
         bot_comment_template=entry.bot_comment_template,
         fix_guidance=entry.fix_guidance,
-        review_rank_default=entry.review_rank_default if entry.review_rank_default is not None else base_score,
+        review_rank_default=(
+            entry.review_rank_default
+            if entry.review_rank_default is not None
+            else base_score
+        ),
         conflict_reason=entry.rationale,
         file_globs=entry.file_globs or pack.file_globs,
         symbol_hints=entry.symbol_hints,

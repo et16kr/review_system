@@ -383,6 +383,14 @@ main `ROADMAP.md`의 현재 항목을 다 돌린 뒤 곧바로 이어서 할 후
   runtime selection과 source-of-truth 경계를 한 번에 읽게 고정했다.
 - `review-engine/tests/test_rule_lifecycle_cli.py`가
   `list`/`show`가 temp data dir을 건드리지 않고 canonical YAML만 읽는 회귀를 고정했다.
+- `disable`/`enable` command가 selected runtime pack manifest를 직접 읽어
+  canonical pack YAML entry 하나의 `enabled` field만 수정하도록 추가됐다.
+- mutation output은 `write_boundary=canonical_pack_yaml`, `source_path`,
+  `previous_enabled`, `updated_enabled`를 함께 내보내서
+  generated artifact가 아니라 canonical YAML만 바꿨다는 경계를 바로 보여 준다.
+- `review-engine/tests/test_rule_lifecycle_cli.py`가
+  temp rule root 기준 disable/enable/no-`pack-id` ambiguity 회귀를 추가해
+  disabled entry 재활성화와 pack disambiguation contract를 deterministic하게 고정했다.
 
 범위:
 
@@ -393,19 +401,21 @@ main `ROADMAP.md`의 현재 항목을 다 돌린 뒤 곧바로 이어서 할 후
 
 다음 작업:
 
-1. `disable`/`enable`의 pack/entry addressing과 explicit YAML write boundary를 정한다.
-2. rule 변경 후 validate/ingest/test 연결 방식을 mutation command 단위로 묶는다.
-3. full editor/UI 없이도 운영에 도움이 되는 작은 on/off 관리 흐름을 닫는다.
+1. rule 변경 후 validate/ingest/test 연결 방식을 mutation command 단위로 묶는다.
+2. full editor/UI 없이도 운영에 도움이 되는 작은 on/off 관리 흐름을 닫는다.
+3. 필요하면 profile-level pack on/off와 entry-level toggle의 운영 경계를 분리해 문서화한다.
 
 검증 메모:
 
-- 이번 slice는 read-only lifecycle CLI input/output과 canonical YAML boundary만 추가했다.
+- 이번 slice는 lifecycle CLI mutation path에서 selected runtime pack manifest 조회,
+  canonical pack YAML entry-level `enable`/`disable`, write boundary payload를 추가했다.
 - rerun:
-  - `env UV_CACHE_DIR=/tmp/uv-cache uv run --project review-engine ruff check review-engine/review_engine/cli/rule_lifecycle.py review-engine/tests/test_rule_lifecycle_cli.py`
+  - `env UV_CACHE_DIR=/tmp/uv-cache uv run --project review-engine ruff check review-engine/review_engine/cli/rule_lifecycle.py review-engine/review_engine/ingest/rule_loader.py review-engine/tests/test_rule_lifecycle_cli.py`
   - `env UV_CACHE_DIR=/tmp/uv-cache uv run --project review-engine pytest review-engine/tests/test_rule_lifecycle_cli.py review-engine/tests/test_rule_runtime.py -q`
   - `env UV_CACHE_DIR=/tmp/uv-cache uv run --project review-engine python -m review_engine.cli.rule_lifecycle list --language-id python --profile-id fastapi_service`
+- mutation command path는 temp rule root를 쓰는 CLI test로 검증했고, repo canonical YAML 자체는 validation 중 수정하지 않았다.
 - broader `review-engine` pytest, ingest/retrieval baseline, `review-bot`/`review-platform` tests,
-  GitLab smoke, provider/direct OpenAI validation은 read-only CLI 범위라 생략했다.
+  GitLab smoke, provider/direct OpenAI validation은 lifecycle CLI mutation 범위라 생략했다.
 
 완료 기준:
 
