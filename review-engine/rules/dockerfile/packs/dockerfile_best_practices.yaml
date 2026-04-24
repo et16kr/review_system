@@ -98,6 +98,19 @@ entries:
     priority_tier: default
     specificity: 0.82
     false_positive_risk: medium
+  - rule_no: DOCKER.8
+    section: DOCKER
+    title: Pin package installs that shape the image build output
+    summary: Unpinned package install lines make rebuilds depend on whatever repository state exists at build time.
+    text: Image builds are easier to explain and roll back when package versions that materially shape the runtime are pinned or otherwise controlled by a reproducible package-lock boundary.
+    category: configuration
+    trigger_patterns: [apt_get_install_unpinned]
+    fix_guidance: Pin package versions or install through a checked-in lockfile or base image boundary that owns the package version contract.
+    base_score: 0.82
+    severity_default: 0.84
+    priority_tier: high
+    specificity: 0.8
+    false_positive_risk: medium
   - rule_no: DOCKER.REF.1
     section: DOCKERREF
     title: Multi-stage builds should keep toolchain trust and runtime surface separated as clearly as possible

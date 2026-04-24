@@ -44,6 +44,12 @@ PLUGIN = LanguageQueryPlugin(
             "curl TLS verification bypass detected; review transport trust assumptions and safer artifact verification.",
             0.98,
         ),
+        PatternSpec(
+            "mktemp_without_trap",
+            r"(?s)\A(?=.*\bmktemp\b)(?!.*\btrap\b).*",
+            "Temporary file creation without a visible trap cleanup detected; review lifecycle ownership and cleanup behavior.",
+            0.82,
+        ),
     ),
     hinted_rules={
         "set_e_missing": ("BASH.SAFE.1", "BASH.SAFE.3"),
@@ -52,6 +58,7 @@ PLUGIN = LanguageQueryPlugin(
         "rm_rf_glob": ("BASH.2", "BASH.4"),
         "sudo_usage": ("BASH.5", "BASH.SAFE.6"),
         "curl_insecure": ("BASH.SAFE.5",),
+        "mktemp_without_trap": ("BASH.SAFE.8",),
     },
     direct_hint_patterns={
         "set_e_missing",
@@ -60,5 +67,6 @@ PLUGIN = LanguageQueryPlugin(
         "rm_rf_glob",
         "sudo_usage",
         "curl_insecure",
+        "mktemp_without_trap",
     },
 )

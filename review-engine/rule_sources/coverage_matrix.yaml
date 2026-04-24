@@ -1116,9 +1116,9 @@ languages:
             section_id: candidate_canonical_rule_groups
             status: mapped
             pack_targets: [shell_safety]
-            canonical_rules: [BASH.SAFE.1, BASH.SAFE.3, BASH.SAFE.7]
+            canonical_rules: [BASH.SAFE.1, BASH.SAFE.3, BASH.SAFE.7, BASH.SAFE.8]
             reviewability_mix: [auto_review, reference_only]
-            reason: Strict-mode rules are active while cleanup visibility remains partly advisory.
+            reason: Strict-mode and concrete temporary-file cleanup rules are active while broader cleanup visibility remains partly advisory.
           - source_atom_id: privileged_automation
             section_id: candidate_canonical_rule_groups
             status: mapped
@@ -1457,9 +1457,9 @@ languages:
             section_id: candidate_canonical_rule_groups
             status: mapped
             pack_targets: [dockerfile_best_practices]
-            canonical_rules: [DOCKER.1, DOCKER.2, DOCKER.3, DOCKER.6]
+            canonical_rules: [DOCKER.1, DOCKER.2, DOCKER.3, DOCKER.6, DOCKER.8]
             reviewability_mix: [auto_review]
-            reason: Latest-tag drift, tag-without-digest drift, and apt-layer shape are covered by active reproducibility rules.
+            reason: Latest-tag drift, tag-without-digest drift, unpinned package installs, and apt-layer shape are covered by active reproducibility rules.
           - source_atom_id: runtime_privilege
             section_id: candidate_canonical_rule_groups
             status: mapped

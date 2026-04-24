@@ -48,6 +48,11 @@ def test_query_analysis_does_not_treat_ide_rc_declaration_as_error_flow() -> Non
             {"curl_insecure", "sudo_usage"},
         ),
         (
+            "bash",
+            "#!/usr/bin/env bash\ntmp_file=$(mktemp)\nprintf '%s\\n' \"$payload\" > \"$tmp_file\"\n",
+            {"mktemp_without_trap"},
+        ),
+        (
             "go",
             "ctx := context.Background()\ngo func() { panic(err) }()\n",
             {"context_background", "goroutine_leak", "panic_call"},
@@ -305,6 +310,11 @@ def test_query_analysis_does_not_treat_ide_rc_declaration_as_error_flow() -> Non
             {"build_secret_arg_env_authenticated_url"},
         ),
         (
+            "dockerfile",
+            "FROM debian:bookworm-slim@sha256:1111111111111111111111111111111111111111111111111111111111111111\nRUN apt-get update && apt-get install -y --no-install-recommends curl git\n",
+            {"apt_get_install_unpinned"},
+        ),
+        (
             "sql",
             "select user_id, count(*) from events group by 1 limit 10;\n",
             {"group_by_ordinal", "limit_without_order"},
@@ -376,6 +386,32 @@ def test_dockerfile_safe_index_url_does_not_trigger_authenticated_secret_pattern
 
     assert "build_secret_arg_env" not in names
     assert "build_secret_arg_env_authenticated_url" not in names
+
+
+def test_bash_mktemp_with_trap_does_not_trigger_cleanup_pattern() -> None:
+    analysis = build_query_analysis(
+        "#!/usr/bin/env bash\n"
+        "tmp_file=$(mktemp)\n"
+        "trap 'rm -f \"$tmp_file\"' EXIT\n"
+        "printf '%s\\n' \"$payload\" > \"$tmp_file\"\n",
+        input_kind="code",
+        language_id="bash",
+    )
+    names = {pattern.name for pattern in analysis.patterns}
+
+    assert "mktemp_without_trap" not in names
+
+
+def test_dockerfile_pinned_apt_install_does_not_trigger_unpinned_package_pattern() -> None:
+    analysis = build_query_analysis(
+        "RUN apt-get update && apt-get install -y --no-install-recommends "
+        "curl=7.88.1-10+deb12u8 git=1:2.39.5-0+deb12u2\n",
+        input_kind="code",
+        language_id="dockerfile",
+    )
+    names = {pattern.name for pattern in analysis.patterns}
+
+    assert "apt_get_install_unpinned" not in names
 
 
 def test_dockerfile_non_root_numeric_user_does_not_trigger_root_pattern() -> None:

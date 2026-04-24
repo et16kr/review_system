@@ -74,6 +74,19 @@ PLUGIN = LanguageQueryPlugin(
             "curl piped to a shell during image build detected; review provenance, pinning, and explicit verification.",
             0.99,
         ),
+        PatternSpec(
+            "apt_get_install_unpinned",
+            (
+                r"(?im)^[+-]?\s*RUN\s+"
+                r"(?=[^\n]*\bapt-get\s+install\b)"
+                r"(?![^\n]*\bapt-get\s+install\b[^\n]*"
+                r"(?:\b[A-Za-z0-9][A-Za-z0-9+.-]*=|\$[{(]|\$[A-Za-z_]))"
+                r"[^\n]*\b(?:ca-certificates|curl|git|build-essential|gcc|g\+\+|make|"
+                r"openssl|libssl-dev|python3|nodejs|npm)\b[^\n]*$"
+            ),
+            "Unpinned apt-get package install detected; review image rebuild reproducibility and package provenance.",
+            0.82,
+        ),
     ),
     hinted_rules={
         "latest_tag": ("DOCKER.1", "DOCKER.3"),
@@ -87,6 +100,7 @@ PLUGIN = LanguageQueryPlugin(
         "add_remote_url": ("DOCKER.5", "DOCKER.SEC.6"),
         "apt_upgrade": ("DOCKER.6",),
         "curl_pipe_shell_run": ("DOCKER.SEC.5",),
+        "apt_get_install_unpinned": ("DOCKER.8",),
     },
     direct_hint_patterns={
         "latest_tag",
@@ -100,5 +114,6 @@ PLUGIN = LanguageQueryPlugin(
         "add_remote_url",
         "apt_upgrade",
         "curl_pipe_shell_run",
+        "apt_get_install_unpinned",
     },
 )

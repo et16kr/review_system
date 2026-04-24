@@ -96,3 +96,16 @@ entries:
     false_positive_risk: medium
     base_score: 0.56
     severity_default: 0.56
+  - rule_no: BASH.SAFE.8
+    section: BASHSAFE
+    title: Temporary files should have visible cleanup ownership
+    summary: A script that creates temporary files should make their cleanup lifecycle visible before stateful work continues.
+    text: Temporary files and directories are safer to review when resource creation is paired with a nearby cleanup trap or equally explicit ownership boundary.
+    category: resource_management
+    trigger_patterns: [mktemp_without_trap]
+    fix_guidance: Add a trap that removes the temporary path on exit, or keep the temporary resource inside a helper that owns cleanup explicitly.
+    base_score: 0.82
+    severity_default: 0.84
+    priority_tier: high
+    specificity: 0.8
+    false_positive_risk: medium

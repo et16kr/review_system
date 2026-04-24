@@ -64,38 +64,9 @@ contract readiness packet은 닫혔다. OpenAI direct smoke는 live provider로 
 
 ## Now
 
-### Expand Bash And Dockerfile Automation Safety Rules
-
-Status: `active`
-
-목표:
-
-- BashGuide와 Docker build best practices를 근거로 checked-in automation과 container build
-  surface의 안전 규칙을 보강한다.
-- Bash는 temporary file/trap/lock cleanup, glob/path validation, command argv shaping을 우선한다.
-- Dockerfile은 package pinning, BuildKit secret mount, runtime surface minimization을 우선한다.
-
-범위:
-
-- Bash와 Dockerfile source/rule/query pattern을 각각 작고 직접 검출 가능한 패턴으로 확장한다.
-- CI/YAML remote execution 규칙과 중복되는 경우에는 shared source 또는 cross-language rationale만
-  맞추고 같은 defect를 중복 게시하지 않게 rule text를 조정한다.
-
-검증:
-
-```bash
-cd review-engine && uv run pytest tests/test_query_conversion.py tests/test_rule_runtime.py tests/test_source_coverage_matrix.py -q
-git diff --check
-```
-
-완료 기준:
-
-- Bash와 Dockerfile에서 각각 최소 하나 이상의 새 detector-backed rule 또는 source-backed
-  reference rule이 추가된다.
-
 ### Expand Rust Async And Boundary Rules
 
-Status: `queued`
+Status: `active`
 
 목표:
 
