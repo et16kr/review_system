@@ -2,230 +2,298 @@
 
 ## Purpose
 
-이 문서는 구현 roadmap과 별도로, 현재 저장소를 처음부터 다시 점검하기 위한 리뷰 계획을 관리한다.
-목표는 다음 세 가지다.
+이 문서는 `gpt-5.5`로 현재 저장소를 처음부터 다시 리뷰하기 위한 전용 roadmap이다.
+구현 roadmap과 분리해, 시스템 방향성, 버그 위험, 과도한 기능, 부족한 기능,
+인터페이스 개선 가능성, 문서/코드 불일치를 단계별로 점검한다.
 
-1. 현재 방향성이 맞는지 확인한다.
-2. 버그, 불일치, 과도한 복잡도, 남아 있는 불필요한 흔적을 찾는다.
-3. 리뷰 결과를 실행 가능한 후속 작업으로 다시 정리한다.
-
-이 문서는 코드 구현보다 `검토`, `증거 수집`, `리뷰 문서 축적`을 중심으로 진행한다.
+이번 리뷰 라운드는 이전 `gpt-5.4` 리뷰 결과를 이어받지 않고 새로 시작한다.
+이전 결과는 git history에 남아 있으며, 현재 누적 결과 문서는 새 라운드 기준으로 다시 채운다.
 
 마지막 코드 상태 점검일: `2026-04-24`
 
 상태 표기:
 
 - `active`: 지금 바로 리뷰 단위로 실행 가능하다.
-- `partial`: 일부 리뷰 산출물은 있지만 아직 결론이 덜 모였다.
 - `queued`: 앞선 리뷰 결과가 모이면 바로 이어서 할 수 있다.
 - `watch`: 이번 리뷰 라운드에서는 새 작업이 없다.
 
-## Review Outputs
+## Model And Execution
 
-이 roadmap을 진행할 때 누적 산출물은 아래 문서를 기준으로 관리한다.
+권장 실행:
+
+```bash
+ops/scripts/advance_review_roadmap_with_codex.sh --model gpt-5.5 --max-iters 1
+```
+
+전체 라운드를 자동으로 진행할 때:
+
+```bash
+ops/scripts/advance_review_roadmap_with_codex.sh --model gpt-5.5 --until-done
+```
+
+원칙:
+
+- 한 review unit은 반드시 [CURRENT_STATE_REVIEW.md](/home/et16/work/review_system/docs/reviews/CURRENT_STATE_REVIEW.md:1) 또는 [REVIEW_FINDINGS_BACKLOG.md](/home/et16/work/review_system/docs/reviews/REVIEW_FINDINGS_BACKLOG.md:1)를 갱신한다.
+- 리뷰 unit은 기본적으로 코드 수정을 하지 않는다.
+- 명확한 typo나 문서 링크 오류처럼 리뷰 진행 자체를 방해하는 수정만 같은 unit에서 허용한다.
+- findings는 반드시 evidence, impact, recommended action을 포함한다.
+- local smoke, direct provider, OpenAI API 검증은 해당 unit이 그 신호를 실제 근거로 필요로 할 때만 실행한다.
+
+## Review Questions
+
+이번 라운드는 아래 질문을 끝까지 추적한다.
+
+- 이 리뷰 봇 프로그램의 방향성은 현재도 맞는가?
+- 실제 버그, race, stale contract, regression 위험은 없는가?
+- 필요 없는데 남아 있는 기능, wrapper, compatibility path, 문서가 있는가?
+- 부족한 기능이나 안전장치가 있는데 roadmap에 빠져 있지는 않은가?
+- 사용자가 보는 인터페이스와 운영자가 보는 인터페이스를 더 단순하게 만들 수 있는가?
+- 테스트와 smoke는 실제 gate 역할을 하는가, 아니면 통과 신호가 약한가?
+- deferred 항목은 정말 미루는 게 맞는가, 아니면 지금 준비 작업이 필요한가?
+
+## Review Outputs
 
 - [docs/reviews/CURRENT_STATE_REVIEW.md](/home/et16/work/review_system/docs/reviews/CURRENT_STATE_REVIEW.md:1)
   - findings-first 현재 상태 리뷰 본문
 - [docs/reviews/REVIEW_FINDINGS_BACKLOG.md](/home/et16/work/review_system/docs/reviews/REVIEW_FINDINGS_BACKLOG.md:1)
-  - 후속 작업 후보와 severity / area / action owner 정리
+  - 후속 작업 후보, severity, area, recommended action 정리
 
-원칙:
+## Post-Review Handoff
 
-- 한 리뷰 unit은 위 문서 중 하나 이상을 실제로 갱신해야 한다.
-- 리뷰만 하는 단위에서는 코드 수정 없이 문서와 증거만 남겨도 된다.
-- 필요 시 비파괴 검증은 허용하지만, smoke나 외부 API 의존 검증은 해당 review unit이 정말 필요로 할 때만 쓴다.
+리뷰가 끝난 뒤에는 결과를 아래 세 작업으로 나눈다.
 
-## Current Snapshot
+1. 리뷰에서 찾은 버그 수정
+2. 리뷰 결과를 바탕으로 [ROADMAP.md](/home/et16/work/review_system/docs/ROADMAP.md:1) 수정
+3. 리뷰 결과를 바탕으로 `docs/deferred/*.md` 수정
 
-이미 완료된 기반:
+따라서 모든 finding과 backlog entry는 아래 중 하나로 분류해야 한다.
 
-- provider runtime provenance / guardrails
-- smoke / evaluation hardening
-- organization extension canonicalization
-- roadmap automation blocked artifact retention
-- minimal rule lifecycle CLI
-
-현재 리뷰에서 특히 다시 확인할 축:
-
-1. `review-engine` rule / retrieval / authoring 경계
-2. `review-bot` lifecycle / provider / UX / config 경계
-3. ops smoke / replay / automation의 실제 신뢰성
-4. 문서와 실제 코드 상태의 일치 여부
-5. 더 이상 필요 없는데 남아 있는 코드, 문서, 설정, 스크립트
+- `bug_fix`: 코드나 테스트를 직접 고쳐야 한다.
+- `roadmap_update`: 지금 바로 할 일로 승격하거나 `ROADMAP.md`를 보정해야 한다.
+- `deferred_update`: 장기 작업, 선행 조건, 미룰 이유를 deferred 문서에 반영해야 한다.
+- `remove`: 필요 없거나 혼란을 주는 기능, wrapper, 문서를 제거해야 한다.
+- `keep`: 현재 방향이 적절하므로 유지 근거만 남긴다.
+- `needs_decision`: 제품/운영 결정이 먼저 필요하다.
 
 ## Now
 
-### 1. Review Frame And Evidence Inventory
-
-상태: `watch`
-
-이번 작업의 범위:
-
-1. `docs/reviews/CURRENT_STATE_REVIEW.md`의 기본 구조를 만든다.
-2. 이번 리뷰에서 볼 시스템 영역과 주요 근거 파일을 표로 고정한다.
-3. 어떤 검증은 정적 읽기만으로 충분하고, 어떤 검증은 실행이 필요한지 구분한다.
-4. 누적 findings 형식을 severity / evidence / impact / action으로 고정한다.
-
-완료 기준:
-
-- 이후 review unit이 같은 형식으로 findings를 누적할 수 있다.
-- 리뷰 범위와 evidence source가 문서에서 명확하다.
-
-`2026-04-24` 업데이트:
-
-- [docs/reviews/CURRENT_STATE_REVIEW.md](/home/et16/work/review_system/docs/reviews/CURRENT_STATE_REVIEW.md:1)에 review scope, evidence inventory, validation mode split, finding contract를 고정했다.
-- [docs/reviews/REVIEW_FINDINGS_BACKLOG.md](/home/et16/work/review_system/docs/reviews/REVIEW_FINDINGS_BACKLOG.md:1)에 backlog intake rule과 field contract를 고정했다.
-- 이번 unit은 문서 프레임 정리만 수행했으므로 runtime test, local GitLab smoke, provider-direct smoke는 실행하지 않았다.
-
-### 2. Architecture And Direction Review
-
-상태: `watch`
-
-이번 작업의 범위:
-
-1. `CURRENT_SYSTEM.md`, `README.md`, `AGENTS.md`, `API_CONTRACTS.md`를 기준으로 현재 아키텍처 방향을 다시 점검한다.
-2. canonical invariant가 코드 구조와 실제로 맞는지 본다.
-3. harness / platform / bot / engine 경계가 과도하게 섞였는지 확인한다.
-4. 방향성은 맞지만 문서가 뒤처진 부분과, 반대로 문서만 남고 실제 가치가 떨어진 부분을 적는다.
-
-완료 기준:
-
-- 현재 방향성이 맞는지에 대한 1차 결론이 문서에 남는다.
-- 큰 구조 리스크가 있으면 severity와 함께 정리된다.
-
-`2026-04-24` 업데이트:
-
-- [docs/reviews/CURRENT_STATE_REVIEW.md](/home/et16/work/review_system/docs/reviews/CURRENT_STATE_REVIEW.md:1)에 architecture/direction review 결과를 추가했고, top-level 방향성은 유지하되 local harness compatibility seam이 current-state 문구보다 넓다는 점을 finding으로 남겼다.
-- [docs/reviews/REVIEW_FINDINGS_BACKLOG.md](/home/et16/work/review_system/docs/reviews/REVIEW_FINDINGS_BACKLOG.md:1)에 `review-platform` bot facade의 stale legacy endpoint 의존성과 runner-level legacy identity helper 정리 후속 작업을 backlog로 승격했다.
-- 이번 unit은 문서와 코드의 정적 evidence review만 수행했으므로 targeted test, local GitLab smoke, provider-direct smoke는 실행하지 않았다.
-
-### 3. `review-engine` Deep Review
-
-상태: `watch`
-
-이번 작업의 범위:
-
-1. rule source / profile / policy / ingest / retrieval / metadata 경계를 점검한다.
-2. 최근 targeted expansion이 실제로 source/rule/detector/example/validation 묶음을 지키는지 본다.
-3. rule lifecycle CLI가 canonical YAML 경계를 흐리지 않는지 본다.
-4. manual editor를 미루는 현재 판단이 적절한지 다시 평가한다.
-5. 중복 source, 과한 alias, 더 이상 필요 없는 authoring 표면이 남았는지 적는다.
-
-완료 기준:
-
-- `review-engine` 영역의 핵심 findings가 누적 리뷰 문서에 정리된다.
-- 유지할 것, 줄일 것, deferred로 남길 것이 구분된다.
-
-`2026-04-24` 업데이트:
-
-- [docs/reviews/CURRENT_STATE_REVIEW.md](/home/et16/work/review_system/docs/reviews/CURRENT_STATE_REVIEW.md:1)에 `review-engine` deep review 결과를 추가했고, minimal lifecycle CLI와 source coverage matrix가 canonical YAML write boundary를 잘 지키는 반면, duplicate `pack_id`/`policy_id` collision은 runtime loader와 lifecycle CLI에서 조용히 덮어써진다는 finding을 남겼다.
-- [docs/reviews/REVIEW_FINDINGS_BACKLOG.md](/home/et16/work/review_system/docs/reviews/REVIEW_FINDINGS_BACKLOG.md:1)에 duplicate identity collision fail-fast direct fix와 manual editor deferred 유지 판단을 backlog로 정리했다.
-- 이번 unit은 docs/code static evidence review로 처리해 deterministic validation은 `git diff --check`만 사용했다. targeted test, local GitLab smoke, provider-direct smoke는 새 runtime claim이 없어 생략했고, direct OpenAI와 stub fallback도 사용하지 않았다.
-
-### 4. `review-bot` Deep Review
+### 1. Review Frame And Evidence Reset
 
 상태: `active`
 
 이번 작업의 범위:
 
-1. detect / publish / sync / verify lifecycle 경계를 다시 점검한다.
-2. provider fallback, direct smoke, provider provenance가 실제로 혼동 없이 드러나는지 본다.
-3. `summarize`, `walkthrough`, `backlog`, `full-report`, `.review-bot.yaml`, `ask`의 UX 방향이 적절한지 평가한다.
-4. config, API, analytics, note command surface에 불필요하게 넓어진 부분이 없는지 찾는다.
-5. note-first UX에 비해 너무 이른 기능이나, 반대로 빠진 안전장치가 없는지 적는다.
+1. 새 `gpt-5.5` 리뷰 라운드의 scope, evidence source, finding format을 고정한다.
+2. 이전 라운드 findings와 이번 라운드 findings가 섞이지 않도록 결과 문서의 라운드 기준을 명확히 한다.
+3. 어떤 검증은 정적 읽기로 충분하고 어떤 검증은 실행이 필요한지 분리한다.
+4. `REVIEW_FINDINGS_BACKLOG.md`의 intake rule을 새 라운드 기준으로 고정한다.
 
 완료 기준:
 
-- `review-bot` 영역의 방향, 버그 위험, 과도한 surface가 정리된다.
-- `.review-bot.yaml` / `ask`가 왜 blocked였는지와 다음 조치가 리뷰 문서에 반영된다.
+- 새 리뷰 라운드의 산출물 형식이 정해진다.
+- 이후 unit이 같은 형식으로 누적 기록할 수 있다.
 
-### 5. Ops / Smoke / Automation Review
+### 2. Product Direction And Scope Review
 
 상태: `active`
 
 이번 작업의 범위:
 
-1. local GitLab smoke, multilang smoke, provider-direct smoke, roadmap automation을 다시 점검한다.
-2. “통과하지만 신호가 약한 테스트”와 “실제로 gate 역할을 하는 테스트”를 구분한다.
-3. blocked artifact, skip policy, review automation 문구가 운영상 충분한지 본다.
-4. 환경 의존성이 강한데 문서/스크립트에서 충분히 드러나지 않는 부분을 찾는다.
-5. 중복 스크립트, 명칭 혼란, 죽은 wrapper가 남아 있는지 확인한다.
+1. README, CURRENT_SYSTEM, API_CONTRACTS, ROADMAP, deferred 문서를 읽고 제품 방향성을 재평가한다.
+2. `review-engine`, `review-bot`, `review-platform`, `ops`의 책임 분리가 지금도 적절한지 본다.
+3. 지금 프로그램이 “코드리뷰 봇”으로서 집중해야 할 핵심 가치와 벗어난 기능을 구분한다.
+4. roadmap에 있는 일과 실제 사용자 가치가 맞는지 검토한다.
 
 완료 기준:
 
-- ops / smoke / automation의 신뢰 경계가 문서에 재정리된다.
-- 유지 / 축소 / 분리 후보가 backlog에 들어간다.
+- 방향성을 유지할지, 줄일지, 더 투자할지에 대한 1차 결론이 문서에 남는다.
+- 필요 없거나 과한 기능 후보가 backlog에 들어간다.
+
+### 3. Architecture And Boundary Review
+
+상태: `active`
+
+이번 작업의 범위:
+
+1. canonical `ReviewRequestKey` 경계와 실제 코드 사용처가 일치하는지 점검한다.
+2. `review-platform`이 local harness인지, 실제 product boundary처럼 남아 있는지 확인한다.
+3. adapter, runner, API, DB schema, lifecycle event 경계가 과하게 섞이지 않았는지 본다.
+4. 오래된 compatibility path와 current contract의 충돌을 찾는다.
+
+완료 기준:
+
+- architecture-level bug risk와 cleanup 후보가 findings로 남는다.
+- 다음 구현 roadmap에 넣어야 할 경계 정리 작업이 선별된다.
+
+### 4. `review-engine` Correctness Review
+
+상태: `active`
+
+이번 작업의 범위:
+
+1. rule source, profile, policy, pack identity, source family alias 경계를 검토한다.
+2. ingest, retrieval, rerank, detector, source coverage matrix가 서로 일관되는지 본다.
+3. 최근 rule expansion이 source/rule/detector/example/validation 묶음을 실제로 지키는지 확인한다.
+4. duplicate identity, silent override, stale generated artifact 같은 위험을 찾는다.
+
+완료 기준:
+
+- engine correctness 관련 bugs 또는 regression risks가 정리된다.
+- rule expansion과 authoring boundary의 현재 방향성 평가가 남는다.
+
+### 5. `review-engine` Authoring And Lifecycle UX Review
+
+상태: `active`
+
+이번 작업의 범위:
+
+1. minimal rule lifecycle CLI가 실제 운영자 UX로 충분한지 검토한다.
+2. manual rule editor deferred 판단이 여전히 맞는지 재검토한다.
+3. authoring validation failure가 충분히 설명되는지 본다.
+4. 필요 없거나 너무 넓어진 authoring surface를 찾는다.
+
+완료 기준:
+
+- CLI 유지, editor deferred, 추가 authoring guardrail 여부가 정리된다.
+- rule authoring 개선 후보가 backlog에 들어간다.
+
+### 6. `review-bot` Lifecycle Correctness Review
+
+상태: `active`
+
+이번 작업의 범위:
+
+1. detect, publish, sync, verify 흐름을 다시 점검한다.
+2. run state, finding lifecycle event, feedback analytics가 source of truth를 혼동하지 않는지 본다.
+3. GitLab note trigger, queue handoff, stale head handling, thread sync risk를 찾는다.
+4. lifecycle 코드가 adapter-specific detail을 과하게 품고 있지 않은지 확인한다.
+
+완료 기준:
+
+- lifecycle bug risk와 missing tests가 findings로 남는다.
+- smoke가 필요한 부분과 deterministic test로 충분한 부분이 분리된다.
+
+### 7. Provider, Fallback, And Model Backend Review
+
+상태: `active`
+
+이번 작업의 범위:
+
+1. OpenAI direct path, local OpenAI-compatible base URL, stub fallback 경계를 점검한다.
+2. lifecycle smoke 통과와 direct provider 성공이 실제로 분리되어 보이는지 본다.
+3. provider runtime provenance가 API, log, note, artifact에 충분히 드러나는지 확인한다.
+4. `OPENAI_API_KEY` quota 문제처럼 외부 blocker가 자동화와 문서에 제대로 표현되는지 본다.
+
+완료 기준:
+
+- provider signal 혼동, fail-open/fail-fast 경계, local LLM 준비 상태가 정리된다.
+- missing guardrail이나 불필요한 provider surface가 backlog에 들어간다.
+
+### 8. User Interface And Review UX Review
+
+상태: `active`
+
+이번 작업의 범위:
+
+1. `review`, `full-report`, `backlog`, `help`, `summarize`, `walkthrough` command UX를 점검한다.
+2. `.review-bot.yaml`과 `ask`가 지금 필요한지, 아니면 더 미뤄야 하는지 판단한다.
+3. general note, inline comment, backlog note가 사용자에게 충분히 설명적인지 본다.
+4. 너무 많은 command나 note surface가 생겨 혼란을 만들지 않는지 확인한다.
+
+완료 기준:
+
+- 사용자-facing interface 개선 후보가 정리된다.
+- 빼거나 미룰 command surface와 추가할 safety copy가 구분된다.
+
+### 9. Ops, Smoke, And Automation Review
+
+상태: `active`
+
+이번 작업의 범위:
+
+1. local GitLab lifecycle smoke, multilang smoke, provider-direct smoke, roadmap automation의 신뢰 경계를 검토한다.
+2. 통과 신호가 약한 smoke와 release gate로 쓸 수 있는 deterministic validation을 분리한다.
+3. blocked artifact, skip policy, `--until-done`, `--roadmap-file`, review wrapper가 실제 운영에 충분한지 본다.
+4. 중복 wrapper, 오래된 script name, 환경 의존성이 과도한 부분을 찾는다.
+
+완료 기준:
+
+- ops/automation cleanup 후보와 safety 개선 후보가 backlog에 들어간다.
+- review automation 자체의 사용법과 한계가 명확해진다.
+
+### 10. Docs, Roadmap, And Deferred Review
+
+상태: `active`
+
+이번 작업의 범위:
+
+1. `ROADMAP.md`, `REVIEW_ROADMAP.md`, deferred 문서들이 서로 역할을 잘 나누는지 본다.
+2. roadmap에 빠진 부족한 작업이 있는지 찾는다.
+3. deferred에 남긴 항목이 정말 deferred인지, 지금 사전 작업이 필요한지 판단한다.
+4. 문서가 실제 코드보다 앞서가거나 뒤처진 곳을 찾는다.
+
+완료 기준:
+
+- roadmap/deferred 재배치 제안이 정리된다.
+- 빠진 개선 항목이 있으면 backlog에 들어간다.
 
 ## Queue
 
-### 6. Dead Weight And Cleanup Review
+### 11. Dead Code, Dead Docs, And Cleanup Review
 
 상태: `queued`
 
 이번 작업의 범위:
 
-1. 더 이상 쓰이지 않는 문서, wrapper, 설정, compatibility path를 찾는다.
-2. 이름은 남았지만 실제 역할이 끝난 항목을 적는다.
-3. cleanup이 안전한지, compatibility 때문에 유지해야 하는지 구분한다.
+1. 더 이상 쓰이지 않는 wrapper, config, test fixture, compatibility path를 찾는다.
+2. 이름 때문에 혼란을 주는 파일이나 문서를 찾는다.
+3. 삭제 가능한 것과 compatibility 때문에 유지해야 하는 것을 구분한다.
 
 완료 기준:
 
-- “없애도 되는 것”과 “호환 때문에 남겨야 하는 것”이 분리된다.
+- cleanup 후보가 risk와 함께 backlog에 정리된다.
 
-### 7. Roadmap / Deferred Reassessment
+### 12. Test Coverage And Missing Gate Review
 
 상태: `queued`
 
 이번 작업의 범위:
 
-1. 구현 roadmap과 deferred 문서 구성이 현재 코드 상태와 맞는지 다시 평가한다.
-2. 지금 `ROADMAP.md`에 있는 것이 정말 즉시 실행 가능 항목인지 본다.
-3. deferred에 있으나 다시 끌어올려야 할 항목이 있는지 본다.
+1. findings에서 반복적으로 나온 위험이 테스트로 막혀 있는지 확인한다.
+2. missing deterministic test와 missing smoke를 구분한다.
+3. 테스트가 너무 넓거나 느려서 gate 역할을 못 하는 곳을 찾는다.
 
 완료 기준:
 
-- roadmap / deferred 재배치 제안이 리뷰 문서에 남는다.
+- 추가해야 할 targeted test, 줄여도 되는 smoke, 유지해야 할 release gate가 정리된다.
 
-### 8. Consolidated Review Outcome
+### 13. Consolidated Review Outcome
 
 상태: `queued`
 
 이번 작업의 범위:
 
-1. 누적 findings를 severity 순으로 다시 정렬한다.
-2. 즉시 수정할 것, 다음 roadmap에 넣을 것, deferred로 남길 것을 최종 분류한다.
+1. 누적 findings를 severity와 실행 가능성 기준으로 다시 정렬한다.
+2. 즉시 수정할 것, 구현 roadmap에 넣을 것, deferred에 둘 것을 최종 분류한다.
 3. `REVIEW_FINDINGS_BACKLOG.md`를 후속 실행용 backlog로 정리한다.
+4. 필요하면 `ROADMAP.md`와 deferred 문서에 반영할 제안 목록을 만든다.
+5. post-review handoff를 `bug_fix`, `roadmap_update`, `deferred_update`, `remove`, `keep`, `needs_decision`으로 나눠 최종 정리한다.
 
 완료 기준:
 
-- 이번 리뷰 라운드의 최종 결론과 후속 작업이 한 번에 보인다.
+- 이번 `gpt-5.5` 리뷰 라운드의 최종 결론과 다음 실행 목록이 한눈에 보인다.
+- 이후 버그 수정, `ROADMAP.md` 수정, deferred 문서 수정 작업을 별도 판단 없이 시작할 수 있다.
 
 ## Suggested Next Step
 
-현재 가장 자연스러운 다음 단계는 `4. review-bot Deep Review`다.
+현재 시작점은 `1. Review Frame And Evidence Reset`이다.
 
 이유:
 
-- architecture review와 `review-engine` deep review로 top-level 방향성, harness compatibility drift, engine authoring boundary까지 한 번 정리됐으므로 이제 lifecycle/provider/UX surface가 더 큰 미확인 영역으로 남았다.
-- `review-engine`에서는 duplicate identity collision과 manual editor deferred 판단을 이미 backlog/deferred로 고정했기 때문에, 다음 단계는 `review-bot`의 detect/publish/sync/verify 경계와 provider signal 분리를 같은 finding contract로 점검하는 편이 맞다.
+- 이전 리뷰 라운드 결과가 이미 문서에 있었으므로, 새 `gpt-5.5` 리뷰는 산출물 기준을 먼저 리셋해야 한다.
+- 이후 각 review unit은 같은 finding contract와 backlog intake rule을 사용해 누적 기록한다.
 
 ## Validation Baseline
-
-`2026-04-24` unit 1 실행 메모:
-
-- docs-only review frame 작업이라 `git diff --check`만 deterministic validation으로 사용한다.
-- targeted test, local GitLab smoke, provider-direct smoke는 runtime claim이 없는 이번 unit 범위 밖이라 생략한다.
-
-`2026-04-24` unit 2 실행 메모:
-
-- architecture/direction review도 docs/code static evidence unit으로 처리해 `git diff --check`만 deterministic validation으로 사용한다.
-- targeted test, local GitLab smoke, provider-direct smoke는 runtime claim을 새로 만들지 않는 범위라 생략한다.
-
-`2026-04-24` unit 3 실행 메모:
-
-- `review-engine` deep review도 docs/code static evidence unit으로 처리해 `git diff --check`만 deterministic validation으로 사용한다.
-- targeted test, local GitLab smoke, provider-direct smoke는 runtime claim을 새로 만들지 않는 범위라 생략한다.
-- 이번 unit은 provider나 lifecycle runtime 검증을 다루지 않았으므로 direct OpenAI와 stub fallback은 둘 다 사용하지 않았다.
 
 리뷰 문서 작업:
 
@@ -237,7 +305,7 @@ git diff --check
 
 ```bash
 git status --short
-rg -n "TODO|FIXME|deprecated|compat|fallback|watch" review-engine review-bot ops docs
+rg -n "TODO|FIXME|deprecated|compat|fallback|legacy|watch" review-engine review-bot review-platform ops docs
 ```
 
 필요 시 targeted test:
@@ -245,6 +313,14 @@ rg -n "TODO|FIXME|deprecated|compat|fallback|watch" review-engine review-bot ops
 ```bash
 cd review-engine && uv run pytest tests/test_rule_runtime.py tests/test_rule_lifecycle_cli.py -q
 cd review-bot && uv run pytest tests/test_review_runner.py tests/test_api_queue.py -q
+cd review-platform && uv run pytest tests/test_pr_flow.py -q
 ```
 
-local smoke, direct provider validation, OpenAI 비교 실행은 해당 review unit이 실제 runtime evidence를 필요로 할 때만 추가한다.
+runtime smoke:
+
+```bash
+bash ops/scripts/smoke_local_gitlab_lifecycle_review.sh
+bash ops/scripts/smoke_openai_provider_direct.sh
+```
+
+runtime smoke는 해당 review unit이 실제 runtime evidence를 필요로 할 때만 실행한다.

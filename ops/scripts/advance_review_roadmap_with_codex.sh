@@ -4,6 +4,7 @@ set -euo pipefail
 ROOT="${REVIEW_SYSTEM_ROOT:-/home/et16/work/review_system}"
 REVIEW_ROADMAP_FILE="${REVIEW_ROADMAP_FILE:-docs/REVIEW_ROADMAP.md}"
 
+export CODEX_MODEL="${CODEX_MODEL:-gpt-5.5}"
 export COMMIT_PREFIX="${COMMIT_PREFIX:-Advance review roadmap item}"
 
 exec "$ROOT/ops/scripts/advance_roadmap_with_codex.sh" \
