@@ -57,6 +57,12 @@ PLUGIN = LanguageQueryPlugin(
             0.92,
         ),
         PatternSpec(
+            "response_json_cast",
+            r"(?:\(\s*await\s+[\w$.]+\.json\s*\(\s*\)\s*\)|await\s+[\w$.]+\.json\s*\(\s*\)|[\w$.]+\.json\s*\(\s*\))\s+as\s+[A-Z][\w$.]*(?:<[^;\n>]+>)?(?:\[\])?",
+            "json() result cast to a domain type detected; review runtime validation before trusting the payload.",
+            0.91,
+        ),
+        PatternSpec(
             "async_effect_callback",
             r"\buse(?:Layout)?Effect\s*\(\s*async\s*\(",
             "Async React effect callback detected; review cleanup and rejection ownership.",
@@ -114,6 +120,7 @@ PLUGIN = LanguageQueryPlugin(
         "promise_without_await": ("TS.5",),
         "ts_expect_error": ("TS.API.6",),
         "double_cast": ("TS.API.7",),
+        "response_json_cast": ("TS.API.10",),
         "async_effect_callback": ("TS.6", "TS.REF.3"),
         "jsx_dangerous_html": ("TS.7", "TS.REF.3"),
         "hooks_exhaustive_deps_disable": ("TS.API.8", "TS.REF.3"),
@@ -132,6 +139,7 @@ PLUGIN = LanguageQueryPlugin(
         "promise_without_await",
         "ts_expect_error",
         "double_cast",
+        "response_json_cast",
         "async_effect_callback",
         "jsx_dangerous_html",
         "hooks_exhaustive_deps_disable",

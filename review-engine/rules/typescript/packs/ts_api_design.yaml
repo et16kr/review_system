@@ -124,6 +124,19 @@ entries:
     priority_tier: high
     specificity: 0.92
     false_positive_risk: low
+  - rule_no: TS.API.10
+    section: TSAPI
+    title: Validate json() results before casting them to domain types
+    summary: Response JSON is runtime data, not proof of a TypeScript contract.
+    text: A `json()` result from a fetch or framework response boundary should stay unknown or narrowly typed until validation proves its shape. Casting it directly to a domain type hides the runtime trust decision behind a TypeScript assertion.
+    category: security
+    trigger_patterns: [response_json_cast]
+    fix_guidance: Store the JSON result as unknown, validate it with a schema or narrowing helper, and only then construct the domain type.
+    base_score: 0.92
+    severity_default: 0.94
+    priority_tier: high
+    specificity: 0.9
+    false_positive_risk: low
   - rule_no: TS.API.REF.1
     section: TSAPIREF
     title: Shared boundary helpers should centralize parse-plus-validate logic instead of repeating casts at call sites

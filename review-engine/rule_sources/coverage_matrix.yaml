@@ -682,9 +682,9 @@ languages:
             section_id: candidate_canonical_rule_groups
             status: mapped
             pack_targets: [ts_api_design]
-            canonical_rules: [TS.API.2, TS.API.4, TS.API.5, TS.API.7]
+            canonical_rules: [TS.API.2, TS.API.4, TS.API.5, TS.API.7, TS.API.10]
             reviewability_mix: [auto_review]
-            reason: Parse-plus-validate guidance is fully promoted into canonical runtime rules.
+            reason: Parse-plus-validate guidance, including direct json() domain casts, is fully promoted into canonical runtime rules.
           - source_atom_id: async_ownership
             section_id: candidate_canonical_rule_groups
             status: mapped
