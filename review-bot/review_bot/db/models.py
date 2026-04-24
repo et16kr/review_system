@@ -168,6 +168,13 @@ class PublicationState(Base):
 
 class ThreadSyncState(Base):
     __tablename__ = "thread_sync_states"
+    __table_args__ = (
+        UniqueConstraint(
+            "review_request_pk",
+            "adapter_thread_ref",
+            name="uq_thread_sync_states_request_thread_ref",
+        ),
+    )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
     review_request_pk: Mapped[str] = mapped_column(ForeignKey("review_requests.id"), index=True)
@@ -180,7 +187,7 @@ class ThreadSyncState(Base):
     finding_fingerprint: Mapped[str] = mapped_column(String(255), index=True)
     anchor_signature: Mapped[str] = mapped_column(String(255))
     body_hash: Mapped[str | None] = mapped_column(String(128), nullable=True)
-    adapter_thread_ref: Mapped[str] = mapped_column(String(255), unique=True)
+    adapter_thread_ref: Mapped[str] = mapped_column(String(255))
     adapter_comment_ref: Mapped[str | None] = mapped_column(String(255), nullable=True)
     sync_status: Mapped[str] = mapped_column(String(32), default="open")
     last_seen_head_sha: Mapped[str | None] = mapped_column(String(64), nullable=True)
@@ -198,7 +205,13 @@ class ThreadSyncState(Base):
 
 class FeedbackEvent(Base):
     __tablename__ = "feedback_events"
-    __table_args__ = (UniqueConstraint("event_key", name="uq_feedback_event_key"),)
+    __table_args__ = (
+        UniqueConstraint(
+            "review_request_pk",
+            "event_key",
+            name="uq_feedback_events_request_event_key",
+        ),
+    )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
     review_request_pk: Mapped[str] = mapped_column(ForeignKey("review_requests.id"), index=True)

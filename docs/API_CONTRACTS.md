@@ -57,6 +57,18 @@
 }
 ```
 
+Adapter가 반환하는 remote ref scope:
+
+- `ThreadSnapshot.thread_ref`, `ThreadSnapshot.comment_ref`, `ThreadNoteSnapshot.note_ref`,
+  `CommentUpsertResult.thread_ref`, `CommentUpsertResult.comment_ref`,
+  `FeedbackRecord.event_key`, `FeedbackRecord.adapter_thread_ref`,
+  `FeedbackRecord.adapter_comment_ref`는 모두 해당 호출의 `ReviewRequestKey` 안에서만
+  unique하면 된다.
+- 서로 다른 `ReviewRequestKey`가 같은 remote thread/comment/event id를 재사용할 수 있다.
+- `review-bot` storage dedupe도 같은 request scope를 사용한다. `thread_sync_states`는
+  `(review_request_pk, adapter_thread_ref)`, `feedback_events`는
+  `(review_request_pk, event_key)`로 중복을 판단한다.
+
 ```json
 {
   "pull_request": {

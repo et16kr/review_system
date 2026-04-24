@@ -85,6 +85,71 @@ def test_review_runner_publishes_inline_comment_and_persists_thread_state() -> N
         session.close()
 
 
+def test_adapter_remote_refs_are_scoped_to_review_request_key() -> None:
+    _reset_db()
+
+    runner = ReviewRunner()
+    keys = [
+        ReviewRequestKey(
+            review_system="gitlab",
+            project_ref="group/project-a",
+            review_request_id="1",
+        ),
+        ReviewRequestKey(
+            review_system="gitlab",
+            project_ref="group/project-b",
+            review_request_id="1",
+        ),
+    ]
+
+    session = SessionLocal()
+    try:
+        for index, key in enumerate(keys):
+            adapter = FakeAdapter()
+            adapter.set_diff(key, path="src/a.cpp", patch=_malloc_patch())
+            runner.platform_client = adapter
+            runner.engine_client = EngineStub([_result("R.10", category="memory")])
+            runner.provider = FixedProvider()
+
+            first_run = runner.create_review_run_for_key(
+                session,
+                key,
+                trigger=f"first-{index}",
+                mode="manual",
+            )
+            runner.execute_review_run(session, first_run.id)
+
+            adapter.add_human_reply(
+                key,
+                "thread-1",
+                "bot:false-positive\nRemote ids are scoped to this review request.",
+            )
+            second_run = runner.create_review_run_for_key(
+                session,
+                key,
+                trigger=f"feedback-{index}",
+                mode="manual",
+            )
+            runner.execute_review_run(session, second_run.id)
+
+        thread_states = session.query(ThreadSyncState).all()
+        assert len(thread_states) == 2
+        assert {state.adapter_thread_ref for state in thread_states} == {"thread-1"}
+        assert len({state.review_request_pk for state in thread_states}) == 2
+
+        events_by_request: dict[str, list[FeedbackEvent]] = {}
+        for event in session.query(FeedbackEvent).all():
+            events_by_request.setdefault(event.review_request_pk, []).append(event)
+
+        assert len(events_by_request) == 2
+        for events in events_by_request.values():
+            event_keys = {event.event_key for event in events}
+            assert "thread-1:reply:note-2" in event_keys
+            assert any(event.event_type == "unresolved" for event in events)
+    finally:
+        session.close()
+
+
 def test_review_runner_keeps_distinct_findings_per_hunk() -> None:
     _reset_db()
 

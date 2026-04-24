@@ -40,7 +40,7 @@
    - [docs/API_CONTRACTS.md](/home/et16/work/review_system/docs/API_CONTRACTS.md:1)
    - [docs/OPERATIONS_RUNBOOK.md](/home/et16/work/review_system/docs/OPERATIONS_RUNBOOK.md:1)
 3. DB schema를 건드리면 Alembic head를 확인
-   - current head: `20260424_000005`
+   - current head: `20260424_000006`
 4. GitLab webhook / adapter / thread sync를 건드리면 local GitLab smoke까지 돌릴 준비를 한다
 5. `review-platform` 또는 `ops` harness 변경이면 아래를 같이 확인한다
    - [review-platform/app/clients/bot_client.py](/home/et16/work/review_system/review-platform/app/clients/bot_client.py:1)

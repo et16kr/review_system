@@ -1678,7 +1678,10 @@ class ReviewRunner:
         for event in feedback_page.events:
             exists = (
                 session.query(FeedbackEvent.id)
-                .filter(FeedbackEvent.event_key == event.event_key)
+                .filter(
+                    FeedbackEvent.review_request_pk == review_request.id,
+                    FeedbackEvent.event_key == event.event_key,
+                )
                 .first()
             )
             if exists:
@@ -2242,7 +2245,11 @@ class ReviewRunner:
                 reopened_fingerprints.add(fingerprint)
 
         thread_rows = (
-            session.query(ThreadSyncState.adapter_thread_ref, ThreadSyncState.finding_fingerprint)
+            session.query(
+                ThreadSyncState.review_request_pk,
+                ThreadSyncState.adapter_thread_ref,
+                ThreadSyncState.finding_fingerprint,
+            )
             .filter(
                 ThreadSyncState.finding_fingerprint.in_(allowed_fingerprints),
                 ThreadSyncState.adapter_thread_ref.isnot(None),
@@ -2250,34 +2257,38 @@ class ReviewRunner:
             .all()
         )
         thread_to_fingerprint = {
-            thread_ref: fingerprint
-            for thread_ref, fingerprint in thread_rows
+            (request_pk, thread_ref): fingerprint
+            for request_pk, thread_ref, fingerprint in thread_rows
             if thread_ref and fingerprint
         }
         latest_feedback_command: dict[str, str | None] = {}
         latest_feedback_marker: dict[str, tuple[datetime, str]] = {}
         if thread_to_fingerprint:
+            request_pks = {request_pk for request_pk, _thread_ref in thread_to_fingerprint}
+            thread_refs = {thread_ref for _request_pk, thread_ref in thread_to_fingerprint}
             feedback_rows = (
                 session.query(
+                    FeedbackEvent.review_request_pk,
                     FeedbackEvent.adapter_thread_ref,
                     FeedbackEvent.payload,
                     FeedbackEvent.occurred_at,
                     FeedbackEvent.event_key,
                 )
                 .filter(
-                    FeedbackEvent.adapter_thread_ref.in_(thread_to_fingerprint),
+                    FeedbackEvent.review_request_pk.in_(request_pks),
+                    FeedbackEvent.adapter_thread_ref.in_(thread_refs),
                     FeedbackEvent.actor_type == "human",
                     FeedbackEvent.event_type == "reply",
                 )
                 .all()
             )
-            for thread_ref, payload, occurred_at, event_key in feedback_rows:
+            for request_pk, thread_ref, payload, occurred_at, event_key in feedback_rows:
                 if thread_ref is None:
                     continue
                 command = self._latest_feedback_command(str((payload or {}).get("body") or ""))
                 if command is None:
                     continue
-                fingerprint = thread_to_fingerprint.get(thread_ref)
+                fingerprint = thread_to_fingerprint.get((request_pk, thread_ref))
                 if fingerprint is None:
                     continue
                 normalized_occurred_at = self._as_utc(occurred_at)
@@ -2390,6 +2401,7 @@ class ReviewRunner:
 
         feedback_rows = (
             session.query(
+                FeedbackEvent.review_request_pk,
                 FeedbackEvent.adapter_thread_ref,
                 FeedbackEvent.payload,
                 FeedbackEvent.occurred_at,
@@ -2404,11 +2416,12 @@ class ReviewRunner:
         )
 
         filtered_feedback: list[
-            tuple[str, dict[str, Any], datetime, str, WrongLanguageProvenance]
+            tuple[str, str, dict[str, Any], datetime, str, WrongLanguageProvenance]
         ] = []
         thread_refs: set[str] = set()
+        thread_identities: set[tuple[str, str]] = set()
         provenance_counts = {"smoke": 0, "production": 0, "unknown": 0}
-        for thread_ref, payload, occurred_at, event_key, feedback_project_ref in feedback_rows:
+        for request_pk, thread_ref, payload, occurred_at, event_key, feedback_project_ref in feedback_rows:
             if not thread_ref:
                 continue
             if project_ref is not None and feedback_project_ref != project_ref:
@@ -2427,6 +2440,7 @@ class ReviewRunner:
             provenance_counts[provenance] += 1
             filtered_feedback.append(
                 (
+                    request_pk,
                     thread_ref,
                     payload_dict,
                     normalized_occurred_at,
@@ -2435,6 +2449,7 @@ class ReviewRunner:
                 )
             )
             thread_refs.add(thread_ref)
+            thread_identities.add((request_pk, thread_ref))
 
         if not filtered_feedback:
             return {
@@ -2454,6 +2469,7 @@ class ReviewRunner:
 
         publication_rows = (
             session.query(
+                PublicationState.review_request_pk,
                 PublicationState.adapter_thread_ref,
                 FindingDecision.fingerprint,
                 FindingDecision.file_path,
@@ -2463,12 +2479,18 @@ class ReviewRunner:
             )
             .join(FindingDecision, PublicationState.finding_decision_id == FindingDecision.id)
             .join(FindingEvidence, FindingDecision.evidence_id == FindingEvidence.id)
-            .filter(PublicationState.adapter_thread_ref.in_(thread_refs))
+            .filter(
+                PublicationState.review_request_pk.in_(
+                    {request_pk for request_pk, _thread_ref in thread_identities}
+                ),
+                PublicationState.adapter_thread_ref.in_(thread_refs),
+            )
             .order_by(PublicationState.updated_at.desc(), PublicationState.id.desc())
             .all()
         )
-        metadata_by_thread: dict[str, dict[str, Any]] = {}
+        metadata_by_thread: dict[tuple[str, str], dict[str, Any]] = {}
         for (
+            request_pk,
             thread_ref,
             fingerprint,
             file_path,
@@ -2476,10 +2498,11 @@ class ReviewRunner:
             _updated_at,
             _publication_id,
         ) in publication_rows:
-            if not thread_ref or thread_ref in metadata_by_thread:
+            metadata_key = (request_pk, thread_ref)
+            if not thread_ref or metadata_key in metadata_by_thread:
                 continue
             payload = dict(raw_engine_payload or {})
-            metadata_by_thread[thread_ref] = {
+            metadata_by_thread[metadata_key] = {
                 "fingerprint": fingerprint,
                 "file_path": file_path or "",
                 "detected_language_id": str(payload.get("language_id") or "unknown"),
@@ -2503,8 +2526,8 @@ class ReviewRunner:
         ] = {}
         fingerprints: set[str] = set()
 
-        for thread_ref, payload, _occurred_at, _event_key, provenance in filtered_feedback:
-            metadata = metadata_by_thread.get(thread_ref, {})
+        for request_pk, thread_ref, payload, _occurred_at, _event_key, provenance in filtered_feedback:
+            metadata = metadata_by_thread.get((request_pk, thread_ref), {})
             detected_language_id = str(metadata.get("detected_language_id") or "unknown")
             expected_language_id = str(payload.get("expected_language_id") or "unknown").strip() or "unknown"
             profile_id = metadata.get("profile_id")
@@ -2587,7 +2610,7 @@ class ReviewRunner:
             "window": window,
             "project_ref": project_ref,
             "total_events": len(filtered_feedback),
-            "distinct_threads": len(thread_refs),
+            "distinct_threads": len(thread_identities),
             "distinct_findings": len(fingerprints),
             "smoke_events": provenance_counts["smoke"],
             "production_events": provenance_counts["production"],
