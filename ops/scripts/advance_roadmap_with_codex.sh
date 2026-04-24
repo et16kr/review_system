@@ -2,6 +2,7 @@
 set -euo pipefail
 
 ROOT="${REVIEW_SYSTEM_ROOT:-/home/et16/work/review_system}"
+ROADMAP_FILE="${ROADMAP_FILE:-docs/ROADMAP.md}"
 MAX_ITERS="${MAX_ITERS:-1}"
 MAX_BLOCKED_SKIPS="${MAX_BLOCKED_SKIPS:-10}"
 SANDBOX="${CODEX_SANDBOX:-workspace-write}"
@@ -18,6 +19,9 @@ Usage: ops/scripts/advance_roadmap_with_codex.sh [options]
 Run Codex in one-commit roadmap advancement loops.
 
 Options:
+  --roadmap-file PATH
+                     Roadmap document to advance, relative to repo root or absolute path.
+                     Default: ROADMAP_FILE or docs/ROADMAP.md.
   --max-iters N      Maximum completed roadmap units (usually commits) to create.
                      Default: MAX_ITERS or 1.
   --max-blocked-skips N
@@ -34,6 +38,7 @@ Options:
 
 Environment:
   REVIEW_SYSTEM_ROOT Repository root. Default: /home/et16/work/review_system.
+  ROADMAP_FILE       Same as --roadmap-file.
   MAX_ITERS          Same as --max-iters.
   MAX_BLOCKED_SKIPS  Same as --max-blocked-skips.
   CODEX_MODEL        Same as --model.
@@ -46,6 +51,10 @@ EOF
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
+    --roadmap-file)
+      ROADMAP_FILE="${2:?missing value for --roadmap-file}"
+      shift 2
+      ;;
     --max-iters)
       MAX_ITERS="${2:?missing value for --max-iters}"
       shift 2
@@ -114,6 +123,23 @@ cd "$ROOT"
 
 if [[ "$(git rev-parse --show-toplevel)" != "$ROOT" ]]; then
   echo "Repository root mismatch. Expected $ROOT" >&2
+  exit 2
+fi
+
+if [[ "$ROADMAP_FILE" = /* ]]; then
+  roadmap_rel="$(realpath --relative-to="$ROOT" "$ROADMAP_FILE")"
+else
+  roadmap_rel="$ROADMAP_FILE"
+fi
+
+if [[ "$roadmap_rel" == ..* ]]; then
+  echo "ROADMAP_FILE must resolve inside the repository: $ROADMAP_FILE" >&2
+  exit 2
+fi
+
+roadmap_abs="$ROOT/$roadmap_rel"
+if [[ ! -f "$roadmap_abs" ]]; then
+  echo "Roadmap file not found: $roadmap_abs" >&2
   exit 2
 fi
 
@@ -354,20 +380,20 @@ while [[ "$UNTIL_DONE" == "1" || "$completed" -lt "$MAX_ITERS" ]]; do
   collect_openai_direct_smoke "$openai_smoke"
 
   cat >"$prompt" <<'EOF'
-You are advancing /home/et16/work/review_system/docs/ROADMAP.md.
+You are advancing __ROADMAP_ABS__.
 
 Follow AGENTS.md and the repository's existing validation guidance.
 
 Perform exactly one smallest executable roadmap unit:
-1. Read docs/ROADMAP.md and pick the next executable item in roadmap order.
+1. Read __ROADMAP_REL__ and pick the next executable item in roadmap order.
 1a. If this run already encountered blocked roadmap units, do not pick them again. Move to the next executable item after those blocked units.
 2. Before editing, decide whether the item is blocked by missing credentials, external services, human review, local GitLab state, ambiguous product decisions, or unsafe scope.
 3. If blocked, do not edit files. Explain the blocker and finish with STATUS: BLOCKED.
 4. If executable, create the temporary design note at docs/ROADMAP_AUTOMATION_DESIGN.md.
 5. Implement the change.
-6. Run the relevant deterministic validation. Use the Validation Baseline section in docs/ROADMAP.md to choose tests. Do not run long local GitLab smoke unless the roadmap item truly requires it and the environment is ready.
+6. Run the relevant deterministic validation. Use the Validation Baseline section in __ROADMAP_REL__ to choose tests. Do not run long local GitLab smoke unless the roadmap item truly requires it and the environment is ready.
 7. Self-review the resulting diff, fix issues you find, then delete docs/ROADMAP_AUTOMATION_DESIGN.md.
-8. Update docs/ROADMAP.md so completed work, remaining work, and any skipped validation are accurate.
+8. Update __ROADMAP_REL__ so completed work, remaining work, and any skipped validation are accurate.
 
 Hard constraints:
 - Do not run git add, git commit, git reset, git checkout, or git clean.
@@ -392,6 +418,8 @@ STATUS: COMPLETED
 STATUS: BLOCKED
 STATUS: ROADMAP_COMPLETE
 EOF
+
+  perl -0pi -e 's#__ROADMAP_ABS__#'"$roadmap_abs"'#g; s#__ROADMAP_REL__#'"$roadmap_rel"'#g' "$prompt"
 
   {
     if [[ -s "$blocked_units" ]]; then
@@ -462,8 +490,8 @@ EOF
     exit 1
   fi
 
-  if ! git diff --name-only | grep -Fxq "docs/ROADMAP.md"; then
-    echo "Codex completed without updating docs/ROADMAP.md. Leaving changes uncommitted." >&2
+  if ! git diff --name-only | grep -Fxq "$roadmap_rel"; then
+    echo "Codex completed without updating $roadmap_rel. Leaving changes uncommitted." >&2
     exit 1
   fi
 
