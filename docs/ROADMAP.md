@@ -371,7 +371,18 @@ main `ROADMAP.md`의 현재 항목을 다 돌린 뒤 곧바로 이어서 할 후
 
 ### 7. Minimal Rule Lifecycle CLI
 
-상태: `not_started`
+상태: `partial`
+
+최근 완료:
+
+- `review_engine.cli.rule_lifecycle`가 canonical YAML runtime을 직접 읽는
+  read-only `list`/`show` command를 추가해 generated dataset이나 ingest 없이도
+  현재 selected runtime의 rule state를 바로 조회할 수 있게 됐다.
+- CLI 출력은 `source_of_truth=canonical_yaml`, selected `language/profile/context/dialect`,
+  `selected_pack_ids`, `public_rule_root`/`extension_rule_roots`를 함께 내보내서
+  runtime selection과 source-of-truth 경계를 한 번에 읽게 고정했다.
+- `review-engine/tests/test_rule_lifecycle_cli.py`가
+  `list`/`show`가 temp data dir을 건드리지 않고 canonical YAML만 읽는 회귀를 고정했다.
 
 범위:
 
@@ -382,9 +393,19 @@ main `ROADMAP.md`의 현재 항목을 다 돌린 뒤 곧바로 이어서 할 후
 
 다음 작업:
 
-1. 최소 lifecycle CLI의 입력/출력과 canonical YAML 경계를 정한다.
-2. rule 변경 후 validate/ingest/test 연결 방식을 명령 단위로 묶는다.
-3. full editor/UI 없이도 운영에 도움이 되는 작은 관리 흐름부터 닫는다.
+1. `disable`/`enable`의 pack/entry addressing과 explicit YAML write boundary를 정한다.
+2. rule 변경 후 validate/ingest/test 연결 방식을 mutation command 단위로 묶는다.
+3. full editor/UI 없이도 운영에 도움이 되는 작은 on/off 관리 흐름을 닫는다.
+
+검증 메모:
+
+- 이번 slice는 read-only lifecycle CLI input/output과 canonical YAML boundary만 추가했다.
+- rerun:
+  - `env UV_CACHE_DIR=/tmp/uv-cache uv run --project review-engine ruff check review-engine/review_engine/cli/rule_lifecycle.py review-engine/tests/test_rule_lifecycle_cli.py`
+  - `env UV_CACHE_DIR=/tmp/uv-cache uv run --project review-engine pytest review-engine/tests/test_rule_lifecycle_cli.py review-engine/tests/test_rule_runtime.py -q`
+  - `env UV_CACHE_DIR=/tmp/uv-cache uv run --project review-engine python -m review_engine.cli.rule_lifecycle list --language-id python --profile-id fastapi_service`
+- broader `review-engine` pytest, ingest/retrieval baseline, `review-bot`/`review-platform` tests,
+  GitLab smoke, provider/direct OpenAI validation은 read-only CLI 범위라 생략했다.
 
 완료 기준:
 
