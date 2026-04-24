@@ -5,7 +5,7 @@ from dataclasses import dataclass
 
 HUNK_RE = re.compile(r"@@ -(?P<old>\d+)(?:,\d+)? \+(?P<new>\d+)(?:,\d+)? @@")
 DEFAULT_MAX_LINES_PER_REVIEW_UNIT = 80
-YAML_BOUNDARY_MAX_OVERSHOOT = 8
+SAFE_BOUNDARY_MAX_OVERSHOOT = 8
 
 
 @dataclass(frozen=True)
@@ -148,12 +148,21 @@ def split_large_added_unit(
         language_id=language_id,
     )
     if normalized_language == "yaml":
-        yaml_units = _split_large_yaml_added_unit(
+        yaml_units = _split_large_boundary_aware_unit(
             added_lines,
+            boundary_indexes=_yaml_safe_boundary_indexes(added_lines),
             max_lines_per_review_unit=max_lines_per_review_unit,
         )
         if yaml_units is not None:
             return yaml_units
+    if normalized_language == "tsx":
+        tsx_units = _split_large_boundary_aware_unit(
+            added_lines,
+            boundary_indexes=_tsx_safe_boundary_indexes(added_lines),
+            max_lines_per_review_unit=max_lines_per_review_unit,
+        )
+        if tsx_units is not None:
+            return tsx_units
 
     split_units: list[ReviewUnit] = []
     for start in range(0, len(added_lines), max_lines_per_review_unit):
@@ -164,12 +173,12 @@ def split_large_added_unit(
     return split_units or [unit]
 
 
-def _split_large_yaml_added_unit(
+def _split_large_boundary_aware_unit(
     added_lines: list[ChangedPatchLine],
     *,
+    boundary_indexes: list[int],
     max_lines_per_review_unit: int,
 ) -> list[ReviewUnit] | None:
-    boundary_indexes = _yaml_safe_boundary_indexes(added_lines)
     if len(boundary_indexes) <= 1:
         return None
 
@@ -177,7 +186,7 @@ def _split_large_yaml_added_unit(
     start_index = 0
     total_lines = len(added_lines)
     while total_lines - start_index > max_lines_per_review_unit:
-        split_index = _select_yaml_split_index(
+        split_index = _select_safe_boundary_split_index(
             boundary_indexes=boundary_indexes,
             start_index=start_index,
             total_lines=total_lines,
@@ -198,7 +207,7 @@ def _split_large_yaml_added_unit(
     return split_units
 
 
-def _select_yaml_split_index(
+def _select_safe_boundary_split_index(
     *,
     boundary_indexes: list[int],
     start_index: int,
@@ -212,7 +221,7 @@ def _select_yaml_split_index(
     if prior_candidates:
         return prior_candidates[-1]
 
-    max_overshoot = min(target_index + YAML_BOUNDARY_MAX_OVERSHOOT, total_lines - 1)
+    max_overshoot = min(target_index + SAFE_BOUNDARY_MAX_OVERSHOOT, total_lines - 1)
     next_candidates = [
         index for index in boundary_indexes if target_index < index <= max_overshoot
     ]
@@ -235,15 +244,39 @@ def _yaml_safe_boundary_indexes(added_lines: list[ChangedPatchLine]) -> list[int
     return boundary_indexes
 
 
+def _tsx_safe_boundary_indexes(added_lines: list[ChangedPatchLine]) -> list[int]:
+    boundary_indexes: list[int] = [0]
+    previous_tag_indent: int | None = None
+    previous_tag_was_closing = False
+
+    for index, line in enumerate(added_lines[1:], start=1):
+        stripped = line.text.lstrip()
+        if not stripped or not stripped.startswith("<"):
+            continue
+        current_indent = len(line.text) - len(stripped)
+        is_closing_tag = stripped.startswith("</")
+        if (
+            not is_closing_tag
+            and previous_tag_was_closing
+            and previous_tag_indent is not None
+            and current_indent <= previous_tag_indent
+        ):
+            boundary_indexes.append(index)
+        previous_tag_indent = current_indent
+        previous_tag_was_closing = is_closing_tag
+
+    return boundary_indexes
+
+
 def _normalize_review_language(*, file_path: str | None, language_id: str | None) -> str | None:
-    if language_id:
-        return str(language_id).strip().lower()
     if not file_path:
-        return None
+        return str(language_id).strip().lower() if language_id else None
     lowered_path = file_path.lower()
     if lowered_path.endswith((".yaml", ".yml")):
         return "yaml"
-    return None
+    if lowered_path.endswith(".tsx"):
+        return "tsx"
+    return str(language_id).strip().lower() if language_id else None
 
 
 def _build_added_only_review_unit(chunk: list[ChangedPatchLine]) -> ReviewUnit | None:

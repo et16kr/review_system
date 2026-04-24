@@ -139,6 +139,35 @@ def test_review_runner_yaml_syntax_aware_split_uses_safe_boundary_for_anchor_and
         session.close()
 
 
+def test_review_runner_typescript_syntax_aware_split_uses_safe_boundary_for_anchor_and_fingerprint() -> None:
+    _reset_db()
+
+    runner = ReviewRunner()
+    adapter = FakeAdapter()
+    key = runner._legacy_key(204)  # noqa: SLF001
+    adapter.set_diff(key, path="ui/ReviewAuditPanel.tsx", patch=_typescript_react_long_component_patch())
+    runner.platform_client = adapter
+    runner.engine_client = EngineStub([_result("TS.7", category="security")])
+    runner.provider = FixedProvider()
+
+    session = SessionLocal()
+    try:
+        runner.run_review(session, pr_id=204, trigger="test-typescript-split")
+        findings = (
+            session.query(FindingDecision)
+            .filter_by(review_request_id="204", rule_no="TS.7")
+            .order_by(FindingDecision.line_no.asc())
+            .all()
+        )
+
+        assert len(findings) == 2
+        assert [finding.line_no for finding in findings] == [1, 78]
+        assert findings[0].fingerprint != findings[1].fingerprint
+        assert [finding.anchor_payload["start_line"] for finding in findings] == [1, 78]
+    finally:
+        session.close()
+
+
 def test_review_runner_persists_provider_runtime_metadata_on_run_and_finding() -> None:
     _reset_db()
 
@@ -3209,6 +3238,13 @@ def _yaml_k8s_long_container_patch() -> str:
         if case.case_id == "yaml_k8s_long_container_env":
             return case.patch
     raise AssertionError("yaml_k8s_long_container_env case is missing")
+
+
+def _typescript_react_long_component_patch() -> str:
+    for case in load_review_unit_split_cases():
+        if case.case_id == "typescript_react_long_component":
+            return case.patch
+    raise AssertionError("typescript_react_long_component case is missing")
 
 
 def _continue_patch() -> str:

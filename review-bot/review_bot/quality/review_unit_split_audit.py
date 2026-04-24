@@ -347,6 +347,7 @@ def _typescript_react_case() -> ReviewUnitSplitAuditCase:
                 end_line=len(lines),
             ),
         ),
+        safe_split_start_lines=(78,),
     )
 
 

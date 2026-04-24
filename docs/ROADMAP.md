@@ -200,23 +200,27 @@
 - `yaml` long added hunk가 raw 80-line cut 대신 safe list-item / mapping boundary를 우선 쓰는
   syntax-aware split prototype을 갖게 됐고, runner detect/sync path도 같은 file/language-aware split 규칙을 공유한다.
 - `review_unit_split_audit` artifact가 갱신되어
-  `yaml`은 `current_hunk_split_ok`로 내려가고 `python`, `typescript`만 남은 syntax-aware split 우선 언어로 고정됐다.
+  `yaml`, `typescript`는 `current_hunk_split_ok`로 내려가고 `python`만 남은 syntax-aware split 우선 언어로 고정됐다.
 - `review-bot/tests/test_review_runner.py::test_review_runner_yaml_syntax_aware_split_uses_safe_boundary_for_anchor_and_fingerprint`가
   long YAML block의 후속 finding anchor/fingerprint 시작선이 raw line `81`이 아니라 safe boundary line `80`에 고정되도록 회귀를 추가했다.
+- `.tsx` long added hunk가 sibling JSX boundary를 우선 쓰는
+  syntax-aware split prototype을 갖게 됐고, runtime과 deterministic audit가 같은 safe boundary line `78`을 공유한다.
+- `review-bot/tests/test_review_runner.py::test_review_runner_typescript_syntax_aware_split_uses_safe_boundary_for_anchor_and_fingerprint`가
+  long TSX component의 후속 finding anchor/fingerprint 시작선이 raw line `81`이 아니라 safe boundary line `78`에 고정되도록 회귀를 추가했다.
 
 다음 작업:
 
-1. `python` 또는 `typescript`(TSX/React) 중 하나를 골라 syntax-aware split prototype과 anchor/fingerprint 회귀를 붙인다.
+1. `python` long added hunk에 syntax-aware split prototype과 anchor/fingerprint 회귀를 붙인다.
 2. related file retrieval과 project-scoped codebase index를 분리 설계한다.
 3. project-local feedback이 global quality metric을 왜곡하지 않도록 learned weight granularity를 정한다.
 4. `.review-bot.yaml`, `summarize`, `ask`, walkthrough note의 우선순위를 재평가한다.
 
 검증 메모:
 
-- 이번 slice는 `yaml` file/language-aware review unit split prototype, runner detect/sync split wiring,
-  deterministic audit corpus/report, YAML anchor/fingerprint regression을 함께 갱신했다.
+- 이번 slice는 `.tsx` file-aware review unit split prototype, deterministic audit corpus/report,
+  TSX anchor/fingerprint regression을 함께 갱신했다.
 - rerun:
-  - `env UV_CACHE_DIR=/tmp/uv-cache uv run --project review-bot pytest review-bot/tests/test_review_unit_split_audit.py review-bot/tests/test_review_runner.py::test_review_runner_keeps_distinct_findings_per_hunk review-bot/tests/test_review_runner.py::test_review_runner_yaml_syntax_aware_split_uses_safe_boundary_for_anchor_and_fingerprint -q`
+  - `env UV_CACHE_DIR=/tmp/uv-cache uv run --project review-bot pytest review-bot/tests/test_review_unit_split_audit.py review-bot/tests/test_review_runner.py::test_review_runner_keeps_distinct_findings_per_hunk review-bot/tests/test_review_runner.py::test_review_runner_typescript_syntax_aware_split_uses_safe_boundary_for_anchor_and_fingerprint -q`
   - `env UV_CACHE_DIR=/tmp/uv-cache uv run --project review-bot python -m review_bot.cli.review_unit_split_audit --output docs/baselines/review_bot/review_unit_split_audit_2026-04-24.md`
 - deterministic validation은 direct OpenAI도 lifecycle stub fallback도 쓰지 않고
   static audit corpus와 in-memory runner stub만 사용했다.
