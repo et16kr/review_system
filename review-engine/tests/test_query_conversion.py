@@ -122,6 +122,16 @@ def test_query_analysis_does_not_treat_ide_rc_declaration_as_error_flow() -> Non
             {"fastapi_blocking_in_async", "fastapi_request_json"},
         ),
         (
+            "python",
+            "from fastapi import APIRouter, Request\nrouter = APIRouter()\n@router.patch('/items/{item_id}')\nasync def update_item(request: Request):\n    raw_payload = await request.body()\n    return {'size': len(raw_payload)}\n",
+            {"fastapi_request_body"},
+        ),
+        (
+            "python",
+            "from fastapi import APIRouter, Request\nrouter = APIRouter()\n@router.post('/upload')\nasync def upload(request: Request):\n    form_payload = await request.form()\n    return {'fields': list(form_payload)}\n",
+            {"fastapi_request_body"},
+        ),
+        (
             "rust",
             "unsafe fn read_raw(ptr: *const i32) -> i32 {\n    dbg!(ptr);\n    unsafe { *ptr }\n}\n",
             {"dbg_macro", "unsafe_fn"},

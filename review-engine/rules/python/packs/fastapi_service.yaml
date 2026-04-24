@@ -22,11 +22,11 @@ entries:
     false_positive_risk: low
   - rule_no: PY.FAPI.2
     section: PYFAPI
-    title: FastAPI routes that read request.json() directly should reintroduce explicit validation
+    title: FastAPI routes that read raw request payloads directly should reintroduce explicit validation
     summary: Raw request parsing bypasses one of FastAPI's main safety and reviewability advantages.
-    text: FastAPI works best when request payloads are validated through typed models at the HTTP boundary. Reading request.json() directly is a signal that runtime validation may have been pushed into ad hoc handler code.
+    text: FastAPI works best when request payloads are validated through typed models at the HTTP boundary. Reading request.json(), request.body(), or request.form() directly is a signal that runtime validation may have been pushed into ad hoc handler code.
     category: security
-    trigger_patterns: [fastapi_request_json]
+    trigger_patterns: [fastapi_request_json, fastapi_request_body]
     fix_guidance: Prefer typed request models or an explicit validation step immediately after parsing so the rest of the handler can rely on a checked contract.
     base_score: 0.91
     severity_default: 0.93

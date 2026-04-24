@@ -92,6 +92,12 @@ PLUGIN = LanguageQueryPlugin(
             "FastAPI route reads raw request.json(); review whether validated request models are being bypassed.",
             0.9,
         ),
+        PatternSpec(
+            "fastapi_request_body",
+            r"(?is)@(?:app|router)\.(?:post|put|patch)\([^)]*\)[\s\S]{0,500}await\s+request\.(?:body|form)\s*\(",
+            "FastAPI route reads a raw request body/form payload; review whether validated request models are being bypassed.",
+            0.9,
+        ),
     ),
     hinted_rules={
         "mutable_default": ("PY.1", "PY.4"),
@@ -108,6 +114,7 @@ PLUGIN = LanguageQueryPlugin(
         "django_mark_safe": ("PY.DJ.4",),
         "fastapi_blocking_in_async": ("PY.FAPI.1",),
         "fastapi_request_json": ("PY.FAPI.2", "PY.FAPI.REF.1"),
+        "fastapi_request_body": ("PY.FAPI.2", "PY.FAPI.REF.1"),
     },
     direct_hint_patterns={
         "mutable_default",
@@ -124,5 +131,6 @@ PLUGIN = LanguageQueryPlugin(
         "django_mark_safe",
         "fastapi_blocking_in_async",
         "fastapi_request_json",
+        "fastapi_request_body",
     },
 )

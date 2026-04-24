@@ -25,7 +25,7 @@ status: drafted
 ## Candidate Canonical Rule Groups
 
 - Async request-path ownership: blocking work inside async handlers and hidden scheduler starvation.
-- HTTP validation boundaries: raw JSON parsing, schema bypass, and request-model drift.
+- HTTP validation boundaries: raw JSON/body/form parsing, schema bypass, and request-model drift.
 
 ## Reference-Only Guidance
 

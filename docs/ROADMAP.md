@@ -43,7 +43,9 @@ contract readiness packet은 닫혔다. OpenAI direct smoke는 live provider로 
 
 현재 즉시 실행 가능한 방향:
 
-- 외부 서비스 없이 deterministic 검증으로 닫을 수 있는 rule coverage breadth pass를 진행한다.
+- 외부 서비스 없이 deterministic 검증으로 닫을 수 있는 rule coverage breadth pass를 계속 진행한다.
+- Python FastAPI validation-boundary pass는 `PY.FAPI.2`가 raw JSON/body/form direct pattern을
+  다루는 상태로 닫혔다. 다음 즉시 실행 대상은 CUDA official documentation gap check다.
 - `coverage_matrix.yaml` 기준 pending source atom은 없지만, public source 근거가 명확하고
   detector-backed direct pattern을 더 만들 수 있는 언어를 순차적으로 보강한다.
 - rule expansion 후보는 `review-engine/rule_sources/manifest.yaml`의 `source_ref.url`이
@@ -64,37 +66,9 @@ contract readiness packet은 닫혔다. OpenAI direct smoke는 live provider로 
 
 ## Now
 
-### Expand Python Framework And Runtime Boundary Rules
-
-Status: `active`
-
-목표:
-
-- PEP 8, FastAPI docs, Django docs를 근거로 Python runtime/framework boundary 규칙을 보강한다.
-- FastAPI/Django request validation, async/blocking boundaries, unsafe dynamic execution,
-  deserialization trust boundary를 우선한다.
-
-범위:
-
-- existing source corpus에서 직접 detector-backed rule로 승격할 수 있는 gap만 추가한다.
-- provider quality artifact의 length/required-term 문제는 prompt/provider review 영역으로 보고,
-  rule expectation이나 required-term gate를 바꾸지 않는다.
-
-검증:
-
-```bash
-cd review-engine && uv run pytest tests/test_query_conversion.py tests/test_rule_runtime.py tests/test_source_coverage_matrix.py -q
-git diff --check
-```
-
-완료 기준:
-
-- 실제 rule gap이 있으면 source-backed rule과 test가 추가된다.
-- rule gap이 없으면 retained note나 roadmap update로 `no_python_rule_gap_without_human_provider_decision`을 남긴다.
-
 ### Expand CUDA Official Documentation Rule Gaps
 
-Status: `queued`
+Status: `active`
 
 목표:
 

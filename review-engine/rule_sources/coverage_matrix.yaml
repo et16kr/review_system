@@ -648,7 +648,7 @@ languages:
             pack_targets: [fastapi_service]
             canonical_rules: [PY.FAPI.2]
             reviewability_mix: [auto_review]
-            reason: Raw request parsing and model bypass are canonicalized as transport-boundary rules.
+            reason: Raw request JSON/body/form parsing and model bypass are canonicalized as transport-boundary rules.
           - source_atom_id: dependency_background_and_response_contracts
             section_id: reference_only_guidance
             status: reference_only
