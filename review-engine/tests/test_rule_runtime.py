@@ -202,6 +202,40 @@ def test_invalid_public_manifest_fails_fast(fixture_settings, tmp_path) -> None:
         load_rule_runtime(replace(fixture_settings, public_rule_root=bad_root))
 
 
+def test_invalid_filesystem_extension_manifest_fails_fast_even_when_strict_is_disabled(
+    fixture_settings,
+    tmp_path,
+) -> None:
+    bad_root = tmp_path / "bad-extension-root"
+    _write(
+        bad_root / "manifest.yaml",
+        """
+        schema_version: 1
+        language_id: cpp
+        policy_files:
+          - policies/bad.yaml
+        """,
+    )
+    _write(
+        bad_root / "policies" / "bad.yaml",
+        """
+        schema_version: 1
+        language_id: cpp
+        pack_weights:
+          cpp_core: 0.72
+        """,
+    )
+
+    with pytest.raises(Exception):
+        load_rule_runtime(
+            replace(
+                fixture_settings,
+                extension_rule_roots=(bad_root,),
+                strict_extension_loading=False,
+            )
+        )
+
+
 def test_broken_extension_import_warns_and_falls_back_in_strict_mode(
     fixture_settings,
     monkeypatch,

@@ -106,7 +106,17 @@
 - Generated dataset/vector collection은 ingest 산출물로 본다.
 - Public core는 public rule pack만으로 동작해야 한다.
 - Private/organization rule을 붙일 수 있는 extension root, prompt root, detector plugin 경로는 코드에 있다.
-- 다만 private/public CI split, private rule packaging, 운영 fail-fast 정책은 아직 roadmap 대상이다.
+- extension loading failure policy는 다음처럼 고정한다.
+- prod/release gate는 기본값인 `REVIEW_ENGINE_STRICT_EXTENSION_LOADING=1`을 유지하고,
+  invalid extension spec나 잘못된 extension rule root를 runtime load/ingest에서 fail-fast 한다.
+- local dev는 optional entry-point payload를 실험할 때만
+  `REVIEW_ENGINE_STRICT_EXTENSION_LOADING=0`으로 낮출 수 있고,
+  이 경우 malformed entry-point spec은 warning 후 public core fallback으로 계속 진행한다.
+- 명시적으로 지정한 `REVIEW_ENGINE_EXTENSION_RULE_ROOTS` filesystem root의 manifest/YAML 오류는
+  운영자가 직접 선택한 입력이므로 dev/prod 모두 fail-fast 한다.
+- broken import/init entry point는 detector/prompt plugin이 optional surface인 현재 구조상
+  dev/prod 모두 warning-only로 남기고 public core를 계속 로드한다.
+- private/public CI split과 private rule packaging은 아직 roadmap 대상이다.
 - 우선순위는 특정 조직명 하드코딩이 아니라 pack/profile policy로 표현한다.
 
 ## Adapter State
