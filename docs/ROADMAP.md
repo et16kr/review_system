@@ -64,16 +64,17 @@ contract readiness packet은 닫혔다. OpenAI direct smoke는 live provider로 
   impact summary
 - default OpenAI direct smoke success with `gpt-5.2`
 - ad hoc `reference_only` LLM applicability evidence artifact for `CPP.REF.4`
+- provider comparison triage packet for the 2026-04-24 OpenAI/stub artifact set
 
 현재 즉시 실행 가능한 방향:
 
 - `reference_only` LLM applicability 확인을 ad hoc 실행에서 재실행 가능한 smoke script로 승격한다.
-- 현재 provider comparison artifact를 사람이 보기 쉬운 triage packet으로 정리한다.
 
 현재 바로 실행하지 않는 방향:
 
 - provider/ranking/density tuning: OpenAI direct smoke와 comparison artifact는 생겼지만,
-  comparison이 `failed` / `human_review_required=true`이므로 사람의 품질 판단이 필요하다.
+  comparison이 `failed` / `human_review_required=true`이고 triage packet도 review input일 뿐이므로
+  사람의 품질 판단이 필요하다.
 - `reference_only` 자동 게시 또는 자동 승격 정책: LLM 검증 신호는 생겼지만, 어떤 규칙을
   어디까지 자동화할지 product/risk decision이 필요하다.
 - GitHub/Multi-SCM adapter: test repository, token/permissions, webhook 또는 replay fixture가 필요하다.
@@ -113,34 +114,6 @@ git diff --check
 - 새 smoke를 재실행하면 현재 ad hoc artifact와 같은 의미의 pass/fail summary가 생성된다.
 - stub verifier가 negative contrast case를 구분하지 못한다는 사실이 artifact에 보존된다.
 
-### Prepare provider comparison triage packet
-
-Status: `queued`
-
-목표:
-
-- OpenAI provider quality failure를 prompt/ranking 변경 없이 사람이 검토하기 쉬운 packet으로
-  정리한다.
-
-범위:
-
-- 현재 `provider_quality_openai_2026-04-24.json`,
-  `provider_quality_stub_2026-04-24.json`, `provider_comparison_2026-04-24.*`를 입력으로 쓴다.
-- case별 실패 유형을 `suggested_fix_length`, `missing_required_terms`, `line/evidence`,
-  `should_publish` 같은 기계적 bucket으로 요약한다.
-- prompt, ranking, density, rule score는 바꾸지 않는다.
-
-검증:
-
-```bash
-git diff --check
-```
-
-완료 기준:
-
-- 내일 사람이 볼 수 있는 provider review decision 초안 또는 triage artifact가 생긴다.
-- artifact는 tuning decision이 아니라 review input임을 명시한다.
-
 ## Deferred But Not Yet Executable
 
 아래 항목은 readiness packet은 있지만, 현재 automation이 바로 구현하면 조건을 채울 수 없다.
@@ -148,7 +121,8 @@ git diff --check
 
 - Provider / ranking / density tuning
   - 현재 상태: OpenAI direct smoke는 성공했고 provider quality/comparison artifact도 생겼지만,
-    comparison이 `failed` / `human_review_required=true`다.
+    comparison이 `failed` / `human_review_required=true`다. 2026-04-24 triage packet은
+    review input이며 tuning approval이 아니다.
   - 필요 조건: human comparison decision artifact
   - owner: [provider_and_model_work.md](/home/et16/work/review_system/docs/deferred/provider_and_model_work.md:1)
 - Reference-only auto-review promotion
