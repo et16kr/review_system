@@ -164,7 +164,9 @@ ops/scripts/advance_review_roadmap_with_codex.sh --model gpt-5.5 --until-done
 
 ### 4. `review-engine` Correctness Review
 
-상태: `active`
+상태: `watch`
+
+완료: `2026-04-24`
 
 이번 작업의 범위:
 
@@ -177,6 +179,17 @@ ops/scripts/advance_review_roadmap_with_codex.sh --model gpt-5.5 --until-done
 
 - engine correctness 관련 bugs 또는 regression risks가 정리된다.
 - rule expansion과 authoring boundary의 현재 방향성 평가가 남는다.
+
+완료 기록:
+
+- [CURRENT_STATE_REVIEW.md](/home/et16/work/review_system/docs/reviews/CURRENT_STATE_REVIEW.md:1)에
+  engine correctness review 결과를 남겼다. 현재 canonical YAML, generated dataset,
+  runtime retrieval selection은 번들 상태에서 일치한다고 평가했다.
+- [REVIEW_FINDINGS_BACKLOG.md](/home/et16/work/review_system/docs/reviews/REVIEW_FINDINGS_BACKLOG.md:1)에
+  unresolved/duplicate selected pack fail-fast, default profile config 정리, canonical rule
+  reverse coverage validation을 후속 direct fix 후보로 추가했다.
+- 검증은 `git diff --check`로 제한했다. 이 static `review-engine` correctness review는
+  local GitLab smoke나 OpenAI direct smoke의 runtime signal을 근거로 삼지 않았다.
 
 ### 5. `review-engine` Authoring And Lifecycle UX Review
 
@@ -323,7 +336,7 @@ ops/scripts/advance_review_roadmap_with_codex.sh --model gpt-5.5 --until-done
 
 ## Suggested Next Step
 
-현재 다음 실행 단위는 `4. review-engine Correctness Review`다.
+현재 다음 실행 단위는 `5. review-engine Authoring And Lifecycle UX Review`다.
 
 이유:
 
@@ -334,8 +347,11 @@ ops/scripts/advance_review_roadmap_with_codex.sh --model gpt-5.5 --until-done
 - `3. Architecture And Boundary Review`에서 canonical identity는 current contract와
   일치하지만, local harness bot bridge에는 stale `pr_id` endpoint cleanup 후보가
   남아 있음을 확인했다.
-- 다음에는 engine rule source, profile, pack identity, ingest/retrieval/rerank/detector
-  경계의 correctness를 점검한다.
+- `4. review-engine Correctness Review`에서 canonical YAML과 generated dataset은
+  현재 일치하지만, pack/profile drift와 source coverage reverse traceability 개선 후보를
+  확인했다.
+- 다음에는 minimal rule lifecycle CLI, authoring validation, manual editor deferred 판단을
+  점검한다.
 
 ## Validation Baseline
 
