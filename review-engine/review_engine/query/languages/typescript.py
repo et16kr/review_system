@@ -45,6 +45,12 @@ PLUGIN = LanguageQueryPlugin(
             0.72,
         ),
         PatternSpec(
+            "void_fetch_call",
+            r"\bvoid\s+(?![^\n;]*\.catch\s*\()(?:globalThis\.|window\.)?fetch\s*\(",
+            "void fetch call detected; review detached async ownership and rejection handling.",
+            0.9,
+        ),
+        PatternSpec(
             "ts_expect_error",
             r"@ts-expect-error",
             "TypeScript expect-error directive detected; review whether the unsafe boundary is still intentional and locally justified.",
@@ -118,6 +124,7 @@ PLUGIN = LanguageQueryPlugin(
         "ts_nocheck": ("TS.API.9",),
         "unsafe_json_parse": ("TS.API.2", "TS.API.4", "TS.API.5"),
         "promise_without_await": ("TS.5",),
+        "void_fetch_call": ("TS.8",),
         "ts_expect_error": ("TS.API.6",),
         "double_cast": ("TS.API.7",),
         "response_json_cast": ("TS.API.10",),
@@ -137,6 +144,7 @@ PLUGIN = LanguageQueryPlugin(
         "ts_nocheck",
         "unsafe_json_parse",
         "promise_without_await",
+        "void_fetch_call",
         "ts_expect_error",
         "double_cast",
         "response_json_cast",

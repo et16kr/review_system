@@ -689,9 +689,9 @@ languages:
             section_id: candidate_canonical_rule_groups
             status: mapped
             pack_targets: [project_typescript]
-            canonical_rules: [TS.5]
+            canonical_rules: [TS.5, TS.8]
             reviewability_mix: [auto_review]
-            reason: Detached promise ownership is covered by an active rule.
+            reason: Detached promise ownership is covered by active rules for promise chains and explicit void-discarded fetch calls.
           - source_atom_id: broader_type_modeling_topics
             section_id: reference_only_guidance
             status: reference_only

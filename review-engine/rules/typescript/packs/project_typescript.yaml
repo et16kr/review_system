@@ -98,6 +98,19 @@ entries:
     priority_tier: override
     specificity: 0.93
     false_positive_risk: low
+  - rule_no: TS.8
+    section: TS
+    title: Detached fetch calls should keep rejection ownership visible
+    summary: Explicitly discarding a fetch promise makes failures hard to observe unless another owner is obvious.
+    text: A `void fetch(...)` call turns an asynchronous transport boundary into fire-and-forget work. That can be intentional, but the local code should still show who owns rejection handling, cancellation, retry, or telemetry when the request fails.
+    category: error_handling
+    trigger_patterns: [void_fetch_call]
+    fix_guidance: Await or return the fetch promise, or route intentional fire-and-forget work through a named helper that handles rejection and cancellation explicitly.
+    base_score: 0.9
+    severity_default: 0.91
+    priority_tier: high
+    specificity: 0.88
+    false_positive_risk: medium
   - rule_no: TS.REF.1
     section: TSREF
     title: Public DTO and boundary types should prefer explicit domain shapes over ad hoc casts

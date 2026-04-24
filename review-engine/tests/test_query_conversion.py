@@ -246,6 +246,11 @@ def test_query_analysis_does_not_treat_ide_rc_declaration_as_error_flow() -> Non
         ),
         (
             "typescript",
+            "void fetch('/api/audit', { method: 'POST', body: JSON.stringify(event) });\n",
+            {"void_fetch_call"},
+        ),
+        (
+            "typescript",
             "// eslint-disable-next-line react-hooks/exhaustive-deps\nuseEffect(async () => {\n  return <div dangerouslySetInnerHTML={{ __html: html }} />;\n}, []);\nconst rows = items.map((item, index) => <li key={index}>{item.name}</li>);\n",
             {
                 "async_effect_callback",
@@ -374,6 +379,17 @@ def test_go_errors_is_does_not_trigger_direct_sentinel_compare_pattern() -> None
     names = {pattern.name for pattern in analysis.patterns}
 
     assert "sentinel_error_compare" not in names
+
+
+def test_typescript_void_fetch_with_local_catch_does_not_trigger_detached_pattern() -> None:
+    analysis = build_query_analysis(
+        "void fetch('/api/audit').catch(reportDetachedFailure);\n",
+        input_kind="code",
+        language_id="typescript",
+    )
+    names = {pattern.name for pattern in analysis.patterns}
+
+    assert "void_fetch_call" not in names
 
 
 def test_go_http_client_timeout_and_body_close_do_not_trigger_when_visible() -> None:

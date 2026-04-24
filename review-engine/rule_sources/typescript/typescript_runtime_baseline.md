@@ -28,13 +28,14 @@ status: drafted
 - Keep `@ts-ignore`, `@ts-expect-error`, and `@ts-nocheck` temporary and localized to the smallest justified scope.
 - Validate parsed or external JSON before trusting its shape.
 - Review double casts through `unknown` as likely evidence that runtime validation is missing at the boundary.
+- Keep explicitly detached async work such as `void fetch(...)` tied to a visible rejection or cancellation owner.
 
 ## Candidate Canonical Rule Groups
 
 - Boundary typing: `any`, double-cast escape hatches, DTO contracts, and public API drift.
 - Suppression hygiene: ignore directives, expect-error scope, no-check blast radius, and temporary compatibility debt.
 - Runtime validation: JSON.parse, unknown-to-domain conversion, and schema checks.
-- Async ownership: promise chains, detached work, and rejection visibility.
+- Async ownership: promise chains, explicit void-discarded fetch calls, detached work, and rejection visibility.
 
 ## Reference-Only Guidance
 
