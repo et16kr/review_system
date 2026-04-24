@@ -391,6 +391,12 @@ main `ROADMAP.md`의 현재 항목을 다 돌린 뒤 곧바로 이어서 할 후
 - `review-engine/tests/test_rule_lifecycle_cli.py`가
   temp rule root 기준 disable/enable/no-`pack-id` ambiguity 회귀를 추가해
   disabled entry 재활성화와 pack disambiguation contract를 deterministic하게 고정했다.
+- `disable`/`enable` mutation output이 structured `validation_plan`을 함께 내보내
+  changed rule을 같은 selected runtime에서 다시 `show`하고, 이어서 `ingest_guidelines`와
+  targeted pytest를 어떤 순서로 다시 돌릴지 command 단위로 바로 읽게 됐다.
+- `review-engine/tests/test_rule_lifecycle_cli.py`가
+  mutation payload의 `validation_plan` scope, runtime selector, follow-up command bundle 회귀를
+  추가해 post-mutation deterministic validation 연결을 고정했다.
 
 범위:
 
@@ -401,20 +407,20 @@ main `ROADMAP.md`의 현재 항목을 다 돌린 뒤 곧바로 이어서 할 후
 
 다음 작업:
 
-1. rule 변경 후 validate/ingest/test 연결 방식을 mutation command 단위로 묶는다.
-2. full editor/UI 없이도 운영에 도움이 되는 작은 on/off 관리 흐름을 닫는다.
-3. 필요하면 profile-level pack on/off와 entry-level toggle의 운영 경계를 분리해 문서화한다.
+1. full editor/UI 없이도 운영에 도움이 되는 작은 on/off 관리 흐름을 더 닫는다.
+2. 필요하면 profile-level pack on/off와 entry-level toggle의 운영 경계를 분리해 문서화한다.
 
 검증 메모:
 
-- 이번 slice는 lifecycle CLI mutation path에서 selected runtime pack manifest 조회,
-  canonical pack YAML entry-level `enable`/`disable`, write boundary payload를 추가했다.
+- 이번 slice는 lifecycle CLI mutation payload에 post-mutation `validation_plan`
+  (selected runtime 재조회, ingest, targeted pytest command bundle)을 추가했다.
 - rerun:
-  - `env UV_CACHE_DIR=/tmp/uv-cache uv run --project review-engine ruff check review-engine/review_engine/cli/rule_lifecycle.py review-engine/review_engine/ingest/rule_loader.py review-engine/tests/test_rule_lifecycle_cli.py`
+  - `env UV_CACHE_DIR=/tmp/uv-cache uv run --project review-engine ruff check review-engine/review_engine/cli/rule_lifecycle.py review-engine/tests/test_rule_lifecycle_cli.py`
   - `env UV_CACHE_DIR=/tmp/uv-cache uv run --project review-engine pytest review-engine/tests/test_rule_lifecycle_cli.py review-engine/tests/test_rule_runtime.py -q`
-  - `env UV_CACHE_DIR=/tmp/uv-cache uv run --project review-engine python -m review_engine.cli.rule_lifecycle list --language-id python --profile-id fastapi_service`
 - mutation command path는 temp rule root를 쓰는 CLI test로 검증했고, repo canonical YAML 자체는 validation 중 수정하지 않았다.
-- broader `review-engine` pytest, ingest/retrieval baseline, `review-bot`/`review-platform` tests,
+- `ingest_guidelines`와 broader retrieval baseline은 이번 slice가 ingest 실행 자체가 아니라
+  follow-up command bundle surface를 추가한 범위라 직접 rerun하지 않았다.
+- broader `review-engine` pytest, `review-bot`/`review-platform` tests,
   GitLab smoke, provider/direct OpenAI validation은 lifecycle CLI mutation 범위라 생략했다.
 
 완료 기준:

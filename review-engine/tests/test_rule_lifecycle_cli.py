@@ -128,6 +128,9 @@ def test_rule_lifecycle_disable_updates_canonical_pack_yaml_only(
         language_id="python",
         profile_id="fastapi_service",
     )
+    validation_commands = {
+        entry["name"]: entry["command"] for entry in payload["validation_plan"]["commands"]
+    }
 
     assert payload["command"] == "disable"
     assert payload["source_of_truth"] == "canonical_yaml"
@@ -137,6 +140,30 @@ def test_rule_lifecycle_disable_updates_canonical_pack_yaml_only(
     assert payload["updated_enabled"] is False
     assert payload["changed"] is True
     assert payload["source_path"] == str(pack_path.resolve())
+    assert payload["validation_plan"]["scope"] == "rule_lifecycle_mutation"
+    assert payload["validation_plan"]["runtime_selector"]["language_id"] == "python"
+    assert payload["validation_plan"]["runtime_selector"]["profile_id"] == "fastapi_service"
+    assert payload["validation_plan"]["runtime_selector"]["context_id"] is None
+    assert payload["validation_plan"]["runtime_selector"]["dialect_id"] is None
+    assert payload["validation_plan"]["runtime_selector"]["all_packs"] is False
+    assert payload["validation_plan"]["runtime_selector"]["pack_id"] == "fastapi_service"
+    assert "fastapi_service" in payload["validation_plan"]["runtime_selector"]["selected_pack_ids"]
+    assert (
+        validation_commands["show_rule"]
+        == "uv run --project review-engine python -m review_engine.cli.rule_lifecycle "
+        "show --language-id python --profile-id fastapi_service --rule PY.FAPI.1 "
+        "--pack-id fastapi_service"
+    )
+    assert (
+        validation_commands["ingest_guidelines"]
+        == "uv run --project review-engine python -m review_engine.cli.ingest_guidelines"
+    )
+    assert (
+        validation_commands["targeted_pytest"]
+        == "uv run --project review-engine pytest "
+        "review-engine/tests/test_rule_lifecycle_cli.py "
+        "review-engine/tests/test_rule_runtime.py -q"
+    )
     assert "enabled: false" in pack_path.read_text(encoding="utf-8")
     assert "PY.FAPI.1" not in {record.rule_no for record in runtime.active_records}
     assert not any(settings.data_dir.iterdir())
@@ -186,6 +213,7 @@ def test_rule_lifecycle_enable_reloads_disabled_rule_from_canonical_pack_yaml(
     assert payload["previous_enabled"] is False
     assert payload["updated_enabled"] is True
     assert payload["changed"] is True
+    assert payload["validation_plan"]["scope"] == "rule_lifecycle_mutation"
     assert "enabled: false" not in pack_path.read_text(encoding="utf-8")
     assert "PY.FAPI.1" in {record.rule_no for record in runtime.active_records}
     assert not any(settings.data_dir.iterdir())

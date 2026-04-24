@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import shlex
 from pathlib import Path
 from typing import Literal
 
@@ -210,7 +211,114 @@ def _handle_mutation(
         "previous_enabled": previous_enabled,
         "updated_enabled": updated_enabled,
         "changed": changed,
+        "validation_plan": _build_mutation_validation_plan(
+            runtime=runtime,
+            rule_no=args.rule,
+            pack_id=pack_id,
+            include_all_packs=args.all_packs,
+        ),
     }
+
+
+def _build_mutation_validation_plan(
+    *,
+    runtime: LoadedRuleContext,
+    rule_no: str,
+    pack_id: str,
+    include_all_packs: bool,
+) -> dict[str, object]:
+    runtime_args = _build_runtime_selector_args(
+        runtime=runtime,
+        include_all_packs=include_all_packs,
+    )
+    return {
+        "scope": "rule_lifecycle_mutation",
+        "source_of_truth": "canonical_yaml",
+        "runtime_selector": {
+            "language_id": runtime.language_id,
+            "profile_id": runtime.profile.profile_id,
+            "context_id": runtime.context_id,
+            "dialect_id": runtime.dialect_id,
+            "all_packs": include_all_packs,
+            "pack_id": pack_id,
+            "selected_pack_ids": runtime.selected_pack_ids,
+        },
+        "commands": [
+            {
+                "name": "show_rule",
+                "command": _shell_join(
+                    [
+                        "uv",
+                        "run",
+                        "--project",
+                        "review-engine",
+                        "python",
+                        "-m",
+                        "review_engine.cli.rule_lifecycle",
+                        "show",
+                        *runtime_args,
+                        "--rule",
+                        rule_no,
+                        "--pack-id",
+                        pack_id,
+                    ]
+                ),
+            },
+            {
+                "name": "ingest_guidelines",
+                "command": _shell_join(
+                    [
+                        "uv",
+                        "run",
+                        "--project",
+                        "review-engine",
+                        "python",
+                        "-m",
+                        "review_engine.cli.ingest_guidelines",
+                    ]
+                ),
+            },
+            {
+                "name": "targeted_pytest",
+                "command": _shell_join(
+                    [
+                        "uv",
+                        "run",
+                        "--project",
+                        "review-engine",
+                        "pytest",
+                        "review-engine/tests/test_rule_lifecycle_cli.py",
+                        "review-engine/tests/test_rule_runtime.py",
+                        "-q",
+                    ]
+                ),
+            },
+        ],
+    }
+
+
+def _build_runtime_selector_args(
+    *,
+    runtime: LoadedRuleContext,
+    include_all_packs: bool,
+) -> list[str]:
+    args = [
+        "--language-id",
+        runtime.language_id,
+        "--profile-id",
+        runtime.profile.profile_id,
+    ]
+    if runtime.context_id:
+        args.extend(["--context-id", runtime.context_id])
+    if runtime.dialect_id:
+        args.extend(["--dialect-id", runtime.dialect_id])
+    if include_all_packs:
+        args.append("--all-packs")
+    return args
+
+
+def _shell_join(parts: list[str]) -> str:
+    return shlex.join(parts)
 
 
 def _iter_runtime_records(
