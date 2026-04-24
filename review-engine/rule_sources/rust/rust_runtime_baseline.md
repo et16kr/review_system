@@ -25,6 +25,7 @@ status: drafted
 ## High-Signal Review Areas
 
 - Keep `unsafe` narrow and document the invariant it relies on.
+- Treat `extern "C"` functions as FFI boundaries where ownership, nullability, lifetime, and panic behavior need an explicit contract.
 - Treat `unwrap`, `expect`, `panic!`, `dbg!`, and `todo!` as explicit crash or debug boundaries.
 - Prefer error propagation over hidden panic behavior in normal operation.
 - Review `unsafe fn` signatures as caller-contract boundaries that must explain what remains the caller's responsibility.
@@ -32,7 +33,7 @@ status: drafted
 ## Candidate Canonical Rule Groups
 
 - Panic behavior: unwrap/expect, panic macros, placeholder macros, and crash contracts.
-- Unsafe containment: tiny unsafe blocks, safe wrappers, caller invariants, and `unsafe fn`.
+- Unsafe containment: tiny unsafe blocks, safe wrappers, caller invariants, FFI boundaries, and `unsafe fn`.
 - Debug residue: `dbg!` and temporary instrumentation leaking into runtime paths.
 - Boundary clarity: when a panic is intentional, what invariant makes it acceptable?
 

@@ -45,6 +45,12 @@ PLUGIN = LanguageQueryPlugin(
             0.9,
         ),
         PatternSpec(
+            "rust_ffi_boundary",
+            r'\b(?:pub(?:\([^)]*\))?\s+)?(?:unsafe\s+)?extern\s+"C(?:-unwind)?"\s+(?:fn\b|\{)',
+            'extern "C" Rust FFI boundary detected; review ownership, panic, and unsafe caller contracts.',
+            0.92,
+        ),
+        PatternSpec(
             "tokio_blocking_in_async",
             r"(?is)async\s+fn\b[\s\S]{0,500}\b(?:std::thread::sleep|reqwest::blocking|std::fs::|std::process::Command::new)\b",
             "Blocking std or reqwest::blocking path detected inside async Rust; review Tokio runtime starvation and ownership.",
@@ -76,6 +82,7 @@ PLUGIN = LanguageQueryPlugin(
         "todo_macro": ("RUST.3", "RUST.7"),
         "dbg_macro": ("RUST.8",),
         "unsafe_fn": ("RUST.9",),
+        "rust_ffi_boundary": ("RUST.10",),
         "tokio_blocking_in_async": ("RUST.TOKIO.1",),
         "tokio_detached_spawn": ("RUST.TOKIO.2",),
         "tokio_unbounded_channel": ("RUST.TOKIO.3",),
@@ -88,6 +95,7 @@ PLUGIN = LanguageQueryPlugin(
         "todo_macro",
         "dbg_macro",
         "unsafe_fn",
+        "rust_ffi_boundary",
         "tokio_blocking_in_async",
         "tokio_detached_spawn",
         "tokio_unbounded_channel",

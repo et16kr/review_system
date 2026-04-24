@@ -1040,9 +1040,9 @@ languages:
             section_id: candidate_canonical_rule_groups
             status: mapped
             pack_targets: [project_rust]
-            canonical_rules: [RUST.1, RUST.6, RUST.9]
+            canonical_rules: [RUST.1, RUST.6, RUST.9, RUST.10]
             reviewability_mix: [auto_review]
-            reason: Unsafe block and unsafe fn containment is canonicalized with strong signals.
+            reason: Unsafe block, unsafe fn, and FFI boundary containment is canonicalized with strong signals.
           - source_atom_id: debug_residue
             section_id: candidate_canonical_rule_groups
             status: mapped

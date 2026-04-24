@@ -128,6 +128,11 @@ def test_query_analysis_does_not_treat_ide_rc_declaration_as_error_flow() -> Non
         ),
         (
             "rust",
+            "#[no_mangle]\npub extern \"C\" fn read_name(ptr: *const std::os::raw::c_char) -> i32 {\n    let _name = unsafe { std::ffi::CStr::from_ptr(ptr) };\n    0\n}\n",
+            {"rust_ffi_boundary", "unsafe_block"},
+        ),
+        (
+            "rust",
             "#[tokio::main]\nasync fn main() {\n    let _task = tokio::spawn(async move { do_work().await; });\n    let (_tx, _rx) = tokio::sync::mpsc::unbounded_channel::<String>();\n    std::thread::sleep(std::time::Duration::from_secs(1));\n}\n",
             {"tokio_blocking_in_async", "tokio_detached_spawn", "tokio_unbounded_channel"},
         ),

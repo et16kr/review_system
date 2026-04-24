@@ -64,36 +64,9 @@ contract readiness packet은 닫혔다. OpenAI direct smoke는 live provider로 
 
 ## Now
 
-### Expand Rust Async And Boundary Rules
-
-Status: `active`
-
-목표:
-
-- Rust Book과 Tokio docs를 근거로 Rust/Tokio 규칙을 async cancellation, FFI/unsafe boundary,
-  serialization/trust boundary 중심으로 보강한다.
-- panic/unwrap 계열과 중복되지 않는 changed-snippet direct signal만 auto-review로 둔다.
-
-범위:
-
-- `review-engine/rule_sources/rust/`, `review-engine/rules/rust/`,
-  `review_engine/query/languages/rust.py`를 함께 갱신한다.
-- direct signal이 약한 API design guidance는 `reference_only`로 유지한다.
-
-검증:
-
-```bash
-cd review-engine && uv run pytest tests/test_query_conversion.py tests/test_rule_runtime.py tests/test_source_coverage_matrix.py -q
-git diff --check
-```
-
-완료 기준:
-
-- Rust 또는 Tokio pack에 source-backed rule 보강이 들어가고, query pattern test가 추가된다.
-
 ### Expand TypeScript And JavaScript Runtime Boundary Rules
 
-Status: `queued`
+Status: `active`
 
 목표:
 
