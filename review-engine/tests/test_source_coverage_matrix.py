@@ -4,6 +4,8 @@ from pathlib import Path
 
 import yaml
 
+from review_engine.models import RuleSourceManifest
+
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 RULE_SOURCES_ROOT = PROJECT_ROOT / "rule_sources"
@@ -58,7 +60,9 @@ def _rule_index() -> set[str]:
 
 
 def test_source_coverage_matrix_is_atomized_and_complete() -> None:
-    manifest = _load_yaml(RULE_SOURCES_ROOT / "manifest.yaml")
+    manifest = RuleSourceManifest.model_validate(
+        _load_yaml(RULE_SOURCES_ROOT / "manifest.yaml")
+    ).model_dump()
     coverage = _load_yaml(RULE_SOURCES_ROOT / "coverage_matrix.yaml")
     all_rule_nos = _rule_index()
     covered_rule_nos: set[str] = set()

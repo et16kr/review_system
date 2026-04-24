@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 PriorityTier = Literal["reference", "default", "high", "override"]
@@ -77,7 +77,11 @@ def _build_embedding_text(
     ).strip()
 
 
-class RuleEntry(BaseModel):
+class StrictAuthoringModel(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+
+class RuleEntry(StrictAuthoringModel):
     rule_no: str
     section: str
     title: str
@@ -121,7 +125,7 @@ class RuleEntry(BaseModel):
         )
 
 
-class RulePackManifest(BaseModel):
+class RulePackManifest(StrictAuthoringModel):
     schema_version: int = 1
     pack_id: str
     namespace: str = "public"
@@ -138,7 +142,7 @@ class RulePackManifest(BaseModel):
     entries: list[RuleEntry] = Field(default_factory=list)
 
 
-class ProfileConfig(BaseModel):
+class ProfileConfig(StrictAuthoringModel):
     schema_version: int = 1
     profile_id: str
     language_id: str = "cpp"
@@ -151,25 +155,25 @@ class ProfileConfig(BaseModel):
     dialect_id: str | None = None
 
 
-class PriorityPolicyMatch(BaseModel):
+class PriorityPolicyMatch(StrictAuthoringModel):
     rule_id: str | None = None
     rule_no: str | None = None
     pack_id: str | None = None
 
 
-class PriorityPolicyOverride(BaseModel):
+class PriorityPolicyOverride(StrictAuthoringModel):
     match: PriorityPolicyMatch
     action: Literal["overridden", "excluded"] = "overridden"
     overridden_by: list[str] = Field(default_factory=list)
     rationale: str | None = None
 
 
-class PriorityPolicyExclusion(BaseModel):
+class PriorityPolicyExclusion(StrictAuthoringModel):
     match: PriorityPolicyMatch
     rationale: str | None = None
 
 
-class PriorityPolicyDefaults(BaseModel):
+class PriorityPolicyDefaults(StrictAuthoringModel):
     conflict_action: ConflictAction = "compatible"
     default_pack_weight: float = 0.5
 
@@ -186,7 +190,7 @@ class PriorityPolicyDefaults(BaseModel):
         )
 
 
-class PriorityPolicy(BaseModel):
+class PriorityPolicy(StrictAuthoringModel):
     schema_version: int = 1
     policy_id: str
     language_id: str = "cpp"
@@ -233,7 +237,7 @@ class PriorityPolicy(BaseModel):
         return self
 
 
-class RuleRootManifest(BaseModel):
+class RuleRootManifest(StrictAuthoringModel):
     schema_version: int = 1
     language_id: str = "cpp"
     pack_files: list[str] = Field(default_factory=list)
@@ -241,20 +245,21 @@ class RuleRootManifest(BaseModel):
     policy_files: list[str] = Field(default_factory=list)
 
 
-class RuleSourceManifestEntry(BaseModel):
+class RuleSourceManifestEntry(StrictAuthoringModel):
     rule_source_id: str
     path: str
     pack_targets: list[str] = Field(default_factory=list)
+    profile_id: str | None = None
     context_id: str | None = None
     dialect_id: str | None = None
 
 
-class RuleSourceLanguageManifest(BaseModel):
+class RuleSourceLanguageManifest(StrictAuthoringModel):
     language_id: str
     sources: list[RuleSourceManifestEntry] = Field(default_factory=list)
 
 
-class RuleSourceManifest(BaseModel):
+class RuleSourceManifest(StrictAuthoringModel):
     schema_version: int = 1
     bundle_id: str
     default_chunking: dict[str, str | int] = Field(default_factory=dict)

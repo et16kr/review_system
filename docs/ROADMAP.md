@@ -591,7 +591,7 @@ cd review-engine && uv run pytest tests/test_source_coverage_matrix.py -q
 
 ### 13. Reject Unknown Canonical YAML Authoring Keys
 
-상태: `active`
+상태: `watch`
 
 왜 지금 하나:
 
@@ -613,11 +613,28 @@ cd review-engine && uv run pytest tests/test_source_coverage_matrix.py -q
 cd review-engine && uv run pytest tests/test_rule_runtime.py tests/test_rule_lifecycle_cli.py -q
 ```
 
+완료 기록:
+
+- canonical rule/profile/policy/source manifest authoring models가 unknown field를
+  Pydantic validation error로 fail-fast 하도록 strict authoring base를 적용했다.
+- typoed `RuleEntry`, `RulePackManifest`, `ProfileConfig`, `PriorityPolicy`,
+  `RuleRootManifest`, `RuleSourceManifest` regression을 추가했다.
+- committed `rule_sources/manifest.yaml`도 strict source manifest model로 검증하며,
+  기존 source manifest contract의 `profile_id` field를 명시했다.
+- 검증 통과:
+  - `cd review-engine && UV_CACHE_DIR=/tmp/uv-cache-review-engine-roadmap-13 uv run --no-sync pytest tests/test_rule_runtime.py tests/test_rule_lifecycle_cli.py -q`
+  - `cd review-engine && UV_CACHE_DIR=/tmp/uv-cache-review-engine-roadmap-13-source uv run --no-sync pytest tests/test_source_coverage_matrix.py -q`
+  - `git diff --check`
+- 기본 `uv run`은 sandbox의 read-only `/home/et16/.cache/uv`를 피하기 위해 writable
+  `UV_CACHE_DIR`와 existing environment `--no-sync`로 검증했다.
+- local GitLab lifecycle smoke와 direct OpenAI smoke는 canonical YAML authoring validation
+  변경이고 provider/runtime success claim이 아니어서 실행하지 않았다.
+
 관련 backlog: `B-review-engine-04`
 
 ### 14. Remove Or Relocate Unowned Next.js Scaffold Files
 
-상태: `queued`
+상태: `active`
 
 왜 지금 하나:
 
@@ -857,7 +874,7 @@ python3 -m py_compile ops/scripts/create_gitlab_merge_request.py ops/scripts/boo
 
 ## Suggested Next Step
 
-현재 가장 자연스러운 다음 작업은 `13. Reject Unknown Canonical YAML Authoring Keys`이다.
+현재 가장 자연스러운 다음 작업은 `14. Remove Or Relocate Unowned Next.js Scaffold Files`이다.
 
 이유:
 
@@ -876,7 +893,9 @@ python3 -m py_compile ops/scripts/create_gitlab_merge_request.py ops/scripts/boo
   explicit profile과 path/content inference가 우선한다.
 - canonical rule reverse coverage는 source coverage matrix에서 모든 canonical pack rule이
   source atom에 연결되는지 검증한다.
-- 다음 `active` 항목은 canonical YAML authoring typo를 validation error로 만드는 일이다.
+- canonical YAML authoring typo는 Pydantic validation error로 fail-fast 한다.
+- 다음 `active` 항목은 unowned `review-engine/app/` scaffold 파일을 제거하거나
+  fixture/runtime boundary 안으로 옮기는 cleanup이다.
 
 ## Validation Baseline
 

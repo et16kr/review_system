@@ -6,10 +6,21 @@ from pathlib import Path
 from textwrap import dedent
 
 import pytest
+from pydantic import ValidationError
 
 from review_engine.ingest.build_records import ingest_all_sources
 from review_engine.ingest.rule_loader import load_rule_runtime
-from review_engine.models import CandidateHit, GuidelineRecord, PriorityPolicy, QueryAnalysis, QueryPattern
+from review_engine.models import (
+    CandidateHit,
+    GuidelineRecord,
+    PriorityPolicy,
+    ProfileConfig,
+    QueryAnalysis,
+    QueryPattern,
+    RulePackManifest,
+    RuleRootManifest,
+    RuleSourceManifest,
+)
 from review_engine.prompting import PromptComposer
 from review_engine.retrieve.search import GuidelineSearchService
 from review_engine.retrieve.rerank import rerank_candidates
@@ -301,6 +312,91 @@ def test_missing_profile_selected_pack_fails_fast(fixture_settings, tmp_path) ->
         ),
     ):
         load_rule_runtime(replace(fixture_settings, public_rule_root=bad_root))
+
+
+@pytest.mark.parametrize(
+    ("model_cls", "payload", "typo_key"),
+    [
+        (
+            RulePackManifest,
+            {
+                "pack_id": "org_cpp",
+                "entries": [
+                    {
+                        "rule_no": "ORG.MEM.1",
+                        "section": "ORG",
+                        "title": "Use explicit owner wrappers",
+                        "summary": "Keep ownership explicit.",
+                        "text": "Prefer project owner wrappers over raw owning pointers.",
+                        "fix_guidence": "Typo should fail.",
+                    }
+                ],
+            },
+            "fix_guidence",
+        ),
+        (
+            RulePackManifest,
+            {
+                "pack_id": "org_cpp",
+                "enabled_packz": ["org_cpp"],
+            },
+            "enabled_packz",
+        ),
+        (
+            ProfileConfig,
+            {
+                "profile_id": "default",
+                "enabled_packz": ["org_cpp"],
+            },
+            "enabled_packz",
+        ),
+        (
+            PriorityPolicy,
+            {
+                "policy_id": "org_default",
+                "pack_weightz": {"org_cpp": 0.9},
+            },
+            "pack_weightz",
+        ),
+        (
+            RuleRootManifest,
+            {
+                "language_id": "cpp",
+                "pack_filez": ["packs/org_cpp.yaml"],
+            },
+            "pack_filez",
+        ),
+        (
+            RuleSourceManifest,
+            {
+                "bundle_id": "authoring-test",
+                "languages": [
+                    {
+                        "language_id": "cpp",
+                        "sources": [
+                            {
+                                "rule_source_id": "cpp-core-test",
+                                "path": "cpp.md",
+                                "pack_targetz": ["cpp_core"],
+                            }
+                        ],
+                    }
+                ],
+            },
+            "pack_targetz",
+        ),
+    ],
+)
+def test_canonical_yaml_authoring_models_reject_unknown_keys(
+    model_cls,
+    payload,
+    typo_key,
+) -> None:
+    with pytest.raises(ValidationError) as exc_info:
+        model_cls.model_validate(payload)
+
+    assert typo_key in str(exc_info.value)
+    assert "Extra inputs are not permitted" in str(exc_info.value)
 
 
 def test_configured_default_profile_selects_search_runtime_for_default_language(
