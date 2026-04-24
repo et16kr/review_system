@@ -54,7 +54,7 @@ def build_default_description(
             "",
             "## Note",
             "- This merge request was prepared from the local smoke workspace.",
-            "- Review focus: TDE implementation changes between `tde_first` and `tde_base`.",
+            "- Review focus: local lifecycle smoke changes between the source and target branches.",
         ]
     ).strip()
 
@@ -324,7 +324,7 @@ def main() -> int:
     ensure_branch_exists(repo_path, args.source_branch)
     ensure_branch_exists(repo_path, args.target_branch)
 
-    title = args.title or f"TDE review: {args.source_branch} -> {args.target_branch}"
+    title = args.title or f"Lifecycle smoke review: {args.source_branch} -> {args.target_branch}"
     if args.draft and not title.lower().startswith("draft:"):
         title = f"Draft: {title}"
 

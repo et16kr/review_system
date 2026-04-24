@@ -422,10 +422,11 @@ python3 /home/et16/work/review_system/ops/scripts/build_wrong_language_backlog.p
 ### 1. GitLab과 테스트 MR 준비
 
 ```bash
-python3 ops/scripts/bootstrap_local_gitlab_tde_review.py
+python3 ops/scripts/bootstrap_local_gitlab_lifecycle_review.py
 ```
 
-이 스크립트는 로컬 GitLab을 올리고, 프로젝트와 `tde_first -> tde_base` MR을 준비한다.
+이 스크립트는 로컬 GitLab을 올리고, default lifecycle smoke MR을 준비한다.
+현재 backing fixture branch는 `tde_first -> tde_base` 이름을 유지한다.
 
 ### 2. Bot 부착
 
@@ -449,14 +450,14 @@ python3 ops/scripts/attach_local_gitlab_bot.py \
 baseline MR과 bot 상태를 다시 고정한다.
 
 ```bash
-python3 ops/scripts/replay_local_gitlab_tde_review.py
+python3 ops/scripts/replay_local_gitlab_lifecycle_review.py
 ```
 
 baseline과 bot 초기 리뷰를 다시 세팅한 뒤,
 내장된 incremental 검증 시퀀스까지 재생하려면:
 
 ```bash
-python3 ops/scripts/replay_local_gitlab_tde_review.py \
+python3 ops/scripts/replay_local_gitlab_lifecycle_review.py \
   --replay-default-updates
 ```
 
@@ -468,7 +469,8 @@ bash ops/scripts/smoke_local_gitlab_lifecycle_review.sh
 
 이 명령은 baseline reset/reseed, 각 단계의 `@review-bot` mention 요청, default incremental replay,
 human reply + resolve, `/sync` 호출, smoke invariant 검증까지 한 번에 수행한다.
-기존 `smoke_local_gitlab_tde_review.sh`는 compatibility wrapper로 남긴다.
+기존 `bootstrap_local_gitlab_tde_review.py`, `replay_local_gitlab_tde_review.py`,
+`smoke_local_gitlab_tde_review.sh`는 compatibility 또는 backing fixture 이름으로 남긴다.
 
 권장 사용 시점:
 
@@ -634,7 +636,7 @@ uv run python -m review_bot.cli.compare_provider_quality \
 선택적으로 첫 open bot thread에 human reply / resolve / sync까지 포함할 수 있다.
 
 ```bash
-python3 ops/scripts/replay_local_gitlab_tde_review.py \
+python3 ops/scripts/replay_local_gitlab_lifecycle_review.py \
   --replay-default-updates \
   --reply-first-open-thread \
   --resolve-first-open-thread \

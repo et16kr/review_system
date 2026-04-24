@@ -245,7 +245,7 @@ def create_merge_request(base_url: str, token: str, project_id: int) -> dict:
     body = {
         "source_branch": "tde_first",
         "target_branch": "tde_base",
-        "title": "TDE review: tde_first -> tde_base",
+        "title": "Lifecycle smoke review: tde_first -> tde_base",
         "description": description,
         "remove_source_branch": False,
     }
@@ -295,7 +295,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--recreate-mr",
         action="store_true",
-        help="Delete existing open tde_first -> tde_base merge requests before creating a new one.",
+        help="Delete existing open default smoke merge requests before creating a new one.",
     )
     parser.add_argument(
         "--token-name",

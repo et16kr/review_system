@@ -718,7 +718,7 @@ git diff --check
 
 ### 16. Rename Local GitLab Smoke Internals Away From TDE As Primary Surface
 
-상태: `active`
+상태: `watch`
 
 왜 지금 하나:
 
@@ -737,9 +737,26 @@ git diff --check
 검증:
 
 ```bash
-bash -n ops/scripts/create_gitlab_tde_review.sh ops/scripts/smoke_local_gitlab_lifecycle_review.sh ops/scripts/smoke_local_gitlab_tde_review.sh
-python3 -m py_compile ops/scripts/create_gitlab_merge_request.py ops/scripts/bootstrap_local_gitlab_tde_review.py ops/scripts/replay_local_gitlab_tde_review.py
+bash -n ops/scripts/create_gitlab_lifecycle_review.sh ops/scripts/create_gitlab_tde_review.sh ops/scripts/smoke_local_gitlab_lifecycle_review.sh ops/scripts/smoke_local_gitlab_tde_review.sh
+python3 -m py_compile ops/scripts/create_gitlab_merge_request.py ops/scripts/bootstrap_local_gitlab_lifecycle_review.py ops/scripts/bootstrap_local_gitlab_tde_review.py ops/scripts/replay_local_gitlab_lifecycle_review.py ops/scripts/replay_local_gitlab_tde_review.py
 ```
+
+완료 기록:
+
+- lifecycle-named create/bootstrap/replay entrypoints를 추가했다:
+  `create_gitlab_lifecycle_review.sh`, `bootstrap_local_gitlab_lifecycle_review.py`,
+  `replay_local_gitlab_lifecycle_review.py`.
+- `smoke_local_gitlab_lifecycle_review.sh`는 lifecycle replay entrypoint를 직접 호출하고,
+  기존 TDE-named scripts는 compatibility 또는 backing fixture 이름으로만 남긴다.
+- local GitLab smoke MR title/description과 ops README/runbook/agent 운영 메모의 primary command가
+  lifecycle smoke surface를 가리키도록 정리했다. backing fixture branch name
+  `tde_first -> tde_base`는 local GitLab state를 넓게 건드리지 않기 위해 유지했다.
+- 검증 통과:
+  - `bash -n ops/scripts/create_gitlab_lifecycle_review.sh ops/scripts/create_gitlab_tde_review.sh ops/scripts/smoke_local_gitlab_lifecycle_review.sh ops/scripts/smoke_local_gitlab_tde_review.sh`
+  - `python3 -m py_compile ops/scripts/create_gitlab_merge_request.py ops/scripts/bootstrap_local_gitlab_lifecycle_review.py ops/scripts/bootstrap_local_gitlab_tde_review.py ops/scripts/replay_local_gitlab_lifecycle_review.py ops/scripts/replay_local_gitlab_tde_review.py`
+  - `git diff --check`
+- local GitLab lifecycle smoke는 entrypoint/docs cleanup이고 live GitLab state가 필요하지 않아 실행하지 않았다.
+- direct OpenAI smoke는 provider success claim이 아니어서 실행하지 않았다.
 
 관련 backlog: `B-ops-03`
 
@@ -904,7 +921,7 @@ python3 -m py_compile ops/scripts/create_gitlab_merge_request.py ops/scripts/boo
 
 ## Suggested Next Step
 
-현재 가장 자연스러운 다음 작업은 `15. Remove Or Merge Orphan Root Workspace Note`이다.
+현재 가장 자연스러운 다음 작업은 `17. Evidence Refresh Path For Targeted Rule Expansion`이다.
 
 이유:
 
@@ -928,8 +945,10 @@ python3 -m py_compile ops/scripts/create_gitlab_merge_request.py ops/scripts/boo
   밖의 tracked Next.js app-looking 파일이 남지 않는다.
 - root `review_system.md` orphan workspace note는 canonical docs/code/ops dependency 없이
   중복된 내용만 담고 있어 제거됐다.
-- 다음 `active` 항목은 local GitLab smoke internals에서 lifecycle-named entrypoint를 primary로
-  노출하고 `tde` 이름은 compatibility/backing fixture surface로 낮추는 cleanup이다.
+- local GitLab smoke internals는 lifecycle-named entrypoint를 primary로 노출하고,
+  `tde` 이름은 compatibility/backing fixture surface로 낮췄다.
+- post-review immediate active cleanup batch가 닫혔으므로 다음은 queued product contract work의
+  첫 항목인 targeted rule expansion evidence refresh path다.
 
 ## Validation Baseline
 

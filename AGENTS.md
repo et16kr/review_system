@@ -190,7 +190,7 @@ bash /home/et16/work/review_system/ops/scripts/smoke_local_gitlab_lifecycle_revi
 로컬 GitLab을 처음 띄울 때:
 
 ```bash
-python3 /home/et16/work/review_system/ops/scripts/bootstrap_local_gitlab_tde_review.py
+python3 /home/et16/work/review_system/ops/scripts/bootstrap_local_gitlab_lifecycle_review.py
 ```
 
 MR만 재구성하고 bot까지 붙일 때:
@@ -202,7 +202,7 @@ python3 /home/et16/work/review_system/ops/scripts/attach_local_gitlab_bot.py
 clean replay 가능한 baseline으로 다시 맞출 때:
 
 ```bash
-python3 /home/et16/work/review_system/ops/scripts/replay_local_gitlab_tde_review.py
+python3 /home/et16/work/review_system/ops/scripts/replay_local_gitlab_lifecycle_review.py
 ```
 
 Phase A baseline snapshot:

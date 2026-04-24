@@ -70,7 +70,7 @@ def run(cmd: list[str], *, capture: bool = False) -> str:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Reset/reseed local GitLab TDE MR and optionally replay incremental updates."
+        description="Reset/reseed the local GitLab lifecycle smoke MR and optionally replay updates."
     )
     parser.add_argument("--project-ref", default=DEFAULT_PROJECT_REF)
     parser.add_argument("--target-branch", default=DEFAULT_TARGET_BRANCH)

@@ -7,11 +7,10 @@
 - `docker-compose.yml`
 - `.env.example`
 - `scripts/create_gitlab_merge_request.py`
-- `scripts/create_gitlab_tde_review.sh`
-- `scripts/bootstrap_local_gitlab_tde_review.py`
+- `scripts/create_gitlab_lifecycle_review.sh`
+- `scripts/bootstrap_local_gitlab_lifecycle_review.py`
 - `scripts/attach_local_gitlab_bot.py`
-- `scripts/replay_local_gitlab_tde_review.py`
-- `scripts/smoke_local_gitlab_tde_review.sh`
+- `scripts/replay_local_gitlab_lifecycle_review.py`
 - `scripts/smoke_local_gitlab_lifecycle_review.sh`
 - `scripts/smoke_local_gitlab_multilang_review.sh`
 - `scripts/capture_review_bot_baseline.py`
@@ -30,7 +29,7 @@ docker compose up --build
 GitLab에 실제 Merge Request를 먼저 만들 때:
 
 ```bash
-bash /home/et16/work/review_system/ops/scripts/create_gitlab_tde_review.sh --dry-run
+bash /home/et16/work/review_system/ops/scripts/create_gitlab_lifecycle_review.sh --dry-run
 ```
 
 상세 절차와 표준 smoke 흐름은 [OPERATIONS_RUNBOOK.md](/home/et16/work/review_system/docs/OPERATIONS_RUNBOOK.md:1)에 정리했다.
@@ -38,7 +37,7 @@ bash /home/et16/work/review_system/ops/scripts/create_gitlab_tde_review.sh --dry
 로컬 GitLab 인스턴스를 함께 띄워서 smoke MR까지 자동 생성하려면:
 
 ```bash
-python3 /home/et16/work/review_system/ops/scripts/bootstrap_local_gitlab_tde_review.py
+python3 /home/et16/work/review_system/ops/scripts/bootstrap_local_gitlab_lifecycle_review.py
 ```
 
 로컬 GitLab MR에 bot까지 붙이려면:
@@ -50,7 +49,7 @@ python3 /home/et16/work/review_system/ops/scripts/attach_local_gitlab_bot.py
 로컬 GitLab MR과 bot 상태를 clean replay 가능한 baseline으로 다시 맞추려면:
 
 ```bash
-python3 /home/et16/work/review_system/ops/scripts/replay_local_gitlab_tde_review.py
+python3 /home/et16/work/review_system/ops/scripts/replay_local_gitlab_lifecycle_review.py
 ```
 
 표준 smoke 시나리오를 한 번에 재생하고, 실패 시 non-zero exit code를 받으려면:
@@ -59,7 +58,9 @@ python3 /home/et16/work/review_system/ops/scripts/replay_local_gitlab_tde_review
 bash /home/et16/work/review_system/ops/scripts/smoke_local_gitlab_lifecycle_review.sh
 ```
 
-기존 `smoke_local_gitlab_tde_review.sh`는 compatibility wrapper로 계속 사용할 수 있습니다.
+기존 `create_gitlab_tde_review.sh`, `bootstrap_local_gitlab_tde_review.py`,
+`replay_local_gitlab_tde_review.py`, `smoke_local_gitlab_tde_review.sh`는
+backing fixture 또는 compatibility 이름으로만 남깁니다.
 
 Phase A baseline snapshot을 남기려면:
 
