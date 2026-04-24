@@ -117,6 +117,10 @@
 - broken import/init entry point는 detector/prompt plugin이 optional surface인 현재 구조상
   dev/prod 모두 warning-only로 남기고 public core를 계속 로드한다.
 - private/public release gate는 `ops/scripts/run_review_engine_extension_ci.sh`로 분리됐다.
+- `pack_id`가 canonical pack identity이고, `source_family`는 API/analytics/chroma compatibility를 위한
+  legacy read-only alias로만 유지한다.
+- runtime input에 `pack_id`와 `source_family`가 함께 오면 같은 값이어야 하며,
+  다르면 ambiguous extension identity로 보고 fail-fast 한다.
 - private rule packaging은 아직 roadmap 대상이다.
 - 우선순위는 특정 조직명 하드코딩이 아니라 pack/profile policy로 표현한다.
 

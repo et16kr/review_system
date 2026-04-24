@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 from review_engine.ingest.chroma_store import ChromaGuidelineStore
 from review_engine.ingest.rule_loader import load_rule_runtime
-from review_engine.models import GuidelineRecord
+from review_engine.models import CandidateHit, GuidelineRecord, PriorityPolicy, QueryAnalysis
+from review_engine.retrieve.search import GuidelineSearchService
 
 
 def test_runtime_records_expose_operational_metadata(fixture_settings) -> None:
@@ -74,3 +77,56 @@ def test_chroma_store_queries_only_active_collection(fixture_settings) -> None:
 
     results = store.query("malloc free", top_n=5)
     assert [result.record.rule_no for result in results] == ["R.10"]
+
+
+def test_search_service_results_keep_source_family_as_pack_id_alias(
+    fixture_settings,
+    monkeypatch,
+) -> None:
+    service = GuidelineSearchService(fixture_settings)
+    candidate = CandidateHit(
+        record=GuidelineRecord(
+            rule_no="ORG.MEM.1",
+            source="fixture",
+            pack_id="org_cpp",
+            source_kind="organization_policy",
+            section="ORG",
+            title="Use the organization owner wrapper",
+            text="Prefer the owner wrapper over raw ownership.",
+            summary="Organization owner wrapper guidance.",
+        ),
+        distance=0.1,
+        similarity_score=0.9,
+        final_score=0.88,
+    )
+    runtime = SimpleNamespace(
+        language_id="cpp",
+        policy=PriorityPolicy(policy_id="test-priority"),
+        profile=SimpleNamespace(profile_id="default"),
+        context_id=None,
+        dialect_id=None,
+        prompt_overlay_refs=[],
+    )
+    analysis = QueryAnalysis(input_kind="code", query_text="owner wrapper", patterns=[])
+
+    monkeypatch.setattr(service, "_ensure_runtime_data", lambda language_id: None)
+    monkeypatch.setattr(service.store, "query", lambda query_text, language_id, top_n: [candidate])
+    monkeypatch.setattr(service, "_select_runtime_candidates", lambda candidates, runtime: candidates)
+    monkeypatch.setattr(
+        service,
+        "_augment_with_pattern_hints",
+        lambda candidates, analysis, language_id: candidates,
+    )
+    monkeypatch.setattr(
+        "review_engine.retrieve.search.rerank_candidates",
+        lambda candidates, analysis, settings, top_k, policy: candidates,
+    )
+    monkeypatch.setattr(
+        "review_engine.retrieve.search.is_candidate_applicable",
+        lambda candidate, analysis: True,
+    )
+
+    response = service._review_analysis(analysis, runtime=runtime, top_k=1)
+
+    assert response.results[0].pack_id == "org_cpp"
+    assert response.results[0].source_family == "org_cpp"

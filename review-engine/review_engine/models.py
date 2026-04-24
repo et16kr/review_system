@@ -31,6 +31,15 @@ def _default_namespace(source_kind: str) -> str:
     return "public"
 
 
+def _normalize_pack_identity(pack_id: str | None, source_family: str | None) -> tuple[str, str]:
+    if pack_id and source_family and pack_id != source_family:
+        raise ValueError(
+            "source_family is a legacy alias of pack_id and must match when both are provided"
+        )
+    canonical_pack_id = pack_id or source_family or "unknown"
+    return canonical_pack_id, canonical_pack_id
+
+
 def _build_embedding_text(
     *,
     rule_no: str,
@@ -247,9 +256,10 @@ class ParsedRule(BaseModel):
 
     @model_validator(mode="after")
     def _sync_pack_and_legacy_source(self) -> ParsedRule:
-        pack_id = self.pack_id or self.source_family or "unknown"
-        self.pack_id = pack_id
-        self.source_family = self.source_family or pack_id
+        self.pack_id, self.source_family = _normalize_pack_identity(
+            self.pack_id,
+            self.source_family,
+        )
         self.namespace = self.namespace or _default_namespace(self.source_kind)
         return self
 

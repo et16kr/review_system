@@ -214,6 +214,37 @@ def test_invalid_filesystem_extension_manifest_fails_fast_even_when_strict_is_di
         )
 
 
+def test_guideline_record_syncs_legacy_source_family_alias_to_pack_id() -> None:
+    record = GuidelineRecord(
+        rule_no="ORG.MEM.1",
+        source="fixture",
+        source_family="org_cpp",
+        source_kind="organization_policy",
+        section="ORG",
+        title="Organization rule",
+        text="Prefer the owner wrapper.",
+        summary="Organization owner wrapper guidance.",
+    )
+
+    assert record.pack_id == "org_cpp"
+    assert record.source_family == "org_cpp"
+
+
+def test_guideline_record_rejects_mismatched_pack_id_and_source_family() -> None:
+    with pytest.raises(ValueError, match="source_family is a legacy alias of pack_id"):
+        GuidelineRecord(
+            rule_no="ORG.MEM.1",
+            source="fixture",
+            pack_id="org_cpp",
+            source_family="legacy_org_cpp",
+            source_kind="organization_policy",
+            section="ORG",
+            title="Organization rule",
+            text="Prefer the owner wrapper.",
+            summary="Organization owner wrapper guidance.",
+        )
+
+
 def test_broken_extension_import_warns_and_falls_back_in_strict_mode(
     fixture_settings,
     monkeypatch,

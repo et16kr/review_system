@@ -688,6 +688,7 @@ Response:
   "results": [
     {
       "rule_no": "R.10",
+      "pack_id": "cpp_core",
       "source_family": "cpp_core",
       "authority": "external",
       "conflict_policy": "compatible",
@@ -701,14 +702,21 @@ Response:
       "reviewability": "auto_review",
       "fix_guidance": "free() 이후 포인터를 NULL로 재설정한다.",
       "language_id": "cpp",
-      "profile_id": "default",
       "context_id": null,
       "dialect_id": null,
-      "prompt_overlay_refs": []
+      "source_kind": "public_standard",
+      "priority_tier": "override",
+      "pack_weight": 0.72,
+      "conflict_action": "compatible"
     }
   ]
 }
 ```
+
+호환성 메모:
+
+- `pack_id`가 canonical pack identity다.
+- `source_family`는 legacy read-only alias이며 현재는 `pack_id`와 같은 값으로만 반환한다.
 
 ### `POST /review/code`
 

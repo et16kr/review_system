@@ -279,21 +279,25 @@
 - `review-engine/tests/test_rule_runtime.py`가
   `REVIEW_ENGINE_STRICT_EXTENSION_LOADING=0`이어도
   명시한 filesystem extension root manifest/YAML은 fail-fast 한다는 경계를 회귀로 고정한다.
+- `pack_id`를 canonical pack identity로 유지하고,
+  `source_family`는 API/analytics/chroma compatibility를 위한 legacy read-only alias로 고정했다.
+- runtime model이 `pack_id`/`source_family` mismatch를 fail-fast 하고,
+  legacy-only payload는 canonical `pack_id`로 동기화하는 회귀를 추가했다.
+- `docs/API_CONTRACTS.md`와 `review-engine` search-service metadata regression이
+  응답에서 `pack_id`와 `source_family`가 같은 identity를 노출하는 장기 호환 계약을 고정한다.
 
 다음 작업:
 
-1. `source_family` legacy alias 제거 또는 장기 호환 방침을 결정한다.
-2. `pack_weight`, `reference_only`, conflict action의 운영 표현 방식을 확정한다.
+1. `pack_weight`, `reference_only`, conflict action의 운영 표현 방식을 확정한다.
 
 검증 메모:
 
-- 이번 slice는 repo-local extension release gate를 `public-only`와 `private-enabled`로 분리하고,
-  repo sample private extension 회귀를 별도 pytest target으로 고정했다.
+- 이번 slice는 `review-engine` runtime model/search metadata에서
+  `source_family`를 `pack_id` legacy alias로 고정하고 mismatch fail-fast를 추가했다.
 - rerun:
-  - `bash ops/scripts/run_review_engine_extension_ci.sh --mode public-only`
-  - `bash ops/scripts/run_review_engine_extension_ci.sh --mode private-enabled`
+  - `uv run --project review-engine pytest review-engine/tests/test_rule_runtime.py review-engine/tests/test_rule_runtime_private_extension.py review-engine/tests/test_review_metadata.py -q`
 - broader `review-engine` pytest, ingest/retrieval baseline, `review-bot`/`review-platform` tests,
-  GitLab smoke, provider/direct OpenAI validation은 extension release-gate split 범위로 생략했다.
+  GitLab smoke, provider/direct OpenAI validation은 legacy alias compatibility 범위라 생략했다.
 
 완료 기준:
 
