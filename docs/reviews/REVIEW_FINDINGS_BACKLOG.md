@@ -349,3 +349,26 @@
 - Validation note: Run `bash -n` for shell wrappers, `python3 -m py_compile` for renamed Python
   scripts, targeted wrapper tests if added, and local GitLab lifecycle smoke when the environment is
   ready.
+
+### B-cross-cutting-01 Make TestClient-backed gates bounded and diagnosable
+
+- Finding: `F-tests-01 Documented TestClient gates can hang without producing a regression signal`
+- Severity: `medium`
+- Area: `cross-cutting`
+- Evidence: [review-bot/tests/test_api_queue.py](/home/et16/work/review_system/review-bot/tests/test_api_queue.py:444)
+  and [review-platform/tests/test_health.py](/home/et16/work/review_system/review-platform/tests/test_health.py:7)
+  are part of documented deterministic validation paths, but bounded runs of their TestClient paths
+  exited `124` with no pytest result. [review-bot/pyproject.toml](/home/et16/work/review_system/review-bot/pyproject.toml:49)
+  and [review-platform/pyproject.toml](/home/et16/work/review_system/review-platform/pyproject.toml:47)
+  do not configure pytest timeout or hang diagnostics.
+- Recommended action: Add bounded pytest timeout or equivalent guardrails plus hang diagnostics for
+  TestClient-backed suites, then isolate and fix the `review-bot` API queue and `review-platform`
+  FastAPI startup/lifespan hang. Preserve fast parser/business-logic tests that do not require ASGI
+  startup.
+- Follow-up target: `direct fix`
+- Post-review bucket: `bug_fix`
+- Validation note: Reproduce first with the bounded commands from `F-tests-01`, then make
+  `cd review-bot && uv run pytest tests/test_api_queue.py -q` and
+  `cd review-platform && uv run pytest tests/test_health.py tests/test_pr_flow.py -q` complete
+  without an outer timeout. Local GitLab smoke is only needed if the fix changes GitLab
+  adapter/runtime behavior; direct OpenAI smoke is not relevant.

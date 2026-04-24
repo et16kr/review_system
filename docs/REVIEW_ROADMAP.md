@@ -423,7 +423,9 @@ ops/scripts/advance_review_roadmap_with_codex.sh --model gpt-5.5 --until-done
 
 ### 12. Test Coverage And Missing Gate Review
 
-상태: `active`
+상태: `watch`
+
+완료: `2026-04-24`
 
 이번 작업의 범위:
 
@@ -435,9 +437,26 @@ ops/scripts/advance_review_roadmap_with_codex.sh --model gpt-5.5 --until-done
 
 - 추가해야 할 targeted test, 줄여도 되는 smoke, 유지해야 할 release gate가 정리된다.
 
+완료 기록:
+
+- [CURRENT_STATE_REVIEW.md](/home/et16/work/review_system/docs/reviews/CURRENT_STATE_REVIEW.md:1)에
+  test coverage와 missing gate review 결과를 남겼다. Deterministic gate와 runtime smoke를
+  분리하는 방향은 유지하되, `review-bot` API queue와 `review-platform` TestClient-backed
+  standard gates가 bounded run에서 output 없이 timeout되는 문제를 확인했다.
+- [REVIEW_FINDINGS_BACKLOG.md](/home/et16/work/review_system/docs/reviews/REVIEW_FINDINGS_BACKLOG.md:1)에
+  TestClient-backed gates에 timeout/hang diagnostics를 추가하고 startup hang을 분리 조사하는
+  후속 direct fix 후보를 추가했다.
+- 검증은 static scan과 bounded deterministic validation으로 제한했다. Engine source coverage
+  matrix와 smoke-contract tests는 통과했고, API queue/platform TestClient validation은
+  timeout `124`로 실패했다. 이 failure는 review 판단의 필수 blocker가 아니라 gate reliability
+  finding의 직접 evidence로 기록했다.
+- local GitLab smoke는 runtime adapter/lifecycle evidence가 필요하지 않아 실행하지 않았다.
+  OpenAI direct smoke는 configuration에 의해 skipped였고 live provider success claim은 하지
+  않았다.
+
 ### 13. Consolidated Review Outcome
 
-상태: `queued`
+상태: `active`
 
 이번 작업의 범위:
 
@@ -454,7 +473,7 @@ ops/scripts/advance_review_roadmap_with_codex.sh --model gpt-5.5 --until-done
 
 ## Suggested Next Step
 
-현재 다음 실행 단위는 `12. Test Coverage And Missing Gate Review`다.
+현재 다음 실행 단위는 `13. Consolidated Review Outcome`이다.
 
 이유:
 
@@ -490,8 +509,11 @@ ops/scripts/advance_review_roadmap_with_codex.sh --model gpt-5.5 --until-done
 - `11. Dead Code, Dead Docs, And Cleanup Review`에서 tracked generated/cache artifact는
   발견하지 않았고, `review-engine/app/`, root `review_system.md`, TDE-named smoke internals를
   cleanup 후보로 남겼다.
-- 다음에는 누적 findings가 targeted test나 smoke gate로 충분히 막혀 있는지, 그리고 어떤
-  validation이 gate 역할을 못 하는지 점검한다.
+- `12. Test Coverage And Missing Gate Review`에서 deterministic gate와 runtime smoke의 분리는
+  유지하되, `review-bot` API queue와 `review-platform` TestClient-backed standard gates가
+  bounded run에서 hang signal만 남기는 문제를 post-review bug-fix 후보로 추가했다.
+- 다음에는 누적 findings를 severity와 실행 가능성 기준으로 정렬하고, post-review handoff를
+  최종화한다.
 
 ## Validation Baseline
 
