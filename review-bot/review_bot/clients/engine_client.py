@@ -147,12 +147,21 @@ class EngineClient:
             time.sleep(self.retry_backoff_seconds * (attempt + 1))
         raise RuntimeError("unreachable")
 
-    def search_codebase(self, query: str, top_k: int = 3) -> list[dict[str, Any]]:
+    def search_codebase(
+        self,
+        query: str,
+        top_k: int = 3,
+        *,
+        project_ref: str | None = None,
+    ) -> list[dict[str, Any]]:
         """유사 코드 패턴을 저장소 인덱스에서 검색한다."""
         try:
+            payload: dict[str, Any] = {"query": query, "top_k": top_k}
+            if project_ref:
+                payload["project_ref"] = project_ref
             response = httpx.post(
                 f"{self.base_url}/codebase/search",
-                json={"query": query, "top_k": top_k},
+                json=payload,
                 timeout=self.timeout_seconds,
             )
             response.raise_for_status()

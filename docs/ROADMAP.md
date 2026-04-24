@@ -211,23 +211,29 @@
   syntax-aware split prototype을 갖게 됐고, detect path와 sync/reclassification path 모두 `.py` path normalization으로 같은 safe boundary line `80`을 공유한다.
 - `review-bot/tests/test_review_runner.py::test_review_runner_python_syntax_aware_split_uses_safe_boundary_for_anchor_and_fingerprint`가
   long Python handler의 후속 finding anchor/fingerprint 시작선이 raw line `81`이 아니라 safe boundary line `80`에 고정되도록 회귀를 추가했다.
+- same-file `file_context` retrieval과 project-scoped `similar_code` index/search를 별도 경로로 고정했다.
+- `review-engine` `/codebase/index`, `/codebase/search`, `CodebaseStore`가 optional `project_ref` scope를 지원하고,
+  `project_ref`를 생략하면 legacy shared scope로 남도록 했다.
+- `review-bot` detect path가 similar-code 검색마다 현재 `review_request.project_ref`를 전달하고,
+  legacy search client signature를 쓰는 test stub도 fallback으로 계속 허용한다.
 
 다음 작업:
 
-1. related file retrieval과 project-scoped codebase index를 분리 설계한다.
-2. project-local feedback이 global quality metric을 왜곡하지 않도록 learned weight granularity를 정한다.
-3. `.review-bot.yaml`, `summarize`, `ask`, walkthrough note의 우선순위를 재평가한다.
+1. project-local feedback이 global quality metric을 왜곡하지 않도록 learned weight granularity를 정한다.
+2. `.review-bot.yaml`, `summarize`, `ask`, walkthrough note의 우선순위를 재평가한다.
 
 검증 메모:
 
-- 이번 slice는 `python` file-aware review unit split prototype, deterministic audit corpus/report,
-  Python anchor/fingerprint regression을 함께 갱신했다.
+- 이번 slice는 same-file `file_context` path와 project-scoped `similar_code` index/search contract를
+  `review-engine` API/store와 `review-bot` detect path에서 분리 고정했다.
 - rerun:
-  - `env UV_CACHE_DIR=/tmp/uv-cache uv run --project review-bot pytest review-bot/tests/test_review_unit_split_audit.py review-bot/tests/test_review_runner.py::test_review_runner_keeps_distinct_findings_per_hunk review-bot/tests/test_review_runner.py::test_review_runner_python_syntax_aware_split_uses_safe_boundary_for_anchor_and_fingerprint -q`
-  - `env UV_CACHE_DIR=/tmp/uv-cache uv run --project review-bot python -m review_bot.cli.review_unit_split_audit --output docs/baselines/review_bot/review_unit_split_audit_2026-04-24.md`
+  - `env UV_CACHE_DIR=/tmp/uv-cache uv run --project review-engine python -u -m pytest review-engine/tests/test_codebase_scope.py -q`
+  - `env UV_CACHE_DIR=/tmp/uv-cache uv run --project review-bot pytest review-bot/tests/test_review_runner.py::test_review_runner_publishes_inline_comment_and_persists_thread_state review-bot/tests/test_review_runner.py::test_review_runner_passes_project_ref_to_codebase_search -q`
+  - `env UV_CACHE_DIR=/tmp/uv-cache uv run --project review-bot pytest review-bot/tests/test_integration_phase1_4.py -k rag_search_codebase_client_returns_list -q`
 - deterministic validation은 direct OpenAI도 lifecycle stub fallback도 쓰지 않고
-  static audit corpus와 in-memory runner stub만 사용했다.
-- broader `review-bot` pytest, GitLab lifecycle smoke, multilang smoke, direct OpenAI/provider validation은 adapter/lifecycle/provider path 비변경으로 생략했다.
+  direct endpoint function call, in-memory runner stub, no-engine client error handling만 사용했다.
+- broader `review-engine/tests/test_api.py` FastAPI `TestClient`, `review-bot` broader pytest,
+  GitLab lifecycle smoke, multilang smoke, direct OpenAI/provider validation은 이번 범위 밖이라 생략했다.
 
 완료 기준:
 

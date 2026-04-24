@@ -441,8 +441,10 @@ class ReviewRunner:
                     engine_call_duration_seconds.observe(__import__("time").monotonic() - t0)
                     detected_patterns = [str(item) for item in review.get("detected_patterns", [])]
                     # RAG: 유사 코드 패턴 검색 (codebase가 인덱싱된 경우에만 동작)
-                    similar_code = self.engine_client.search_codebase(
-                        review_unit.change_snippet[:500], top_k=2
+                    similar_code = self._engine_search_codebase(
+                        review_unit.change_snippet[:500],
+                        top_k=2,
+                        project_ref=review_request.project_ref,
                     )
                     for result in review.get("results", [])[:3]:
                         payload = dict(result)
@@ -3840,6 +3842,24 @@ class ReviewRunner:
                 file_path=file_path,
                 file_context=file_context,
             )
+
+    def _engine_search_codebase(
+        self,
+        query: str,
+        *,
+        top_k: int,
+        project_ref: str | None,
+    ) -> list[dict[str, Any]]:
+        try:
+            return self.engine_client.search_codebase(
+                query,
+                top_k=top_k,
+                project_ref=project_ref,
+            )
+        except TypeError as exc:
+            if "unexpected keyword argument" not in str(exc):
+                raise
+            return self.engine_client.search_codebase(query, top_k=top_k)
 
     def _fetch_file_context(
         self,

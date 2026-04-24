@@ -733,6 +733,7 @@ Response:
 용도:
 
 - 허용된 local root 아래의 reviewable file을 chunk로 나누어 `codebase_chunks` 컬렉션에 적재한다.
+- `project_ref`를 주면 그 프로젝트 전용 codebase scope에 적재한다.
 - `REVIEW_ENGINE_CODEBASE_ALLOWED_ROOTS`가 있으면 그 경로 아래만 허용한다.
 - 설정이 없으면 기본적으로 `review-engine` parent workspace 아래를 허용한다.
 
@@ -741,7 +742,8 @@ Request:
 ```json
 {
   "root_path": "/home/et16/work/review_system",
-  "clear_first": true
+  "clear_first": true,
+  "project_ref": "root/review-system-smoke"
 }
 ```
 
@@ -750,14 +752,16 @@ Request:
 용도:
 
 - `codebase_chunks`에서 similar code snippet을 검색한다.
-- 현재 collection은 project-scoped memory가 아니라 engine instance 단위 shared collection이다.
+- `project_ref`를 주면 같은 project scope 안에서만 similar code를 검색한다.
+- `project_ref`를 생략하면 legacy shared scope를 사용한다.
 
 Request:
 
 ```json
 {
   "query": "changed code snippet",
-  "top_k": 3
+  "top_k": 3,
+  "project_ref": "root/review-system-smoke"
 }
 ```
 

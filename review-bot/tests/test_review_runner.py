@@ -1616,12 +1616,38 @@ def test_review_runner_propagates_language_payload_per_file() -> None:
         session.close()
 
 
-def test_review_runner_passes_language_metadata_to_provider_and_comment_body() -> None:
+def test_review_runner_passes_project_ref_to_codebase_search() -> None:
     _reset_db()
 
     runner = ReviewRunner()
     adapter = FakeAdapter()
     key = runner._legacy_key(7195)  # noqa: SLF001
+    adapter.set_diff(key, path="src/a.cpp", patch=_malloc_patch())
+    runner.platform_client = adapter
+    engine = EngineCaptureStub(
+        results_by_path={"src/a.cpp": [_result("R.10", category="memory")]}
+    )
+    runner.engine_client = engine
+    runner.provider = FixedProvider()
+
+    session = SessionLocal()
+    try:
+        review_run = runner.run_review(session, pr_id=7195, trigger="project-scope")
+
+        assert review_run.status == "success"
+        assert engine.search_calls
+        assert engine.search_calls[0]["project_ref"] == key.project_ref
+        assert engine.search_calls[0]["top_k"] == 2
+    finally:
+        session.close()
+
+
+def test_review_runner_passes_language_metadata_to_provider_and_comment_body() -> None:
+    _reset_db()
+
+    runner = ReviewRunner()
+    adapter = FakeAdapter()
+    key = runner._legacy_key(7196)  # noqa: SLF001
     adapter.set_diff(
         key,
         path="warehouse/postgres/report.sql",
@@ -1645,7 +1671,7 @@ def test_review_runner_passes_language_metadata_to_provider_and_comment_body() -
 
     session = SessionLocal()
     try:
-        runner.run_review(session, pr_id=7195, trigger="first")
+        runner.run_review(session, pr_id=7196, trigger="first")
 
         assert len(provider.build_calls) == 1
         build_call = provider.build_calls[0]
@@ -2778,6 +2804,7 @@ class EngineCaptureStub:
     results_by_path: dict[str, list[dict[str, object]]] = field(default_factory=dict)
     detected_patterns: list[str] | None = None
     review_calls: list[dict[str, object]] = field(default_factory=list)
+    search_calls: list[dict[str, object]] = field(default_factory=list)
 
     def review_diff(
         self,
@@ -2808,8 +2835,20 @@ class EngineCaptureStub:
             "results": [dict(result) for result in self.results_by_path.get(str(file_path), [])],
         }
 
-    def search_codebase(self, query: str, top_k: int = 3) -> list[dict]:
-        del query, top_k
+    def search_codebase(
+        self,
+        query: str,
+        top_k: int = 3,
+        *,
+        project_ref: str | None = None,
+    ) -> list[dict]:
+        self.search_calls.append(
+            {
+                "query": query,
+                "top_k": top_k,
+                "project_ref": project_ref,
+            }
+        )
         return []
 
 

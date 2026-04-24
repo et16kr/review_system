@@ -225,13 +225,13 @@ Chroma 컬렉션:
 ```bash
 curl -X POST http://127.0.0.1:18082/codebase/index \
   -H "Content-Type: application/json" \
-  -d '{"root_path":"/home/et16/work/review_system","clear_first":true}'
+  -d '{"root_path":"/home/et16/work/review_system","clear_first":true,"project_ref":"root/review-system-smoke"}'
 ```
 
 주의:
 
 - 기본 collection 이름은 `codebase_chunks`다.
-- 현재 이 collection은 project-scoped memory가 아니라 engine instance 단위 shared collection이다.
+- `project_ref`를 주면 project-scoped codebase collection을 만들고, 생략하면 legacy shared scope를 쓴다.
 - 허용 root는 `REVIEW_ENGINE_CODEBASE_ALLOWED_ROOTS`로 제한할 수 있다.
 
 ## 5-a. Release Gate와 Pre-release Smoke

@@ -20,11 +20,13 @@ _codebase_store = CodebaseStore(get_settings())
 class CodebaseIndexRequest(BaseModel):
     root_path: str
     clear_first: bool = False
+    project_ref: str | None = None
 
 
 class CodebaseSearchRequest(BaseModel):
     query: str
     top_k: int = 3
+    project_ref: str | None = None
 
 
 @app.get("/health")
@@ -77,22 +79,30 @@ def get_rule(rule_no: str, language_id: str | None = None):
 def index_codebase(request: CodebaseIndexRequest):
     root_path = _resolve_codebase_root(request.root_path)
     if request.clear_first:
-        _codebase_store.clear()
+        _codebase_store.clear(project_ref=request.project_ref)
     files = collect_reviewable_files(str(root_path))
     total_chunks = 0
     for path in files:
         try:
             content = path.read_text(encoding="utf-8", errors="replace")
             chunks = extract_chunks(str(path), content)
-            total_chunks += _codebase_store.upsert_chunks(chunks)
+            total_chunks += _codebase_store.upsert_chunks(chunks, project_ref=request.project_ref)
         except Exception:
             continue
-    return {"indexed_files": len(files), "total_chunks": total_chunks}
+    return {
+        "indexed_files": len(files),
+        "total_chunks": total_chunks,
+        "project_ref": request.project_ref,
+    }
 
 
 @app.post("/codebase/search")
 def search_codebase(request: CodebaseSearchRequest):
-    results = _codebase_store.search(request.query, top_k=request.top_k)
+    results = _codebase_store.search(
+        request.query,
+        top_k=request.top_k,
+        project_ref=request.project_ref,
+    )
     return {"results": results}
 
 

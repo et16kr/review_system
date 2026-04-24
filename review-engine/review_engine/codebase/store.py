@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 from typing import Any
 
 from review_engine.config import Settings
@@ -32,17 +33,27 @@ class CodebaseStore:
             self._client = chromadb.PersistentClient(path=str(self.settings.chroma_path))
         return self._client
 
-    def _get_or_create_collection(self) -> Any:
+    def _collection_name(self, project_ref: str | None = None) -> str:
+        normalized_project_ref = (project_ref or "").strip()
+        if not normalized_project_ref:
+            return CODEBASE_COLLECTION
+        project_hash = hashlib.sha1(
+            normalized_project_ref.encode("utf-8")
+        ).hexdigest()[:12]
+        return f"{CODEBASE_COLLECTION}_{project_hash}"
+
+    def _get_or_create_collection(self, project_ref: str | None = None) -> Any:
+        collection_name = self._collection_name(project_ref)
         client = self._get_client()
         existing = {c.name for c in client.list_collections()}
-        if CODEBASE_COLLECTION not in existing:
-            return client.create_collection(CODEBASE_COLLECTION)
-        return client.get_collection(CODEBASE_COLLECTION)
+        if collection_name not in existing:
+            return client.create_collection(collection_name)
+        return client.get_collection(collection_name)
 
-    def upsert_chunks(self, chunks: list[dict]) -> int:
+    def upsert_chunks(self, chunks: list[dict], *, project_ref: str | None = None) -> int:
         if not chunks:
             return 0
-        collection = self._get_or_create_collection()
+        collection = self._get_or_create_collection(project_ref)
         ids, docs, metas = [], [], []
         for chunk in chunks:
             chunk_id = f"{chunk['file_path']}:{chunk['start_line']}"
@@ -59,9 +70,9 @@ class CodebaseStore:
         collection.upsert(ids=ids, embeddings=embeddings, documents=docs, metadatas=metas)
         return len(ids)
 
-    def search(self, query: str, top_k: int = 3) -> list[dict]:
+    def search(self, query: str, top_k: int = 3, *, project_ref: str | None = None) -> list[dict]:
         try:
-            collection = self._get_or_create_collection()
+            collection = self._get_or_create_collection(project_ref)
             n = collection.count()
             if n == 0:
                 return []
@@ -89,8 +100,9 @@ class CodebaseStore:
         except Exception:
             return []
 
-    def clear(self) -> None:
+    def clear(self, *, project_ref: str | None = None) -> None:
         client = self._get_client()
         existing = {c.name for c in client.list_collections()}
-        if CODEBASE_COLLECTION in existing:
-            client.delete_collection(CODEBASE_COLLECTION)
+        collection_name = self._collection_name(project_ref)
+        if collection_name in existing:
+            client.delete_collection(collection_name)
