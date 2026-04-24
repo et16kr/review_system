@@ -27,6 +27,28 @@
 - `Post-review bucket`: `bug_fix`, `roadmap_update`, `deferred_update`, `remove`, `keep`, `needs_decision` 중 하나
 - `Validation note`: 후속 작업이 필요로 할 검증 또는 현재 생략 사유
 
+## Execution Order
+
+아래 순서는 stable backlog id를 다시 번호 매기지 않고, severity와 실행 가능성 기준으로 정렬한
+post-review handoff view다.
+
+1. Gate reliability first: `B-cross-cutting-01`
+2. Review-bot contract safety: `B-review-bot-01`, `B-review-bot-02`, `B-review-bot-03`,
+   `B-review-bot-04`
+3. Harness and ops automation drift: `B-review-platform-01`, `B-ops-01`, `B-ops-02`
+4. Engine guardrails: `B-review-engine-01`, `B-review-engine-02`, `B-review-engine-03`,
+   `B-review-engine-04`
+5. Implementation roadmap updates: `B-docs-01`, `B-docs-02`
+6. Cleanup/removal batch: `B-review-engine-05`, `B-docs-03`, `B-ops-03`
+
+Current actionable distribution:
+
+- `bug_fix`: 12 entries
+- `roadmap_update`: 2 entries
+- `remove`: 3 entries
+- `deferred_update`: 0 entries
+- `needs_decision`: 0 entries
+
 ## Backlog Entry Template
 
 ```md

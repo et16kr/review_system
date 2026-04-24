@@ -18,6 +18,15 @@
 - [baselines/roadmap_automation/](/home/et16/work/review_system/docs/baselines/roadmap_automation/README.md:1)
   - roadmap automation blocked-unit retained artifact format
 
+## Review Artifacts
+
+- [reviews/CURRENT_STATE_REVIEW.md](/home/et16/work/review_system/docs/reviews/CURRENT_STATE_REVIEW.md:1)
+  - 현재 리뷰 라운드의 evidence, findings, validation limitation
+- [reviews/REVIEW_FINDINGS_BACKLOG.md](/home/et16/work/review_system/docs/reviews/REVIEW_FINDINGS_BACKLOG.md:1)
+  - 리뷰 finding에서 나온 후속 실행 후보와 bucket 분류
+- [reviews/POST_REVIEW_IMMEDIATE_FIXES.md](/home/et16/work/review_system/docs/reviews/POST_REVIEW_IMMEDIATE_FIXES.md:1)
+  - 리뷰 후 바로 수정할 항목과 deferred 또는 keep으로 넘길 항목의 경계
+
 ## Maintenance Rule
 
 새 문서를 추가하기 전에 아래를 먼저 확인한다.

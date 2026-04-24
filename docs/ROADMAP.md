@@ -20,35 +20,511 @@
 - external API quota, 사람 승인, 별도 계정 권한이 필요한 작업은 본 문서의 직접 실행 항목으로 두지 않는다.
 - 한 roadmap unit은 가능하면 한 commit에서 닫는다.
 - 문서만 정리하는 작업도, 다음 구현을 실제로 열어 주는 경우에만 roadmap에 둔다.
+- post-review 즉시 수정 항목은 deferred work보다 먼저 닫는다.
 
 ## Current Snapshot
 
-현재는 아래 기반이 이미 닫혔고, 새 구현 대상은 아니다.
+`2026-04-24` `gpt-5.5` 리뷰 라운드 기준으로 아래 기반은 유지 판단이 끝났고,
+새 구현 대상이 아니다.
+
+- 기존 Git review surface 중심 제품 방향
+- canonical `ReviewRequestKey(review_system, project_ref, review_request_id)` identity
+- runner-owned `detect -> publish -> sync` lifecycle boundary
+- immutable lifecycle event-backed analytics direction
+- 현재 번들 기준 `review-engine` canonical YAML, generated dataset, runtime retrieval selection 정합성
+- minimal rule lifecycle CLI의 좁은 운영 범위
+- `review`, `summarize`, `walkthrough`, `full-report`, `backlog`, `help` note command surface
+- deterministic gate, local GitLab runtime smoke, direct provider smoke를 분리하는 운영 원칙
+
+반대로 아래 항목은 닫힌 기반으로 보면 안 된다. 리뷰 결과상 즉시 수정 또는 문서 보정이 남아 있다.
 
 - Provider runtime guardrails
+  - model/base URL/transport provenance가 lifecycle API, log, summary note에 충분히 드러나야 한다.
 - Smoke / evaluation hardening
-- Organization rule extension canonicalization
+  - TestClient-backed gate가 hang 없이 실패 신호를 내야 한다.
+  - OpenAI direct smoke preflight가 bounded runtime 안에서 끝나야 한다.
 - Roadmap automation blocked artifact retention
-- Minimal rule lifecycle CLI
+  - implementation roadmap wrapper는 retained artifact 경로가 있지만 review-roadmap wrapper는 아직 `/tmp` scratch에 의존한다.
+- Organization/private rule packaging
+  - filesystem extension support는 있으나 package shape와 validation owner는 deferred readiness로 남아 있다.
 
-즉 지금 남은 핵심은:
+## Post-Review Source
 
-1. 다음 rule expansion slice를 고를 수 있게 evidence 경로를 다시 고정하는 일
-2. `.review-bot.yaml` / `ask`처럼 아직 product boundary가 모호한 UX surface의 선행 계약을 정리하는 일
-3. local backend 실험을 실제 retained artifact capture로 이어 가기 전 준비를 끝내는 일
-4. deferred 장기 작업에 들어가기 전 필요한 사전 작업을 문서와 작은 검증 경로로 닫는 일
+현재 `Now`의 실행 순서는 아래 review artifact를 따른다.
+
+- [POST_REVIEW_IMMEDIATE_FIXES.md](/home/et16/work/review_system/docs/reviews/POST_REVIEW_IMMEDIATE_FIXES.md:1)
+- [REVIEW_FINDINGS_BACKLOG.md](/home/et16/work/review_system/docs/reviews/REVIEW_FINDINGS_BACKLOG.md:1)
+- [CURRENT_STATE_REVIEW.md](/home/et16/work/review_system/docs/reviews/CURRENT_STATE_REVIEW.md:1)
+
+이번 post-review handoff의 actionable 분포:
+
+- `bug_fix`: 12 entries
+- `roadmap_update`: 2 entries
+- `remove`: 3 entries
+- `deferred_update`: 0 entries
+- `needs_decision`: 0 entries
+
+이번 `ROADMAP.md` 정리에서 반영 완료한 내용:
+
+- 닫힌 기반과 아직 열린 post-review guardrail work를 분리했다.
+- post-review immediate fixes 문서를 현재 실행 순서의 source로 연결했다.
+- private rule packaging은 deferred readiness owner가 있음을 `Prepare Deferred Work`에 노출했다.
+- suggested next step을 evidence refresh에서 gate reliability로 바꿨다.
 
 ## Now
 
-### 1. Evidence Refresh Path For Targeted Rule Expansion
+자동 실행 기준:
+
+- 아래 `###` 항목 하나가 `advance_roadmap_with_codex.sh`의 한 iteration에서 고를 수 있는 최소 실행 단위다.
+- 한 iteration에서 두 개 이상의 `###` 항목을 묶지 않는다.
+- `active` 항목을 roadmap order대로 먼저 처리한다.
+- `queued` 항목은 앞선 관련 `active` guardrail이 완료되거나 blocked로 기록된 뒤 처리한다.
+- blocked이면 final output의 `BLOCKED_UNIT`에 아래 heading을 그대로 쓴다.
+
+### 1. Make Review-Bot API Queue TestClient Gate Bounded And Diagnosable
 
 상태: `active`
 
 왜 지금 하나:
 
-- `Targeted Rule Expansion` 자체는 여전히 가치가 크지만,
-  지금은 다음 gap을 고를 fresh evidence 경로가 불안정해서 automation이 blocker로 끝난다.
-- 다음 rule slice보다 먼저, evidence refresh 절차를 repo-local 기준으로 다시 고정해야 한다.
+- 현재 문서화된 deterministic gate 중 `review-bot` API queue TestClient path가
+  bounded run에서 output 없이 timeout될 수 있다.
+- 이 상태에서는 후속 `review-bot` contract fix가 회귀 신호를 받지 못하고 automation hang으로 끝날 수 있다.
+
+이번 작업의 범위:
+
+1. `review-bot` API queue TestClient-backed suite에 bounded timeout 또는 equivalent guardrail을 추가한다.
+2. hang diagnostics를 남겨 startup/lifespan 문제와 실제 assertion failure를 구분한다.
+3. parser/business-logic처럼 ASGI startup이 필요 없는 빠른 테스트는 계속 분리해 유지한다.
+
+완료 기준:
+
+- `cd review-bot && uv run pytest tests/test_api_queue.py -q`가 outer timeout 없이 끝난다.
+- 실패 시에도 pytest 결과나 hang diagnostic이 남는다.
+
+관련 backlog: `B-cross-cutting-01`
+
+### 2. Make Review-Platform TestClient Gates Bounded And Diagnosable
+
+상태: `active`
+
+왜 지금 하나:
+
+- 현재 문서화된 deterministic gate 중 `review-platform` FastAPI/TestClient path가
+  bounded run에서 output 없이 timeout될 수 있다.
+- 이 상태에서는 harness bridge fix가 회귀 신호를 받지 못하고 automation hang으로 끝날 수 있다.
+
+이번 작업의 범위:
+
+1. `review-platform` FastAPI/TestClient-backed suite에 bounded timeout 또는 equivalent guardrail을 추가한다.
+2. hang diagnostics를 남겨 startup/lifespan 문제와 실제 assertion failure를 구분한다.
+3. ASGI startup이 필요 없는 harness unit test는 계속 분리해 유지한다.
+
+완료 기준:
+
+- `cd review-platform && uv run pytest tests/test_health.py tests/test_pr_flow.py -q`가 outer timeout 없이 끝난다.
+- 실패 시에도 pytest 결과나 hang diagnostic이 남는다.
+
+관련 backlog: `B-cross-cutting-01`
+
+### 3. Fail Or Defer GitLab Note-Trigger When Expected Head Never Settles
+
+상태: `active`
+
+왜 지금 하나:
+
+- GitLab에서 force-push 직후 note trigger가 들어오면 webhook payload head가 stale일 수 있다.
+- expected head가 끝까지 settle되지 않았는데 stale diff로 성공 처리하면 review 결과가 잘못된 head에 묶인다.
+
+이번 작업의 범위:
+
+1. GitLab note-trigger expected head가 끝까지 settle되지 않으면 stale diff로 성공 처리하지 않는다.
+2. never-settled path를 retryable detect failure 또는 explicit pending/deferred state로 남긴다.
+3. 모든 settle retry가 stale MR diff head를 관찰하는 deterministic runner test를 추가한다.
+
+완료 기준:
+
+- never-settled expected head runner test가 추가되고 통과한다.
+- stale observed head가 successful detect result로 저장되지 않는다.
+
+검증:
+
+```bash
+cd review-bot && uv run pytest tests/test_review_runner.py tests/test_api_queue.py -q
+```
+
+GitLab head handling을 바꾸므로 local GitLab 환경이 준비되어 있으면 lifecycle smoke도 실행한다.
+
+관련 backlog: `B-review-bot-01`
+
+### 4. Scope Adapter Thread And Feedback Identity Explicitly
+
+상태: `active`
+
+왜 지금 하나:
+
+- adapter thread/feedback refs가 contract에서는 global unique인지 request-scoped인지 불명확하다.
+- DB는 global unique처럼 저장하므로 서로 다른 review request가 같은 remote id를 재사용할 때 충돌할 수 있다.
+
+이번 작업의 범위:
+
+1. adapter thread/comment/event id의 uniqueness scope를 contract에 명시한다.
+2. contract에 맞춰 DB uniqueness 또는 deduplication key를 조정한다.
+3. 두 review request가 같은 remote thread/comment/event id를 재사용하는 deterministic test를 추가한다.
+
+완료 기준:
+
+- contract와 storage uniqueness가 같은 scope를 말한다.
+- adapter identity reuse test가 통과한다.
+
+검증:
+
+```bash
+cd review-bot && uv run pytest tests/test_review_runner.py tests/test_api_queue.py -q
+```
+
+관련 backlog: `B-review-bot-02`
+
+### 5. Add Model And Endpoint Provenance To Lifecycle Provider Runtime
+
+상태: `active`
+
+왜 지금 하나:
+
+- lifecycle run state는 configured/effective provider와 fallback 여부만 드러낸다.
+- `BOT_OPENAI_BASE_URL`로 OpenAI-compatible local backend를 붙이면 default OpenAI와 local backend/model을 구분하기 어렵다.
+
+이번 작업의 범위:
+
+1. lifecycle `provider_runtime` metadata에 sanitized model, endpoint base URL, transport class를 추가한다.
+2. run state API, finding evidence, structured logs, summary note에 같은 provenance를 반영한다.
+3. default OpenAI, non-default local backend, stub, fallback case를 targeted tests로 덮는다.
+
+완료 기준:
+
+- provider runtime metadata가 run state, finding evidence, logs, summary note에 일관되게 보인다.
+- OpenAI-compatible local backend와 default OpenAI가 artifact/API/log에서 구분된다.
+
+검증:
+
+```bash
+cd review-bot && uv run pytest tests/test_provider_quality.py tests/test_prompting.py -q
+cd review-bot && uv run pytest tests/test_review_runner.py -q
+```
+
+direct OpenAI smoke는 live provider success claim을 할 때만 실행한다.
+
+관련 backlog: `B-review-bot-03`
+
+### 6. Post Visible Feedback For Directed Unknown Note Commands
+
+상태: `active`
+
+왜 지금 하나:
+
+- `@review-bot fullreport` 같은 directed unknown command는 detect enqueue 없이 안전하게 무시된다.
+- 하지만 GitLab 사용자는 webhook `ignored_reason`을 볼 수 없어 실패 이유를 알 수 없다.
+
+이번 작업의 범위:
+
+1. line-start bot mention의 unknown command token에 대해 concise help/error note를 post/upsert한다.
+2. no-enqueue behavior를 유지한다.
+3. incidental mention은 계속 silent ignore로 둔다.
+
+완료 기준:
+
+- unknown directed command가 visible feedback과 no-enqueue를 동시에 만족한다.
+- incidental mention silence가 유지된다.
+
+검증:
+
+```bash
+cd review-bot && uv run pytest tests/test_api_queue.py tests/test_review_runner.py -q
+```
+
+관련 backlog: `B-review-bot-04`
+
+### 7. Update Local Harness Bot Bridge To Key-Based Bot API
+
+상태: `active`
+
+왜 지금 하나:
+
+- `review-platform`은 product UI가 아니라 contract harness다.
+- legacy `pr_id` bot endpoint를 계속 호출하면 current `review-bot` API drift를 검증하지 못한다.
+
+이번 작업의 범위:
+
+1. `review-platform` BotClient와 API handlers를 `ReviewRequestKey` 기반 API로 맞춘다.
+2. key-based next-batch contract가 아직 없다면 unsupported harness control을 숨기거나 명확히 unsupported 처리한다.
+3. drift 방지용 unmocked contract check를 남긴다.
+
+완료 기준:
+
+- local harness bot bridge가 removed `/internal/review/pr-updated`, `/internal/review/next-batch`,
+  `/internal/review/state/{pr_id}` endpoint에 의존하지 않는다.
+- stale bridge가 mock-only test로 가려지지 않는다.
+
+검증:
+
+```bash
+cd review-platform && uv run pytest tests/test_pr_flow.py -q
+```
+
+관련 backlog: `B-review-platform-01`
+
+### 8. Retain Blocked Review-Roadmap Unit Artifacts
+
+상태: `active`
+
+왜 지금 하나:
+
+- implementation roadmap wrapper는 blocked artifact를 retained file로 남긴다.
+- review-roadmap wrapper는 blocked summary를 `/tmp` scratch에만 남겨 반복 blocker audit에 약하다.
+
+이번 작업의 범위:
+
+1. `advance_review_roadmap_with_codex.sh`가 blocked unit을 retained artifact로 남기게 한다.
+2. blocker type, reason, validation summary, status를 normalize한다.
+3. no-block case에서 artifact가 생기지 않는지 테스트한다.
+
+완료 기준:
+
+- review-roadmap blocked unit artifact가 `docs/baselines/roadmap_automation/`에 보존된다.
+- repeated blocker audit이 `/tmp` 파일에 의존하지 않는다.
+
+검증:
+
+```bash
+bash -n ops/scripts/advance_review_roadmap_with_codex.sh ops/scripts/advance_roadmap_with_codex.sh
+```
+
+관련 backlog: `B-ops-01`
+
+### 9. Bound OpenAI Direct Smoke Preflight Runtime
+
+상태: `active`
+
+왜 지금 하나:
+
+- roadmap automation can run direct provider smoke before iterations.
+- direct smoke script currently has network calls that can stall the automation loop if they are not bounded.
+
+이번 작업의 범위:
+
+1. `smoke_openai_provider_direct.sh`의 `curl` 호출에 connect/overall timeout을 추가한다.
+2. 필요하면 preflight 전체를 bounded wrapper로 감싼다.
+3. timeout/stall fake-curl cases를 deterministic test에 추가한다.
+
+완료 기준:
+
+- direct smoke preflight가 network stall로 roadmap loop를 무기한 멈추지 않는다.
+- timeout exit status가 preflight output에 남는다.
+
+검증:
+
+```bash
+bash -n ops/scripts/advance_review_roadmap_with_codex.sh ops/scripts/advance_roadmap_with_codex.sh ops/scripts/smoke_openai_provider_direct.sh
+cd review-bot && uv run pytest tests/test_openai_provider_direct_smoke.py -q
+```
+
+관련 backlog: `B-ops-02`
+
+### 10. Fail Fast On Unresolved Or Duplicate Selected Packs
+
+상태: `active`
+
+왜 지금 하나:
+
+- profile-selected pack id가 없거나 duplicate `pack_id`가 있으면 runtime rule selection이 조용히 drift할 수 있다.
+
+이번 작업의 범위:
+
+1. missing `enabled_packs`/`shared_packs`와 duplicate selected pack을 fail-fast 처리한다.
+2. explicit extension replacement contract가 없다면 silent override를 허용하지 않는다.
+3. missing/duplicate pack loader tests를 추가한다.
+
+완료 기준:
+
+- duplicate/missing pack reference test가 추가되고 통과한다.
+- loader가 unresolved selected pack을 조용히 건너뛰지 않는다.
+
+검증:
+
+```bash
+cd review-engine && uv run pytest tests/test_rule_runtime.py tests/test_rule_lifecycle_cli.py -q
+```
+
+관련 backlog: `B-review-engine-01`
+
+### 11. Clarify Or Remove Default Profile Configuration
+
+상태: `active`
+
+왜 지금 하나:
+
+- `REVIEW_ENGINE_DEFAULT_PROFILE`은 config로 존재하지만 current review runtime profile selection에는 반영되지 않는다.
+- operator-facing setting이 runtime behavior와 다르면 false confidence를 만든다.
+
+이번 작업의 범위:
+
+1. setting을 safe default profile selection에 연결할지 제거/rename할지 결정한다.
+2. 결정에 맞춰 code/docs/tests를 정리한다.
+3. targeted default-profile selection test를 추가한다.
+
+완료 기준:
+
+- default profile config의 의미가 runtime behavior나 docs에서 모호하지 않다.
+
+검증:
+
+```bash
+cd review-engine && uv run pytest tests/test_rule_runtime.py tests/test_multilang_regressions.py -q
+```
+
+관련 backlog: `B-review-engine-02`
+
+### 12. Add Reverse Coverage For Canonical Rules
+
+상태: `active`
+
+왜 지금 하나:
+
+- source coverage matrix는 source atom completeness를 검증하지만 모든 canonical rule이 source atom을 갖는지는 검증하지 않는다.
+- 출처 atom이 없는 canonical rule이 누적될 수 있다.
+
+이번 작업의 범위:
+
+1. canonical rule reverse coverage validation을 추가한다.
+2. 의도적으로 source atom이 없는 rule이 있으면 explicit allow-list와 reason을 둔다.
+3. affected retrieval example tests를 필요한 만큼 갱신한다.
+
+완료 기준:
+
+- source coverage matrix가 atom completeness뿐 아니라 canonical rule reverse coverage도 검증한다.
+
+검증:
+
+```bash
+cd review-engine && uv run pytest tests/test_source_coverage_matrix.py -q
+```
+
+관련 backlog: `B-review-engine-03`
+
+### 13. Reject Unknown Canonical YAML Authoring Keys
+
+상태: `active`
+
+왜 지금 하나:
+
+- canonical authoring model이 unknown key를 무시하면 `fix_guidence`, `enabled_packz` 같은 typo가 fail-fast 없이 사라진다.
+
+이번 작업의 범위:
+
+1. canonical rule/profile/policy/source manifest models가 unknown field를 reject하도록 한다.
+2. clear validation error를 낸다.
+3. typoed `RuleEntry`, `RulePackManifest`, `ProfileConfig`, `PriorityPolicy`, root manifest, source manifest tests를 추가한다.
+
+완료 기준:
+
+- typoed YAML key가 clear validation error를 낸다.
+
+검증:
+
+```bash
+cd review-engine && uv run pytest tests/test_rule_runtime.py tests/test_rule_lifecycle_cli.py -q
+```
+
+관련 backlog: `B-review-engine-04`
+
+### 14. Remove Or Relocate Unowned Next.js Scaffold Files
+
+상태: `queued`
+
+왜 지금 하나:
+
+- cleanup은 필요하지만 behavior-changing bug fix와 같은 commit에 섞으면 review가 어려워진다.
+
+이번 작업의 범위:
+
+1. `review-engine/app/`가 accidental scaffold인지 fixture인지 확인한다.
+2. accidental scaffold면 제거한다.
+3. fixture라면 `examples/` 또는 `tests/fixtures/`로 옮기고 deterministic test에 연결한다.
+
+완료 기준:
+
+- `review-engine/app/`가 runtime/package/docs/test fixture boundary 안에 들어오거나 제거된다.
+
+검증:
+
+```bash
+rg -n "review-engine/app|app/api/users/route\\.ts|app/dashboard/page\\.tsx" review-engine review-bot docs
+cd review-engine && uv run pytest tests/test_language_registry.py tests/test_multilang_regressions.py tests/test_query_conversion.py -q
+```
+
+관련 backlog: `B-review-engine-05`
+
+### 15. Remove Or Merge Orphan Root Workspace Note
+
+상태: `queued`
+
+왜 지금 하나:
+
+- root `review_system.md` duplicates canonical workspace/docs notes and has no referenced owner.
+
+이번 작업의 범위:
+
+1. `review_system.md`가 외부 workflow에 쓰이지 않는지 확인한다.
+2. 필요한 내용이 있으면 canonical docs로 병합한다.
+3. 남은 root orphan doc을 제거한다.
+
+완료 기준:
+
+- `review_system.md`가 canonical docs index 밖에서 중복되지 않는다.
+
+검증:
+
+```bash
+rg -n "review_system\\.md" . -g '!ops/gitlab/**'
+git diff --check
+```
+
+관련 backlog: `B-docs-03`
+
+### 16. Rename Local GitLab Smoke Internals Away From TDE As Primary Surface
+
+상태: `queued`
+
+왜 지금 하나:
+
+- lifecycle wrapper exists, but docs and lower-level script names still expose `tde` as if it were the primary surface.
+
+이번 작업의 범위:
+
+1. lifecycle-named create/bootstrap/replay entrypoints를 추가한다.
+2. docs/runbook/ops README가 lifecycle-named commands를 primary로 보여 주게 한다.
+3. `tde` names는 compatibility wrapper 또는 backing fixture name으로만 남긴다.
+
+완료 기준:
+
+- docs/runbook/ops README가 lifecycle-named GitLab smoke entrypoint를 primary로 보여 준다.
+
+검증:
+
+```bash
+bash -n ops/scripts/create_gitlab_tde_review.sh ops/scripts/smoke_local_gitlab_lifecycle_review.sh ops/scripts/smoke_local_gitlab_tde_review.sh
+python3 -m py_compile ops/scripts/create_gitlab_merge_request.py ops/scripts/bootstrap_local_gitlab_tde_review.py ops/scripts/replay_local_gitlab_tde_review.py
+```
+
+관련 backlog: `B-ops-03`
+
+## Queued Product Contract Work
+
+아래 항목은 여전히 가치가 있지만 post-review immediate fixes 뒤에 실행한다.
+
+### 17. Evidence Refresh Path For Targeted Rule Expansion
+
+상태: `queued`
 
 이번 작업의 범위:
 
@@ -56,72 +532,34 @@
    - repo-local retained artifact
    - local analytics endpoint
    - local smoke artifact
-2. endpoint가 비어 있거나 local GitLab이 꺼져 있어도,
-   automation이 “왜 막혔는지”를 같은 형식으로 남기게 한다.
-3. fresh evidence가 없을 때 임의로 다음 rule family를 고르지 않도록,
-   checkpoint freshness 기준과 artifact 위치를 문서로 고정한다.
+2. endpoint가 비어 있거나 local GitLab이 꺼져 있어도 blocker가 같은 형식으로 남게 한다.
+3. fresh evidence가 없을 때 임의로 다음 rule family를 고르지 않도록 freshness 기준과 artifact 위치를 고정한다.
 
-완료 기준:
+### 18. `.review-bot.yaml` Contract Definition
 
-- 다음 under-trigger gap을 고르는 입력 경로가 문서와 automation에서 같은 순서를 쓴다.
-- 환경이 비어 있을 때도 blocker가 재현 가능하게 기록된다.
-- 이후 `Targeted Rule Expansion`은 evidence refresh 때문에 다시 product ambiguity blocker로 멈추지 않는다.
-
-### 2. `.review-bot.yaml` Contract Definition
-
-상태: `active`
-
-왜 지금 하나:
-
-- `.review-bot.yaml` 구현 자체보다,
-  policy / env / note command precedence가 아직 모호해서 실행 단위로 닫히지 않는다.
-- 이 계약을 먼저 고정해야 implementation이 다시 blocker 없이 이어진다.
+상태: `queued`
 
 이번 작업의 범위:
 
 1. `.review-bot.yaml`이 다루는 최소 surface를 정의한다.
-2. env, repo config, note command 중 무엇이 우선하는지 precedence 표를 고정한다.
+2. env, repo config, note command precedence 표를 고정한다.
 3. 허용하지 않을 값과 fail-fast / ignore / warn 경계를 정한다.
-4. `summarize`, `walkthrough`, `backlog`, `full-report`와 어떤 관계인지 note-first UX 기준으로 적는다.
+4. `summarize`, `walkthrough`, `backlog`, `full-report`와의 관계를 note-first UX 기준으로 적는다.
 
-완료 기준:
+### 19. `ask` Command Boundary Definition
 
-- `.review-bot.yaml`의 최소 scope와 precedence가 한 문서에서 명확하다.
-- 구현 전에 product ambiguity가 남지 않는다.
-- 이후 implementation slice를 한 commit 단위로 자를 수 있다.
-
-### 3. `ask` Command Boundary Definition
-
-상태: `active`
-
-왜 지금 하나:
-
-- `ask`는 retrieval, session boundary, provider latency/cost, answer safety가 한꺼번에 얽혀 있어
-  바로 구현하면 scope가 커진다.
-- note command로 넣을 수 있는 최소 contract를 먼저 정해야 한다.
+상태: `queued`
 
 이번 작업의 범위:
 
 1. `ask`가 참조할 수 있는 context source 범위를 정한다.
-2. session을 저장하지 않을지, 최소한으로 저장할지 경계를 정한다.
-3. provider unavailable / timeout / empty evidence일 때 응답 정책을 정한다.
-4. `summarize` / `walkthrough` 이후에 붙는 note-family command로서의 UX 목적을 정리한다.
+2. session 저장 여부와 최소 저장 경계를 정한다.
+3. provider unavailable / timeout / empty evidence 응답 정책을 정한다.
+4. `summarize` / `walkthrough` 이후 note-family command로서의 UX 목적을 정리한다.
 
-완료 기준:
+### 20. Local Backend Retained Artifact Capture Prep
 
-- `ask`를 즉시 구현 가능한 최소 단위로 나눌 수 있다.
-- retrieval/session/provider risk가 문서에서 먼저 분리된다.
-- “무엇을 답하지 않을지”가 명확하다.
-
-### 4. Local Backend Retained Artifact Capture Prep
-
-상태: `active`
-
-왜 지금 하나:
-
-- `BOT_OPENAI_BASE_URL` wiring과 provenance는 이미 들어갔지만,
-  실제 local backend baseline capture는 아직 환경 준비 단계에서 멈춘다.
-- live capture 전에 repo-local 성공 기준과 artifact naming을 더 분명히 해야 한다.
+상태: `queued`
 
 이번 작업의 범위:
 
@@ -130,18 +568,12 @@
 3. “capture 성공”과 “human review required”를 구분하는 기준을 적는다.
 4. local backend artifact가 direct OpenAI artifact와 섞이지 않도록 provenance 표현을 고정한다.
 
-완료 기준:
-
-- local backend 환경이 준비되면 capture 절차가 바로 실행 가능하다.
-- retained artifact 이름과 provenance가 혼동되지 않는다.
-- 이후 실험 결과를 provider tuning 근거로 재사용할 수 있다.
-
 ## Prepare Deferred Work
 
 아래 항목은 아직 deferred 자체를 시작하지 않고,
 나중에 바로 착수할 수 있게 선행 조건만 먼저 닫는 작업이다.
 
-### 5. Provider / Ranking / Density Tuning Readiness Packet
+### 21. Provider / Ranking / Density Tuning Readiness Packet
 
 상태: `queued`
 
@@ -159,7 +591,7 @@
 
 - OpenAI direct artifact 재수집과 ranking/density tuning을 바로 시작할 수 있다.
 
-### 6. Manual Rule Editor Readiness Packet
+### 22. Manual Rule Editor Readiness Packet
 
 상태: `queued`
 
@@ -177,7 +609,25 @@
 
 - manual rule editor를 UI/preview/validate 단위로 잘라 시작할 수 있다.
 
-### 7. Multi-SCM Expansion Readiness Packet
+### 23. Private Rule Packaging Readiness Packet
+
+상태: `queued`
+
+연결 문서:
+
+- [Deferred Rule Authoring And Editor Work](/home/et16/work/review_system/docs/deferred/rule_authoring_and_editor.md:33)
+
+지금 할 사전 작업:
+
+1. private package manifest가 포함해야 할 id/version/compatibility metadata를 정한다.
+2. private generated artifact와 repo canonical artifact의 분리 위치와 naming rule을 정한다.
+3. install/update/rollback 절차와 validation gate를 정한다.
+
+이 사전 작업이 끝나면:
+
+- private/organization rule packaging을 implementation-ready slice로 나눌 수 있다.
+
+### 24. Multi-SCM Expansion Readiness Packet
 
 상태: `queued`
 
@@ -195,7 +645,7 @@
 
 - GitHub PR adapter 설계를 큰 재조사 없이 시작할 수 있다.
 
-### 8. Auto-Fix Safety Packet
+### 25. Auto-Fix Safety Packet
 
 상태: `queued`
 
@@ -217,30 +667,33 @@
 
 아래 영역은 현재 roadmap의 직접 구현 대상이 아니다.
 
-- Provider runtime guardrails
-- Smoke and evaluation hardening
-- Organization rule extension canonicalization
-- Roadmap automation blocked artifact retention
-- Minimal rule lifecycle CLI
+- Existing Git review surface 중심 제품 방향
+- Canonical `ReviewRequestKey` identity
+- Runner-owned lifecycle boundary
+- Event-backed lifecycle analytics direction
+- Minimal rule lifecycle CLI surface
+- Current six-command note UX
+- Local GitLab smoke와 direct provider smoke를 별도 evidence로 보는 운영 원칙
 
 변경이 생기면 여기서 다시 `active`로 올린다.
 
 ## Suggested Next Step
 
-현재 가장 자연스러운 다음 작업은 `1. Evidence Refresh Path For Targeted Rule Expansion`이다.
+현재 가장 자연스러운 다음 작업은 `1. Make Review-Bot API Queue TestClient Gate Bounded And Diagnosable`이다.
 
 이유:
 
-- 지금 automation이 멈추는 가장 직접적인 원인이 evidence refresh ambiguity다.
-- 이 경로를 먼저 고정하면 `Targeted Rule Expansion`이 다시 실행 가능한 product-facing slice로 돌아온다.
-- 동시에 blocked artifact 운영과 next-gap selection 기준도 함께 정리된다.
+- 이 항목이 열려 있으면 후속 bug fix가 검증 결과 대신 timeout만 남길 수 있다.
+- review-bot API queue와 review-platform TestClient gate는 표준 검증 경로에 포함되어 있다.
+- gate reliability를 먼저 닫아야 이후 review-bot, harness, engine guardrail 수정이 작은 commit 단위로 안정적으로 진행된다.
 
 ## Validation Baseline
 
 문서/계약 작업:
 
 ```bash
-bash -n ops/scripts/advance_roadmap_with_codex.sh
+git diff --check
+bash -n ops/scripts/advance_roadmap_with_codex.sh ops/scripts/advance_review_roadmap_with_codex.sh
 ```
 
 `review-bot` contract 변경:
@@ -254,6 +707,13 @@ cd review-bot && uv run pytest tests/test_api_queue.py -q
 
 ```bash
 cd review-engine && uv run pytest tests/test_rule_runtime.py tests/test_rule_lifecycle_cli.py -q
+cd review-engine && uv run pytest tests/test_source_coverage_matrix.py -q
+```
+
+`review-platform` harness 변경:
+
+```bash
+cd review-platform && uv run pytest tests/test_health.py tests/test_pr_flow.py -q
 ```
 
 local smoke와 direct provider validation은 해당 작업이 실제 runtime/adapter/provider 경로를 건드릴 때만 추가한다.

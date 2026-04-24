@@ -18,6 +18,8 @@
 1. 현재 GitLab lifecycle/schema 경계를 더 이상 흔들지 않을 정도로 안정화한다.
 2. GitHub smoke 또는 replay fixture를 만들 테스트 리포지토리/권한 경로를 정한다.
 3. `ReviewSystemAdapterV2` 경계에서 GitHub가 GitLab과 어떤 차이를 가질지 먼저 설계한다.
+4. local harness의 current `ReviewRequestKey` 기반 bot bridge가 legacy `pr_id` endpoint와
+   섞이지 않도록 먼저 정리한다.
 
 착수 후 해야 할 일:
 
@@ -26,3 +28,12 @@
 3. GitHub smoke 또는 replay fixture를 최소 하나 만든다.
 4. GitLab과 GitHub가 같은 lifecycle analytics schema를 공유하는지 검증한다.
 5. GitHub 안정화 뒤 Gerrit patchset 모델을 별도 설계한다.
+
+## Post-Review Boundary
+
+`2026-04-24` 리뷰 라운드 기준으로 multi-SCM expansion은 계속 deferred다. GitHub/Gerrit 확장은
+권한, fixture, adapter mapping, smoke 설계가 함께 필요해서 바로 수정할 항목이 아니다.
+
+반대로 `review-platform` BotClient가 제거된 legacy `pr_id` bot endpoint를 호출하는 문제는
+platform expansion이 아니다. 이것은 current local harness contract drift이므로 즉시 수정 항목으로
+처리한다.
