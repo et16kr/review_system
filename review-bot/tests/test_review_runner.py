@@ -168,6 +168,35 @@ def test_review_runner_typescript_syntax_aware_split_uses_safe_boundary_for_anch
         session.close()
 
 
+def test_review_runner_python_syntax_aware_split_uses_safe_boundary_for_anchor_and_fingerprint() -> None:
+    _reset_db()
+
+    runner = ReviewRunner()
+    adapter = FakeAdapter()
+    key = runner._legacy_key(205)  # noqa: SLF001
+    adapter.set_diff(key, path="app/api/audit.py", patch=_python_fastapi_long_handler_patch())
+    runner.platform_client = adapter
+    runner.engine_client = EngineStub([_result("PY.7", category="correctness")])
+    runner.provider = FixedProvider()
+
+    session = SessionLocal()
+    try:
+        runner.run_review(session, pr_id=205, trigger="test-python-split")
+        findings = (
+            session.query(FindingDecision)
+            .filter_by(review_request_id="205", rule_no="PY.7")
+            .order_by(FindingDecision.line_no.asc())
+            .all()
+        )
+
+        assert len(findings) == 2
+        assert [finding.line_no for finding in findings] == [1, 80]
+        assert findings[0].fingerprint != findings[1].fingerprint
+        assert [finding.anchor_payload["start_line"] for finding in findings] == [1, 80]
+    finally:
+        session.close()
+
+
 def test_review_runner_persists_provider_runtime_metadata_on_run_and_finding() -> None:
     _reset_db()
 
@@ -3238,6 +3267,13 @@ def _yaml_k8s_long_container_patch() -> str:
         if case.case_id == "yaml_k8s_long_container_env":
             return case.patch
     raise AssertionError("yaml_k8s_long_container_env case is missing")
+
+
+def _python_fastapi_long_handler_patch() -> str:
+    for case in load_review_unit_split_cases():
+        if case.case_id == "python_fastapi_long_handler":
+            return case.patch
+    raise AssertionError("python_fastapi_long_handler case is missing")
 
 
 def _typescript_react_long_component_patch() -> str:

@@ -1,10 +1,10 @@
 # Review Unit Split Audit
 
-- generated_at: `2026-04-24T02:12:37Z`
+- generated_at: `2026-04-24T02:23:54Z`
 - max_lines_per_review_unit: `80`
 - total_cases: `4`
-- selected_language_count: `1`
-- selected_languages: `python`
+- selected_language_count: `0`
+- selected_languages: (none)
 
 ## Selection Rule
 
@@ -14,14 +14,14 @@
 
 | case_id | language | structure | review_units | split_blocks | safe_boundary_starts | mid_block_starts | recommendation |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| python_fastapi_long_handler | python | indentation | 2 | 1 | 0 | 1 | prioritize_syntax_aware_split |
+| python_fastapi_long_handler | python | indentation | 2 | 1 | 1 | 0 | current_hunk_split_ok |
 | typescript_react_long_component | typescript | jsx_tree | 2 | 1 | 1 | 0 | current_hunk_split_ok |
 | yaml_k8s_long_container_env | yaml | yaml_tree | 2 | 1 | 1 | 0 | current_hunk_split_ok |
 | go_http_long_handler | go | brace_block | 2 | 1 | 0 | 1 | monitor_current_hunk_split |
 
 ## Priority Languages
 
-- `python`: Python handler body가 indentation으로만 경계를 표현하므로 fixed-line split이 mid-block unit을 만들면 anchor와 summary 문맥이 급격히 약해진다.
+- No language currently exceeds the syntax-aware split priority threshold.
 
 ## Monitor Only
 
@@ -32,11 +32,11 @@
 ### python_fastapi_long_handler
 
 - file_path: `app/api/audit.py`
-- recommendation: `prioritize_syntax_aware_split`
+- recommendation: `current_hunk_split_ok`
 - review_unit_count: `2`
 - logical_block_ids_split: create_audit_handler
-- safe_boundary_unit_starts: `0`
-- mid_block_unit_starts: `1`
+- safe_boundary_unit_starts: `1`
+- mid_block_unit_starts: `0`
 - rationale: Python handler body가 indentation으로만 경계를 표현하므로 fixed-line split이 mid-block unit을 만들면 anchor와 summary 문맥이 급격히 약해진다.
 
 ### typescript_react_long_component

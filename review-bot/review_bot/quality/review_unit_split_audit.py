@@ -297,6 +297,7 @@ def _python_fastapi_case() -> ReviewUnitSplitAuditCase:
                 end_line=len(lines),
             ),
         ),
+        safe_split_start_lines=tuple(range(8, len(lines) + 1, 4)),
     )
 
 

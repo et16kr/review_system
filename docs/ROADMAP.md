@@ -196,31 +196,34 @@
   runtime과 audit가 같은 fixed-line hunk 분할 규칙을 공유하도록 고정했다.
 - deterministic `review_unit_split_audit` corpus/CLI와
   repo-local artifact `docs/baselines/review_bot/review_unit_split_audit_2026-04-24.md`를 추가해
-  long hunk split 우선 언어를 `python`, `typescript`, `yaml`로 먼저 고정했다.
+  long hunk split 우선 언어와 monitor-only 언어를 repo-local deterministic audit로 고정했다.
 - `yaml` long added hunk가 raw 80-line cut 대신 safe list-item / mapping boundary를 우선 쓰는
   syntax-aware split prototype을 갖게 됐고, runner detect/sync path도 같은 file/language-aware split 규칙을 공유한다.
 - `review_unit_split_audit` artifact가 갱신되어
-  `yaml`, `typescript`는 `current_hunk_split_ok`로 내려가고 `python`만 남은 syntax-aware split 우선 언어로 고정됐다.
+  `python`, `yaml`, `typescript`는 `current_hunk_split_ok`로 내려가고 `go`만 monitor-only로 남았다.
 - `review-bot/tests/test_review_runner.py::test_review_runner_yaml_syntax_aware_split_uses_safe_boundary_for_anchor_and_fingerprint`가
   long YAML block의 후속 finding anchor/fingerprint 시작선이 raw line `81`이 아니라 safe boundary line `80`에 고정되도록 회귀를 추가했다.
 - `.tsx` long added hunk가 sibling JSX boundary를 우선 쓰는
   syntax-aware split prototype을 갖게 됐고, runtime과 deterministic audit가 같은 safe boundary line `78`을 공유한다.
 - `review-bot/tests/test_review_runner.py::test_review_runner_typescript_syntax_aware_split_uses_safe_boundary_for_anchor_and_fingerprint`가
   long TSX component의 후속 finding anchor/fingerprint 시작선이 raw line `81`이 아니라 safe boundary line `78`에 고정되도록 회귀를 추가했다.
+- `python` long added hunk가 sibling statement boundary를 우선 쓰는
+  syntax-aware split prototype을 갖게 됐고, detect path와 sync/reclassification path 모두 `.py` path normalization으로 같은 safe boundary line `80`을 공유한다.
+- `review-bot/tests/test_review_runner.py::test_review_runner_python_syntax_aware_split_uses_safe_boundary_for_anchor_and_fingerprint`가
+  long Python handler의 후속 finding anchor/fingerprint 시작선이 raw line `81`이 아니라 safe boundary line `80`에 고정되도록 회귀를 추가했다.
 
 다음 작업:
 
-1. `python` long added hunk에 syntax-aware split prototype과 anchor/fingerprint 회귀를 붙인다.
-2. related file retrieval과 project-scoped codebase index를 분리 설계한다.
-3. project-local feedback이 global quality metric을 왜곡하지 않도록 learned weight granularity를 정한다.
-4. `.review-bot.yaml`, `summarize`, `ask`, walkthrough note의 우선순위를 재평가한다.
+1. related file retrieval과 project-scoped codebase index를 분리 설계한다.
+2. project-local feedback이 global quality metric을 왜곡하지 않도록 learned weight granularity를 정한다.
+3. `.review-bot.yaml`, `summarize`, `ask`, walkthrough note의 우선순위를 재평가한다.
 
 검증 메모:
 
-- 이번 slice는 `.tsx` file-aware review unit split prototype, deterministic audit corpus/report,
-  TSX anchor/fingerprint regression을 함께 갱신했다.
+- 이번 slice는 `python` file-aware review unit split prototype, deterministic audit corpus/report,
+  Python anchor/fingerprint regression을 함께 갱신했다.
 - rerun:
-  - `env UV_CACHE_DIR=/tmp/uv-cache uv run --project review-bot pytest review-bot/tests/test_review_unit_split_audit.py review-bot/tests/test_review_runner.py::test_review_runner_keeps_distinct_findings_per_hunk review-bot/tests/test_review_runner.py::test_review_runner_typescript_syntax_aware_split_uses_safe_boundary_for_anchor_and_fingerprint -q`
+  - `env UV_CACHE_DIR=/tmp/uv-cache uv run --project review-bot pytest review-bot/tests/test_review_unit_split_audit.py review-bot/tests/test_review_runner.py::test_review_runner_keeps_distinct_findings_per_hunk review-bot/tests/test_review_runner.py::test_review_runner_python_syntax_aware_split_uses_safe_boundary_for_anchor_and_fingerprint -q`
   - `env UV_CACHE_DIR=/tmp/uv-cache uv run --project review-bot python -m review_bot.cli.review_unit_split_audit --output docs/baselines/review_bot/review_unit_split_audit_2026-04-24.md`
 - deterministic validation은 direct OpenAI도 lifecycle stub fallback도 쓰지 않고
   static audit corpus와 in-memory runner stub만 사용했다.

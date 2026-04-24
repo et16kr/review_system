@@ -147,6 +147,14 @@ def split_large_added_unit(
         file_path=file_path,
         language_id=language_id,
     )
+    if normalized_language == "python":
+        python_units = _split_large_boundary_aware_unit(
+            added_lines,
+            boundary_indexes=_python_safe_boundary_indexes(added_lines),
+            max_lines_per_review_unit=max_lines_per_review_unit,
+        )
+        if python_units is not None:
+            return python_units
     if normalized_language == "yaml":
         yaml_units = _split_large_boundary_aware_unit(
             added_lines,
@@ -244,6 +252,61 @@ def _yaml_safe_boundary_indexes(added_lines: list[ChangedPatchLine]) -> list[int
     return boundary_indexes
 
 
+def _python_safe_boundary_indexes(added_lines: list[ChangedPatchLine]) -> list[int]:
+    boundary_indexes: list[int] = [0]
+    previous_indent: int | None = None
+    previous_stripped: str | None = None
+
+    for index, line in enumerate(added_lines):
+        stripped = line.text.lstrip()
+        if not stripped or stripped.startswith("#"):
+            continue
+
+        current_indent = len(line.text) - len(stripped)
+        if (
+            index > 0
+            and previous_indent is not None
+            and current_indent == previous_indent
+            and previous_stripped is not None
+            and _python_line_allows_split_after(previous_stripped)
+            and _python_line_can_start_split(stripped)
+        ):
+            boundary_indexes.append(index)
+
+        previous_indent = current_indent
+        previous_stripped = stripped
+
+    return boundary_indexes
+
+
+def _python_line_allows_split_after(stripped: str) -> bool:
+    if stripped.endswith(":"):
+        return False
+    return not stripped.endswith(("\\", "(", "[", "{", ","))
+
+
+def _python_line_can_start_split(stripped: str) -> bool:
+    if stripped.startswith((")", "]", "}", ".", ",")):
+        return False
+    return not stripped.startswith(
+        (
+            "if ",
+            "elif ",
+            "else:",
+            "for ",
+            "while ",
+            "try:",
+            "except",
+            "finally:",
+            "with ",
+            "match ",
+            "case ",
+            "async for ",
+            "async with ",
+        )
+    )
+
+
 def _tsx_safe_boundary_indexes(added_lines: list[ChangedPatchLine]) -> list[int]:
     boundary_indexes: list[int] = [0]
     previous_tag_indent: int | None = None
@@ -272,6 +335,8 @@ def _normalize_review_language(*, file_path: str | None, language_id: str | None
     if not file_path:
         return str(language_id).strip().lower() if language_id else None
     lowered_path = file_path.lower()
+    if lowered_path.endswith((".py", ".pyi")):
+        return "python"
     if lowered_path.endswith((".yaml", ".yml")):
         return "yaml"
     if lowered_path.endswith(".tsx"):

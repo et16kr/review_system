@@ -49,6 +49,28 @@ def test_iter_review_units_yaml_prefers_safe_list_item_boundary() -> None:
     assert units[1].change_snippet.splitlines()[1].endswith("FEATURE_FLAG_35")
 
 
+def test_iter_review_units_python_prefers_safe_sibling_statement_boundary() -> None:
+    python_case = next(
+        case
+        for case in load_review_unit_split_cases()
+        if case.case_id == "python_fastapi_long_handler"
+    )
+
+    units = iter_review_units(
+        python_case.patch,
+        file_path=python_case.file_path,
+        language_id=None,
+        max_lines_per_review_unit=DEFAULT_MAX_LINES_PER_REVIEW_UNIT,
+    )
+
+    assert len(units) == 2
+    assert units[0].candidate_line_nos[-1] == 79
+    assert units[1].candidate_line_nos[0] == 80
+    assert units[1].change_snippet.splitlines()[1].endswith(
+        "value_19 = payload.get('field_19')"
+    )
+
+
 def test_iter_review_units_typescript_tsx_prefers_safe_jsx_boundary() -> None:
     tsx_case = next(
         case
@@ -72,16 +94,15 @@ def test_iter_review_units_typescript_tsx_prefers_safe_jsx_boundary() -> None:
 def test_review_unit_split_audit_prioritizes_tree_and_indentation_languages() -> None:
     report = evaluate_review_unit_split_cases(load_review_unit_split_cases())
 
-    assert report["summary"]["selected_languages"] == ["python"]
+    assert report["summary"]["selected_languages"] == []
 
     results = {
         result["case_id"]: result
         for result in report["results"]
     }
-    assert (
-        results["python_fastapi_long_handler"]["recommendation"]
-        == "prioritize_syntax_aware_split"
-    )
+    assert results["python_fastapi_long_handler"]["recommendation"] == "current_hunk_split_ok"
+    assert results["python_fastapi_long_handler"]["metrics"]["safe_boundary_unit_start_count"] == 1
+    assert results["python_fastapi_long_handler"]["metrics"]["mid_block_unit_start_count"] == 0
     assert results["typescript_react_long_component"]["recommendation"] == "current_hunk_split_ok"
     assert results["typescript_react_long_component"]["metrics"]["safe_boundary_unit_start_count"] == 1
     assert results["typescript_react_long_component"]["metrics"]["mid_block_unit_start_count"] == 0
@@ -109,5 +130,5 @@ def test_review_unit_split_audit_cli_writes_report(tmp_path: Path) -> None:
     payload = json.loads(json_output_path.read_text(encoding="utf-8"))
 
     assert "# Review Unit Split Audit" in markdown
-    assert "- selected_languages: `python`" in markdown
-    assert payload["summary"]["selected_languages"] == ["python"]
+    assert "- selected_languages: (none)" in markdown
+    assert payload["summary"]["selected_languages"] == []
