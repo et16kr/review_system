@@ -90,6 +90,12 @@ PLUGIN = LanguageQueryPlugin(
             0.95,
         ),
         PatternSpec(
+            "cuda_async_pageable_host_transfer",
+            r"(?s)\b(?:auto|void|float|double|int|char|unsigned|size_t|std::byte|uint\d+_t)(?:\s|\*)+(?P<host>(?:host|h_)[A-Za-z_]\w*)\s*=\s*(?:static_cast<[^>]+>\s*\()? *(?:malloc|calloc)\s*\([^;]+;(?:(?!cuda(?:HostAlloc|MallocHost|HostRegister)\s*\()[\s\S]){0,800}?\bcudaMemcpyAsync\s*\([^;\n]*(?P=host)[^;\n]*cudaMemcpy(?:HostToDevice|DeviceToHost)[^;\n]*\)",
+            "cudaMemcpyAsync uses a plainly pageable host allocation; review pinned-memory ownership for async transfer overlap.",
+            0.93,
+        ),
+        PatternSpec(
             "cuda_stream_callback",
             r"\bcuda(?:LaunchHostFunc|StreamAddCallback)\s*\(",
             "CUDA stream callback detected; review callback ownership and captured buffer lifetime.",
@@ -290,6 +296,7 @@ PLUGIN = LanguageQueryPlugin(
         "cuda_launch_bounds": ("CUDA.7", "CUDA.REF.1"),
         "cuda_warp_divergence": ("CUDA.PERF.2",),
         "cuda_async_default_stream": ("CUDA.ASYNC.1",),
+        "cuda_async_pageable_host_transfer": ("CUDA.ASYNC.4",),
         "cuda_stream_callback": ("CUDA.ASYNC.2", "CUDA.ASYNC.REF.2"),
         "cuda_stream_create_in_loop": ("CUDA.ASYNC.3",),
         "cuda_graph_api": ("CUDA.ASYNC.REF.2",),
@@ -336,6 +343,7 @@ PLUGIN = LanguageQueryPlugin(
         "cuda_launch_bounds",
         "cuda_warp_divergence",
         "cuda_async_default_stream",
+        "cuda_async_pageable_host_transfer",
         "cuda_stream_callback",
         "cuda_stream_create_in_loop",
         "cuda_graph_api",

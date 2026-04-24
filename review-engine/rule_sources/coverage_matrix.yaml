@@ -229,7 +229,7 @@ languages:
             reason: Transfer batching and residency strategy remain hybrid guidance with managed-memory-specific active coverage.
       - rule_source_id: cuda.cuda_async_runtime_deepening
         section_counts:
-          candidate_canonical_rule_groups: 3
+          candidate_canonical_rule_groups: 4
           reference_only_guidance: 2
         atoms:
           - source_atom_id: explicit_stream_ownership_and_default_stream_semantics
@@ -239,6 +239,13 @@ languages:
             canonical_rules: [CUDA.ASYNC.1]
             reviewability_mix: [auto_review]
             reason: Explicit default-stream async API usage is canonicalized as a dedicated overlap-contract rule.
+          - source_atom_id: pinned_host_memory_for_async_host_device_transfers
+            section_id: candidate_canonical_rule_groups
+            status: mapped
+            pack_targets: [cuda_async_runtime]
+            canonical_rules: [CUDA.ASYNC.4]
+            reviewability_mix: [auto_review]
+            reason: Pageable host allocations feeding host-device cudaMemcpyAsync now map to a pinned-memory ownership rule.
           - source_atom_id: callback_and_deferred_host_work_boundaries
             section_id: candidate_canonical_rule_groups
             status: mapped

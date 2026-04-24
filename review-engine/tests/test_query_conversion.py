@@ -171,6 +171,14 @@ def test_query_analysis_does_not_treat_ide_rc_declaration_as_error_flow() -> Non
         ),
         (
             "cuda",
+            "void upload(float* device_out, size_t count, cudaStream_t stream) {\n  size_t bytes = count * sizeof(float);\n  float* host_buffer = static_cast<float*>(malloc(bytes));\n  fill_input(host_buffer, count);\n  cudaMemcpyAsync(device_out, host_buffer, bytes, cudaMemcpyHostToDevice, stream);\n}\n",
+            {
+                "cuda_memcpy_async",
+                "cuda_async_pageable_host_transfer",
+            },
+        ),
+        (
+            "cuda",
             "#include <cuda/barrier>\n#include <cuda/pipeline>\nif (threadIdx.x == 0) {\n  pipe.producer_acquire();\n}\ncuda::memcpy_async(block, shared_tile, global_tile, cuda::aligned_size_t<4>(bytes), pipe);\nconsume_stage(shared_tile);\nif (threadIdx.x == 0) {\n  pipe.producer_commit();\n  pipe.consumer_wait();\n}\nif (threadIdx.x < 16) {\n  ready.arrive_and_wait();\n}\n",
             {
                 "cuda_pipeline_api",
@@ -446,6 +454,21 @@ def test_bash_mktemp_with_trap_does_not_trigger_cleanup_pattern() -> None:
     names = {pattern.name for pattern in analysis.patterns}
 
     assert "mktemp_without_trap" not in names
+
+
+def test_cuda_async_registered_host_buffer_does_not_trigger_pageable_transfer_pattern() -> None:
+    analysis = build_query_analysis(
+        "void upload(float* device_out, size_t bytes, cudaStream_t stream) {\n"
+        "  float* host_buffer = static_cast<float*>(malloc(bytes));\n"
+        "  cudaHostRegister(host_buffer, bytes, cudaHostRegisterDefault);\n"
+        "  cudaMemcpyAsync(device_out, host_buffer, bytes, cudaMemcpyHostToDevice, stream);\n"
+        "}\n",
+        input_kind="code",
+        language_id="cuda",
+    )
+    names = {pattern.name for pattern in analysis.patterns}
+
+    assert "cuda_async_pageable_host_transfer" not in names
 
 
 def test_dockerfile_pinned_apt_install_does_not_trigger_unpinned_package_pattern() -> None:

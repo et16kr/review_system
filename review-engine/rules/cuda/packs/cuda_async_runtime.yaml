@@ -46,6 +46,19 @@ entries:
     priority_tier: high
     specificity: 0.85
     false_positive_risk: medium
+  - rule_no: CUDA.ASYNC.4
+    section: CUDAASYNC
+    title: "`cudaMemcpyAsync` host transfers should show pinned-memory ownership"
+    summary: Async host-device transfer overlap depends on page-locked host memory, not just a stream argument.
+    text: A `cudaMemcpyAsync` call that moves data between host and device from a plainly `malloc` or `calloc`-allocated host buffer hides the pinned-memory contract required for real asynchronous transfer overlap. Review whether the buffer is intentionally pageable, should be allocated with `cudaHostAlloc` or `cudaMallocHost`, or should be registered before the async transfer.
+    category: performance
+    trigger_patterns: [cuda_async_pageable_host_transfer]
+    fix_guidance: Use an explicitly owned pinned buffer, register the host allocation before the async transfer, or make it clear that overlap is not required for this path.
+    base_score: 0.88
+    severity_default: 0.89
+    priority_tier: high
+    specificity: 0.87
+    false_positive_risk: medium
   - rule_no: CUDA.ASYNC.REF.1
     section: CUDAASYNCREF
     title: Stream and event dependency chains should stay easy to reconstruct from local code

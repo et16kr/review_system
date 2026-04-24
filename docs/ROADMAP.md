@@ -44,8 +44,8 @@ contract readiness packet은 닫혔다. OpenAI direct smoke는 live provider로 
 현재 즉시 실행 가능한 방향:
 
 - 외부 서비스 없이 deterministic 검증으로 닫을 수 있는 rule coverage breadth pass를 계속 진행한다.
-- Python FastAPI validation-boundary pass는 `PY.FAPI.2`가 raw JSON/body/form direct pattern을
-  다루는 상태로 닫혔다. 다음 즉시 실행 대상은 CUDA official documentation gap check다.
+- CUDA official documentation gap check는 `CUDA.ASYNC.4` pinned-memory async transfer rule로
+  닫혔다. 다음 즉시 실행 대상은 dbt, CI YAML, OpenAPI schema official source gap check다.
 - `coverage_matrix.yaml` 기준 pending source atom은 없지만, public source 근거가 명확하고
   detector-backed direct pattern을 더 만들 수 있는 언어를 순차적으로 보강한다.
 - rule expansion 후보는 `review-engine/rule_sources/manifest.yaml`의 `source_ref.url`이
@@ -66,38 +66,9 @@ contract readiness packet은 닫혔다. OpenAI direct smoke는 live provider로 
 
 ## Now
 
-### Expand CUDA Official Documentation Rule Gaps
-
-Status: `active`
-
-목표:
-
-- NVIDIA CUDA C Best Practices 및 기존 CUDA deepening source를 근거로, 이미 깊게 보강된 CUDA
-  rule set에서 남은 detector-backed gap이 있는지만 좁게 확인한다.
-- stream, synchronization, cooperative groups, TMA/WGMMA/Tensor Core 영역에서 changed snippet으로
-  직접 확인 가능한 패턴만 auto-review로 둔다.
-
-범위:
-
-- CUDA는 이미 rule 수가 많으므로 새 rule 추가보다 existing source atom과 query direct pattern
-  mismatch를 먼저 확인한다.
-- whole-program performance tuning이나 occupancy tradeoff는 계속 `reference_only`로 둔다.
-
-검증:
-
-```bash
-cd review-engine && uv run pytest tests/test_query_conversion.py tests/test_rule_runtime.py tests/test_source_coverage_matrix.py -q
-git diff --check
-```
-
-완료 기준:
-
-- 실제 detector-backed gap이 있으면 source-backed rule과 query test가 추가된다.
-- gap이 없으면 retained note나 roadmap update로 `no_cuda_rule_gap_from_official_sources`를 남긴다.
-
 ### Expand Official dbt, CI YAML, And OpenAPI Schema Rules
 
-Status: `queued`
+Status: `active`
 
 목표:
 

@@ -25,6 +25,7 @@ status: drafted
 ## Candidate Canonical Rule Groups
 
 - Explicit stream ownership and default-stream semantics for async transfers and launches.
+- Pinned host-memory ownership for `cudaMemcpyAsync` host-device transfers when the local code allocates pageable host buffers.
 - Callback and deferred host work boundaries where captured state can outlive the launching scope.
 - Stream lifecycle and graph-adjacent orchestration boundaries that should keep create, wait, and teardown ownership obvious.
 
