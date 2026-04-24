@@ -149,7 +149,7 @@ append_blocked_summary() {
   local output_file="$1"
   local blocked_file="$2"
   {
-    printf '--- blocked unit ---\n'
+    printf '%s\n' '--- blocked unit ---'
     sed -n '1,220p' "$output_file"
     printf '\n'
   } >>"$blocked_file"
