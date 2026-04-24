@@ -902,10 +902,46 @@ def test_gitlab_note_hook_posts_summarize_note_without_enqueue() -> None:
     assert mock_summarize.called is True
 
 
+def test_gitlab_note_hook_posts_walkthrough_note_without_enqueue() -> None:
+    _reset_db()
+    payload = {
+        "object_kind": "note",
+        "user": {"username": "alice"},
+        "project": {"path_with_namespace": "group/project-a"},
+        "merge_request": {
+            "iid": 116,
+            "title": "MR title",
+            "source_branch": "feature",
+            "target_branch": "main",
+            "last_commit": {"id": "head-walkthrough"},
+        },
+        "object_attributes": {
+            "id": 615,
+            "note": "@review-bot walkthrough",
+            "noteable_type": "MergeRequest",
+            "system": False,
+        },
+    }
+
+    session = SessionLocal()
+    try:
+        with patch.object(api_main.runner, "post_walkthrough_note", return_value=True) as mock_walkthrough:
+            response = api_main._handle_gitlab_note_hook(payload, session=session)
+    finally:
+        session.close()
+
+    body = response.model_dump()
+    assert body["accepted"] is True
+    assert body["action"] == "walkthrough"
+    assert body["status"] == "posted"
+    assert mock_walkthrough.called is True
+
+
 def test_extract_gitlab_note_command_recognizes_supported_commands() -> None:
     for body, expected in (
         ("@review-bot review 부탁드립니다", "review"),
         ("@review-bot summarize", "summarize"),
+        ("@review-bot walkthrough", "walkthrough"),
         ("@review-bot full-report", "full-report"),
         ("@review-bot full report", "full-report"),
         ("@review-bot, review", "review"),

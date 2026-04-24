@@ -1394,6 +1394,26 @@ class ReviewRunner:
             purpose="summarize",
         )
 
+    def post_walkthrough_note(
+        self,
+        session: Session,
+        *,
+        key: ReviewRequestKey,
+        adapter: Any | None = None,
+    ) -> bool:
+        target_adapter = adapter or self._get_adapter()
+        if not hasattr(target_adapter, "post_general_note"):
+            return False
+        state = self.build_state(session, key=key)
+        report = self.build_full_report(session, key=key, view="backlog")
+        body = self._render_walkthrough_note(state=state, report=report)
+        return self._publish_general_note(
+            adapter=target_adapter,
+            key=key,
+            body=body,
+            purpose="walkthrough",
+        )
+
     def post_backlog_note(
         self,
         session: Session,
@@ -3892,6 +3912,76 @@ class ReviewRunner:
         )
         return self._truncate_general_note("\n".join(lines))
 
+    def _render_walkthrough_note(
+        self,
+        *,
+        state: dict[str, Any],
+        report: dict[str, Any],
+    ) -> str:
+        lines = ["## 🤖 review-bot note walkthrough", ""]
+        if state.get("last_review_run_id") is None:
+            lines.extend(
+                [
+                    "아직 이 MR에 대한 리뷰 결과가 없습니다.",
+                    "먼저 `@review-bot review`로 리뷰를 실행한 뒤 아래 순서로 note를 확인해 주세요.",
+                    "",
+                    "### 추천 순서",
+                    "1. `@review-bot summarize` — 최신 run/head와 aggregate count를 빠르게 확인합니다.",
+                    "2. `@review-bot backlog` — 현재 남아 있는 backlog와 `왜 보였나`/`reason`을 확인합니다.",
+                    "3. `@review-bot full-report` — 최신 완료 run 결과와 suppress/pending까지 함께 확인합니다.",
+                ]
+            )
+            return self._truncate_general_note("\n".join(lines))
+
+        counts = report.get("counts") or {}
+        backlog_total = sum(
+            int(counts.get(section, 0) or 0) for section in _BACKLOG_ONLY_SECTION_ORDER
+        )
+        latest_status = str(state.get("last_status") or "unknown")
+        lines.append("현재 MR에서 어떤 note를 어떤 순서로 읽으면 되는지 정리한 안내입니다.")
+        lines.extend(
+            [
+                "",
+                f"- 기준 최신 run: `{state['last_review_run_id']}` (`{latest_status}`)",
+                f"- 현재 backlog: {backlog_total}개",
+            ]
+        )
+        if report_run_id := report.get("report_review_run_id"):
+            lines.append(
+                f"- 마지막 완료 run: `{report_run_id}` (`{report.get('report_status') or 'unknown'}`)"
+            )
+
+        lines.extend(
+            [
+                "",
+                "### 추천 순서",
+                "1. `@review-bot summarize` — 최신 run/head, provider provenance, aggregate count를 먼저 확인합니다.",
+                "2. `@review-bot backlog` — 지금 MR에 실제로 남아 있는 backlog 항목과 각 항목의 `왜 보였나`/`reason`을 읽습니다.",
+                "3. `@review-bot full-report` — 최신 완료 run에서 inline 게시, 다음 batch, suppress까지 함께 확인합니다.",
+                "",
+                "### backlog reason 읽는 법",
+            ]
+        )
+        for section in _BACKLOG_ONLY_SECTION_ORDER:
+            lines.append(
+                f"- {_FULL_REPORT_SECTION_SUMMARY_LABELS[section]}: {_REPORT_ITEM_WHY_BY_DISPOSITION[section]}"
+            )
+        if report.get("report_review_run_id") != state.get("last_review_run_id"):
+            lines.extend(
+                [
+                    "",
+                    "참고: `backlog`는 현재 스레드 상태 기준이고, `full-report`는 가장 최근에 완료된 run 기준입니다.",
+                ]
+            )
+
+        lines.extend(
+            [
+                "",
+                "필요하면 `@review-bot help`로 전체 명령 목록을 다시 볼 수 있습니다.",
+            ]
+        )
+        return self._truncate_general_note("\n".join(lines))
+
     def _report_item_why(self, item: dict[str, Any]) -> str | None:
         disposition = str(item.get("disposition") or "").strip()
         if disposition:
@@ -3916,6 +4006,7 @@ class ReviewRunner:
             "",
             "- `@review-bot review` — 최신 diff에 대해 리뷰를 실행합니다.",
             "- `@review-bot summarize` — 현재 상태와 aggregate count만 빠르게 보여 줍니다.",
+            "- `@review-bot walkthrough` — summarize/backlog/full-report를 어떤 순서로 볼지 안내합니다.",
             "- `@review-bot full-report` — 최신 run 결과와 현재 backlog를 함께 보여 줍니다.",
             "- `@review-bot backlog` — 현재 MR에 남아 있는 backlog만 보여 줍니다.",
             "- `@review-bot help` — 이 도움말을 보여 줍니다.",

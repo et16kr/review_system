@@ -4235,12 +4235,110 @@ def test_post_summarize_note_upserts_same_purpose_general_note() -> None:
         session.close()
 
 
-def test_render_help_note_lists_summarize_command() -> None:
+def test_render_walkthrough_note_guides_note_order_and_backlog_reasons() -> None:
+    runner = ReviewRunner()
+    key = runner._legacy_key(80104)  # noqa: SLF001
+    state = {
+        "key": key,
+        "pr_id": 80104,
+        "last_review_run_id": "run-2",
+        "last_head_sha": "head-2",
+        "last_status": "queued",
+        "provider_runtime": None,
+        "published_batch_count": 1,
+        "open_finding_count": 3,
+        "resolved_finding_count": 1,
+        "failed_publication_count": 0,
+        "next_batch_size": 5,
+        "open_thread_count": 2,
+        "feedback_event_count": 4,
+        "dead_letter_count": 0,
+    }
+    report = runner._empty_full_report(key)  # noqa: SLF001
+    report["report_review_run_id"] = "run-1"
+    report["report_status"] = "success"
+    report["counts"]["backlog_existing_open"] = 1
+    report["counts"]["backlog_resolved_unchanged"] = 1
+    report["counts"]["backlog_feedback_later"] = 1
+
+    note = runner._render_walkthrough_note(state=state, report=report)  # noqa: SLF001
+
+    assert "review-bot note walkthrough" in note
+    assert "1. `@review-bot summarize`" in note
+    assert "2. `@review-bot backlog`" in note
+    assert "3. `@review-bot full-report`" in note
+    assert "- 현재 backlog: 3개" in note
+    assert "- 기존 open backlog: 현재 MR에 같은 finding의 open thread가 남아 있어 backlog로 집계됐습니다." in note
+    assert "- resolved backlog: 스레드는 resolve됐지만 최신 기준에서도 같은 항목이 남아 있어 backlog로 유지됩니다." in note
+    assert "- `bot:later` 보류: 사용자가 `bot:later`를 남겨 현재 backlog에서 보류 상태로 유지됩니다." in note
+    assert "참고: `backlog`는 현재 스레드 상태 기준이고, `full-report`는 가장 최근에 완료된 run 기준입니다." in note
+
+
+def test_post_walkthrough_note_upserts_same_purpose_general_note() -> None:
+    runner = ReviewRunner()
+    adapter = FakeAdapter()
+    key = runner._legacy_key(80105)  # noqa: SLF001
+
+    first_state = {
+        "key": key,
+        "pr_id": 80105,
+        "last_review_run_id": "run-1",
+        "last_head_sha": "head-1",
+        "last_status": "success",
+        "provider_runtime": None,
+        "published_batch_count": 1,
+        "open_finding_count": 1,
+        "resolved_finding_count": 0,
+        "failed_publication_count": 0,
+        "next_batch_size": 5,
+        "open_thread_count": 1,
+        "feedback_event_count": 0,
+        "dead_letter_count": 0,
+    }
+    first_report = runner._empty_full_report(key)  # noqa: SLF001
+    first_report["report_review_run_id"] = "run-1"
+    first_report["report_status"] = "success"
+    first_report["counts"]["backlog_existing_open"] = 1
+
+    second_state = dict(first_state)
+    second_state["last_review_run_id"] = "run-2"
+    second_state["last_status"] = "queued"
+    second_state["feedback_event_count"] = 1
+    second_report = runner._empty_full_report(key)  # noqa: SLF001
+    second_report["report_review_run_id"] = "run-1"
+    second_report["report_status"] = "success"
+    second_report["counts"]["backlog_existing_open"] = 2
+
+    state_iter = iter([first_state, second_state])
+    report_iter = iter([first_report, second_report])
+    original_build_state = runner.build_state
+    original_build_full_report = runner.build_full_report
+    runner.build_state = lambda *args, **kwargs: next(state_iter)
+    runner.build_full_report = lambda *args, **kwargs: next(report_iter)
+
+    session = SessionLocal()
+    try:
+        assert runner.post_walkthrough_note(session, key=key, adapter=adapter) is True
+        assert len(adapter.general_notes) == 1
+        assert "현재 backlog: 1개" in adapter.general_notes[0]
+
+        assert runner.post_walkthrough_note(session, key=key, adapter=adapter) is True
+        assert len(adapter.general_notes) == 1
+        assert "run-2" in adapter.general_notes[0]
+        assert "현재 backlog: 2개" in adapter.general_notes[0]
+    finally:
+        runner.build_state = original_build_state
+        runner.build_full_report = original_build_full_report
+        session.close()
+
+
+def test_render_help_note_lists_walkthrough_command() -> None:
     runner = ReviewRunner()
 
     note = runner._render_help_note()  # noqa: SLF001
 
     assert "`@review-bot summarize`" in note
+    assert "`@review-bot walkthrough`" in note
 
 
 def test_load_rule_effectiveness_weights_uses_distinct_fingerprint() -> None:

@@ -36,7 +36,7 @@
 - `upsert_general_note(key, body=..., purpose=...)`
 
 위 optional method는 protocol default가 `not_supported`를 반환한다.
-지원하지 않는 adapter에서는 summarize/full-report/backlog/help note 게시가 response-level ignored 또는 501로 끝날 수 있다.
+지원하지 않는 adapter에서는 summarize/walkthrough/full-report/backlog/help note 게시가 response-level ignored 또는 501로 끝날 수 있다.
 
 현재 구현 상태:
 
@@ -560,6 +560,7 @@ Response 예시:
 
 - `@review-bot review` 또는 `/review-bot review` — detect job enqueue
 - `@review-bot summarize` 또는 `/review-bot summarize` — 최신 상태 aggregate를 보여 주는 summarize note 게시
+- `@review-bot walkthrough` 또는 `/review-bot walkthrough` — summarize/backlog/full-report 읽는 순서를 안내하는 walkthrough note 게시
 - `@review-bot full-report` 또는 `/review-bot full-report` — 최신 full-report note 게시
 - `@review-bot backlog` 또는 `/review-bot backlog` — 현재 backlog만 보여 주는 note 게시
 - `@review-bot help` 또는 `/review-bot help` — 지원 명령을 안내하는 help note 게시
@@ -583,10 +584,11 @@ Response 예시:
 - human reply에 `bot:ignore`, `/bot ignore`, `review-bot:ignore`가 들어 있으면 이후 동일 fingerprint는 suppress 된다.
 - human reply에 `bot:allow`, `/bot allow`, `review-bot:allow`가 들어 있으면 score penalty를 일부 상쇄한다.
 - summarize note는 최신 run/head, provider provenance, aggregate backlog/suppress count만 빠르게 보여 준다.
+- walkthrough note는 summarize -> backlog -> full-report 순서와 backlog reason 해석을 안내한다.
 - full-report note는 "최신 run 결과 + 현재 MR에 남아 있는 backlog"를 함께 보여 준다.
 - backlog note는 현재 MR에 실제로 남아 있는 backlog만 보여 준다.
 - help note는 현재 지원 명령을 간단히 안내한다. adapter가 general note를 지원하지 않으면 webhook response만 `posted` 없이 ignored로 끝낼 수 있다.
-- summarize / full-report / backlog / help note는 adapter가 `upsert_general_note`를 지원하면 same-purpose update를 우선한다.
+- summarize / walkthrough / full-report / backlog / help note는 adapter가 `upsert_general_note`를 지원하면 same-purpose update를 우선한다.
 - run-level summary note는 현재 append-only를 유지한다.
 - `project.path_with_namespace` 또는 MR `iid`가 없으면 400을 반환한다.
 

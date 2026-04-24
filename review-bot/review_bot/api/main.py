@@ -304,6 +304,16 @@ def _handle_gitlab_note_hook(payload: dict, *, session: Session) -> WebhookAccep
             action="summarize",
             status="posted",
         )
+    if parsed.command == "walkthrough":
+        posted = runner.post_walkthrough_note(session, key=key)
+        if not posted:
+            raise HTTPException(status_code=501, detail="Current adapter does not support general notes.")
+        return WebhookAcceptedResponse(
+            accepted=True,
+            event="gitlab_note",
+            action="walkthrough",
+            status="posted",
+        )
     if parsed.command == "backlog":
         posted = runner.post_backlog_note(session, key=key)
         if not posted:
@@ -374,6 +384,7 @@ _RECOGNIZED_NOTE_COMMANDS: tuple[str, ...] = (
     "review",
     "full-report",
     "summarize",
+    "walkthrough",
     "backlog",
     "help",
 )
@@ -440,7 +451,7 @@ def _extract_gitlab_note_command(body: str, username: str) -> GitlabNoteCommand 
         rf"(?im)^\s*(?P<prefix>@|/){re.escape(username)}\b(?P<rest>.*)$"
     )
     command_token = re.compile(
-        r"^\s*(?:(?:[:.,])|\s+)?\s*(?P<cmd>full[- ]report|summarize|review|backlog|help)\b",
+        r"^\s*(?:(?:[:.,])|\s+)?\s*(?P<cmd>full[- ]report|summarize|walkthrough|review|backlog|help)\b",
         re.IGNORECASE,
     )
 

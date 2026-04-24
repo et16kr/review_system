@@ -52,7 +52,7 @@
 - `review-platform`은 운영 표준이 아니라 local harness입니다
 - GitLab에서는 MR open/update만으로 자동 리뷰하지 않습니다
 - GitLab 리뷰 트리거는 MR note의 `@review-bot ...` 또는 `/review-bot ...` 명령입니다
-- 현재 지원 명령은 `review`, `full-report`, `backlog`, `help`입니다
+- 현재 지원 명령은 `review`, `summarize`, `walkthrough`, `full-report`, `backlog`, `help`입니다
 - `review-bot`의 verify는 runner-level canonical flow입니다
   - provider 내부 ad hoc verify에 의존하지 않습니다
 - Phase A 이후 lifecycle analytics의 source of truth는 mutable state가 아니라 immutable event입니다
