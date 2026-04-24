@@ -26,6 +26,7 @@ class ReviewUnitSplitAuditCase:
     rationale: str
     patch: str
     logical_blocks: tuple[LogicalBlock, ...]
+    safe_split_start_lines: tuple[int, ...] = ()
 
 
 def load_review_unit_split_cases() -> list[ReviewUnitSplitAuditCase]:
@@ -87,17 +88,19 @@ def render_markdown_report(report: dict[str, object]) -> str:
         "## Selection Rule",
         "",
         (
-            "현재 fixed-line hunk split이 하나의 logical block을 여러 review unit으로 자르고,"
-            " 그 언어가 indentation/tree 구조 중심이면 `prioritize_syntax_aware_split`로 분류한다."
+            "현재 fixed-line hunk split이 하나의 logical block을 여러 review unit으로 자르더라도,"
+            " 후속 unit 시작선이 safe boundary에 맞으면 그대로 두고,"
+            " indentation/tree 구조 언어에서 mid-block unit start가 남을 때만"
+            " `prioritize_syntax_aware_split`로 분류한다."
         ),
         "",
         "## Case Summary",
         "",
         (
             "| case_id | language | structure | review_units | split_blocks |"
-            " mid_block_starts | recommendation |"
+            " safe_boundary_starts | mid_block_starts | recommendation |"
         ),
-        "| --- | --- | --- | --- | --- | --- | --- |",
+        "| --- | --- | --- | --- | --- | --- | --- | --- |",
     ]
     results = report.get("results") if isinstance(report.get("results"), list) else []
     for result in results:
@@ -111,6 +114,7 @@ def render_markdown_report(report: dict[str, object]) -> str:
                     str(result.get("structure_kind") or ""),
                     str(metrics.get("review_unit_count", 0)),
                     str(metrics.get("split_logical_block_count", 0)),
+                    str(metrics.get("safe_boundary_unit_start_count", 0)),
                     str(metrics.get("mid_block_unit_start_count", 0)),
                     str(result.get("recommendation") or ""),
                 ]
@@ -158,6 +162,10 @@ def render_markdown_report(report: dict[str, object]) -> str:
                     "- logical_block_ids_split: "
                     f"{', '.join(metrics.get('split_logical_block_ids', [])) or '(none)'}"
                 ),
+                (
+                    "- safe_boundary_unit_starts: "
+                    f"`{metrics.get('safe_boundary_unit_start_count', 0)}`"
+                ),
                 f"- mid_block_unit_starts: `{metrics.get('mid_block_unit_start_count', 0)}`",
                 f"- rationale: {result.get('rationale')}",
                 "",
@@ -173,6 +181,8 @@ def _evaluate_case(
 ) -> dict[str, object]:
     review_units = iter_review_units(
         case.patch,
+        file_path=case.file_path,
+        language_id=case.language_id,
         max_lines_per_review_unit=max_lines_per_review_unit,
     )
     unit_ranges = [_unit_range(review_unit) for review_unit in review_units]
@@ -188,14 +198,23 @@ def _evaluate_case(
         )
         > 1
     ]
+    safe_split_start_lines = set(case.safe_split_start_lines)
     mid_block_unit_starts = sum(
         1
-        for start_line, _end_line in unit_ranges
-        if any(block.start_line < start_line <= block.end_line for block in case.logical_blocks)
+        for index, (start_line, _end_line) in enumerate(unit_ranges)
+        if index > 0
+        and any(block.start_line < start_line <= block.end_line for block in case.logical_blocks)
+        and start_line not in safe_split_start_lines
+    )
+    safe_boundary_unit_starts = sum(
+        1
+        for index, (start_line, _end_line) in enumerate(unit_ranges)
+        if index > 0 and start_line in safe_split_start_lines
     )
     recommendation = _recommendation_for_case(
         structure_kind=case.structure_kind,
         split_block_ids=split_block_ids,
+        mid_block_unit_start_count=mid_block_unit_starts,
     )
     return {
         "case_id": case.case_id,
@@ -209,14 +228,22 @@ def _evaluate_case(
             "split_logical_block_count": len(split_block_ids),
             "split_logical_block_ids": split_block_ids,
             "mid_block_unit_start_count": mid_block_unit_starts,
+            "safe_boundary_unit_start_count": safe_boundary_unit_starts,
         },
     }
 
 
-def _recommendation_for_case(*, structure_kind: str, split_block_ids: list[str]) -> str:
+def _recommendation_for_case(
+    *,
+    structure_kind: str,
+    split_block_ids: list[str],
+    mid_block_unit_start_count: int,
+) -> str:
     if not split_block_ids:
         return "current_hunk_split_ok"
     if structure_kind in {"indentation", "jsx_tree", "yaml_tree"}:
+        if mid_block_unit_start_count == 0:
+            return "current_hunk_split_ok"
         return "prioritize_syntax_aware_split"
     return "monitor_current_hunk_split"
 
@@ -369,6 +396,7 @@ def _yaml_kubernetes_case() -> ReviewUnitSplitAuditCase:
                 end_line=len(lines),
             ),
         ),
+        safe_split_start_lines=tuple(list(range(12, 82, 2)) + [82]),
     )
 
 

@@ -421,7 +421,11 @@ class ReviewRunner:
                 )
                 if not language_match.reviewable:
                     continue
-                for review_unit in self._iter_review_units(file_item.patch):
+                for review_unit in self._iter_review_units(
+                    file_item.path,
+                    file_item.patch,
+                    language_id=language_match.language_id,
+                ):
                     top_k = _compute_top_k(review_unit.patch)
                     t0 = __import__("time").monotonic()
                     review = self._engine_review_diff(
@@ -1818,7 +1822,7 @@ class ReviewRunner:
             changed_paths = {path for path in [file_item.path, file_item.old_path, file_item.new_path] if path}
             if file_path not in changed_paths:
                 continue
-            for review_unit in self._iter_review_units(file_item.patch):
+            for review_unit in self._iter_review_units(file_item.path, file_item.patch):
                 matched_by: str | None = None
                 changed_candidates = set(review_unit.candidate_line_nos)
                 if candidate_line_nos and changed_candidates.intersection(candidate_line_nos):
@@ -3854,9 +3858,17 @@ class ReviewRunner:
             logger.debug("fetch_file_context_skipped path=%s error=%s", path, exc)
         return None
 
-    def _iter_review_units(self, patch: str) -> list[ReviewUnit]:
+    def _iter_review_units(
+        self,
+        file_path: str | None,
+        patch: str,
+        *,
+        language_id: str | None = None,
+    ) -> list[ReviewUnit]:
         return iter_review_units(
             patch,
+            file_path=file_path,
+            language_id=language_id,
             max_lines_per_review_unit=MAX_LINES_PER_REVIEW_UNIT,
         )
 

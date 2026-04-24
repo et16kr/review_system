@@ -40,6 +40,7 @@ from review_bot.metrics import feedback_commands_total, verify_attempts_total, v
 from review_bot.policy import PathPolicy, ReviewPolicy
 from review_bot.providers.base import FindingDraft, ReviewCommentProvider, VerifyDraftResult
 from review_bot.providers.fallback_provider import FallbackReviewCommentProvider
+from review_bot.quality.review_unit_split_audit import load_review_unit_split_cases
 
 
 def test_review_runner_publishes_inline_comment_and_persists_thread_state() -> None:
@@ -105,6 +106,35 @@ def test_review_runner_keeps_distinct_findings_per_hunk() -> None:
         assert len(findings) == 2
         assert findings[0].fingerprint != findings[1].fingerprint
         assert findings[0].line_no != findings[1].line_no
+    finally:
+        session.close()
+
+
+def test_review_runner_yaml_syntax_aware_split_uses_safe_boundary_for_anchor_and_fingerprint() -> None:
+    _reset_db()
+
+    runner = ReviewRunner()
+    adapter = FakeAdapter()
+    key = runner._legacy_key(203)  # noqa: SLF001
+    adapter.set_diff(key, path="deploy/review-audit.yaml", patch=_yaml_k8s_long_container_patch())
+    runner.platform_client = adapter
+    runner.engine_client = EngineStub([_result("YAML.K8S.7", category="configuration")])
+    runner.provider = FixedProvider()
+
+    session = SessionLocal()
+    try:
+        runner.run_review(session, pr_id=203, trigger="test-yaml-split")
+        findings = (
+            session.query(FindingDecision)
+            .filter_by(review_request_id="203", rule_no="YAML.K8S.7")
+            .order_by(FindingDecision.line_no.asc())
+            .all()
+        )
+
+        assert len(findings) == 2
+        assert [finding.line_no for finding in findings] == [1, 80]
+        assert findings[0].fingerprint != findings[1].fingerprint
+        assert [finding.anchor_payload["start_line"] for finding in findings] == [1, 80]
     finally:
         session.close()
 
@@ -3172,6 +3202,13 @@ def _multi_hunk_malloc_patch() -> str:
         "+ char* q = (char*)malloc(20);\n"
         "+ free(q);\n"
     )
+
+
+def _yaml_k8s_long_container_patch() -> str:
+    for case in load_review_unit_split_cases():
+        if case.case_id == "yaml_k8s_long_container_env":
+            return case.patch
+    raise AssertionError("yaml_k8s_long_container_env case is missing")
 
 
 def _continue_patch() -> str:

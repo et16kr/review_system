@@ -29,10 +29,30 @@ def test_iter_review_units_splits_large_add_only_hunk() -> None:
     assert len(units[1].candidate_line_nos) == 5
 
 
+def test_iter_review_units_yaml_prefers_safe_list_item_boundary() -> None:
+    yaml_case = next(
+        case
+        for case in load_review_unit_split_cases()
+        if case.case_id == "yaml_k8s_long_container_env"
+    )
+
+    units = iter_review_units(
+        yaml_case.patch,
+        file_path=yaml_case.file_path,
+        language_id=yaml_case.language_id,
+        max_lines_per_review_unit=DEFAULT_MAX_LINES_PER_REVIEW_UNIT,
+    )
+
+    assert len(units) == 2
+    assert units[0].candidate_line_nos[-1] == 79
+    assert units[1].candidate_line_nos[0] == 80
+    assert units[1].change_snippet.splitlines()[1].endswith("FEATURE_FLAG_35")
+
+
 def test_review_unit_split_audit_prioritizes_tree_and_indentation_languages() -> None:
     report = evaluate_review_unit_split_cases(load_review_unit_split_cases())
 
-    assert report["summary"]["selected_languages"] == ["python", "typescript", "yaml"]
+    assert report["summary"]["selected_languages"] == ["python", "typescript"]
 
     results = {
         result["case_id"]: result
@@ -46,10 +66,9 @@ def test_review_unit_split_audit_prioritizes_tree_and_indentation_languages() ->
         results["typescript_react_long_component"]["recommendation"]
         == "prioritize_syntax_aware_split"
     )
-    assert (
-        results["yaml_k8s_long_container_env"]["recommendation"]
-        == "prioritize_syntax_aware_split"
-    )
+    assert results["yaml_k8s_long_container_env"]["recommendation"] == "current_hunk_split_ok"
+    assert results["yaml_k8s_long_container_env"]["metrics"]["safe_boundary_unit_start_count"] == 1
+    assert results["yaml_k8s_long_container_env"]["metrics"]["mid_block_unit_start_count"] == 0
     assert results["go_http_long_handler"]["recommendation"] == "monitor_current_hunk_split"
 
 
@@ -71,5 +90,5 @@ def test_review_unit_split_audit_cli_writes_report(tmp_path: Path) -> None:
     payload = json.loads(json_output_path.read_text(encoding="utf-8"))
 
     assert "# Review Unit Split Audit" in markdown
-    assert "- selected_languages: `python`, `typescript`, `yaml`" in markdown
-    assert payload["summary"]["selected_languages"] == ["python", "typescript", "yaml"]
+    assert "- selected_languages: `python`, `typescript`" in markdown
+    assert payload["summary"]["selected_languages"] == ["python", "typescript"]

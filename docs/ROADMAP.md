@@ -196,23 +196,30 @@
   runtime과 audit가 같은 fixed-line hunk 분할 규칙을 공유하도록 고정했다.
 - deterministic `review_unit_split_audit` corpus/CLI와
   repo-local artifact `docs/baselines/review_bot/review_unit_split_audit_2026-04-24.md`를 추가해
-  현재 기준 syntax-aware split 우선 언어를 `python`, `typescript`, `yaml`으로 고정하고,
-  `go`는 monitor-only로 남겼다.
+  long hunk split 우선 언어를 `python`, `typescript`, `yaml`로 먼저 고정했다.
+- `yaml` long added hunk가 raw 80-line cut 대신 safe list-item / mapping boundary를 우선 쓰는
+  syntax-aware split prototype을 갖게 됐고, runner detect/sync path도 같은 file/language-aware split 규칙을 공유한다.
+- `review_unit_split_audit` artifact가 갱신되어
+  `yaml`은 `current_hunk_split_ok`로 내려가고 `python`, `typescript`만 남은 syntax-aware split 우선 언어로 고정됐다.
+- `review-bot/tests/test_review_runner.py::test_review_runner_yaml_syntax_aware_split_uses_safe_boundary_for_anchor_and_fingerprint`가
+  long YAML block의 후속 finding anchor/fingerprint 시작선이 raw line `81`이 아니라 safe boundary line `80`에 고정되도록 회귀를 추가했다.
 
 다음 작업:
 
-1. `python`, `typescript`(TSX/React), `yaml` 중 하나를 골라 syntax-aware split prototype과 anchor/fingerprint 회귀를 붙인다.
+1. `python` 또는 `typescript`(TSX/React) 중 하나를 골라 syntax-aware split prototype과 anchor/fingerprint 회귀를 붙인다.
 2. related file retrieval과 project-scoped codebase index를 분리 설계한다.
 3. project-local feedback이 global quality metric을 왜곡하지 않도록 learned weight granularity를 정한다.
 4. `.review-bot.yaml`, `summarize`, `ask`, walkthrough note의 우선순위를 재평가한다.
 
 검증 메모:
 
-- 이번 slice는 review unit split helper, deterministic audit corpus/CLI, repo-local audit artifact만 추가했다.
+- 이번 slice는 `yaml` file/language-aware review unit split prototype, runner detect/sync split wiring,
+  deterministic audit corpus/report, YAML anchor/fingerprint regression을 함께 갱신했다.
 - rerun:
-  - `env UV_CACHE_DIR=/tmp/uv-cache uv run --project review-bot pytest review-bot/tests/test_review_runner.py::test_review_runner_keeps_distinct_findings_per_hunk review-bot/tests/test_review_unit_split_audit.py -q`
+  - `env UV_CACHE_DIR=/tmp/uv-cache uv run --project review-bot pytest review-bot/tests/test_review_unit_split_audit.py review-bot/tests/test_review_runner.py::test_review_runner_keeps_distinct_findings_per_hunk review-bot/tests/test_review_runner.py::test_review_runner_yaml_syntax_aware_split_uses_safe_boundary_for_anchor_and_fingerprint -q`
   - `env UV_CACHE_DIR=/tmp/uv-cache uv run --project review-bot python -m review_bot.cli.review_unit_split_audit --output docs/baselines/review_bot/review_unit_split_audit_2026-04-24.md`
-- deterministic validation은 direct OpenAI도 lifecycle stub fallback도 쓰지 않고 static audit corpus만 사용했다.
+- deterministic validation은 direct OpenAI도 lifecycle stub fallback도 쓰지 않고
+  static audit corpus와 in-memory runner stub만 사용했다.
 - broader `review-bot` pytest, GitLab lifecycle smoke, multilang smoke, direct OpenAI/provider validation은 adapter/lifecycle/provider path 비변경으로 생략했다.
 
 완료 기준:
@@ -257,8 +264,8 @@
 
 ## Suggested Next Step
 
-현재 가장 자연스러운 다음 작업은 `Targeted Rule Expansion`용
-fresh telemetry/smoke checkpoint artifact를 먼저 남긴 뒤,
+현재 가장 자연스러운 다음 작업은 local `review-bot` API/analytics endpoint가 준비된 환경에서
+`Targeted Rule Expansion`용 fresh telemetry/smoke checkpoint artifact를 먼저 남긴 뒤,
 그 evidence에서 다음 under-trigger gap 하나를 다시 골라 같은 source/rule/example 단위로 닫는 것이다.
 
 이유:
@@ -266,7 +273,7 @@ fresh telemetry/smoke checkpoint artifact를 먼저 남긴 뒤,
 - `Provider Runtime Guardrails`는 watch 상태로 내려갔고 남은 실행 단위가 없다.
 - `Targeted Rule Expansion`은 여전히 source/rule/detector/example/validation을 한 번에 닫을 수 있는
   가장 작은 product-facing 실행 단위를 유지하고 있다.
-- 다만 현재 repo-local checkpoint artifact가 없으므로,
+- 다만 현재 repo-local checkpoint artifact가 없고 local API/analytics가 살아 있는 환경이 선행 조건이므로,
   근거 없이 임의 rule slice를 고르지 않도록 evidence refresh를 다음 선행 조건으로 둔다.
 
 ## Queued After Main Roadmap
