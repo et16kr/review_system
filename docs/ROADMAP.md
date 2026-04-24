@@ -335,7 +335,7 @@ cd review-bot && uv run pytest tests/test_api_queue.py tests/test_review_runner.
 
 ### 7. Update Local Harness Bot Bridge To Key-Based Bot API
 
-상태: `active`
+상태: `watch`
 
 왜 지금 하나:
 
@@ -359,6 +359,22 @@ cd review-bot && uv run pytest tests/test_api_queue.py tests/test_review_runner.
 ```bash
 cd review-platform && uv run pytest tests/test_pr_flow.py -q
 ```
+
+완료 기록:
+
+- `review-platform` BotClient가 removed legacy `pr_id` endpoint 대신
+  `POST /internal/review/runs`와
+  `GET /internal/review/requests/{review_system}/{project_ref}/{review_request_id}`를 사용한다.
+- local harness key는 `review_system=local_platform`, `project_ref=<repository.name>`,
+  `review_request_id=<pull_request.id>`로 구성한다.
+- key-based next-batch bot API가 아직 없으므로 visible next-batch control은 숨기고,
+  API/form route는 `501` unsupported로 명확히 실패하게 했다.
+- drift 방지용 BotClient contract test가 실제 HTTP path/payload를 검증한다.
+- 검증 통과:
+  - `cd review-platform && UV_CACHE_DIR=/tmp/uv-cache-review-platform-roadmap-7 uv run pytest tests/test_health.py tests/test_pr_flow.py -q`
+  - `git diff --check`
+- local GitLab lifecycle smoke와 direct OpenAI smoke는 harness bridge contract 변경이고
+  provider/runtime success claim이 아니어서 실행하지 않았다.
 
 관련 backlog: `B-review-platform-01`
 
@@ -768,7 +784,7 @@ python3 -m py_compile ops/scripts/create_gitlab_merge_request.py ops/scripts/boo
 
 ## Suggested Next Step
 
-현재 가장 자연스러운 다음 작업은 `7. Update Local Harness Bot Bridge To Key-Based Bot API`이다.
+현재 가장 자연스러운 다음 작업은 `8. Retain Blocked Review-Roadmap Unit Artifacts`이다.
 
 이유:
 
@@ -778,7 +794,8 @@ python3 -m py_compile ops/scripts/create_gitlab_merge_request.py ops/scripts/boo
 - adapter thread/feedback identity scope는 contract와 storage에서 맞춰졌다.
 - provider runtime provenance는 lifecycle API/log/summary note에서 model/endpoint/transport까지 드러낸다.
 - directed unknown note command는 visible feedback을 남기고 no-enqueue 경로를 유지한다.
-- 다음 `active` 항목은 local harness bot bridge를 key-based bot API로 맞추는 일이다.
+- local harness bot bridge는 key-based bot API를 사용하고 legacy `pr_id` endpoint에 의존하지 않는다.
+- 다음 `active` 항목은 blocked review-roadmap unit artifact를 retained baseline으로 남기는 일이다.
 
 ## Validation Baseline
 

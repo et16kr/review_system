@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 from typing import Annotated
 
 import httpx
-from fastapi import Depends, FastAPI, Form, Query, Request
+from fastapi import Depends, FastAPI, Form, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
@@ -18,6 +18,7 @@ from app.git.repository_service import RepositoryService
 from app.pr.service import PullRequestService
 from app.schemas import (
     BotNextBatchTrigger,
+    BotReviewRequestKey,
     BotReviewResponse,
     BotReviewTrigger,
     BotStateResponse,
@@ -64,11 +65,46 @@ def _repository_to_response(repository: Repository) -> RepositoryResponse:
     )
 
 
-def _try_get_bot_state(pr_id: int) -> BotStateResponse | None:
+def _bot_review_key(project_ref: str, review_request_id: int) -> BotReviewRequestKey:
+    return BotReviewRequestKey(
+        review_system="local_platform",
+        project_ref=project_ref,
+        review_request_id=str(review_request_id),
+    )
+
+
+def _try_get_bot_state(key: BotReviewRequestKey) -> BotStateResponse | None:
     try:
-        return BotStateResponse(**bot_client.get_state(pr_id))
+        return BotStateResponse(**bot_client.get_state(key.model_dump()))
     except httpx.HTTPError:
         return None
+
+
+def _trigger_review_for_pull_request(
+    pull_request_id: int,
+    session: Session,
+    *,
+    trigger: str,
+) -> dict:
+    pull_request = pull_request_service.get_pull_request(session, pull_request_id)
+    repository = repository_service.get_repository(session, pull_request.repository_id)
+    key = _bot_review_key(repository.name, pull_request.id)
+    return bot_client.trigger_review(
+        key.model_dump(),
+        trigger=trigger,
+        title=pull_request.title,
+        source_branch=pull_request.head_branch,
+        target_branch=pull_request.base_branch,
+        base_sha=pull_request.base_sha,
+        head_sha=pull_request.head_sha,
+    )
+
+
+def _unsupported_next_batch() -> None:
+    raise HTTPException(
+        status_code=501,
+        detail="review-bot does not expose a key-based next-batch API.",
+    )
 
 
 @app.get("/health")
@@ -155,7 +191,7 @@ def pull_request_detail(pr_id: int, request: Request, session: SessionDep) -> HT
     diff = get_pull_request_diff(pr_id, session)
     comments = list_comments(pr_id, session)
     statuses = list_statuses(pr_id, session)
-    bot_state = _try_get_bot_state(pr_id)
+    bot_state = _try_get_bot_state(_bot_review_key(repository.name, pull_request.id))
     return templates.TemplateResponse(
         name="pull_request_detail.html",
         request=request,
@@ -173,16 +209,14 @@ def pull_request_detail(pr_id: int, request: Request, session: SessionDep) -> HT
 
 @app.post("/pull-requests/{pr_id}/bot/review")
 def trigger_review_form(pr_id: int, session: SessionDep) -> RedirectResponse:
-    pull_request_service.get_pull_request(session, pr_id)
-    bot_client.trigger_review(pr_id, trigger="manual")
+    _trigger_review_for_pull_request(pr_id, session, trigger="manual")
     return RedirectResponse(url=f"/pull-requests/{pr_id}", status_code=303)
 
 
 @app.post("/pull-requests/{pr_id}/bot/next-batch")
 def trigger_next_batch_form(pr_id: int, session: SessionDep) -> RedirectResponse:
     pull_request_service.get_pull_request(session, pr_id)
-    bot_client.publish_next_batch(pr_id, reason="manual_next_batch")
-    return RedirectResponse(url=f"/pull-requests/{pr_id}", status_code=303)
+    _unsupported_next_batch()
 
 
 @app.post("/api/repos", response_model=RepositoryResponse)
@@ -310,8 +344,9 @@ def trigger_bot_review(
     payload: BotReviewTrigger,
     session: SessionDep,
 ) -> BotReviewResponse:
-    pull_request_service.get_pull_request(session, pr_id)
-    return BotReviewResponse(**bot_client.trigger_review(pr_id, trigger=payload.trigger))
+    return BotReviewResponse(
+        **_trigger_review_for_pull_request(pr_id, session, trigger=payload.trigger)
+    )
 
 
 @app.post("/api/pull-requests/{pr_id}/bot/next-batch", response_model=BotReviewResponse)
@@ -320,11 +355,14 @@ def trigger_bot_next_batch(
     payload: BotNextBatchTrigger,
     session: SessionDep,
 ) -> BotReviewResponse:
+    del payload
     pull_request_service.get_pull_request(session, pr_id)
-    return BotReviewResponse(**bot_client.publish_next_batch(pr_id, reason=payload.reason))
+    _unsupported_next_batch()
 
 
 @app.get("/api/pull-requests/{pr_id}/bot/state", response_model=BotStateResponse)
 def get_bot_state(pr_id: int, session: SessionDep) -> BotStateResponse:
-    pull_request_service.get_pull_request(session, pr_id)
-    return BotStateResponse(**bot_client.get_state(pr_id))
+    pull_request = pull_request_service.get_pull_request(session, pr_id)
+    repository = repository_service.get_repository(session, pull_request.repository_id)
+    key = _bot_review_key(repository.name, pull_request.id)
+    return BotStateResponse(**bot_client.get_state(key.model_dump()))

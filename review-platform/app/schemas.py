@@ -116,17 +116,29 @@ class BotNextBatchTrigger(BaseModel):
     reason: str = "manual_next_batch"
 
 
+class BotReviewRequestKey(BaseModel):
+    review_system: str
+    project_ref: str
+    review_request_id: str
+
+
 class BotReviewResponse(BaseModel):
     accepted: bool
-    review_run_id: int
+    review_run_id: str
     status: str
+    queue_name: str | None = None
 
 
 class BotStateResponse(BaseModel):
-    pr_id: int
-    last_review_run_id: int | None
+    key: BotReviewRequestKey
+    last_review_run_id: str | None
     last_head_sha: str | None
+    last_status: str | None = None
     published_batch_count: int
     open_finding_count: int
     resolved_finding_count: int
+    failed_publication_count: int = 0
     next_batch_size: int
+    open_thread_count: int = 0
+    feedback_event_count: int = 0
+    dead_letter_count: int = 0

@@ -1,13 +1,16 @@
 from __future__ import annotations
 
+import json
 import shutil
 import subprocess
 from pathlib import Path
 from unittest.mock import patch
 
+import httpx
 from asgi_test_client import TestClient
 
 from app.api.main import app
+from app.clients.bot_client import BotClient, UnsupportedBotControlError
 from app.config import get_settings
 from app.db.models import PullRequestComment, PullRequestStatus
 from app.db.session import SessionLocal, engine, init_db
@@ -94,9 +97,14 @@ def test_repository_and_pull_request_flow(tmp_path: Path) -> None:
 
         with patch("app.api.main._try_get_bot_state") as mock_state:
             mock_state.return_value = {
-                "pr_id": pull_request["id"],
-                "last_review_run_id": 1,
+                "key": {
+                    "review_system": "local_platform",
+                    "project_ref": repository["name"],
+                    "review_request_id": str(pull_request["id"]),
+                },
+                "last_review_run_id": "run-1",
                 "last_head_sha": pull_request["head_sha"],
+                "last_status": "completed",
                 "published_batch_count": 1,
                 "open_finding_count": 1,
                 "resolved_finding_count": 0,
@@ -108,7 +116,7 @@ def test_repository_and_pull_request_flow(tmp_path: Path) -> None:
         assert "Memory handling update" in page_response.text
         assert "malloc/free" in page_response.text
         assert "자동 리뷰 완료" in page_response.text
-        assert "다음 5개 게시" in page_response.text
+        assert "다음 5개 게시" not in page_response.text
 
 
 def test_pull_request_diff_supports_optional_base_sha(tmp_path: Path) -> None:
@@ -225,18 +233,19 @@ def test_bot_facade_routes_forward_requests() -> None:
         ).json()
         mock_bot.trigger_review.return_value = {
             "accepted": True,
-            "review_run_id": 9,
+            "review_run_id": "run-9",
             "status": "queued",
-        }
-        mock_bot.publish_next_batch.return_value = {
-            "accepted": True,
-            "review_run_id": 9,
-            "status": "queued",
+            "queue_name": "review-detect",
         }
         mock_bot.get_state.return_value = {
-            "pr_id": pr["id"],
-            "last_review_run_id": 9,
+            "key": {
+                "review_system": "local_platform",
+                "project_ref": repository["name"],
+                "review_request_id": str(pr["id"]),
+            },
+            "last_review_run_id": "run-9",
             "last_head_sha": pr["head_sha"],
+            "last_status": "queued",
             "published_batch_count": 1,
             "open_finding_count": 3,
             "resolved_finding_count": 0,
@@ -249,9 +258,102 @@ def test_bot_facade_routes_forward_requests() -> None:
 
         assert review_response.status_code == 200
         assert review_response.json()["status"] == "queued"
-        assert next_batch_response.status_code == 200
+        assert next_batch_response.status_code == 501
         assert state_response.status_code == 200
-        assert state_response.json()["last_review_run_id"] == 9
+        assert state_response.json()["last_review_run_id"] == "run-9"
+        mock_bot.trigger_review.assert_called_once()
+        trigger_key = mock_bot.trigger_review.call_args.args[0]
+        assert trigger_key == {
+            "review_system": "local_platform",
+            "project_ref": repository["name"],
+            "review_request_id": str(pr["id"]),
+        }
+        assert mock_bot.publish_next_batch.call_count == 0
+        mock_bot.get_state.assert_called_once_with(trigger_key)
+
+
+def test_bot_client_uses_key_based_bot_contract() -> None:
+    requests: list[tuple[str, str, dict[str, object] | None]] = []
+    key = {
+        "review_system": "local_platform",
+        "project_ref": "bot-contract",
+        "review_request_id": "7",
+    }
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content.decode("utf-8")) if request.content else None
+        requests.append((request.method, request.url.path, body))
+        if request.method == "POST":
+            return httpx.Response(
+                200,
+                json={
+                    "accepted": True,
+                    "review_run_id": "run-7",
+                    "status": "queued",
+                    "queue_name": "review-detect",
+                },
+            )
+        return httpx.Response(
+            200,
+            json={
+                "key": key,
+                "last_review_run_id": "run-7",
+                "last_head_sha": "head",
+                "last_status": "queued",
+                "published_batch_count": 0,
+                "open_finding_count": 0,
+                "resolved_finding_count": 0,
+                "failed_publication_count": 0,
+                "next_batch_size": 5,
+                "open_thread_count": 0,
+                "feedback_event_count": 0,
+                "dead_letter_count": 0,
+            },
+        )
+
+    bot = BotClient("http://review-bot", transport=httpx.MockTransport(handler))
+    review = bot.trigger_review(
+        key,
+        trigger="manual",
+        title="Harness contract",
+        source_branch="feature/review",
+        target_branch="main",
+        base_sha="base",
+        head_sha="head",
+    )
+    state = bot.get_state(key)
+
+    assert review["review_run_id"] == "run-7"
+    assert state["key"] == key
+    assert requests == [
+        (
+            "POST",
+            "/internal/review/runs",
+            {
+                "key": key,
+                "trigger": "manual",
+                "mode": "full",
+                "title": "Harness contract",
+                "draft": False,
+                "source_branch": "feature/review",
+                "target_branch": "main",
+                "base_sha": "base",
+                "start_sha": None,
+                "head_sha": "head",
+            },
+        ),
+        (
+            "GET",
+            "/internal/review/requests/local_platform/bot-contract/7",
+            None,
+        ),
+    ]
+    try:
+        bot.publish_next_batch(key)
+    except UnsupportedBotControlError as exc:
+        assert "key-based next-batch" in str(exc)
+    else:
+        raise AssertionError("next-batch must remain unsupported without a key-based bot API")
 
 
 def _run(command: list[str], cwd: Path | None = None) -> None:
