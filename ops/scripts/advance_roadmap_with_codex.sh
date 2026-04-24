@@ -145,6 +145,85 @@ parse_commit_message() {
   fi
 }
 
+normalize_single_line() {
+  printf '%s' "$1" | tr '\n' ' ' | sed -E 's/[[:space:]]+/ /g; s/^ //; s/ $//'
+}
+
+extract_structured_field() {
+  local file="$1"
+  local field="$2"
+  local line
+  line="$(grep -E "^${field}: " "$file" | tail -n 1 || true)"
+  line="${line#"$field: "}"
+  normalize_single_line "$line"
+}
+
+extract_blocked_unit() {
+  local file="$1"
+  local unit
+  unit="$(extract_structured_field "$file" "BLOCKED_UNIT")"
+  if [[ -n "$unit" ]]; then
+    printf '%s\n' "$unit"
+    return 0
+  fi
+  awk '
+    /^Validation run and result:/ { exit }
+    /^STATUS: / { exit }
+    /^COMMIT_MESSAGE: / { exit }
+    /^BLOCKED_UNIT: / { next }
+    /^BLOCKER_TYPE: / { next }
+    /^BLOCKED_REASON: / { next }
+    /^[[:space:]]*$/ { next }
+    { print; exit }
+  ' "$file"
+}
+
+extract_blocked_reason() {
+  local file="$1"
+  local reason
+  reason="$(extract_structured_field "$file" "BLOCKED_REASON")"
+  if [[ -n "$reason" ]]; then
+    printf '%s\n' "$reason"
+    return 0
+  fi
+  awk '
+    /^Validation run and result:/ { exit }
+    /^STATUS: / { exit }
+    /^COMMIT_MESSAGE: / { exit }
+    /^BLOCKED_UNIT: / { next }
+    /^BLOCKER_TYPE: / { next }
+    /^BLOCKED_REASON: / { next }
+    /^[[:space:]]*$/ { next }
+    { lines[++count] = $0 }
+    END {
+      for (i = 1; i <= count; i++) {
+        printf "%s%s", lines[i], (i < count ? " " : ORS)
+      }
+    }
+  ' "$file"
+}
+
+extract_validation_summary() {
+  local file="$1"
+  awk '
+    /^Validation run and result:/ { capture = 1; next }
+    capture && /^STATUS: / { exit }
+    capture && /^COMMIT_MESSAGE: / { exit }
+    capture && /^[[:space:]]*$/ { next }
+    capture {
+      line = $0
+      sub(/^[[:space:]]*-[[:space:]]*/, "", line)
+      gsub(/`/, "", line)
+      lines[++count] = line
+    }
+    END {
+      for (i = 1; i <= count; i++) {
+        printf "%s%s", lines[i], (i < count ? " | " : ORS)
+      }
+    }
+  ' "$file"
+}
+
 append_blocked_summary() {
   local output_file="$1"
   local blocked_file="$2"
@@ -153,6 +232,85 @@ append_blocked_summary() {
     sed -n '1,220p' "$output_file"
     printf '\n'
   } >>"$blocked_file"
+}
+
+record_blocked_artifact_entry() {
+  local output_file="$1"
+  local attempt="$2"
+  local date_utc
+  local pending_file
+  local blocked_unit
+  local blocker_type
+  local blocked_reason
+  local validation_summary
+  local status_line
+
+  date_utc="$(date -u +%F)"
+  pending_file="$tmpdir/blocked-artifact-$date_utc.md"
+  blocked_unit="$(normalize_single_line "$(extract_blocked_unit "$output_file")")"
+  blocker_type="$(extract_structured_field "$output_file" "BLOCKER_TYPE")"
+  blocked_reason="$(normalize_single_line "$(extract_blocked_reason "$output_file")")"
+  validation_summary="$(normalize_single_line "$(extract_validation_summary "$output_file")")"
+  status_line="$(grep -E '^STATUS: (COMPLETED|BLOCKED|ROADMAP_COMPLETE)$' "$output_file" | tail -n 1 || true)"
+
+  if [[ -z "$blocked_unit" ]]; then
+    blocked_unit="blocked roadmap unit"
+  fi
+  if [[ -z "$blocked_reason" ]]; then
+    blocked_reason="See Codex output for blocker details."
+  fi
+
+  {
+    printf '## Attempt %s\n' "$attempt"
+    printf -- '- date: %s\n' "$date_utc"
+    printf -- '- attempt: %s\n' "$attempt"
+    printf -- '- blocked_unit: %s\n' "$blocked_unit"
+    printf -- '- reason: %s\n' "$blocked_reason"
+    if [[ -n "$blocker_type" ]]; then
+      printf -- '- blocker_type: %s\n' "$blocker_type"
+    fi
+    if [[ -n "$validation_summary" ]]; then
+      printf -- '- validation_summary: %s\n' "$validation_summary"
+    fi
+    if [[ -n "$status_line" ]]; then
+      printf -- '- status: %s\n' "$status_line"
+    fi
+    printf '\n'
+  } >>"$pending_file"
+}
+
+flush_blocked_artifact_entries() {
+  local pending_files=()
+  local pending_file
+  local file_name
+  local date_utc
+  local artifact_dir
+  local artifact_file
+
+  shopt -s nullglob
+  pending_files=("$tmpdir"/blocked-artifact-*.md)
+  shopt -u nullglob
+
+  if [[ "${#pending_files[@]}" -eq 0 ]]; then
+    return 0
+  fi
+
+  artifact_dir="$ROOT/docs/baselines/roadmap_automation"
+  mkdir -p "$artifact_dir"
+
+  for pending_file in "${pending_files[@]}"; do
+    file_name="$(basename "$pending_file")"
+    date_utc="${file_name#blocked-artifact-}"
+    date_utc="${date_utc%.md}"
+    artifact_file="$artifact_dir/blocked_roadmap_units_${date_utc}.md"
+    if [[ ! -e "$artifact_file" ]]; then
+      printf '# Blocked Roadmap Units - %s\n\n' "$date_utc" >"$artifact_file"
+    elif [[ -s "$artifact_file" ]]; then
+      printf '\n' >>"$artifact_file"
+    fi
+    cat "$pending_file" >>"$artifact_file"
+    rm -f "$pending_file"
+  done
 }
 
 collect_openai_direct_smoke() {
@@ -175,7 +333,11 @@ collect_openai_direct_smoke() {
 }
 
 tmpdir="$(mktemp -d)"
-trap 'rm -rf "$tmpdir"' EXIT
+cleanup() {
+  flush_blocked_artifact_entries || true
+  rm -rf "$tmpdir"
+}
+trap cleanup EXIT
 blocked_units="$tmpdir/blocked-units.txt"
 attempt=0
 blocked_skips=0
@@ -219,6 +381,10 @@ Hard constraints:
 
 Your final response must include:
 - A brief summary.
+- If blocked, these lines:
+  - BLOCKED_UNIT: <roadmap unit>
+  - BLOCKER_TYPE: <missing_credentials|external_services|human_review|local_gitlab_state|ambiguous_product_decision|unsafe_scope|other>
+  - BLOCKED_REASON: <brief reason>
 - Validation run and result.
 - If completed, one line: COMMIT_MESSAGE: <short imperative commit message>
 - Final line exactly one of:
@@ -259,6 +425,7 @@ EOF
 
   case "$status" in
     ROADMAP_COMPLETE)
+      flush_blocked_artifact_entries
       echo "Roadmap complete according to Codex."
       sed -n '1,220p' "$output"
       exit 0
@@ -269,13 +436,14 @@ EOF
         sed -n '1,220p' "$output"
         exit 2
       fi
-      if [[ "$blocked_skips" -ge "$MAX_BLOCKED_SKIPS" ]]; then
+      blocked_skips=$((blocked_skips + 1))
+      append_blocked_summary "$output" "$blocked_units"
+      record_blocked_artifact_entry "$output" "$attempt"
+      if [[ "$blocked_skips" -gt "$MAX_BLOCKED_SKIPS" ]]; then
         echo "Roadmap iteration blocked and MAX_BLOCKED_SKIPS=$MAX_BLOCKED_SKIPS reached."
         sed -n '1,220p' "$output"
         exit 2
       fi
-      blocked_skips=$((blocked_skips + 1))
-      append_blocked_summary "$output" "$blocked_units"
       echo "Skipping blocked roadmap unit $blocked_skips/$MAX_BLOCKED_SKIPS and continuing."
       sed -n '1,120p' "$output"
       continue
@@ -299,6 +467,7 @@ EOF
     exit 1
   fi
 
+  flush_blocked_artifact_entries
   git diff --check
 
   if [[ "$NO_COMMIT" -eq 1 ]]; then

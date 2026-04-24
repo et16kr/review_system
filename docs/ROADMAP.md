@@ -329,19 +329,27 @@ main `ROADMAP.md`의 현재 항목을 다 돌린 뒤 곧바로 이어서 할 후
 - `docs/baselines/roadmap_automation/README.md`가
   retained blocker artifact의 canonical directory, filename, required entry fields
   (`date`, `attempt`, `blocked_unit`, `reason`)와 Markdown entry shape를 고정했다.
+- `ops/scripts/advance_roadmap_with_codex.sh`가
+  blocked iteration의 normalized summary를 run 동안 임시로 모았다가
+  종료 시점 또는 completed iteration commit 직전에
+  `docs/baselines/roadmap_automation/blocked_roadmap_units_YYYY-MM-DD.md`로 append하도록 바뀌었다.
+- 같은 script prompt가 blocked 응답에 `BLOCKED_UNIT`, `BLOCKER_TYPE`, `BLOCKED_REASON`
+  structured line을 요구하고, artifact append는 field가 없는 legacy blocked output에도
+  fallback summary를 남기도록 고정됐다.
 
 다음 작업:
 
-1. `advance_roadmap_with_codex.sh`가 위 형식의 영속 artifact를 남기게 만든다.
-2. repeated blocker를 집계할 최소 운영 절차를 문서화한다.
+1. repeated blocker를 집계할 최소 운영 절차를 문서화한다.
 
 검증 메모:
 
-- 이번 slice는 docs-only format decision이라 release gate 코드나 smoke 범위를 건드리지 않았다.
+- 이번 slice는 roadmap automation script의 blocked-artifact append 경로만 바꿨다.
 - rerun:
   - `bash -n ops/scripts/advance_roadmap_with_codex.sh`
+- deterministic temp git repo + stub `codex` blocked-path harness로
+  `docs/baselines/roadmap_automation/blocked_roadmap_units_YYYY-MM-DD.md` 생성/append를 확인했다.
 - broader `review-engine`/`review-bot`/`review-platform` tests, GitLab smoke,
-  provider/direct OpenAI validation은 아직 script append logic을 구현하지 않았으므로 생략했다.
+  provider/direct OpenAI validation은 roadmap automation script 범위 밖이라 생략했다.
 
 완료 기준:
 
