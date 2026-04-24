@@ -263,7 +263,9 @@ ops/scripts/advance_review_roadmap_with_codex.sh --model gpt-5.5 --until-done
 
 ### 7. Provider, Fallback, And Model Backend Review
 
-상태: `active`
+상태: `watch`
+
+완료: `2026-04-24`
 
 이번 작업의 범위:
 
@@ -276,6 +278,21 @@ ops/scripts/advance_review_roadmap_with_codex.sh --model gpt-5.5 --until-done
 
 - provider signal 혼동, fail-open/fail-fast 경계, local LLM 준비 상태가 정리된다.
 - missing guardrail이나 불필요한 provider surface가 backlog에 들어간다.
+
+완료 기록:
+
+- [CURRENT_STATE_REVIEW.md](/home/et16/work/review_system/docs/reviews/CURRENT_STATE_REVIEW.md:1)에
+  provider/fallback boundary review 결과를 남겼다. Lifecycle smoke, direct provider smoke,
+  provider quality artifact는 별도 signal로 유지하는 현재 방향이 맞다고 평가했다.
+- [REVIEW_FINDINGS_BACKLOG.md](/home/et16/work/review_system/docs/reviews/REVIEW_FINDINGS_BACKLOG.md:1)에
+  lifecycle `provider_runtime`이 OpenAI-compatible local backend의 model/base URL/transport
+  provenance를 API, log, summary note에 충분히 드러내지 못하는 문제를 후속 direct fix
+  후보로 추가했다.
+- 검증은 deterministic provider path로 제한했다. Targeted provider tests는 `15 passed`,
+  `stub` provider quality는 `6 passed`, OpenAI provider quality/comparison은
+  `OPENAI_API_KEY` 없이 `skipped` artifact와 runtime provenance를 남겼다.
+- OpenAI direct smoke는 configuration에 의해 skipped였으므로 live OpenAI 성공 주장을 하지
+  않았다. local GitLab smoke는 provider boundary 판단에 필요하지 않아 실행하지 않았다.
 
 ### 8. User Interface And Review UX Review
 
@@ -374,7 +391,7 @@ ops/scripts/advance_review_roadmap_with_codex.sh --model gpt-5.5 --until-done
 
 ## Suggested Next Step
 
-현재 다음 실행 단위는 `7. Provider, Fallback, And Model Backend Review`다.
+현재 다음 실행 단위는 `8. User Interface And Review UX Review`다.
 
 이유:
 
@@ -396,8 +413,10 @@ ops/scripts/advance_review_roadmap_with_codex.sh --model gpt-5.5 --until-done
   scope 개선 후보를 확인했다.
 - API queue validation은 TestClient startup hang으로 완료되지 않았지만, 이 신호는 Unit 6
   finding의 필수 근거가 아니므로 blocked validation으로 기록하고 리뷰 라운드는 계속 진행한다.
-- 다음에는 provider direct path, fallback, runtime provenance, external blocker 표현을
-  점검한다.
+- `7. Provider, Fallback, And Model Backend Review`에서 lifecycle/direct provider/provider
+  quality signal 분리는 유지하되, lifecycle provider runtime provenance에 model/base
+  URL/transport class가 빠진 gap을 확인했다.
+- 다음에는 user-facing command와 note UX를 점검한다.
 
 ## Validation Baseline
 

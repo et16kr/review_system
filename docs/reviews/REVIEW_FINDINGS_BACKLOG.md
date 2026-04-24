@@ -102,6 +102,26 @@
 - Validation note: A storage-scope fix likely needs a migration plus targeted runner tests. Local
   GitLab smoke is only required if GitLab adapter ref handling changes.
 
+### B-review-bot-03 Add model and endpoint provenance to lifecycle provider runtime
+
+- Finding: `F-provider-02 Lifecycle provider provenance omits model and endpoint transport`
+- Severity: `medium`
+- Area: `review-bot`
+- Evidence: [review-bot/review_bot/providers/base.py](/home/et16/work/review_system/review-bot/review_bot/providers/base.py:29)
+  defines lifecycle `ProviderRuntimeMetadata` without model or endpoint fields, while
+  [review-bot/review_bot/providers/openai_provider.py](/home/et16/work/review_system/review-bot/review_bot/providers/openai_provider.py:330)
+  reads `BOT_OPENAI_MODEL` and `BOT_OPENAI_BASE_URL`, and
+  [review-bot/review_bot/cli/evaluate_provider_quality.py](/home/et16/work/review_system/review-bot/review_bot/cli/evaluate_provider_quality.py:20)
+  already records richer artifact provenance.
+- Recommended action: Extend lifecycle provider runtime metadata, persistence, state API, summary
+  note, and structured logs with sanitized `configured_model`, `endpoint_base_url`, and
+  `transport_class` for OpenAI-compatible providers. Cover default OpenAI, non-default local backend,
+  stub, and fallback cases with targeted tests.
+- Follow-up target: `direct fix`
+- Post-review bucket: `bug_fix`
+- Validation note: Run `cd review-bot && uv run pytest tests/test_provider_quality.py tests/test_prompting.py::test_openai_provider_client_uses_configured_base_url tests/test_review_runner.py::test_review_runner_persists_provider_runtime_metadata_on_run_and_finding tests/test_review_runner.py::test_review_runner_persists_fallback_provider_runtime_metadata tests/test_review_runner.py::test_pr_summary_includes_live_provider_runtime_provenance tests/test_review_runner.py::test_publish_logs_and_summary_include_fallback_provider_runtime_provenance -q`.
+  Run direct OpenAI smoke only when making a live provider success claim.
+
 ### B-review-engine-01 Fail fast on unresolved or duplicate selected packs
 
 - Finding: `F-engine-02 Profile pack selection can silently drop or replace packs`
