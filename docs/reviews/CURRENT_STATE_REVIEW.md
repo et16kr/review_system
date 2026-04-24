@@ -46,6 +46,12 @@ boundary만 수정하며, mutation output에 후속 검증 plan을 함께 낸다
 거부하지 않아 `fix_guidence`, `enabled_packz` 같은 typo가 fail-fast 없이 사라지는
 검증 공백이 있다.
 
+Review-bot lifecycle review 기준으로는 detect -> publish -> sync responsibility가
+runner에 모여 있고 queue handoff, dead-letter, immutable lifecycle event 기록도 현재
+방향과 맞는다. 다만 GitLab note-trigger의 expected head가 settle retry 이후에도 맞지
+않을 때 stale diff로 계속 진행할 수 있고, adapter thread/feedback reference가 contract
+상 request-scoped인지 global인지 명확하지 않은데 DB는 global unique로 저장한다.
+
 ## Evidence Inventory
 
 ### Evidence Levels
@@ -186,6 +192,48 @@ boundary만 수정하며, mutation output에 후속 검증 plan을 함께 낸다
   `cd review-engine && UV_CACHE_DIR=/tmp/uv-cache uv run pytest tests/test_rule_runtime.py tests/test_rule_lifecycle_cli.py -q`
 - Skipped validation: local GitLab smoke and OpenAI direct smoke were not needed for this
   static `review-engine` authoring UX review. No provider or lifecycle runtime success claim was made.
+
+### Unit 6 Evidence
+
+- Keyed review-run creation and detect queue handoff:
+  [review-bot/review_bot/api/main.py](/home/et16/work/review_system/review-bot/review_bot/api/main.py:344)
+  and [review-bot/review_bot/api/main.py](/home/et16/work/review_system/review-bot/review_bot/api/main.py:366)
+- Worker detect -> publish -> sync chain:
+  [review-bot/review_bot/worker.py](/home/et16/work/review_system/review-bot/review_bot/worker.py:23)
+- Detect, publish, and sync phases:
+  [review-bot/review_bot/bot/review_runner.py](/home/et16/work/review_system/review-bot/review_bot/bot/review_runner.py:353),
+  [review-bot/review_bot/bot/review_runner.py](/home/et16/work/review_system/review-bot/review_bot/bot/review_runner.py:589),
+  and [review-bot/review_bot/bot/review_runner.py](/home/et16/work/review_system/review-bot/review_bot/bot/review_runner.py:926)
+- GitLab note-trigger head refresh and detect-time settle retry:
+  [review-bot/review_bot/api/main.py](/home/et16/work/review_system/review-bot/review_bot/api/main.py:393)
+  and [review-bot/review_bot/bot/review_runner.py](/home/et16/work/review_system/review-bot/review_bot/bot/review_runner.py:548)
+- Thread reconciliation and immutable lifecycle event recording:
+  [review-bot/review_bot/bot/review_runner.py](/home/et16/work/review_system/review-bot/review_bot/bot/review_runner.py:1902)
+  and [review-bot/review_bot/bot/review_runner.py](/home/et16/work/review_system/review-bot/review_bot/bot/review_runner.py:1775)
+- Feedback event ingestion and adapter event keys:
+  [review-bot/review_bot/bot/review_runner.py](/home/et16/work/review_system/review-bot/review_bot/bot/review_runner.py:1664),
+  [review-bot/review_bot/db/models.py](/home/et16/work/review_system/review-bot/review_bot/db/models.py:199),
+  and [review-bot/review_bot/review_systems/gitlab.py](/home/et16/work/review_system/review-bot/review_bot/review_systems/gitlab.py:309)
+- Existing deterministic coverage:
+  [review-bot/tests/test_api_queue.py](/home/et16/work/review_system/review-bot/tests/test_api_queue.py:444)
+  and [review-bot/tests/test_review_runner.py](/home/et16/work/review_system/review-bot/tests/test_review_runner.py:1005)
+  cover payload head refresh and eventual detect-time head settle; runner tests at
+  [review-bot/tests/test_review_runner.py](/home/et16/work/review_system/review-bot/tests/test_review_runner.py:1088)
+  cover fixed/manual resolution classification and lifecycle event recording.
+- Static scans:
+  `rg -n "def (create_review_run_for_key|execute_detect_phase|execute_publish_phase|execute_sync_phase|_refresh_detect_inputs_for_expected_head|_reconcile_thread_snapshots|_record_finding_lifecycle_event|_ingest_feedback)" review-bot/review_bot/bot/review_runner.py`,
+  `rg -n "event_key|adapter_thread_ref|UniqueConstraint|collect_feedback" review-bot/review_bot review-bot/tests`,
+  and `rg -n "expected_head|stale-head|fixed_in_followup|remote_resolved_manual_only|reopened|resolve_failed" review-bot/tests`.
+- Validation passed: `timeout 180s .venv/bin/pytest tests/test_review_runner.py::test_review_runner_waits_for_expected_head_on_gitlab_note_trigger tests/test_review_runner.py::test_resolution_classifier_marks_fixed_in_followup_commit_and_records_lifecycle tests/test_review_runner.py::test_resolution_classifier_marks_remote_resolved_manual_only_when_diff_does_not_match tests/test_review_runner.py::test_review_runner_recovers_stale_thread_after_resolve_failure_when_remote_thread_is_still_open tests/test_review_runner.py::test_reopen_records_immutable_lifecycle_event_without_erasing_fixed_history -q`
+  passed with `5 passed`.
+- Blocked validation: `cd review-bot && UV_CACHE_DIR=/tmp/uv-cache uv run pytest tests/test_review_runner.py tests/test_api_queue.py -q`
+  hung after partial progress, and a single API queue test timed out inside
+  `starlette.testclient.TestClient.__enter__` before making the webhook request. This is recorded as
+  a validation limitation and follow-up test-gate investigation, not as a blocker for continuing the
+  review round.
+- Skipped validation: local GitLab smoke was not run because this unit did not require runtime
+  webhook/thread evidence. OpenAI direct smoke was skipped by configuration and was not relevant to
+  lifecycle correctness. Provider validation used deterministic fake/stub provider paths only.
 
 ## Findings
 
@@ -476,6 +524,95 @@ boundary만 수정하며, mutation output에 후속 검증 plan을 함께 낸다
 - Post-review bucket: `keep`
 - Validation note: Static document review only. No runtime validation needed.
 
+### F-review-bot-01 Runner-owned lifecycle is the right boundary
+
+- Severity: `info`
+- Area: `review-bot`
+- Evidence level: `static_code`
+- Evidence: [review-bot/review_bot/api/main.py](/home/et16/work/review_system/review-bot/review_bot/api/main.py:344)
+  creates keyed review runs and enqueues detect jobs. [review-bot/review_bot/worker.py](/home/et16/work/review_system/review-bot/review_bot/worker.py:23)
+  chains detect -> publish -> sync jobs, while [review-bot/review_bot/bot/review_runner.py](/home/et16/work/review_system/review-bot/review_bot/bot/review_runner.py:353),
+  [review-bot/review_bot/bot/review_runner.py](/home/et16/work/review_system/review-bot/review_bot/bot/review_runner.py:589),
+  and [review-bot/review_bot/bot/review_runner.py](/home/et16/work/review_system/review-bot/review_bot/bot/review_runner.py:926)
+  keep detect, publish, and sync state transitions inside `ReviewRunner`. Thread reconciliation
+  records immutable lifecycle events at
+  [review-bot/review_bot/bot/review_runner.py](/home/et16/work/review_system/review-bot/review_bot/bot/review_runner.py:1902)
+  and [review-bot/review_bot/bot/review_runner.py](/home/et16/work/review_system/review-bot/review_bot/bot/review_runner.py:1775).
+- Impact: Adapter code can stay focused on external review-system I/O, while run state,
+  publication state, feedback ingestion, and lifecycle analytics keep one canonical owner.
+- Recommended action: Keep runner-level lifecycle ownership. Future adapter work should expose
+  capabilities and snapshots, not local lifecycle state machines.
+- Follow-up target: `none`
+- Post-review bucket: `keep`
+- Validation note: Static code review plus runner-only lifecycle tests passed. API queue validation
+  is blocked by a TestClient startup hang, so API-queue evidence remains a follow-up limitation. No
+  runtime smoke was needed for this keep finding.
+
+### F-review-bot-02 GitLab note-trigger can proceed on stale diff after expected head never settles
+
+- Severity: `medium`
+- Area: `review-bot`
+- Evidence level: `static_code`
+- Evidence: [review-bot/review_bot/api/main.py](/home/et16/work/review_system/review-bot/review_bot/api/main.py:393)
+  refreshes a note-triggered run's `head_sha` from the source branch when the webhook payload is
+  stale. [review-bot/review_bot/bot/review_runner.py](/home/et16/work/review_system/review-bot/review_bot/bot/review_runner.py:548)
+  retries detect inputs when the fetched MR diff head does not match that expected head, but after
+  exhausting retries it only logs `detect_head_not_settled` and returns the refreshed diff. Then
+  [review-bot/review_bot/bot/review_runner.py](/home/et16/work/review_system/review-bot/review_bot/bot/review_runner.py:404)
+  overwrites `review_run.head_sha` from the observed diff/meta head. Existing tests cover payload
+  head refresh and eventual settle at
+  [review-bot/tests/test_api_queue.py](/home/et16/work/review_system/review-bot/tests/test_api_queue.py:444)
+  and [review-bot/tests/test_review_runner.py](/home/et16/work/review_system/review-bot/tests/test_review_runner.py:1005),
+  but there is no deterministic test for the never-settled path.
+- Impact: A force-push followed immediately by `@review-bot review` can still produce a successful
+  review on stale MR diff data if GitLab's changes endpoint remains behind for all retries. The run
+  then loses the expected head in persisted state, weakening status checks, reports, and smoke
+  assertions that rely on the latest head.
+- Recommended action: Treat never-settled expected head as a retryable detect failure or explicit
+  pending state instead of silently proceeding. Add a deterministic runner test where all retries
+  observe the stale head, and keep the local GitLab lifecycle smoke as the runtime regression gate
+  when this behavior is changed.
+- Follow-up target: `direct fix`
+- Post-review bucket: `bug_fix`
+- Validation note: This review used static evidence and existing deterministic tests only. The
+  runner-only lifecycle tests passed, but API queue validation is currently blocked by a TestClient
+  startup hang. The follow-up fix should run `cd review-bot && uv run pytest tests/test_review_runner.py tests/test_api_queue.py -q`;
+  because it changes GitLab head handling, run `bash ops/scripts/smoke_local_gitlab_lifecycle_review.sh`
+  when the local GitLab environment is ready.
+
+### F-review-bot-03 Adapter thread and feedback identities are global in storage but not in contract
+
+- Severity: `medium`
+- Area: `review-bot`
+- Evidence level: `static_code`
+- Evidence: [review-bot/review_bot/contracts.py](/home/et16/work/review_system/review-bot/review_bot/contracts.py:104)
+  defines `FeedbackRecord.event_key`, and
+  [review-bot/review_bot/contracts.py](/home/et16/work/review_system/review-bot/review_bot/contracts.py:63)
+  defines `ThreadSnapshot.thread_ref`, but neither contract states that these adapter refs must be
+  globally unique across review systems, projects, and review requests. Storage assumes global
+  uniqueness through `ThreadSyncState.adapter_thread_ref` at
+  [review-bot/review_bot/db/models.py](/home/et16/work/review_system/review-bot/review_bot/db/models.py:183)
+  and `FeedbackEvent.event_key` at
+  [review-bot/review_bot/db/models.py](/home/et16/work/review_system/review-bot/review_bot/db/models.py:199).
+  GitLab currently emits raw discussion/note-derived keys at
+  [review-bot/review_bot/review_systems/gitlab.py](/home/et16/work/review_system/review-bot/review_bot/review_systems/gitlab.py:171)
+  and [review-bot/review_bot/review_systems/gitlab.py](/home/et16/work/review_system/review-bot/review_bot/review_systems/gitlab.py:321)
+  without a `ReviewRequestKey` prefix.
+- Impact: Current GitLab IDs may be unique enough in practice, but the lifecycle storage layer is
+  stricter than the adapter contract. Any adapter or fixture that reuses simple thread/comment IDs
+  across projects can collide, drop feedback through `_ingest_feedback`, or prevent a separate
+  request from creating its own thread sync row.
+- Recommended action: Make identity scope explicit. Either require adapters to emit globally unique
+  refs and test that contract, or scope DB uniqueness/deduplication by `review_request_pk` plus
+  adapter ref while preserving the raw remote ref needed for API calls. Cover two review requests
+  with identical adapter refs in deterministic tests.
+- Follow-up target: `direct fix`
+- Post-review bucket: `bug_fix`
+- Validation note: This is a static contract/storage finding. Runner-only lifecycle tests passed,
+  while API queue validation is blocked by a TestClient startup hang. A follow-up fix likely needs a
+  DB migration plus targeted runner tests; local GitLab smoke is only required if GitLab adapter ref
+  handling changes.
+
 이후 finding은 아래 형식을 따른다.
 
 ```md
@@ -551,6 +688,20 @@ authoring validation과 readiness packet이다. 특히 canonical YAML model이 u
 거부하지 않는 공백을 먼저 닫아야 editor나 form이 잘못된 metadata를 조용히 쓰는 위험을
 막을 수 있다.
 
+## Review-Bot Lifecycle Correctness Check
+
+`review-bot`의 기본 lifecycle boundary는 현재 방향과 맞다. API는 `ReviewRequestKey`로
+run을 만들고 detect job만 enqueue하며, worker가 detect -> publish -> sync를 이어서
+실행한다. Runner는 remote thread snapshot reconciliation, feedback ingestion,
+publication state, lifecycle event 기록을 함께 다루므로 source of truth가 adapter로
+새지 않는다.
+
+주요 수정 후보는 두 가지다. GitLab note trigger에서 source branch head를 보정한 뒤에도
+MR diff head가 끝까지 settle되지 않으면 stale diff로 성공할 수 있으므로 retryable failure
+또는 explicit pending 상태가 필요하다. 또한 adapter thread/comment/feedback identity가
+contract에서는 request-scoped일 수 있는데 DB는 global unique로 가정하므로, scope를
+명시하거나 composite uniqueness로 바꿔야 한다.
+
 ## Interface And UX Assessment
 
 아직 평가 전. Unit 8에서 user-facing command와 note surface를 점검한다.
@@ -570,4 +721,5 @@ authoring validation과 readiness packet이다. 특히 canonical YAML model이 u
 
 ## Recommended Actions
 
-다음 review unit은 `6. review-bot Lifecycle Correctness Review`다.
+다음 review action은 `7. Provider, Fallback, And Model Backend Review`다. Unit 6의 API
+queue validation hang은 follow-up test-gate 조사 대상으로 남긴다.

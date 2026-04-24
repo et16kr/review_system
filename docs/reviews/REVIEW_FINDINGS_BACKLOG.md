@@ -62,6 +62,46 @@
   targeted review-bot API test after the fix. Local GitLab smoke is not required unless GitLab
   adapter behavior changes.
 
+### B-review-bot-01 Fail or defer when GitLab note-trigger expected head never settles
+
+- Finding: `F-review-bot-02 GitLab note-trigger can proceed on stale diff after expected head never settles`
+- Severity: `medium`
+- Area: `review-bot`
+- Evidence: [review-bot/review_bot/api/main.py](/home/et16/work/review_system/review-bot/review_bot/api/main.py:393)
+  refreshes note-triggered `head_sha` from the source branch, but
+  [review-bot/review_bot/bot/review_runner.py](/home/et16/work/review_system/review-bot/review_bot/bot/review_runner.py:548)
+  returns the last observed diff after settle retries are exhausted, and
+  [review-bot/review_bot/bot/review_runner.py](/home/et16/work/review_system/review-bot/review_bot/bot/review_runner.py:404)
+  persists the observed stale head.
+- Recommended action: Change the never-settled path into a retryable detect failure or explicit
+  pending/deferred state, and add a deterministic runner test where all settle retries observe the
+  stale MR diff head.
+- Follow-up target: `direct fix`
+- Post-review bucket: `bug_fix`
+- Validation note: Run `cd review-bot && uv run pytest tests/test_review_runner.py tests/test_api_queue.py -q`.
+  Because this changes GitLab head handling, also run
+  `bash ops/scripts/smoke_local_gitlab_lifecycle_review.sh` when local GitLab is ready.
+
+### B-review-bot-02 Scope adapter thread and feedback identity explicitly
+
+- Finding: `F-review-bot-03 Adapter thread and feedback identities are global in storage but not in contract`
+- Severity: `medium`
+- Area: `review-bot`
+- Evidence: [review-bot/review_bot/contracts.py](/home/et16/work/review_system/review-bot/review_bot/contracts.py:63)
+  and [review-bot/review_bot/contracts.py](/home/et16/work/review_system/review-bot/review_bot/contracts.py:104)
+  define adapter thread and feedback keys without a global uniqueness contract, while
+  [review-bot/review_bot/db/models.py](/home/et16/work/review_system/review-bot/review_bot/db/models.py:183)
+  and [review-bot/review_bot/db/models.py](/home/et16/work/review_system/review-bot/review_bot/db/models.py:199)
+  store those values as globally unique.
+- Recommended action: Decide and enforce the identity scope: require globally unique adapter refs in
+  the adapter contract, or change storage/deduplication to composite uniqueness by
+  `review_request_pk` plus raw adapter ref. Add deterministic tests with two review requests that
+  reuse the same remote thread/comment/event ids.
+- Follow-up target: `direct fix`
+- Post-review bucket: `bug_fix`
+- Validation note: A storage-scope fix likely needs a migration plus targeted runner tests. Local
+  GitLab smoke is only required if GitLab adapter ref handling changes.
+
 ### B-review-engine-01 Fail fast on unresolved or duplicate selected packs
 
 - Finding: `F-engine-02 Profile pack selection can silently drop or replace packs`

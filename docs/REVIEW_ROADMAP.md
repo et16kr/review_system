@@ -38,6 +38,8 @@ ops/scripts/advance_review_roadmap_with_codex.sh --model gpt-5.5 --until-done
 - 명확한 typo나 문서 링크 오류처럼 리뷰 진행 자체를 방해하는 수정만 같은 unit에서 허용한다.
 - findings는 반드시 evidence, impact, recommended action을 포함한다.
 - local smoke, direct provider, OpenAI API 검증은 해당 unit이 그 신호를 실제 근거로 필요로 할 때만 실행한다.
+- validation fail/hang은 자동 blocker가 아니다. 정적 근거와 부분 검증으로 판단이 가능하면
+  evidence limitation으로 기록하고 다음 review unit으로 진행한다.
 
 ## Review Questions
 
@@ -224,7 +226,9 @@ ops/scripts/advance_review_roadmap_with_codex.sh --model gpt-5.5 --until-done
 
 ### 6. `review-bot` Lifecycle Correctness Review
 
-상태: `active`
+상태: `watch`
+
+완료: `2026-04-24`
 
 이번 작업의 범위:
 
@@ -237,6 +241,25 @@ ops/scripts/advance_review_roadmap_with_codex.sh --model gpt-5.5 --until-done
 
 - lifecycle bug risk와 missing tests가 findings로 남는다.
 - smoke가 필요한 부분과 deterministic test로 충분한 부분이 분리된다.
+
+완료 기록:
+
+- [CURRENT_STATE_REVIEW.md](/home/et16/work/review_system/docs/reviews/CURRENT_STATE_REVIEW.md:1)에
+  `review-bot` lifecycle boundary review 결과를 남겼다. Runner-owned detect -> publish ->
+  sync boundary와 immutable lifecycle event 방향은 유지하되, GitLab note-trigger expected
+  head가 끝까지 settle되지 않을 때 stale diff로 성공할 수 있는 위험을 확인했다.
+- [REVIEW_FINDINGS_BACKLOG.md](/home/et16/work/review_system/docs/reviews/REVIEW_FINDINGS_BACKLOG.md:1)에
+  never-settled expected head fail/defer 처리와 adapter thread/feedback identity scope 정리를
+  후속 direct fix 후보로 추가했다.
+- 검증은 제한적으로 완료했다. Runner-only lifecycle subset
+  `timeout 180s .venv/bin/pytest ...test_review_runner... -q`는 `5 passed`로 성공했지만,
+  `cd review-bot && UV_CACHE_DIR=/tmp/uv-cache uv run pytest tests/test_review_runner.py tests/test_api_queue.py -q`가
+  partial progress 이후 hang 되었고, 단일 API queue webhook test도
+  `starlette.testclient.TestClient.__enter__`에서 timeout 되었다. 이 hang은 review 판단의
+  필수 근거가 아니라 validation limitation과 후속 test-gate 조사 대상으로 남긴다.
+- local GitLab smoke는 runtime webhook/thread evidence가 필요하지 않아 실행하지 않았다.
+  OpenAI direct smoke는 configuration에 의해 skipped였고, provider signal은 deterministic
+  fake/stub provider path만 사용했다.
 
 ### 7. Provider, Fallback, And Model Backend Review
 
@@ -351,7 +374,7 @@ ops/scripts/advance_review_roadmap_with_codex.sh --model gpt-5.5 --until-done
 
 ## Suggested Next Step
 
-현재 다음 실행 단위는 `6. review-bot Lifecycle Correctness Review`다.
+현재 다음 실행 단위는 `7. Provider, Fallback, And Model Backend Review`다.
 
 이유:
 
@@ -368,7 +391,12 @@ ops/scripts/advance_review_roadmap_with_codex.sh --model gpt-5.5 --until-done
 - `5. review-engine Authoring And Lifecycle UX Review`에서 lifecycle CLI는 좁게 유지하고,
   manual editor는 deferred로 두되, unknown YAML key를 fail-fast해야 한다는 개선 후보를
   확인했다.
-- 다음에는 `review-bot` detect/publish/sync/verify lifecycle과 feedback analytics boundary를
+- `6. review-bot Lifecycle Correctness Review`에서 runner-owned lifecycle boundary는 유지하되,
+  GitLab note-trigger expected head의 never-settled path와 adapter thread/feedback identity
+  scope 개선 후보를 확인했다.
+- API queue validation은 TestClient startup hang으로 완료되지 않았지만, 이 신호는 Unit 6
+  finding의 필수 근거가 아니므로 blocked validation으로 기록하고 리뷰 라운드는 계속 진행한다.
+- 다음에는 provider direct path, fallback, runtime provenance, external blocker 표현을
   점검한다.
 
 ## Validation Baseline
