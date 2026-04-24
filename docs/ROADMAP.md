@@ -190,6 +190,10 @@
 
 최근 완료:
 
+- `@review-bot summarize`가 lightweight general note contract로 추가되어
+  최신 run/head, provider provenance, aggregate backlog/suppress count만 빠르게 보여 주도록 고정했다.
+- `summarize`는 same-purpose general note upsert를 사용하고,
+  GitLab note parser/help note도 새 명령을 함께 안내하도록 갱신됐다.
 - `full-report`/`backlog` general note가 각 항목의 `disposition`/`reason`을 짧은 한국어 surfacing reason으로 함께 보여 주도록 바뀌었다.
 - raw `reason` 코드는 그대로 유지해 운영자가 machine-readable state를 잃지 않으면서도, note만 읽는 사용자는 왜 backlog/suppress/pending 상태인지 바로 볼 수 있다.
 - review unit split 로직을 `review_bot.review_units` helper로 분리해
@@ -229,16 +233,17 @@
 
 다음 작업:
 
-1. `summarize`를 `full-report`/`backlog`와 구분되는 lightweight general note contract로 정의한다.
-2. walkthrough note는 `summarize` contract 이후에 summary/backlog reason을 어떤 순서로 안내할지 별도 단위로 분리한다.
-3. `.review-bot.yaml`은 policy/env precedence와 운영 표현 경계가 정리된 뒤 잡는다.
-4. `ask`는 retrieval/session boundary와 provider cost/latency까지 함께 정리해야 하므로 마지막으로 둔다.
+1. walkthrough note는 `summarize` contract 이후에 summary/backlog reason을 어떤 순서로 안내할지 별도 단위로 분리한다.
+2. `.review-bot.yaml`은 policy/env precedence와 운영 표현 경계가 정리된 뒤 잡는다.
+3. `ask`는 retrieval/session boundary와 provider cost/latency까지 함께 정리해야 하므로 마지막으로 둔다.
 
 검증 메모:
 
-- 이번 slice는 코드 경로를 바꾸지 않고 roadmap 우선순위만 재정렬했다.
-- `Validation Baseline`의 release gate / pre-release smoke는 적용 대상이 없어 실행하지 않았다.
-- direct OpenAI, stub fallback, lifecycle smoke는 모두 이번 문서형 우선순위 정리 범위 밖이다.
+- 이번 slice는 `review-bot` note parser/help text와 general note renderer에 `summarize` command를 추가했다.
+- rerun:
+  - `env UV_CACHE_DIR=/tmp/uv-cache uv run --project review-bot pytest review-bot/tests/test_review_runner.py::test_post_full_report_note_posts_backlog_overview review-bot/tests/test_review_runner.py::test_post_backlog_note_posts_backlog_only_view review-bot/tests/test_review_runner.py::test_render_summarize_note_includes_aggregate_status_and_followup_commands review-bot/tests/test_review_runner.py::test_post_summarize_note_upserts_same_purpose_general_note review-bot/tests/test_review_runner.py::test_render_help_note_lists_summarize_command review-bot/tests/test_api_queue.py::test_gitlab_note_hook_posts_summarize_note_without_enqueue review-bot/tests/test_api_queue.py::test_extract_gitlab_note_command_recognizes_supported_commands -q`
+- broader `review-bot` pytest, `review-engine`/`review-platform` tests, GitLab lifecycle smoke, mixed-language smoke, direct OpenAI/provider validation은 note-only UX 범위라 생략했다.
+- direct OpenAI, stub fallback, lifecycle smoke는 모두 이번 slice validation에 사용하지 않았다.
 
 완료 기준:
 

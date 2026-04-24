@@ -1374,6 +1374,26 @@ class ReviewRunner:
             purpose="full-report",
         )
 
+    def post_summarize_note(
+        self,
+        session: Session,
+        *,
+        key: ReviewRequestKey,
+        adapter: Any | None = None,
+    ) -> bool:
+        target_adapter = adapter or self._get_adapter()
+        if not hasattr(target_adapter, "post_general_note"):
+            return False
+        state = self.build_state(session, key=key)
+        report = self.build_full_report(session, key=key, view="backlog")
+        body = self._render_summarize_note(state=state, report=report)
+        return self._publish_general_note(
+            adapter=target_adapter,
+            key=key,
+            body=body,
+            purpose="summarize",
+        )
+
     def post_backlog_note(
         self,
         session: Session,
@@ -3788,6 +3808,90 @@ class ReviewRunner:
         )
         return self._truncate_general_note("\n".join(lines))
 
+    def _render_summarize_note(
+        self,
+        *,
+        state: dict[str, Any],
+        report: dict[str, Any],
+    ) -> str:
+        lines = ["## 🤖 자동 리뷰 요약", ""]
+        if state.get("last_review_run_id") is None:
+            lines.extend(
+                [
+                    "아직 이 MR에 대한 리뷰 결과가 없습니다.",
+                    "`@review-bot review`로 먼저 리뷰를 실행한 뒤 다시 요청해 주세요.",
+                ]
+            )
+            return "\n".join(lines)
+
+        lines.append("현재 MR의 최근 상태만 빠르게 보는 lightweight note입니다.")
+        lines.append("")
+        latest_status = str(state.get("last_status") or "unknown")
+        latest_label = (
+            "진행/대기 중 run" if latest_status in _IN_FLIGHT_REVIEW_RUN_STATUSES else "최신 run"
+        )
+        lines.append(f"- {latest_label}: `{state['last_review_run_id']}` (`{latest_status}`)")
+        if state.get("last_head_sha"):
+            lines.append(f"- 최신 head sha: `{state['last_head_sha']}`")
+
+        report_run_id = report.get("report_review_run_id")
+        if report_run_id and report_run_id != state.get("last_review_run_id"):
+            lines.append(
+                f"- 마지막 완료 run: `{report_run_id}` (`{report.get('report_status') or 'unknown'}`)"
+            )
+            if report.get("report_head_sha"):
+                lines.append(f"- 마지막 완료 head sha: `{report['report_head_sha']}`")
+
+        if provider_runtime_summary := self._provider_runtime_summary(state.get("provider_runtime")):
+            lines.append(f"- provider: {provider_runtime_summary}")
+
+        counts = report.get("counts") or {}
+        backlog_total = sum(
+            int(counts.get(section, 0) or 0) for section in _BACKLOG_ONLY_SECTION_ORDER
+        )
+        lines.extend(
+            [
+                "",
+                "### 현재 집계",
+                f"- 열린 finding: {int(state.get('open_finding_count') or 0)}개",
+                f"- Resolve된 finding: {int(state.get('resolved_finding_count') or 0)}개",
+                f"- 게시 실패 finding: {int(state.get('failed_publication_count') or 0)}개",
+                f"- 열린 thread: {int(state.get('open_thread_count') or 0)}개",
+                f"- 현재 backlog: {backlog_total}개",
+                f"- 누적 feedback event: {int(state.get('feedback_event_count') or 0)}개",
+            ]
+        )
+
+        backlog_summary_lines = [
+            f"- {_FULL_REPORT_SECTION_SUMMARY_LABELS[section]}: {int(counts.get(section, 0) or 0)}개"
+            for section in _BACKLOG_ONLY_SECTION_ORDER
+            if int(counts.get(section, 0) or 0) > 0
+        ]
+        if backlog_summary_lines:
+            lines.extend(["", "### backlog 요약", *backlog_summary_lines])
+
+        suppress_sections = (
+            "suppressed_feedback_ignore",
+            "suppressed_feedback_false_positive",
+            "suppressed_other",
+        )
+        suppress_summary_lines = [
+            f"- {_FULL_REPORT_SECTION_SUMMARY_LABELS[section]}: {int(counts.get(section, 0) or 0)}개"
+            for section in suppress_sections
+            if int(counts.get(section, 0) or 0) > 0
+        ]
+        if suppress_summary_lines:
+            lines.extend(["", "### suppress 요약", *suppress_summary_lines])
+
+        lines.extend(
+            [
+                "",
+                "상세 항목이 필요하면 `@review-bot full-report`를, backlog만 보면 `@review-bot backlog`를 요청해 주세요.",
+                "최신 diff를 다시 검사하려면 `@review-bot review`를 사용하세요.",
+            ]
+        )
+        return self._truncate_general_note("\n".join(lines))
+
     def _report_item_why(self, item: dict[str, Any]) -> str | None:
         disposition = str(item.get("disposition") or "").strip()
         if disposition:
@@ -3811,6 +3915,7 @@ class ReviewRunner:
             "이 MR에서 다음 명령을 지원합니다.",
             "",
             "- `@review-bot review` — 최신 diff에 대해 리뷰를 실행합니다.",
+            "- `@review-bot summarize` — 현재 상태와 aggregate count만 빠르게 보여 줍니다.",
             "- `@review-bot full-report` — 최신 run 결과와 현재 backlog를 함께 보여 줍니다.",
             "- `@review-bot backlog` — 현재 MR에 남아 있는 backlog만 보여 줍니다.",
             "- `@review-bot help` — 이 도움말을 보여 줍니다.",

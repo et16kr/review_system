@@ -294,6 +294,16 @@ def _handle_gitlab_note_hook(payload: dict, *, session: Session) -> WebhookAccep
             action="full_report",
             status="posted",
         )
+    if parsed.command == "summarize":
+        posted = runner.post_summarize_note(session, key=key)
+        if not posted:
+            raise HTTPException(status_code=501, detail="Current adapter does not support general notes.")
+        return WebhookAcceptedResponse(
+            accepted=True,
+            event="gitlab_note",
+            action="summarize",
+            status="posted",
+        )
     if parsed.command == "backlog":
         posted = runner.post_backlog_note(session, key=key)
         if not posted:
@@ -360,7 +370,13 @@ def _enqueue_detect_job(session: Session, review_run: object) -> bool:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
 
 
-_RECOGNIZED_NOTE_COMMANDS: tuple[str, ...] = ("review", "full-report", "backlog", "help")
+_RECOGNIZED_NOTE_COMMANDS: tuple[str, ...] = (
+    "review",
+    "full-report",
+    "summarize",
+    "backlog",
+    "help",
+)
 
 
 def _refresh_gitlab_note_head_meta(
@@ -424,7 +440,7 @@ def _extract_gitlab_note_command(body: str, username: str) -> GitlabNoteCommand 
         rf"(?im)^\s*(?P<prefix>@|/){re.escape(username)}\b(?P<rest>.*)$"
     )
     command_token = re.compile(
-        r"^\s*(?:(?:[:.,])|\s+)?\s*(?P<cmd>full[- ]report|review|backlog|help)\b",
+        r"^\s*(?:(?:[:.,])|\s+)?\s*(?P<cmd>full[- ]report|summarize|review|backlog|help)\b",
         re.IGNORECASE,
     )
 

@@ -22,7 +22,7 @@
 - `review-platform`은 운영 표준이 아니라 local harness다.
 - GitLab MR open/update만으로 자동 inline review를 게시하지 않는다.
 - GitLab 리뷰 트리거는 MR note의 `@review-bot ...` 또는 `/review-bot ...` 명령이다.
-- 지원 명령은 `review`, `full-report`, `backlog`, `help`다.
+- 지원 명령은 `review`, `summarize`, `full-report`, `backlog`, `help`다.
 - Provider는 1차 탐지기가 아니라 finding 설명과 수정 가이드 생성기에 가깝다.
 - 품질 KPI는 Prometheus counter가 아니라 distinct fingerprint 기반 analytics에서 계산한다.
 
@@ -122,7 +122,8 @@ Adapter V2 capability는 [API_CONTRACTS.md](/home/et16/work/review_system/docs/A
 ## User-Facing Review UX
 
 - Inline comment는 high-signal finding만 제한적으로 게시한다.
-- Summary note는 게시 수, backlog, feedback suppress 상태를 구분한다.
+- run-level summary note는 게시 수, backlog, feedback suppress 상태를 구분한다.
+- `summarize`는 최신 run/head, provider provenance, aggregate backlog/suppress count만 빠르게 보여 준다.
 - `full-report`는 최신 완료 run과 현재 MR backlog를 함께 보여 준다.
 - `backlog`는 현재 MR에 실제로 남아 있는 backlog 중심으로 보여 준다.
 - `ignore`, `false-positive`, `later`, `allow`, `wrong-language <lang>` feedback을 지원한다.
@@ -130,7 +131,7 @@ Adapter V2 capability는 [API_CONTRACTS.md](/home/et16/work/review_system/docs/A
 - review unit은 현재 hunk 기반이며, 큰 add-only hunk는 작은 unit으로 나눈다.
 - adapter가 지원하면 head 파일 내용을 일부 가져와 same-file `file_context`로 쓴다.
 - `review-engine` codebase index/search가 있으면 project-scoped similar code를 evidence/provider input에 넣을 수 있다.
-- AST 기반 syntax-aware split, broader project-scoped memory, `.review-bot.yaml`, `ask`/`summarize` command는 아직 없다.
+- AST 기반 syntax-aware split, broader project-scoped memory, walkthrough note, `.review-bot.yaml`, `ask` command는 아직 없다.
 - provider 설정값은 문자열 환경 변수 기반이며,
   `BOT_PROVIDER`, `BOT_FALLBACK_PROVIDER`는 `openai`/`stub` allowlist로 startup fail-fast 검증한다.
 

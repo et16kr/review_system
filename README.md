@@ -14,7 +14,7 @@ MR open/update만으로는 자동 리뷰를 게시하지 않습니다.
 - 변경 파일별로 language/profile/context/dialect를 판별한다.
 - 중요한 finding만 batch cap 안에서 inline discussion으로 게시한다.
 - 기존 thread를 update/reopen/resolve하면서 중복 게시를 줄인다.
-- `full-report`, `backlog`, `help` 명령으로 전체 현황을 general note로 보여 준다.
+- `summarize`, `full-report`, `backlog`, `help` 명령으로 현재 상태나 전체 현황을 general note로 보여 준다.
 - `ignore`, `false-positive`, `later`, `allow`, `wrong-language <lang>` feedback을 수집한다.
 - distinct fingerprint 기반 analytics와 immutable lifecycle event로 품질 KPI를 계산한다.
 - local GitLab smoke와 fixture 기반 mixed-language smoke로 회귀를 검증한다.
