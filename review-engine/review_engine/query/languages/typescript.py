@@ -27,6 +27,12 @@ PLUGIN = LanguageQueryPlugin(
             0.92,
         ),
         PatternSpec(
+            "ts_nocheck",
+            r"@ts-nocheck",
+            "TypeScript no-check directive detected; review whether a whole file is bypassing the checker.",
+            0.94,
+        ),
+        PatternSpec(
             "unsafe_json_parse",
             r"JSON\.parse\(",
             "JSON.parse detected; review runtime validation at untrusted boundaries.",
@@ -103,6 +109,7 @@ PLUGIN = LanguageQueryPlugin(
         "any_type": ("TS.1", "TS.3", "TS.API.5"),
         "non_null_assertion": ("TS.2", "TS.4"),
         "ts_ignore": ("TS.API.1", "TS.API.3"),
+        "ts_nocheck": ("TS.API.9",),
         "unsafe_json_parse": ("TS.API.2", "TS.API.4", "TS.API.5"),
         "promise_without_await": ("TS.5",),
         "ts_expect_error": ("TS.API.6",),
@@ -120,6 +127,7 @@ PLUGIN = LanguageQueryPlugin(
         "any_type",
         "non_null_assertion",
         "ts_ignore",
+        "ts_nocheck",
         "unsafe_json_parse",
         "promise_without_await",
         "ts_expect_error",

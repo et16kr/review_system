@@ -111,6 +111,19 @@ entries:
     priority_tier: high
     specificity: 0.9
     false_positive_risk: low
+  - rule_no: TS.API.9
+    section: TSAPI
+    title: Avoid file-wide @ts-nocheck suppressions in reviewed code
+    summary: Disabling the checker for a whole file hides ordinary type drift behind one comment.
+    text: "`@ts-nocheck` turns off TypeScript checking for the file, so it should be reserved for narrow transitional cases with an explicit migration plan rather than used as a steady-state escape hatch."
+    category: type_usage
+    trigger_patterns: [ts_nocheck]
+    fix_guidance: Remove the file-wide suppression and localize any unavoidable incompatibility with a typed wrapper, explicit narrowing, or a smaller documented suppression.
+    base_score: 0.94
+    severity_default: 0.95
+    priority_tier: high
+    specificity: 0.92
+    false_positive_risk: low
   - rule_no: TS.API.REF.1
     section: TSAPIREF
     title: Shared boundary helpers should centralize parse-plus-validate logic instead of repeating casts at call sites

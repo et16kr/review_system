@@ -86,11 +86,13 @@ Status: `active`
 - `2026-04-25`: JavaScript dynamic execution slice를 닫았다. MDN-backed baseline에
   `Function` constructor 동적 실행 경계를 반영하고 `JS.6` + `function_constructor`
   direct detector regression을 추가했다.
+- `2026-04-25`: TypeScript type escape-hatch slice를 닫았다. `@ts-nocheck` 파일 단위
+  checker 우회를 `TS.API.9` + `ts_nocheck` direct detector regression으로 보강했다.
 
 남은 범위:
 
-- TypeScript runtime validation, type escape hatch, async ownership 중 다음 detector-backed
-  source gap을 한 slice로 처리한다.
+- TypeScript runtime validation, async ownership, 또는 추가로 확인되는 type escape hatch
+  detector-backed source gap을 한 slice로 처리한다.
 - JavaScript는 public source에서 새 direct detector-backed gap이 확인될 때만 추가로 다룬다.
 
 검증:
@@ -102,6 +104,8 @@ git diff --check
 
 최근 deterministic 검증:
 
+- `2026-04-25`: `UV_CACHE_DIR=/tmp/uv-cache uv run pytest tests/test_query_conversion.py tests/test_rule_runtime.py tests/test_source_coverage_matrix.py -q`
+  통과. `git diff --check` 통과. Provider/direct OpenAI 및 local GitLab smoke는 이 rule slice에 필요하지 않아 실행하지 않았다.
 - `2026-04-25`: `UV_CACHE_DIR=/tmp/uv-cache uv run pytest tests/test_query_conversion.py tests/test_rule_runtime.py tests/test_source_coverage_matrix.py -q`
   통과. `UV_CACHE_DIR=/tmp/uv-cache uv run pytest tests/test_rule_lifecycle_cli.py tests/test_rule_runtime_private_extension.py -q`
   통과. `git diff --check` 통과. Provider/direct OpenAI 및 local GitLab smoke는 이 rule slice에 필요하지 않아 실행하지 않았다.

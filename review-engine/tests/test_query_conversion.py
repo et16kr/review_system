@@ -236,6 +236,11 @@ def test_query_analysis_does_not_treat_ide_rc_declaration_as_error_flow() -> Non
         ),
         (
             "typescript",
+            "// @ts-nocheck\nexport const user = payload as User;\n",
+            {"ts_nocheck"},
+        ),
+        (
+            "typescript",
             "// eslint-disable-next-line react-hooks/exhaustive-deps\nuseEffect(async () => {\n  return <div dangerouslySetInnerHTML={{ __html: html }} />;\n}, []);\nconst rows = items.map((item, index) => <li key={index}>{item.name}</li>);\n",
             {
                 "async_effect_callback",

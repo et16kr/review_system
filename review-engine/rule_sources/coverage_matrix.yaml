@@ -675,9 +675,9 @@ languages:
             section_id: candidate_canonical_rule_groups
             status: mapped
             pack_targets: [ts_api_design]
-            canonical_rules: [TS.API.1, TS.API.3, TS.API.6]
+            canonical_rules: [TS.API.1, TS.API.3, TS.API.6, TS.API.9]
             reviewability_mix: [auto_review]
-            reason: Suppression directives are fully detector-backed and canonicalized.
+            reason: Local and file-wide TypeScript suppression directives are detector-backed and canonicalized.
           - source_atom_id: runtime_validation
             section_id: candidate_canonical_rule_groups
             status: mapped
