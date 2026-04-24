@@ -121,6 +121,9 @@
   legacy read-only alias로만 유지한다.
 - runtime input에 `pack_id`와 `source_family`가 함께 오면 같은 값이어야 하며,
   다르면 ambiguous extension identity로 보고 fail-fast 한다.
+- extension authoring에서 `pack_weight`는 policy YAML `pack_weights`에만 둔다.
+- `reference_only`는 rule entry `reviewability`로만 표현하고,
+  `conflict_action`은 policy override/exclusion이 해석된 runtime state로만 본다.
 - private rule packaging은 아직 roadmap 대상이다.
 - 우선순위는 특정 조직명 하드코딩이 아니라 pack/profile policy로 표현한다.
 

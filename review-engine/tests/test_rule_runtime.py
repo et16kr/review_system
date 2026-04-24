@@ -59,6 +59,20 @@ def _build_extension_root(tmp_path: Path) -> Path:
             priority_tier: override
             specificity: 0.99
             false_positive_risk: low
+          - rule_no: ORG.REF.1
+            section: ORG
+            title: Keep owner-wrapper rollout notes as reference guidance
+            summary: Project-specific migration notes should stay reference-only.
+            text: Keep owner-wrapper rollout exceptions and migration notes as reference guidance instead of auto-review findings.
+            category: documentation
+            trigger_patterns: [owner_wrapper]
+            reviewability: reference_only
+            priority_tier: reference
+            fix_guidance: Capture migration exceptions in the owner-wrapper playbook instead of surfacing them as findings.
+            base_score: 0.35
+            severity_default: 0.35
+            specificity: 0.45
+            false_positive_risk: low
         """,
     )
     _write(
@@ -122,13 +136,24 @@ def test_extension_rule_root_can_override_and_exclude_public_rules(
     runtime = load_rule_runtime(settings)
 
     active_rules = {record.rule_no for record in runtime.active_records}
+    reference_rules = {record.rule_no for record in runtime.reference_records}
     excluded_rules = {record.rule_no for record in runtime.excluded_records}
+    by_rule = {
+        record.rule_no: record
+        for record in [*runtime.active_records, *runtime.reference_records, *runtime.excluded_records]
+    }
 
     assert "ORG.MEM.1" in active_rules
+    assert "ORG.REF.1" in reference_rules
     assert "R.11" in excluded_rules
     assert "ES.6" in excluded_rules
     assert runtime.extension_rule_roots == [str(extension_root.resolve())]
     assert runtime.prompt_overlay_refs == ["org"]
+    assert by_rule["ORG.MEM.1"].pack_weight == pytest.approx(0.97)
+    assert by_rule["ORG.MEM.1"].conflict_action == "compatible"
+    assert by_rule["ORG.REF.1"].reviewability == "reference_only"
+    assert by_rule["ORG.REF.1"].conflict_action == "compatible"
+    assert by_rule["ORG.REF.1"].priority_tier == "reference"
 
 
 def test_extension_entry_point_loading_matches_filesystem_loading(
@@ -212,6 +237,65 @@ def test_invalid_filesystem_extension_manifest_fails_fast_even_when_strict_is_di
                 strict_extension_loading=False,
             )
         )
+
+
+@pytest.mark.parametrize(
+    ("entry_default_action", "policy_default_conflict_action", "message"),
+    [
+        (
+            "reference_only",
+            None,
+            "use reviewability: reference_only for reference guidance",
+        ),
+        (
+            "excluded",
+            None,
+            "use priority policy overrides/exclusions for conflict actions",
+        ),
+        (
+            None,
+            "reference_only",
+            "use rule entry reviewability: reference_only instead",
+        ),
+        (
+            None,
+            "overridden",
+            "use explicit policy overrides/exclusions instead",
+        ),
+    ],
+)
+def test_extension_authoring_rejects_noncanonical_conflict_action_surfaces(
+    fixture_settings,
+    tmp_path,
+    entry_default_action,
+    policy_default_conflict_action,
+    message,
+) -> None:
+    extension_root = _build_extension_root(tmp_path)
+    pack_path = extension_root / "packs" / "org_cpp.yaml"
+    policy_path = extension_root / "policies" / "org_default.yaml"
+
+    if entry_default_action is not None:
+        pack_text = pack_path.read_text(encoding="utf-8").replace(
+            "    false_positive_risk: low\n",
+            "    false_positive_risk: low\n"
+            f"    default_action: {entry_default_action}\n",
+            1,
+        )
+        pack_path.write_text(pack_text, encoding="utf-8")
+
+    if policy_default_conflict_action is not None:
+        policy_text = policy_path.read_text(encoding="utf-8").replace(
+            "language_id: cpp\n",
+            "language_id: cpp\n"
+            "defaults:\n"
+            f"  conflict_action: {policy_default_conflict_action}\n",
+            1,
+        )
+        policy_path.write_text(policy_text, encoding="utf-8")
+
+    with pytest.raises(Exception, match=message):
+        load_rule_runtime(replace(fixture_settings, extension_rule_roots=(extension_root,)))
 
 
 def test_guideline_record_syncs_legacy_source_family_alias_to_pack_id() -> None:

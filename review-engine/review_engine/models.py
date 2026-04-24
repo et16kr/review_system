@@ -108,6 +108,18 @@ class RuleEntry(BaseModel):
     context_id: str | None = None
     dialect_id: str | None = None
 
+    @model_validator(mode="after")
+    def _enforce_canonical_operational_surface(self) -> RuleEntry:
+        if self.default_action == "compatible":
+            return self
+        if self.default_action == "reference_only":
+            raise ValueError(
+                "default_action must stay compatible; use reviewability: reference_only for reference guidance"
+            )
+        raise ValueError(
+            "default_action must stay compatible; use priority policy overrides/exclusions for conflict actions"
+        )
+
 
 class RulePackManifest(BaseModel):
     schema_version: int = 1
@@ -160,6 +172,18 @@ class PriorityPolicyExclusion(BaseModel):
 class PriorityPolicyDefaults(BaseModel):
     conflict_action: ConflictAction = "compatible"
     default_pack_weight: float = 0.5
+
+    @model_validator(mode="after")
+    def _enforce_canonical_conflict_default(self) -> PriorityPolicyDefaults:
+        if self.conflict_action == "compatible":
+            return self
+        if self.conflict_action == "reference_only":
+            raise ValueError(
+                "defaults.conflict_action must stay compatible; use rule entry reviewability: reference_only instead"
+            )
+        raise ValueError(
+            "defaults.conflict_action must stay compatible; use explicit policy overrides/exclusions instead"
+        )
 
 
 class PriorityPolicy(BaseModel):

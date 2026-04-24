@@ -20,3 +20,17 @@ entries:
     priority_tier: override
     specificity: 0.99
     false_positive_risk: low
+  - rule_no: ORG.REF.1
+    section: ORG
+    title: Keep owner-wrapper rollout notes as reference guidance
+    summary: Project-specific migration notes should stay reference-only.
+    text: Keep owner-wrapper rollout exceptions and migration notes as reference guidance instead of auto-review findings.
+    category: documentation
+    trigger_patterns: [owner_wrapper]
+    reviewability: reference_only
+    priority_tier: reference
+    fix_guidance: Capture migration exceptions in the owner-wrapper playbook instead of surfacing them as findings.
+    base_score: 0.35
+    severity_default: 0.35
+    specificity: 0.45
+    false_positive_risk: low

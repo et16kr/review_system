@@ -257,7 +257,7 @@
 
 ### 5. Organization Rule Extension
 
-상태: `partial`
+상태: `watch`
 
 최근 완료:
 
@@ -285,19 +285,27 @@
   legacy-only payload는 canonical `pack_id`로 동기화하는 회귀를 추가했다.
 - `docs/API_CONTRACTS.md`와 `review-engine` search-service metadata regression이
   응답에서 `pack_id`와 `source_family`가 같은 identity를 노출하는 장기 호환 계약을 고정한다.
+- sample private extension root와 `docs/CURRENT_SYSTEM.md`가
+  `pack_weight`는 policy `pack_weights`, `reference_only`는 rule entry `reviewability`,
+  `conflict_action`은 policy override/exclusion이 해석된 runtime state라는 canonical 경계를 고정한다.
+- sample extension pack이 `ORG.REF.1` reference-only rule을 추가해
+  private extension에서도 reference guidance가 `reviewability` 경로로만 표현됨을 repo-local fixture로 고정한다.
+- `review-engine` authoring model이
+  rule entry `default_action`과 policy `defaults.conflict_action`의 non-`compatible` 값을 reject해
+  override/exclusion은 policy surface, reference guidance는 `reviewability` surface로 분리한다.
 
-다음 작업:
+남은 구현 작업:
 
-1. `pack_weight`, `reference_only`, conflict action의 운영 표현 방식을 확정한다.
+- 없음
 
 검증 메모:
 
-- 이번 slice는 `review-engine` runtime model/search metadata에서
-  `source_family`를 `pack_id` legacy alias로 고정하고 mismatch fail-fast를 추가했다.
+- 이번 slice는 `review-engine` authoring model, repo sample private extension root,
+  canonical 문서에서 `pack_weight`/`reference_only`/`conflict_action` 운영 표현 경계를 고정했다.
 - rerun:
   - `uv run --project review-engine pytest review-engine/tests/test_rule_runtime.py review-engine/tests/test_rule_runtime_private_extension.py review-engine/tests/test_review_metadata.py -q`
 - broader `review-engine` pytest, ingest/retrieval baseline, `review-bot`/`review-platform` tests,
-  GitLab smoke, provider/direct OpenAI validation은 legacy alias compatibility 범위라 생략했다.
+  GitLab smoke, provider/direct OpenAI validation은 extension authoring/runtime contract 범위라 생략했다.
 
 완료 기준:
 

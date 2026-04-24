@@ -29,3 +29,17 @@ Notes:
 - If this filesystem root contains a broken `manifest.yaml` or invalid pack/profile/policy
   YAML, `review-engine` still fails fast because the operator explicitly selected
   the root via `REVIEW_ENGINE_EXTENSION_RULE_ROOTS`.
+
+Canonical authoring surface:
+
+- `pack_weight` lives in `policies/*.yaml` `pack_weights`; this sample keeps
+  `cpp_core=0.72` and `org_cpp=0.97` in
+  [policies/org_default.yaml](/home/et16/work/review_system/review-engine/examples/extensions/private_org_cpp/policies/org_default.yaml:1).
+- `reference_only` is authored with `reviewability: reference_only` on the rule
+  entry itself. The sample
+  [packs/org_cpp.yaml](/home/et16/work/review_system/review-engine/examples/extensions/private_org_cpp/packs/org_cpp.yaml:1)
+  uses `ORG.REF.1` as the canonical reference-only example.
+- conflict actions are runtime resolution state, not a separate rule-entry toggle.
+  Keep rule entry `default_action` and policy `defaults.conflict_action` at
+  `compatible`; use policy `overrides`/`exclusions` when a rule must become
+  `overridden` or `excluded`.
