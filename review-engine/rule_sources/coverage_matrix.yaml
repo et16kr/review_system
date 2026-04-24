@@ -784,9 +784,9 @@ languages:
             section_id: candidate_canonical_rule_groups
             status: mapped
             pack_targets: [project_javascript, node_javascript]
-            canonical_rules: [JS.1, JS.4, JS.NODE.5]
+            canonical_rules: [JS.1, JS.4, JS.6, JS.NODE.5]
             reviewability_mix: [auto_review]
-            reason: Eval-like execution and string timer callbacks are fully canonicalized.
+            reason: Eval-like execution, Function constructors, and string timer callbacks are fully canonicalized.
           - source_atom_id: dom_injection_boundaries
             section_id: candidate_canonical_rule_groups
             status: mapped

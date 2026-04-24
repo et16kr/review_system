@@ -72,6 +72,19 @@ entries:
     priority_tier: override
     specificity: 0.96
     false_positive_risk: low
+  - rule_no: JS.6
+    section: JS
+    title: Function constructors should not compile runtime strings in application paths
+    summary: Function constructors turn strings into executable JavaScript with eval-like security and review risk.
+    text: Creating functions from string bodies dynamically parses and executes code outside normal static review. Keep this out of normal request, rendering, and configuration paths unless the executable input is tightly bounded and trusted.
+    category: security
+    trigger_patterns: [function_constructor]
+    fix_guidance: Replace runtime compilation with named functions, explicit dispatch tables, parsers, or data-driven logic that treats external input as data.
+    base_score: 0.98
+    severity_default: 0.99
+    priority_tier: override
+    specificity: 0.96
+    false_positive_risk: low
   - rule_no: JS.REF.1
     section: JSREF
     title: DOM update paths should make the escaping or sanitization boundary obvious

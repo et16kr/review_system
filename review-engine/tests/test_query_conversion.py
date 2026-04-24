@@ -255,6 +255,11 @@ def test_query_analysis_does_not_treat_ide_rc_declaration_as_error_flow() -> Non
             {"next_route_request_json", "next_client_secret_env"},
         ),
         (
+            "javascript",
+            "const transform = new Function('payload', 'return payload.total');\ntransform(input);\n",
+            {"function_constructor"},
+        ),
+        (
             "sql",
             "select * from users where id not in (select user_id from disabled_users) order by 1;\n",
             {"order_by_ordinal", "not_in_subquery"},

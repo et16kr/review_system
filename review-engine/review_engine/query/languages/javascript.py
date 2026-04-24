@@ -15,6 +15,12 @@ PLUGIN = LanguageQueryPlugin(
             1.0,
         ),
         PatternSpec(
+            "function_constructor",
+            r"(?:\bnew\s+Function\s*\(|(?<![\w.])(?<!function\s)Function\s*\()",
+            "Function constructor detected; review dynamic code compilation and safer dispatch alternatives.",
+            0.98,
+        ),
+        PatternSpec(
             "innerhtml",
             r"\.innerHTML\s*=",
             "innerHTML assignment detected; review DOM injection and escaping boundaries.",
@@ -71,6 +77,7 @@ PLUGIN = LanguageQueryPlugin(
     ),
     hinted_rules={
         "eval_usage": ("JS.1", "JS.4"),
+        "function_constructor": ("JS.6",),
         "innerhtml": ("JS.2", "JS.3"),
         "loose_equality": ("JS.NODE.2", "JS.NODE.4"),
         "promise_without_await": ("JS.NODE.1", "JS.NODE.3"),
@@ -83,6 +90,7 @@ PLUGIN = LanguageQueryPlugin(
     },
     direct_hint_patterns={
         "eval_usage",
+        "function_constructor",
         "innerhtml",
         "loose_equality",
         "promise_without_await",

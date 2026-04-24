@@ -24,14 +24,14 @@ status: drafted
 
 ## High-Signal Review Areas
 
-- Avoid eval, string-based timers, `document.write`, and raw `innerHTML` writes in normal application paths.
+- Avoid eval, `Function` constructors, string-based timers, `document.write`, and raw `innerHTML` writes in normal application paths.
 - Keep async error propagation explicit.
 - Prefer strict equality unless coercion is intentionally part of the behavior.
 - Treat detached promise chains as ownership decisions about where failures and retries actually go.
 
 ## Candidate Canonical Rule Groups
 
-- Dynamic execution: eval-like APIs, string callbacks, and runtime code loading.
+- Dynamic execution: eval-like APIs, `Function` constructors, string callbacks, and runtime code loading.
 - DOM injection boundaries: `innerHTML`, `document.write`, and raw HTML rendering.
 - Async ownership: promise chaining, returned vs detached work, and error visibility.
 - Runtime coercion: loose equality, normalization before comparison, and boundary clarity.
