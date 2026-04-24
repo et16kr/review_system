@@ -252,3 +252,43 @@
 - Post-review bucket: `bug_fix`
 - Validation note: Run `cd review-engine && uv run pytest tests/test_rule_runtime.py tests/test_rule_lifecycle_cli.py -q`
   after the fix. Local GitLab smoke and provider validation are not required.
+
+### B-docs-01 Split broad roadmap watch labels from still-open guardrail work
+
+- Finding: `F-docs-02 Roadmap watch labels hide still-open provider and automation follow-up work`
+- Severity: `medium`
+- Area: `docs`
+- Evidence: [docs/ROADMAP.md](/home/et16/work/review_system/docs/ROADMAP.md:28)
+  and [docs/ROADMAP.md](/home/et16/work/review_system/docs/ROADMAP.md:31)
+  mark broad provider runtime guardrails and roadmap automation blocked artifact retention as closed
+  or watch items, while [docs/CURRENT_SYSTEM.md](/home/et16/work/review_system/docs/CURRENT_SYSTEM.md:111)
+  still leaves summary/log provider provenance roadmap-bound and
+  [ops/scripts/advance_review_roadmap_with_codex.sh](/home/et16/work/review_system/ops/scripts/advance_review_roadmap_with_codex.sh:250)
+  keeps review-roadmap blocked summaries in `/tmp`.
+- Recommended action: In the post-review implementation roadmap update, split completed sub-scope
+  from remaining work and add or promote entries for lifecycle provider model/endpoint/transport
+  provenance, retained review-roadmap blocked artifacts, and bounded direct-smoke preflight.
+- Follow-up target: `docs/ROADMAP.md`
+- Post-review bucket: `roadmap_update`
+- Validation note: Static docs/code review is enough for the roadmap update. Runtime smoke and
+  direct OpenAI smoke are only needed when the underlying fixes make runtime/provider success claims.
+
+### B-docs-02 Add private rule packaging roadmap owner
+
+- Finding: `F-docs-03 Private rule packaging has no roadmap or deferred owner`
+- Severity: `medium`
+- Area: `docs`
+- Evidence: [docs/CURRENT_SYSTEM.md](/home/et16/work/review_system/docs/CURRENT_SYSTEM.md:153)
+  says private rule packaging is still a roadmap target, and the sample extension root at
+  [review-engine/examples/extensions/private_org_cpp/README.md](/home/et16/work/review_system/review-engine/examples/extensions/private_org_cpp/README.md:1)
+  plus [review-engine/tests/test_rule_runtime_private_extension.py](/home/et16/work/review_system/review-engine/tests/test_rule_runtime_private_extension.py:16)
+  show filesystem extension support exists. `docs/ROADMAP.md` has no private rule packaging or
+  deferred packaging readiness owner.
+- Recommended action: Add a roadmap or deferred readiness packet for private rule packaging, covering
+  package shape, version/compatibility metadata, validation gate, installation/update path, and
+  private generated artifact separation. If packaging is intentionally out of scope, remove the
+  current-system claim instead.
+- Follow-up target: `docs/ROADMAP.md`
+- Post-review bucket: `roadmap_update`
+- Validation note: Static docs/code review is sufficient until packaging behavior is implemented.
+  Later implementation should run review-engine extension runtime and packaging-specific tests.

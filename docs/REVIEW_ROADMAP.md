@@ -361,7 +361,9 @@ ops/scripts/advance_review_roadmap_with_codex.sh --model gpt-5.5 --until-done
 
 ### 10. Docs, Roadmap, And Deferred Review
 
-상태: `active`
+상태: `watch`
+
+완료: `2026-04-24`
 
 이번 작업의 범위:
 
@@ -375,11 +377,22 @@ ops/scripts/advance_review_roadmap_with_codex.sh --model gpt-5.5 --until-done
 - roadmap/deferred 재배치 제안이 정리된다.
 - 빠진 개선 항목이 있으면 backlog에 들어간다.
 
-## Queue
+완료 기록:
+
+- [CURRENT_STATE_REVIEW.md](/home/et16/work/review_system/docs/reviews/CURRENT_STATE_REVIEW.md:1)에
+  roadmap/deferred 역할 분리 review 결과를 남겼다. Active roadmap은 evidence refresh,
+  note-first UX contract, local backend artifact prep, deferred readiness packet으로 제한되어
+  있어 큰 방향은 유지하는 것이 맞다고 평가했다.
+- [REVIEW_FINDINGS_BACKLOG.md](/home/et16/work/review_system/docs/reviews/REVIEW_FINDINGS_BACKLOG.md:1)에
+  broad watch label 보정과 private rule packaging owner 추가를 post-review
+  `docs/ROADMAP.md` update 후보로 추가했다.
+- 검증은 static docs/code review와 `git diff --check`로 제한했다. local GitLab smoke와
+  OpenAI direct smoke는 이 docs/roadmap/deferred review의 runtime signal로 필요하지 않아
+  실행하지 않았다.
 
 ### 11. Dead Code, Dead Docs, And Cleanup Review
 
-상태: `queued`
+상태: `active`
 
 이번 작업의 범위:
 
@@ -390,6 +403,8 @@ ops/scripts/advance_review_roadmap_with_codex.sh --model gpt-5.5 --until-done
 완료 기준:
 
 - cleanup 후보가 risk와 함께 backlog에 정리된다.
+
+## Queue
 
 ### 12. Test Coverage And Missing Gate Review
 
@@ -424,7 +439,7 @@ ops/scripts/advance_review_roadmap_with_codex.sh --model gpt-5.5 --until-done
 
 ## Suggested Next Step
 
-현재 다음 실행 단위는 `10. Docs, Roadmap, And Deferred Review`다.
+현재 다음 실행 단위는 `11. Dead Code, Dead Docs, And Cleanup Review`다.
 
 이유:
 
@@ -454,8 +469,11 @@ ops/scripts/advance_review_roadmap_with_codex.sh --model gpt-5.5 --until-done
 - `9. Ops, Smoke, And Automation Review`에서 release gate, local GitLab pre-release smoke,
   direct provider smoke의 signal 경계는 유지하되, review-roadmap blocked artifact retention과
   direct smoke preflight timeout gap을 확인했다.
-- 다음에는 implementation roadmap, review roadmap, deferred 문서의 역할 분리와 누락된 후속
-  작업을 점검한다.
+- `10. Docs, Roadmap, And Deferred Review`에서 implementation roadmap과 deferred 문서의
+  큰 역할 분리는 유지하되, broad watch label 보정과 private rule packaging owner 추가를
+  post-review roadmap update 후보로 남겼다.
+- 다음에는 죽은 wrapper/config/test fixture/compatibility path와 혼란을 주는 문서 이름을
+  정리 후보 관점에서 점검한다.
 
 ## Validation Baseline
 
