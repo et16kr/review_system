@@ -326,7 +326,7 @@ main `ROADMAP.md`의 현재 항목을 다 돌린 뒤 곧바로 이어서 할 후
 
 ### 6. Roadmap Automation Audit Artifact
 
-상태: `partial`
+상태: `watch`
 
 최근 완료:
 
@@ -340,18 +340,19 @@ main `ROADMAP.md`의 현재 항목을 다 돌린 뒤 곧바로 이어서 할 후
 - 같은 script prompt가 blocked 응답에 `BLOCKED_UNIT`, `BLOCKER_TYPE`, `BLOCKED_REASON`
   structured line을 요구하고, artifact append는 field가 없는 legacy blocked output에도
   fallback summary를 남기도록 고정됐다.
+- `docs/baselines/roadmap_automation/README.md`가
+  retained blocker artifact만을 canonical source로 쓰는 repeated blocker review procedure를 추가했고,
+  `blocked_unit`/`blocker_type` 집계 명령과 append-only 운영 규칙을 함께 고정했다.
 
-다음 작업:
+남은 구현 작업:
 
-1. repeated blocker를 집계할 최소 운영 절차를 문서화한다.
+- 없음
 
 검증 메모:
 
-- 이번 slice는 roadmap automation script의 blocked-artifact append 경로만 바꿨다.
+- 이번 slice는 roadmap automation retained artifact README에 repeated blocker review procedure를 추가했다.
 - rerun:
   - `bash -n ops/scripts/advance_roadmap_with_codex.sh`
-- deterministic temp git repo + stub `codex` blocked-path harness로
-  `docs/baselines/roadmap_automation/blocked_roadmap_units_YYYY-MM-DD.md` 생성/append를 확인했다.
 - broader `review-engine`/`review-bot`/`review-platform` tests, GitLab smoke,
   provider/direct OpenAI validation은 roadmap automation script 범위 밖이라 생략했다.
 
