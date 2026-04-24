@@ -4535,6 +4535,37 @@ def test_render_help_note_lists_walkthrough_command() -> None:
     assert "`@review-bot walkthrough`" in note
 
 
+def test_post_unknown_command_note_upserts_visible_feedback() -> None:
+    runner = ReviewRunner()
+    adapter = FakeAdapter()
+    key = ReviewRequestKey(
+        review_system="gitlab",
+        project_ref="group/project-a",
+        review_request_id="117",
+    )
+
+    assert runner.post_unknown_command_note(
+        key=key,
+        unknown_command="@review-bot fullreport",
+        adapter=adapter,
+    ) is True
+
+    assert len(adapter.general_notes) == 1
+    note = adapter.general_notes[0]
+    assert "<!-- review-bot:general-note-purpose:unknown-command -->" in note
+    assert "`@review-bot fullreport`는 지원하지 않는 명령" in note
+    assert "`@review-bot full-report`" in note
+
+    assert runner.post_unknown_command_note(
+        key=key,
+        unknown_command="@review-bot wat",
+        adapter=adapter,
+    ) is True
+
+    assert len(adapter.general_notes) == 1
+    assert "`@review-bot wat`는 지원하지 않는 명령" in adapter.general_notes[0]
+
+
 def test_load_rule_effectiveness_weights_uses_distinct_fingerprint() -> None:
     _reset_db()
 

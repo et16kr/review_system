@@ -1455,6 +1455,23 @@ class ReviewRunner:
             purpose="help",
         )
 
+    def post_unknown_command_note(
+        self,
+        *,
+        key: ReviewRequestKey,
+        unknown_command: str | None,
+        adapter: Any | None = None,
+    ) -> bool:
+        target_adapter = adapter or self._get_adapter()
+        if not hasattr(target_adapter, "post_general_note"):
+            return False
+        return self._publish_general_note(
+            adapter=target_adapter,
+            key=key,
+            body=self._render_unknown_command_note(unknown_command),
+            purpose="unknown-command",
+        )
+
     def _build_decision(
         self,
         *,
@@ -4093,9 +4110,37 @@ class ReviewRunner:
             "해당 finding에 대한 피드백으로 반영됩니다.",
             "",
             "멘션은 줄 시작에 있을 때만 인식됩니다. "
-            "알 수 없는 명령은 안전을 위해 무시됩니다.",
+            "알 수 없는 명령은 리뷰를 실행하지 않고 지원 명령 안내 note를 남깁니다.",
         ]
         return self._truncate_general_note("\n".join(lines))
+
+    def _render_unknown_command_note(self, unknown_command: str | None) -> str:
+        command = self._format_unknown_command_for_note(unknown_command)
+        lines = ["## 🤖 review-bot 명령을 알 수 없습니다", ""]
+        if command:
+            lines.append(f"`{command}`는 지원하지 않는 명령이라 리뷰를 실행하지 않았습니다.")
+        else:
+            lines.append("지원하지 않는 명령이라 리뷰를 실행하지 않았습니다.")
+        lines.extend(
+            [
+                "",
+                "사용 가능한 명령:",
+                "- `@review-bot review`",
+                "- `@review-bot summarize`",
+                "- `@review-bot walkthrough`",
+                "- `@review-bot full-report`",
+                "- `@review-bot backlog`",
+                "- `@review-bot help`",
+            ]
+        )
+        return self._truncate_general_note("\n".join(lines))
+
+    @staticmethod
+    def _format_unknown_command_for_note(unknown_command: str | None) -> str:
+        compact = " ".join(str(unknown_command or "").split())
+        if len(compact) > 120:
+            compact = f"{compact[:117]}..."
+        return compact.replace("`", "\\`")
 
     def _suppressed_feedback_counts(self, session: Session, review_run_id: str) -> dict[str, int]:
         rows = (

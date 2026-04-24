@@ -241,15 +241,6 @@ def _handle_gitlab_note_hook(payload: dict, *, session: Session) -> WebhookAccep
             status="ignored",
             ignored_reason=f"missing_review_request_mention:{mention}",
         )
-    if parsed.is_unknown_command:
-        matched = parsed.matched_text or ""
-        return WebhookAcceptedResponse(
-            accepted=False,
-            event="gitlab_note",
-            status="ignored",
-            ignored_reason=f"unknown_command:{matched}".strip(":"),
-        )
-
     author_username = str((payload.get("user") or {}).get("username") or "")
     if author_username == runner.settings.bot_author_name:
         return WebhookAcceptedResponse(
@@ -284,6 +275,26 @@ def _handle_gitlab_note_hook(payload: dict, *, session: Session) -> WebhookAccep
         target_branch=merge_request.get("target_branch"),
         head_sha=((merge_request.get("last_commit") or {}).get("id")),
     )
+    if parsed.is_unknown_command:
+        matched = parsed.matched_text or ""
+        ignored_reason = f"unknown_command:{matched}".strip(":")
+        posted = runner.post_unknown_command_note(key=key, unknown_command=matched)
+        if not posted:
+            return WebhookAcceptedResponse(
+                accepted=False,
+                event="gitlab_note",
+                action="unknown_command",
+                status="ignored",
+                ignored_reason=ignored_reason,
+            )
+        return WebhookAcceptedResponse(
+            accepted=True,
+            event="gitlab_note",
+            action="unknown_command",
+            status="posted",
+            ignored_reason=ignored_reason,
+        )
+
     if parsed.command == "full-report":
         posted = runner.post_full_report_note(session, key=key)
         if not posted:

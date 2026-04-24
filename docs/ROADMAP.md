@@ -291,7 +291,7 @@ direct OpenAI smoke는 live provider success claim을 할 때만 실행한다.
 
 ### 6. Post Visible Feedback For Directed Unknown Note Commands
 
-상태: `active`
+상태: `watch`
 
 왜 지금 하나:
 
@@ -314,6 +314,22 @@ direct OpenAI smoke는 live provider success claim을 할 때만 실행한다.
 ```bash
 cd review-bot && uv run pytest tests/test_api_queue.py tests/test_review_runner.py -q
 ```
+
+완료 기록:
+
+- line-start directed unknown command는 detect run을 만들거나 enqueue하지 않고
+  same-purpose `unknown-command` general note로 supported command 안내를 남긴다.
+- bot-authored note와 incidental mention은 기존처럼 silent ignore/no-enqueue 경로를 유지한다.
+- webhook contract는 `action=unknown_command`, `ignored_reason=unknown_command:...`,
+  same-purpose upsert 동작을 명시한다.
+- 검증 통과:
+  - `cd review-bot && UV_CACHE_DIR=/tmp/uv-cache-review-bot-roadmap-6 uv run --no-sync pytest tests/test_api_queue.py tests/test_review_runner.py -q`
+  - `git diff --check`
+  - `bash -n ops/scripts/advance_roadmap_with_codex.sh ops/scripts/advance_review_roadmap_with_codex.sh`
+- 기본 `uv run`은 sandbox의 read-only `/home/et16/.cache/uv`를 피하기 위해 writable
+  `UV_CACHE_DIR`와 existing environment `--no-sync`로 검증했다.
+- local GitLab lifecycle smoke와 direct OpenAI smoke는 command dispatch/control path 변경이고
+  provider success claim이 아니어서 실행하지 않았다.
 
 관련 backlog: `B-review-bot-04`
 
@@ -752,7 +768,7 @@ python3 -m py_compile ops/scripts/create_gitlab_merge_request.py ops/scripts/boo
 
 ## Suggested Next Step
 
-현재 가장 자연스러운 다음 작업은 `6. Post Visible Feedback For Directed Unknown Note Commands`이다.
+현재 가장 자연스러운 다음 작업은 `7. Update Local Harness Bot Bridge To Key-Based Bot API`이다.
 
 이유:
 
@@ -761,7 +777,8 @@ python3 -m py_compile ops/scripts/create_gitlab_merge_request.py ops/scripts/boo
 - GitLab note-trigger stale head handling의 correctness guardrail은 닫혔다.
 - adapter thread/feedback identity scope는 contract와 storage에서 맞춰졌다.
 - provider runtime provenance는 lifecycle API/log/summary note에서 model/endpoint/transport까지 드러낸다.
-- 다음 `active` 항목은 directed unknown note command에 visible feedback을 남기는 일이다.
+- directed unknown note command는 visible feedback을 남기고 no-enqueue 경로를 유지한다.
+- 다음 `active` 항목은 local harness bot bridge를 key-based bot API로 맞추는 일이다.
 
 ## Validation Baseline
 

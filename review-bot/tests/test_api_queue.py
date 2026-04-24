@@ -715,7 +715,7 @@ def test_gitlab_note_webhook_tracks_same_iid_per_project_as_distinct_requests() 
         session.close()
 
 
-def test_gitlab_note_webhook_ignores_unknown_command() -> None:
+def test_gitlab_note_webhook_posts_unknown_command_feedback_without_enqueue() -> None:
     _reset_db()
     fake_queue = FakeQueue(name="review-detect-test", job_id="job-unknown")
     payload = {
@@ -739,19 +739,33 @@ def test_gitlab_note_webhook_ignores_unknown_command() -> None:
 
     with patch.object(api_main, "init_db", lambda: None):
         with patch.object(api_main, "detect_queue", fake_queue):
-            with TestClient(api_main.app) as client:
-                response = client.post(
-                    "/webhooks/gitlab/merge-request",
-                    json=payload,
-                    headers={"X-Gitlab-Event": "Note Hook"},
-                )
+            with patch.object(
+                api_main.runner,
+                "post_unknown_command_note",
+                return_value=True,
+            ) as mock_unknown:
+                with TestClient(api_main.app) as client:
+                    response = client.post(
+                        "/webhooks/gitlab/merge-request",
+                        json=payload,
+                        headers={"X-Gitlab-Event": "Note Hook"},
+                    )
 
     assert response.status_code == 200
     body = response.json()
-    assert body["accepted"] is False
-    assert body["status"] == "ignored"
+    assert body["accepted"] is True
+    assert body["action"] == "unknown_command"
+    assert body["status"] == "posted"
     assert body["ignored_reason"].startswith("unknown_command:")
+    assert body["review_run_id"] is None
     assert len(fake_queue.calls) == 0
+    assert mock_unknown.call_args.kwargs["unknown_command"] == "@review-bot fullreport"
+    assert mock_unknown.call_args.kwargs["key"].project_ref == "group/project-a"
+    session = SessionLocal()
+    try:
+        assert session.query(ReviewRun).count() == 0
+    finally:
+        session.close()
 
 
 def test_gitlab_note_webhook_ignores_incidental_mention() -> None:

@@ -587,7 +587,7 @@ Response 예시:
 파서 정책:
 
 - 명령 매칭은 줄 시작 기준(`^\s*@name ...`)으로만 이루어진다. "please ping @review-bot when ready" 같은 문장 중 incidental mention은 무시한다.
-- 알 수 없는 token(`@review-bot fullreport` 등)이 뒤에 오면 리뷰를 실행하지 않고 `ignored_reason=unknown_command:...`로 응답한다.
+- 알 수 없는 token(`@review-bot fullreport` 등)이 뒤에 오면 리뷰를 실행하지 않고, general note가 지원되는 adapter에서는 supported command 안내 note를 게시한다. webhook response는 `action=unknown_command`, `ignored_reason=unknown_command:...`를 포함한다.
 - mention 자체가 아예 없으면 `ignored_reason=missing_review_request_mention:@review-bot`으로 응답한다.
 
 추가 정책:
@@ -605,7 +605,7 @@ Response 예시:
 - full-report note는 "최신 run 결과 + 현재 MR에 남아 있는 backlog"를 함께 보여 준다.
 - backlog note는 현재 MR에 실제로 남아 있는 backlog만 보여 준다.
 - help note는 현재 지원 명령을 간단히 안내한다. adapter가 general note를 지원하지 않으면 webhook response만 `posted` 없이 ignored로 끝낼 수 있다.
-- summarize / walkthrough / full-report / backlog / help note는 adapter가 `upsert_general_note`를 지원하면 same-purpose update를 우선한다.
+- summarize / walkthrough / full-report / backlog / help / unknown-command note는 adapter가 `upsert_general_note`를 지원하면 same-purpose update를 우선한다.
 - run-level summary note는 현재 append-only를 유지한다.
 - `project.path_with_namespace` 또는 MR `iid`가 없으면 400을 반환한다.
 
