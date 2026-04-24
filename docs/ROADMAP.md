@@ -1051,7 +1051,7 @@ python3 -m py_compile ops/scripts/create_gitlab_merge_request.py ops/scripts/boo
 
 ### 25. Auto-Fix Safety Packet
 
-상태: `queued`
+상태: `watch`
 
 연결 문서:
 
@@ -1066,6 +1066,26 @@ python3 -m py_compile ops/scripts/create_gitlab_merge_request.py ops/scripts/boo
 이 사전 작업이 끝나면:
 
 - `@review-bot apply`를 설계만 길게 하지 않고 safety-first slice로 시작할 수 있다.
+
+완료 기록:
+
+- auto-fix safety readiness packet을
+  [automation_work.md](/home/et16/work/review_system/docs/deferred/automation_work.md:45)에 추가했다.
+- future `@review-bot apply` v1 후보를 latest head, single-file/single-hunk,
+  reviewer-visible thread, deterministic validation, verifier-backed resolution으로 좁히고,
+  cross-cutting behavior, generated/vendor/lockfile, schema/security/concurrency/dependency 변경은
+  제외했다.
+- reviewer approval, audit record, rollback boundary를 명시해 apply가 `review` lifecycle의
+  부수 효과가 아니라 authorized explicit reviewer action이어야 한다고 고정했다.
+- provider `auto_fix_lines`는 current diff hunk의 exact replacement, digest match,
+  deterministic validation, verifier confirmation을 만족하기 전까지 suggestion-only artifact로
+  유지한다고 정했다.
+- 검증 통과:
+  - `git diff --check`
+  - `bash -n ops/scripts/advance_roadmap_with_codex.sh ops/scripts/advance_review_roadmap_with_codex.sh`
+- local GitLab lifecycle smoke와 direct OpenAI smoke는 deferred readiness 문서/계약 변경이고
+  provider/runtime success claim이 아니어서 실행하지 않았다. OpenAI direct smoke preflight는
+  configuration에 의해 skipped였다.
 
 ## Watch
 
@@ -1083,7 +1103,8 @@ python3 -m py_compile ops/scripts/create_gitlab_merge_request.py ops/scripts/boo
 
 ## Suggested Next Step
 
-현재 가장 자연스러운 다음 작업은 `25. Auto-Fix Safety Packet`이다.
+현재 바로 실행할 roadmap unit은 남아 있지 않다. 새 구현 작업은 아래 watch/deferred 영역 중 하나가
+명확한 trigger와 validation path를 얻을 때 `active` 또는 `queued`로 다시 올린다.
 
 이유:
 
@@ -1125,8 +1146,10 @@ python3 -m py_compile ops/scripts/create_gitlab_merge_request.py ops/scripts/boo
   install/update/rollback validation gate를 implementation-ready slice로 정리했다.
 - multi-SCM expansion readiness packet은 GitHub adapter 후보를 시작하기 전에 GitLab과 달라지는
   schema, note/thread/status surface, fixture/token 요구사항, adapter extension point를 표로 고정했다.
-- 다음 queued readiness work는 `auto_fix_lines`를 실제 patch application flow와 연결하기 전
-  low-risk fix class, reviewer approval, audit log, rollback 경계를 고정하는 작업이다.
+- auto-fix safety readiness packet은 `auto_fix_lines`를 실제 patch application flow와 연결하기 전
+  low-risk fix class, reviewer approval, audit log, rollback 경계를 고정했다.
+- 다음 실행 단위는 trust metric, live provider evidence, local GitLab/GitHub fixture readiness,
+  또는 human product decision이 새로 준비된 뒤 별도로 정의한다.
 
 ## Validation Baseline
 
