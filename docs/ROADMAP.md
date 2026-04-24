@@ -1014,7 +1014,7 @@ python3 -m py_compile ops/scripts/create_gitlab_merge_request.py ops/scripts/boo
 
 ### 24. Multi-SCM Expansion Readiness Packet
 
-상태: `queued`
+상태: `watch`
 
 연결 문서:
 
@@ -1029,6 +1029,25 @@ python3 -m py_compile ops/scripts/create_gitlab_merge_request.py ops/scripts/boo
 이 사전 작업이 끝나면:
 
 - GitHub PR adapter 설계를 큰 재조사 없이 시작할 수 있다.
+
+완료 기록:
+
+- GitHub adapter 후보를 시작하기 전에 GitLab과 달라지는 business identity, webhook trigger,
+  metadata/diff, inline thread, general note, feedback, status, remote ref scope를
+  [platform_expansion.md](/home/et16/work/review_system/docs/deferred/platform_expansion.md:24)에
+  표로 고정했다.
+- GitHub live smoke/replay fixture에 필요한 repository, token, permission, webhook subscription,
+  artifact provenance 기준을 적고, GitHub live smoke를 local GitLab lifecycle smoke와 별도
+  external-service signal로 남기도록 정리했다.
+- `ReviewSystemAdapterV2` first slice는 required method를 늘리지 않고 existing optional
+  general-note/file-content capability와 좁은 branch-head settle probe만 허용하며,
+  GitHub-specific id와 Checks API는 lifecycle/storage schema fork로 올리지 않는다고 고정했다.
+- 검증 통과:
+  - `git diff --check`
+  - `bash -n ops/scripts/advance_roadmap_with_codex.sh ops/scripts/advance_review_roadmap_with_codex.sh`
+- local GitLab lifecycle smoke와 direct OpenAI smoke는 deferred readiness 문서/계약 변경이고
+  provider/runtime success claim이 아니어서 실행하지 않았다. OpenAI direct smoke preflight는
+  configuration에 의해 skipped였다.
 
 ### 25. Auto-Fix Safety Packet
 
@@ -1064,7 +1083,7 @@ python3 -m py_compile ops/scripts/create_gitlab_merge_request.py ops/scripts/boo
 
 ## Suggested Next Step
 
-현재 가장 자연스러운 다음 작업은 `24. Multi-SCM Expansion Readiness Packet`이다.
+현재 가장 자연스러운 다음 작업은 `25. Auto-Fix Safety Packet`이다.
 
 이유:
 
@@ -1104,8 +1123,10 @@ python3 -m py_compile ops/scripts/create_gitlab_merge_request.py ops/scripts/boo
   우회하지 않는 future editor scope를 정리했다.
 - private/organization rule packaging readiness packet은 manifest metadata, artifact 분리,
   install/update/rollback validation gate를 implementation-ready slice로 정리했다.
-- 다음 queued readiness work는 GitHub adapter 후보를 시작하기 전에 GitLab과 달라지는 schema,
-  note/thread/status surface, fixture/token 요구사항, adapter extension point를 표로 고정하는 작업이다.
+- multi-SCM expansion readiness packet은 GitHub adapter 후보를 시작하기 전에 GitLab과 달라지는
+  schema, note/thread/status surface, fixture/token 요구사항, adapter extension point를 표로 고정했다.
+- 다음 queued readiness work는 `auto_fix_lines`를 실제 patch application flow와 연결하기 전
+  low-risk fix class, reviewer approval, audit log, rollback 경계를 고정하는 작업이다.
 
 ## Validation Baseline
 
