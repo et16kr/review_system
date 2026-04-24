@@ -52,14 +52,14 @@ def _write_fake_curl(bin_dir: Path) -> None:
               exit 1
             fi
 
-            if [[ "$url" == "https://api.openai.com/v1/models" ]]; then
+            if [[ "$url" == */models ]]; then
               cat >"$output" <<'EOF'
             {"data":[{"id":"gpt-test"}]}
             EOF
               exit 0
             fi
 
-            if [[ "$url" != "https://api.openai.com/v1/responses" ]]; then
+            if [[ "$url" != */responses ]]; then
               echo "unexpected fake curl url: $url" >&2
               exit 1
             fi
@@ -118,6 +118,7 @@ def test_smoke_script_resolves_root_from_script_location(tmp_path: Path) -> None
     assert "repo_root_source=script_dir" in result.stdout
     assert f"env_file={repo_root / 'ops/.env'}" in result.stdout
     assert "env_file_source=ops_default" in result.stdout
+    assert "endpoint_base_url=https://api.openai.com/v1" in result.stdout
     assert "configured_model=gpt-4.1-mini" in result.stdout
     assert "models_probe_status=ok" in result.stdout
     assert "invalid_key_probe_status=ok" in result.stdout
@@ -153,5 +154,34 @@ def test_smoke_script_respects_root_and_env_overrides(tmp_path: Path) -> None:
     assert "repo_root_source=env" in result.stdout
     assert f"env_file={env_file}" in result.stdout
     assert "env_file_source=env" in result.stdout
+    assert "endpoint_base_url=https://api.openai.com/v1" in result.stdout
     assert "configured_model=gpt-override" in result.stdout
+    assert "live_probe_model=gpt-test-live" in result.stdout
+
+
+def test_smoke_script_skips_invalid_key_probe_for_non_default_base_url(tmp_path: Path) -> None:
+    repo_root = tmp_path / "local-backend-review-system"
+    script_dir = repo_root / "ops/scripts"
+    script_dir.mkdir(parents=True)
+    shutil.copy2(SCRIPT_PATH, script_dir / SCRIPT_PATH.name)
+    (repo_root / "ops/.env").write_text(
+        "OPENAI_API_KEY=sk-local-test\n"
+        "BOT_OPENAI_MODEL=local-model\n"
+        "BOT_OPENAI_BASE_URL=http://127.0.0.1:11434/v1/\n",
+        encoding="utf-8",
+    )
+
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    _write_fake_curl(bin_dir)
+
+    env = os.environ.copy()
+    env["PATH"] = f"{bin_dir}:{env['PATH']}"
+
+    result = _run_script(script_dir / SCRIPT_PATH.name, env=env, cwd=tmp_path)
+
+    assert result.returncode == 0, result.stderr
+    assert "endpoint_base_url=http://127.0.0.1:11434/v1" in result.stdout
+    assert "models_probe_status=ok" in result.stdout
+    assert "invalid_key_probe_status=skipped_non_default_base_url" in result.stdout
     assert "live_probe_model=gpt-test-live" in result.stdout

@@ -78,6 +78,7 @@ BOT_VERIFY_SCORE_BAND=0.10
 BOT_PROVIDER=openai
 BOT_FALLBACK_PROVIDER=stub
 BOT_OPENAI_MODEL=gpt-5.2
+BOT_OPENAI_BASE_URL=
 BOT_OPENAI_TIMEOUT_SECONDS=10
 BOT_OPENAI_MAX_RETRIES=0
 OPENAI_API_KEY=...
@@ -105,11 +106,14 @@ bash /home/et16/work/review_system/ops/scripts/smoke_openai_provider_direct.sh
   - repo root를 스크립트 위치 대신 명시적으로 지정한다.
 - `REVIEW_SYSTEM_ENV_FILE`
   - 기본 `ops/.env` 대신 다른 env 파일을 직접 지정한다.
+- `BOT_OPENAI_BASE_URL`
+  - 기본 `https://api.openai.com/v1` 대신 OpenAI-compatible local/backend endpoint를 지정한다.
+  - 현재 client/smoke 경로는 API key를 계속 요구하므로, backend가 auth를 무시하더라도 placeholder key가 필요할 수 있다.
 
 이 smoke는 아래를 구분해서 보여준다.
 
 - OpenAI API `/v1/models` 도달 여부
-- 잘못된 API key가 실제로 `401 invalid_api_key`를 내는지
+- 기본 OpenAI base URL일 때 잘못된 API key가 실제로 `401 invalid_api_key`를 내는지
 - 현재 설정 key/model이 direct Responses 호출에서 실제로 성공하는지
 - 또는 `insufficient_quota` 같은 direct provider 오류로 막히는지
 

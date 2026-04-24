@@ -330,6 +330,7 @@ class OpenAIReviewCommentProvider(ReviewCommentProvider):
     def __init__(self) -> None:
         settings = get_settings()
         self.model = settings.openai_model
+        self.base_url = settings.openai_base_url
         self._max_retries = settings.openai_max_retries
         self._timeout = settings.openai_timeout_seconds
         self._prompt_composer = get_prompt_composer()
@@ -339,6 +340,7 @@ class OpenAIReviewCommentProvider(ReviewCommentProvider):
     def client(self) -> OpenAI:
         if self._client is None:
             self._client = OpenAI(
+                base_url=self.base_url,
                 max_retries=self._max_retries,
                 timeout=self._timeout,
             )

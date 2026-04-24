@@ -88,6 +88,34 @@ def test_openai_provider_uses_composed_prompt_as_system_prompt(monkeypatch) -> N
     assert draft.auto_fix_lines == ["std::vector<char> ptr(32);"]
 
 
+def test_openai_provider_client_uses_configured_base_url(monkeypatch) -> None:
+    captured: dict[str, object] = {}
+
+    class FakeOpenAI:
+        def __init__(self, **kwargs) -> None:
+            captured.update(kwargs)
+
+    monkeypatch.setattr(
+        "review_bot.providers.openai_provider.get_settings",
+        lambda: SimpleNamespace(
+            openai_model="gpt-5.2",
+            openai_base_url="http://127.0.0.1:11434/v1",
+            openai_max_retries=4,
+            openai_timeout_seconds=12.5,
+        ),
+    )
+    monkeypatch.setattr("review_bot.providers.openai_provider.OpenAI", FakeOpenAI)
+
+    provider = OpenAIReviewCommentProvider()
+
+    assert provider.client is provider.client
+    assert captured == {
+        "base_url": "http://127.0.0.1:11434/v1",
+        "max_retries": 4,
+        "timeout": 12.5,
+    }
+
+
 def test_openai_provider_does_not_fallback_to_cpp_prompt_and_sanitizes_fields(monkeypatch) -> None:
     class FakeComposer:
         def compose(self, *, language_id: str | None, profile_id: str, context_id=None, overlay_refs=None) -> str:

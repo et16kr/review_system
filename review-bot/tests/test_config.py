@@ -25,6 +25,14 @@ def test_get_settings_accepts_supported_provider_names(monkeypatch) -> None:
     assert settings.fallback_provider_name == "stub"
 
 
+def test_get_settings_loads_optional_openai_base_url(monkeypatch) -> None:
+    monkeypatch.setenv("BOT_OPENAI_BASE_URL", " http://127.0.0.1:11434/v1/ ")
+
+    settings = get_settings()
+
+    assert settings.openai_base_url == "http://127.0.0.1:11434/v1"
+
+
 def test_get_settings_rejects_unknown_primary_provider(monkeypatch) -> None:
     monkeypatch.setenv("BOT_PROVIDER", "openia")
 

@@ -84,6 +84,9 @@
   OpenAI API key가 없으면 `openai_status=skipped` baseline으로 남길 수 있다.
 - lifecycle smoke와 direct OpenAI smoke는 다른 신호로 취급한다.
   fallback이 켜져 있으면 lifecycle smoke만으로 live OpenAI 성공을 증명하지 않는다.
+- `BOT_OPENAI_BASE_URL`를 지정하면 기존 `openai` provider/client를 그대로 사용해
+  OpenAI-compatible endpoint로 라우팅할 수 있다.
+- direct provider smoke의 invalid API key probe는 기본 OpenAI base URL에서만 canonical signal로 본다.
 - `review_runs.provider_runtime`에 configured/effective provider와 fallback provenance를 저장하고,
   current-state API는 최신 run의 provenance를 바로 노출한다.
 - Markdown 문서는 명시적 unreviewable `markdown`으로 분류한다.

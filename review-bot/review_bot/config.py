@@ -22,6 +22,7 @@ class Settings:
     provider_name: str
     fallback_provider_name: str
     openai_model: str
+    openai_base_url: str | None
     openai_timeout_seconds: float
     openai_max_retries: int
     gitlab_token: str | None
@@ -78,6 +79,7 @@ def get_settings() -> Settings:
         provider_name=_load_provider_name("BOT_PROVIDER", "openai"),
         fallback_provider_name=_load_provider_name("BOT_FALLBACK_PROVIDER", "stub"),
         openai_model=os.getenv("BOT_OPENAI_MODEL", "gpt-4o"),
+        openai_base_url=(str(os.getenv("BOT_OPENAI_BASE_URL", "") or "").strip().rstrip("/") or None),
         openai_timeout_seconds=float(os.getenv("BOT_OPENAI_TIMEOUT_SECONDS", "30")),
         openai_max_retries=int(os.getenv("BOT_OPENAI_MAX_RETRIES", "2")),
         gitlab_token=os.getenv("GITLAB_TOKEN"),

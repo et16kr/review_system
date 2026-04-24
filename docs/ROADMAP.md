@@ -445,13 +445,31 @@ main `ROADMAP.md`의 현재 항목을 다 돌린 뒤 곧바로 이어서 할 후
 
 ### 8. OpenAI-Compatible Local LLM Backend
 
-상태: `not_started`
+상태: `partial`
+
+최근 완료:
+
+- `review-bot` settings와 `OpenAIReviewCommentProvider`가 optional `BOT_OPENAI_BASE_URL`를 받아
+  새 provider 종류를 추가하지 않고도 기존 `openai` provider/client를 OpenAI-compatible endpoint로 라우팅할 수 있게 됐다.
+- `ops/scripts/smoke_openai_provider_direct.sh`가 configured `endpoint_base_url`을 출력하고
+  default OpenAI base URL에서는 기존 invalid API key probe를 유지하되,
+  non-default endpoint에서는 `invalid_key_probe_status=skipped_non_default_base_url`로 경계를 분리한다.
+- `review-bot/tests/test_config.py`, `review-bot/tests/test_prompting.py`,
+  `review-bot/tests/test_openai_provider_direct_smoke.py`가 base URL wiring과 direct smoke contract를 deterministic하게 고정한다.
 
 다음 작업:
 
-1. OpenAI-compatible endpoint 전략을 고른다.
-2. fallback 정책과 structured output 품질 기준을 정한다.
-3. local backend smoke와 provider quality baseline 범위를 정한다.
+1. fallback 정책과 structured output 품질 기준을 정한다.
+2. local backend smoke와 provider quality baseline 범위를 정한다.
+
+검증 메모:
+
+- 이번 slice는 provider transport/config contract와 direct smoke script contract만 바꿨다.
+- rerun:
+  - `env UV_CACHE_DIR=/tmp/uv-cache uv run --project review-bot pytest review-bot/tests/test_config.py review-bot/tests/test_prompting.py review-bot/tests/test_openai_provider_direct_smoke.py -q`
+  - `bash -n ops/scripts/smoke_openai_provider_direct.sh`
+- broader `review-bot` pytest, provider quality gate, GitLab lifecycle smoke, mixed-language smoke,
+  direct live OpenAI smoke는 이번 endpoint-strategy 범위 밖이라 생략했다.
 
 완료 기준:
 

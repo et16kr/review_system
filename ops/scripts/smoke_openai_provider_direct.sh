@@ -14,15 +14,16 @@ if [[ -n "${REVIEW_SYSTEM_ENV_FILE:-}" ]]; then
   ENV_FILE_SOURCE="env"
 fi
 MODEL_OVERRIDE="${BOT_OPENAI_MODEL_OVERRIDE:-}"
+DEFAULT_OPENAI_BASE_URL="https://api.openai.com/v1"
 EXPECT_LIVE_OPENAI=0
 
 usage() {
   cat <<'EOF'
 Usage: ops/scripts/smoke_openai_provider_direct.sh [--expect-live-openai] [--model MODEL]
 
-Directly probes the OpenAI API without review-bot fallback so tests can distinguish:
+Directly probes the configured OpenAI-compatible Responses endpoint without review-bot fallback so tests can distinguish:
 - network/auth path is reachable
-- invalid API keys fail with 401 invalid_api_key
+- default OpenAI endpoint still rejects an invalid API key with 401 invalid_api_key
 - configured key either succeeds live or fails with a concrete direct-provider error
 
 Exit codes:
@@ -33,6 +34,7 @@ Exit codes:
 Environment overrides:
 - REVIEW_SYSTEM_ROOT: repository root. Default resolves from this script path.
 - REVIEW_SYSTEM_ENV_FILE: env file to load. Default: $REVIEW_SYSTEM_ROOT/ops/.env
+- BOT_OPENAI_BASE_URL: OpenAI-compatible base URL. Default: https://api.openai.com/v1
 - BOT_OPENAI_MODEL_OVERRIDE: model override if --model is not provided.
 EOF
 }
@@ -73,11 +75,14 @@ while IFS= read -r line || [[ -n "$line" ]]; do
 done <"$ENV_FILE"
 
 MODEL="${MODEL_OVERRIDE:-${BOT_OPENAI_MODEL:-gpt-5.2}}"
+BASE_URL_RAW="${BOT_OPENAI_BASE_URL:-$DEFAULT_OPENAI_BASE_URL}"
+BASE_URL="${BASE_URL_RAW%/}"
 
 printf '%s\n' "repo_root=$ROOT"
 printf '%s\n' "repo_root_source=$ROOT_SOURCE"
 printf '%s\n' "env_file=$ENV_FILE"
 printf '%s\n' "env_file_source=$ENV_FILE_SOURCE"
+printf '%s\n' "endpoint_base_url=$BASE_URL"
 
 if [[ -z "${OPENAI_API_KEY:-}" ]]; then
   echo "OPENAI_API_KEY is not set." >&2
@@ -87,7 +92,7 @@ fi
 tmpdir="$(mktemp -d)"
 trap 'rm -rf "$tmpdir"' EXIT
 
-curl -sS https://api.openai.com/v1/models \
+curl -sS "$BASE_URL/models" \
   -H "Authorization: Bearer $OPENAI_API_KEY" \
   -o "$tmpdir/models.json"
 
@@ -106,13 +111,14 @@ if "error" in payload:
 print("models_probe_status=ok")
 PY
 
-curl -sS https://api.openai.com/v1/responses \
-  -H "Authorization: Bearer sk-invalid-test" \
-  -H "Content-Type: application/json" \
-  -d "{\"model\":\"$MODEL\",\"input\":\"ping\",\"max_output_tokens\":16}" \
-  -o "$tmpdir/invalid.json"
+if [[ "$BASE_URL" == "$DEFAULT_OPENAI_BASE_URL" ]]; then
+  curl -sS "$BASE_URL/responses" \
+    -H "Authorization: Bearer sk-invalid-test" \
+    -H "Content-Type: application/json" \
+    -d "{\"model\":\"$MODEL\",\"input\":\"ping\",\"max_output_tokens\":16}" \
+    -o "$tmpdir/invalid.json"
 
-python3 - "$tmpdir/invalid.json" <<'PY'
+  python3 - "$tmpdir/invalid.json" <<'PY'
 import json
 import sys
 
@@ -126,8 +132,11 @@ print("invalid_key_probe_status=ok")
 print(f"invalid_key_probe_type={error.get('type')}")
 print(f"invalid_key_probe_code={error.get('code')}")
 PY
+else
+  printf '%s\n' "invalid_key_probe_status=skipped_non_default_base_url"
+fi
 
-curl -sS https://api.openai.com/v1/responses \
+curl -sS "$BASE_URL/responses" \
   -H "Authorization: Bearer $OPENAI_API_KEY" \
   -H "Content-Type: application/json" \
   -d "{\"model\":\"$MODEL\",\"input\":\"ping\",\"max_output_tokens\":16}" \
