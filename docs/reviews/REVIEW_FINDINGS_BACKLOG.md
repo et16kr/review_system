@@ -8,8 +8,13 @@
 ## Intake Rule
 
 - backlog entry는 반드시 `CURRENT_STATE_REVIEW.md`의 finding 하나를 참조한다.
-- `Action`이 `direct fix`, `roadmap follow-up`, `defer with reason`, `remove`, `needs decision` 중 하나일 때만 backlog에 올린다.
+- finding의 `Follow-up target`이 `direct fix`, `docs/ROADMAP.md`, `deferred`, `remove`,
+  `needs decision` 중 하나일 때만 backlog에 올린다.
+- `Follow-up target`이 `none`이거나 `Post-review bucket`이 `keep`인 finding은 backlog에 올리지 않는다.
 - backlog는 리뷰 서술이 아니라 후속 실행 단위 정리 문서다.
+- blocked 또는 skipped validation은 후속 작업 판단에 필요하면 `Validation note`에 남긴다.
+- runtime smoke, direct provider smoke, human decision이 필요한 항목은 deterministic validation과
+  섞어 쓰지 않고 필요한 신호를 명시한다.
 
 ## Field Contract
 

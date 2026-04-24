@@ -79,7 +79,9 @@ ops/scripts/advance_review_roadmap_with_codex.sh --model gpt-5.5 --until-done
 
 ### 1. Review Frame And Evidence Reset
 
-상태: `active`
+상태: `watch`
+
+완료: `2026-04-24`
 
 이번 작업의 범위:
 
@@ -92,6 +94,15 @@ ops/scripts/advance_review_roadmap_with_codex.sh --model gpt-5.5 --until-done
 
 - 새 리뷰 라운드의 산출물 형식이 정해진다.
 - 이후 unit이 같은 형식으로 누적 기록할 수 있다.
+
+완료 기록:
+
+- [CURRENT_STATE_REVIEW.md](/home/et16/work/review_system/docs/reviews/CURRENT_STATE_REVIEW.md:1)에
+  evidence level, validation policy, finding format을 고정했다.
+- [REVIEW_FINDINGS_BACKLOG.md](/home/et16/work/review_system/docs/reviews/REVIEW_FINDINGS_BACKLOG.md:1)에
+  actionable finding만 intake하는 rule을 고정했다.
+- 검증은 `git diff --check`로 제한했다. local GitLab smoke와 OpenAI direct smoke는
+  이 문서-only unit의 근거로 필요하지 않아 실행하지 않았다.
 
 ### 2. Product Direction And Scope Review
 
@@ -286,12 +297,14 @@ ops/scripts/advance_review_roadmap_with_codex.sh --model gpt-5.5 --until-done
 
 ## Suggested Next Step
 
-현재 시작점은 `1. Review Frame And Evidence Reset`이다.
+현재 다음 실행 단위는 `2. Product Direction And Scope Review`다.
 
 이유:
 
-- 이전 리뷰 라운드 결과가 이미 문서에 있었으므로, 새 `gpt-5.5` 리뷰는 산출물 기준을 먼저 리셋해야 한다.
-- 이후 각 review unit은 같은 finding contract와 backlog intake rule을 사용해 누적 기록한다.
+- `1. Review Frame And Evidence Reset`에서 새 라운드의 evidence, validation, finding,
+  backlog intake contract를 고정했다.
+- 다음에는 README, CURRENT_SYSTEM, API contracts, implementation roadmap, deferred 문서를
+  기준으로 제품 방향성과 scope를 리뷰한다.
 
 ## Validation Baseline
 
