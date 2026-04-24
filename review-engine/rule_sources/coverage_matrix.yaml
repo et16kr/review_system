@@ -68,16 +68,16 @@ languages:
             section_id: candidate_canonical_rule_groups
             status: mapped
             pack_targets: [cpp_core, project_cpp, native_memory_shared]
-            canonical_rules: [R.10, R.11, R.12, R.20, I.11, CPP.PROJ.1]
-            reviewability_mix: [auto_review]
-            reason: RAII and explicit ownership boundaries are the strongest detector-backed C++ rules.
+            canonical_rules: [R.1, R.3, R.5, R.10, R.11, R.12, R.13, R.15, R.20, R.22, R.23, R.30, R.32, R.33, R.37, I.11, I.12, F.7, P.8, CPP.PROJ.1, CPP.PROJ.6, NM.1, NM.2, NM.3, NM.4, NM.5, NM.6]
+            reviewability_mix: [auto_review, reference_only]
+            reason: RAII, explicit ownership boundaries, borrow/owner API contracts, and native-memory ownership variants are canonicalized together.
           - source_atom_id: low_level_interop
             section_id: candidate_canonical_rule_groups
             status: mapped
             pack_targets: [cpp_core, project_cpp]
-            canonical_rules: [SF.13, SL.io.3, P.11, CPP.PROJ.2, CPP.PROJ.4]
+            canonical_rules: [SF.13, SL.io.3, ES.34, P.11, CPP.PROJ.2, CPP.PROJ.4, CPP.PROJ.5]
             reviewability_mix: [auto_review]
-            reason: Portability and wrapper guidance is represented through concrete include and call-boundary rules.
+            reason: Portability, wrapper, and formatting-boundary guidance is represented through concrete include and call-boundary rules.
           - source_atom_id: concurrency_boundaries
             section_id: candidate_canonical_rule_groups
             status: mapped
@@ -89,16 +89,16 @@ languages:
             section_id: candidate_canonical_rule_groups
             status: mapped
             pack_targets: [cpp_core]
-            canonical_rules: [ES.77, ES.78, ES.79, ES.6, E.19]
+            canonical_rules: [ES.77, ES.78, ES.79, ES.6, E.19, F.48]
             reviewability_mix: [auto_review]
-            reason: Loop, switch, and cleanup-shape rules are already part of the active retrieval corpus.
+            reason: Loop, switch, cleanup-shape, and return-statement clarity rules are already part of the active retrieval corpus.
           - source_atom_id: boundary_documentation
             section_id: candidate_canonical_rule_groups
-            status: reference_only
+            status: mapped
             pack_targets: [cpp_core, project_cpp]
-            canonical_rules: [CPP.REF.1, CPP.REF.2, CPP.REF.3, CPP.REF.5]
-            reviewability_mix: [reference_only]
-            reason: API-shape guidance is canonicalized but intentionally kept advisory.
+            canonical_rules: [I.4, F.16, CPP.REF.1, CPP.REF.2, CPP.REF.3, CPP.REF.5]
+            reviewability_mix: [auto_review, reference_only]
+            reason: API-shape and parameter contract guidance is canonicalized, with broader forms kept advisory.
           - source_atom_id: prefer_views_spans_and_value_returns
             section_id: reference_only_guidance
             status: reference_only
@@ -580,16 +580,16 @@ languages:
             section_id: candidate_canonical_rule_groups
             status: mapped
             pack_targets: [project_python, pep257_docstrings]
-            canonical_rules: [PY.PROJ.2, PY.PROJ.4, PY.PROJ.5, PY.PROJ.7, PY.PROJ.8]
+            canonical_rules: [PY.PROJ.2, PY.PROJ.4, PY.PROJ.5, PY.PROJ.6, PY.PROJ.7, PY.PROJ.8]
             reviewability_mix: [auto_review, reference_only]
-            reason: High-trust execution boundaries and their trust-model guidance are canonicalized.
+            reason: High-trust execution, runtime validation, and parser boundaries plus their trust-model guidance are canonicalized.
           - source_atom_id: public_docstrings_for_non_obvious_contracts
             section_id: reference_only_guidance
             status: reference_only
             pack_targets: [pep257_docstrings]
-            canonical_rules: [PY.DOC.1, PY.DOC.2, PY.DOC.4]
+            canonical_rules: [PY.DOC.1, PY.DOC.2, PY.DOC.3, PY.DOC.4, PY.DOC.5]
             reviewability_mix: [reference_only]
-            reason: Public contract documentation remains intentionally advisory.
+            reason: Public, module, and trust-boundary contract documentation remains intentionally advisory.
           - source_atom_id: explicit_boundary_and_cleanup_review_question
             section_id: reference_only_guidance
             status: reference_only
@@ -668,9 +668,9 @@ languages:
             section_id: candidate_canonical_rule_groups
             status: mapped
             pack_targets: [project_typescript, ts_api_design]
-            canonical_rules: [TS.1, TS.3, TS.REF.1]
+            canonical_rules: [TS.1, TS.2, TS.3, TS.4, TS.REF.1]
             reviewability_mix: [auto_review, reference_only]
-            reason: Boundary typing rules are implemented with both defect and advisory forms.
+            reason: Boundary typing and local nullability proof rules are implemented with both defect and advisory forms.
           - source_atom_id: suppression_hygiene
             section_id: candidate_canonical_rule_groups
             status: mapped
@@ -881,9 +881,9 @@ languages:
             section_id: candidate_canonical_rule_groups
             status: mapped
             pack_targets: [project_java]
-            canonical_rules: [JAVA.PROJ.2, JAVA.PROJ.4, JAVA.PROJ.6, JAVA.PROJ.7]
+            canonical_rules: [JAVA.PROJ.2, JAVA.PROJ.4, JAVA.PROJ.5, JAVA.PROJ.6, JAVA.PROJ.7]
             reviewability_mix: [auto_review]
-            reason: Thread, synchronized-wrapper, and shared-collection ownership guidance is active.
+            reason: Thread, broad exception boundary, synchronized-wrapper, and shared-collection ownership guidance is active.
           - source_atom_id: broad_class_design_and_absence_consistency
             section_id: reference_only_guidance
             status: reference_only
@@ -943,9 +943,9 @@ languages:
             section_id: candidate_canonical_rule_groups
             status: mapped
             pack_targets: [project_go]
-            canonical_rules: [GO.3, GO.7]
+            canonical_rules: [GO.3, GO.7, GO.9]
             reviewability_mix: [auto_review]
-            reason: Ignored and context-free errors are covered by active rules.
+            reason: Ignored, context-free, and panic-based error paths are covered by active rules.
           - source_atom_id: sentinel_error_matching
             section_id: candidate_canonical_rule_groups
             status: mapped
@@ -1090,9 +1090,9 @@ languages:
             section_id: candidate_canonical_rule_groups
             status: mapped
             pack_targets: [project_bash]
-            canonical_rules: [BASH.1, BASH.3, BASH.6]
+            canonical_rules: [BASH.1, BASH.2, BASH.3, BASH.4, BASH.6]
             reviewability_mix: [auto_review]
-            reason: Quoting and argv construction guidance is detector-backed and active.
+            reason: Quoting, argv construction, and empty/destructive path guardrails are detector-backed and active.
           - source_atom_id: failure_semantics
             section_id: candidate_canonical_rule_groups
             status: mapped
@@ -1147,9 +1147,9 @@ languages:
             section_id: candidate_canonical_rule_groups
             status: mapped
             pack_targets: [ansi_sql]
-            canonical_rules: [SQL.1, SQL.4]
+            canonical_rules: [SQL.1, SQL.4, SQL.5, SQL.6]
             reviewability_mix: [auto_review]
-            reason: SELECT * and projection-drift guidance is fully active.
+            reason: SELECT *, projection drift, ordinal ordering, and NULL-sensitive set semantics guidance is fully active.
           - source_atom_id: join_clarity
             section_id: candidate_canonical_rule_groups
             status: mapped

@@ -546,7 +546,7 @@ cd review-engine && uv run pytest tests/test_rule_runtime.py tests/test_multilan
 
 ### 12. Add Reverse Coverage For Canonical Rules
 
-상태: `active`
+상태: `watch`
 
 왜 지금 하나:
 
@@ -568,6 +568,24 @@ cd review-engine && uv run pytest tests/test_rule_runtime.py tests/test_multilan
 ```bash
 cd review-engine && uv run pytest tests/test_source_coverage_matrix.py -q
 ```
+
+완료 기록:
+
+- source coverage matrix가 source atom completeness와 forward canonical rule references뿐 아니라
+  모든 canonical pack rule의 reverse source-atom coverage도 검증한다.
+- 기존 canonical rule 중 source atom에 연결되지 않았던 C++/Python/TypeScript/Java/Go/Bash/SQL
+  detail rules를 기존 source atom에 맞춰 명시적으로 연결했다.
+- 현재 committed canonical pack rule `350`개가 모두 coverage matrix의 non-excluded source atom에
+  연결된다.
+- 검증 통과:
+  - `cd review-engine && UV_CACHE_DIR=/tmp/uv-cache-review-engine-roadmap-12 uv run --no-sync pytest tests/test_source_coverage_matrix.py -q`
+  - `cd review-engine && UV_CACHE_DIR=/tmp/uv-cache-review-engine-roadmap-12-baseline uv run --no-sync pytest tests/test_rule_runtime.py tests/test_rule_lifecycle_cli.py -q`
+  - `git diff --check`
+  - `bash -n ops/scripts/advance_roadmap_with_codex.sh ops/scripts/advance_review_roadmap_with_codex.sh`
+- 기본 `uv run`은 sandbox의 read-only `/home/et16/.cache/uv`를 피하기 위해 writable
+  `UV_CACHE_DIR`와 existing environment `--no-sync`로 검증했다.
+- local GitLab lifecycle smoke와 direct OpenAI smoke는 source coverage matrix guardrail 변경이고
+  provider/runtime success claim이 아니어서 실행하지 않았다.
 
 관련 backlog: `B-review-engine-03`
 
@@ -839,7 +857,7 @@ python3 -m py_compile ops/scripts/create_gitlab_merge_request.py ops/scripts/boo
 
 ## Suggested Next Step
 
-현재 가장 자연스러운 다음 작업은 `12. Add Reverse Coverage For Canonical Rules`이다.
+현재 가장 자연스러운 다음 작업은 `13. Reject Unknown Canonical YAML Authoring Keys`이다.
 
 이유:
 
@@ -856,7 +874,9 @@ python3 -m py_compile ops/scripts/create_gitlab_merge_request.py ops/scripts/boo
   `enabled_packs`/`shared_packs` reference를 fail-fast로 처리한다.
 - review-engine default profile configuration은 default language fallback으로 runtime selection에 반영되고,
   explicit profile과 path/content inference가 우선한다.
-- 다음 `active` 항목은 canonical rule reverse coverage를 source coverage matrix에 추가하는 일이다.
+- canonical rule reverse coverage는 source coverage matrix에서 모든 canonical pack rule이
+  source atom에 연결되는지 검증한다.
+- 다음 `active` 항목은 canonical YAML authoring typo를 validation error로 만드는 일이다.
 
 ## Validation Baseline
 

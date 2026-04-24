@@ -61,6 +61,7 @@ def test_source_coverage_matrix_is_atomized_and_complete() -> None:
     manifest = _load_yaml(RULE_SOURCES_ROOT / "manifest.yaml")
     coverage = _load_yaml(RULE_SOURCES_ROOT / "coverage_matrix.yaml")
     all_rule_nos = _rule_index()
+    covered_rule_nos: set[str] = set()
 
     assert coverage["coverage_granularity"] == "source_atom"
     assert set(coverage["covered_sections"]) == set(SECTION_TITLES)
@@ -111,5 +112,9 @@ def test_source_coverage_matrix_is_atomized_and_complete() -> None:
 
             assert canonical_rules
             assert set(canonical_rules) <= all_rule_nos
+            covered_rule_nos.update(canonical_rules)
 
         assert actual_counts == expected_counts
+
+    missing_reverse_coverage = all_rule_nos - covered_rule_nos
+    assert not missing_reverse_coverage, sorted(missing_reverse_coverage)
