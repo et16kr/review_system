@@ -79,7 +79,7 @@
 
 ### 2. Architecture And Direction Review
 
-상태: `active`
+상태: `watch`
 
 이번 작업의 범위:
 
@@ -92,6 +92,12 @@
 
 - 현재 방향성이 맞는지에 대한 1차 결론이 문서에 남는다.
 - 큰 구조 리스크가 있으면 severity와 함께 정리된다.
+
+`2026-04-24` 업데이트:
+
+- [docs/reviews/CURRENT_STATE_REVIEW.md](/home/et16/work/review_system/docs/reviews/CURRENT_STATE_REVIEW.md:1)에 architecture/direction review 결과를 추가했고, top-level 방향성은 유지하되 local harness compatibility seam이 current-state 문구보다 넓다는 점을 finding으로 남겼다.
+- [docs/reviews/REVIEW_FINDINGS_BACKLOG.md](/home/et16/work/review_system/docs/reviews/REVIEW_FINDINGS_BACKLOG.md:1)에 `review-platform` bot facade의 stale legacy endpoint 의존성과 runner-level legacy identity helper 정리 후속 작업을 backlog로 승격했다.
+- 이번 unit은 문서와 코드의 정적 evidence review만 수행했으므로 targeted test, local GitLab smoke, provider-direct smoke는 실행하지 않았다.
 
 ### 3. `review-engine` Deep Review
 
@@ -190,12 +196,12 @@
 
 ## Suggested Next Step
 
-현재 가장 자연스러운 다음 단계는 `2. Architecture And Direction Review`다.
+현재 가장 자연스러운 다음 단계는 `3. review-engine Deep Review`다.
 
 이유:
 
-- evidence source와 findings 형식이 먼저 고정되어 이후 architecture review를 같은 형식으로 바로 누적할 수 있다.
-- 다음 단계에서 canonical docs 기준 방향성과 경계부터 점검해야 deep review의 판단 기준이 흔들리지 않는다.
+- architecture review로 top-level 방향성과 남은 compatibility drift를 먼저 고정했으므로, 이제 `review-engine` 내부 경계를 같은 finding contract로 깊게 점검할 수 있다.
+- local harness stale contract는 이미 backlog로 분리했기 때문에, 다음 단계에서는 engine rule/retrieval/authoring 경계 자체에 집중해도 된다.
 
 ## Validation Baseline
 
@@ -203,6 +209,11 @@
 
 - docs-only review frame 작업이라 `git diff --check`만 deterministic validation으로 사용한다.
 - targeted test, local GitLab smoke, provider-direct smoke는 runtime claim이 없는 이번 unit 범위 밖이라 생략한다.
+
+`2026-04-24` unit 2 실행 메모:
+
+- architecture/direction review도 docs/code static evidence unit으로 처리해 `git diff --check`만 deterministic validation으로 사용한다.
+- targeted test, local GitLab smoke, provider-direct smoke는 runtime claim을 새로 만들지 않는 범위라 생략한다.
 
 리뷰 문서 작업:
 
