@@ -1,0 +1,179 @@
+{
+  "provider": "stub",
+  "status": "passed",
+  "summary": {
+    "total_cases": 6,
+    "passed_cases": 6,
+    "failed_cases": 0
+  },
+  "results": [
+    {
+      "case_id": "yaml_ci_remote_script_execution",
+      "status": "passed",
+      "failures": [],
+      "missing_terms": [],
+      "forbidden_terms_present": [],
+      "metrics": {
+        "title_length": 29,
+        "summary_length": 167,
+        "suggested_fix_length": 64,
+        "evidence_snippet_present": false,
+        "line_no_in_candidates": true,
+        "should_publish": true,
+        "missing_terms": [],
+        "forbidden_terms_present": []
+      },
+      "draft": {
+        "title": "CI에서 외부 스크립트를 검증 없이 실행하고 있습니다",
+        "summary": "이 변경은 네트워크에서 가져온 내용을 검증 없이 실행 경로에 연결합니다. CI 단계는 배포 체인의 일부라서 provenance가 약해지면 재현성과 추적성이 빠르게 무너집니다. 문제로 보이는 코드는 `curl -fsSL https://example.com/install.sh | bash` 부근입니다.",
+        "suggested_fix": "다운로드와 실행을 분리하고, checksum 또는 signature 검증을 통과한 뒤에만 실행 경로로 넘겨 주세요.",
+        "should_publish": true,
+        "severity": "high",
+        "confidence": 0.88,
+        "line_no": 12,
+        "evidence_snippet": null
+      }
+    },
+    {
+      "case_id": "python_fastapi_untyped_request_body",
+      "status": "passed",
+      "failures": [],
+      "missing_terms": [],
+      "forbidden_terms_present": [],
+      "metrics": {
+        "title_length": 21,
+        "summary_length": 147,
+        "suggested_fix_length": 62,
+        "evidence_snippet_present": false,
+        "line_no_in_candidates": true,
+        "should_publish": true,
+        "missing_terms": [],
+        "forbidden_terms_present": []
+      },
+      "draft": {
+        "title": "요청 본문을 타입 모델로 검증해 주세요",
+        "summary": "핸들러에서 `request.json()` 같은 ad hoc 파싱으로 바로 본문을 다루면, 검증 규약이 endpoint마다 흩어지고 이후 로직이 기대하는 계약도 약해집니다. 문제로 보이는 코드는 `payload = await request.json()` 부근입니다.",
+        "suggested_fix": "Pydantic 모델이나 명시적인 validation step으로 HTTP 경계에서 먼저 계약을 고정해 주세요.",
+        "should_publish": true,
+        "severity": "medium",
+        "confidence": 0.84,
+        "line_no": 18,
+        "evidence_snippet": null
+      }
+    },
+    {
+      "case_id": "python_fastapi_blocking_io",
+      "status": "passed",
+      "failures": [],
+      "missing_terms": [],
+      "forbidden_terms_present": [],
+      "metrics": {
+        "title_length": 36,
+        "summary_length": 169,
+        "suggested_fix_length": 59,
+        "evidence_snippet_present": false,
+        "line_no_in_candidates": true,
+        "should_publish": true,
+        "missing_terms": [],
+        "forbidden_terms_present": []
+      },
+      "draft": {
+        "title": "비동기 핸들러 안에 blocking 작업이 섞이지 않게 해 주세요",
+        "summary": "이 변경은 async request 경로 안에서 event loop를 오래 붙잡을 수 있는 작업을 수행할 가능성이 있습니다. 이런 패턴은 unrelated request까지 같이 느려지게 만듭니다. 문제로 보이는 코드는 `result = requests.get(url, timeout=5)` 부근입니다.",
+        "suggested_fix": "blocking 작업은 thread pool로 보내거나 async-native client로 바꿔 주세요.",
+        "should_publish": true,
+        "severity": "high",
+        "confidence": 0.85,
+        "line_no": 21,
+        "evidence_snippet": null
+      }
+    },
+    {
+      "case_id": "sql_ordinal_group_by",
+      "status": "passed",
+      "failures": [],
+      "missing_terms": [],
+      "forbidden_terms_present": [],
+      "metrics": {
+        "title_length": 25,
+        "summary_length": 141,
+        "suggested_fix_length": 54,
+        "evidence_snippet_present": false,
+        "line_no_in_candidates": true,
+        "should_publish": true,
+        "missing_terms": [],
+        "forbidden_terms_present": []
+      },
+      "draft": {
+        "title": "GROUP BY 순번 지정은 변경에 취약합니다",
+        "summary": "projection 순서에 의존하는 GROUP BY는 컬럼이 추가되거나 재배치될 때 의미가 조용히 바뀔 수 있습니다. 리뷰와 유지보수 모두 explicit column 기준이 더 안전합니다. 문제로 보이는 코드는 `GROUP BY 1, 2` 부근입니다.",
+        "suggested_fix": "GROUP BY는 순번 대신 explicit column name 또는 alias로 바꿔 주세요.",
+        "should_publish": true,
+        "severity": "medium",
+        "confidence": 0.84,
+        "line_no": 34,
+        "evidence_snippet": null
+      }
+    },
+    {
+      "case_id": "cuda_async_default_stream",
+      "status": "passed",
+      "failures": [],
+      "missing_terms": [],
+      "forbidden_terms_present": [],
+      "metrics": {
+        "title_length": 32,
+        "summary_length": 227,
+        "suggested_fix_length": 94,
+        "evidence_snippet_present": false,
+        "line_no_in_candidates": true,
+        "should_publish": true,
+        "missing_terms": [],
+        "forbidden_terms_present": []
+      },
+      "draft": {
+        "title": "CUDA stream 0 사용이 async 순서를 숨깁니다",
+        "summary": "`cudaMemcpyAsync`가 `stream 0`을 직접 사용하면 async처럼 보여도 NULL-stream ordering에 묶일 수 있습니다. 호출자가 기대하는 overlap과 completion 소유권이 코드에서 분명해야 합니다. 문제로 보이는 코드는 `cudaMemcpyAsync(host_dst, device_src, bytes, cudaMemcpyDeviceToHost, 0);` 부근입니다.",
+        "suggested_fix": "overlap이 필요한 작업은 명시적으로 소유한 CUDA stream에 연결하고, stream 0 sequencing이 의도라면 그 ordering 계약을 남겨 주세요.",
+        "should_publish": true,
+        "severity": "high",
+        "confidence": 0.85,
+        "line_no": 11,
+        "evidence_snippet": null
+      }
+    },
+    {
+      "case_id": "cuda_cooperative_groups_grid_sync",
+      "status": "passed",
+      "failures": [],
+      "missing_terms": [],
+      "forbidden_terms_present": [],
+      "metrics": {
+        "title_length": 43,
+        "summary_length": 157,
+        "suggested_fix_length": 104,
+        "evidence_snippet_present": false,
+        "line_no_in_candidates": true,
+        "should_publish": true,
+        "missing_terms": [],
+        "forbidden_terms_present": []
+      },
+      "draft": {
+        "title": "grid.sync()의 cooperative launch 계약을 드러내 주세요",
+        "summary": "`grid.sync()`는 cooperative launch, residency, grid 크기 계약이 이미 호출 경계에서 보장될 때만 안전합니다. 이 변경은 그 소유권이 local patch에서 충분히 보이지 않습니다. 문제로 보이는 코드는 `grid.sync();` 부근입니다.",
+        "suggested_fix": "cooperative launch 요구사항과 grid residency 가정을 launch boundary 근처에 명시하거나, 해당 계약을 소유한 abstraction에 문서화해 주세요.",
+        "should_publish": true,
+        "severity": "high",
+        "confidence": 0.84,
+        "line_no": 14,
+        "evidence_snippet": null
+      }
+    }
+  ],
+  "provider_runtime": {
+    "configured_provider": "stub",
+    "effective_provider": "stub",
+    "fallback_used": false,
+    "transport_class": "deterministic_stub"
+  }
+}

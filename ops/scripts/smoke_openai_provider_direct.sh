@@ -173,14 +173,14 @@ import json
 import sys
 
 payload = json.loads(open(sys.argv[1], encoding="utf-8").read())
-if "error" in payload:
-    error = payload["error"]
+error = payload.get("error")
+if error:
     print("error")
     print(f"live_probe_type={error.get('type')}")
     print(f"live_probe_code={error.get('code')}")
     print(f"live_probe_message={error.get('message')}")
 else:
-    text = ""
+    text = payload.get("output_text") or ""
     for item in payload.get("output", []):
         for content in item.get("content", []):
             if content.get("type") == "output_text":

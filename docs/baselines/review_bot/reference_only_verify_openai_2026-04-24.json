@@ -1,0 +1,94 @@
+{
+  "created_at": "2026-04-24T13:43:55.347240+00:00",
+  "purpose": "Direct LLM applicability check for a reference_only rule that needs scope reasoning.",
+  "runtime": {
+    "configured_provider": "openai",
+    "effective_provider": "openai",
+    "fallback_used": false,
+    "fallback_reason": null,
+    "configured_model": "gpt-5.2",
+    "endpoint_base_url": "https://api.openai.com/v1",
+    "transport_class": "default_openai_base_url"
+  },
+  "rule": {
+    "rule_no": "CPP.REF.4",
+    "title": "Prefer minimizing time in critical sections rather than growing lock scopes around unrelated work",
+    "summary": "Concurrency design guidance is often most useful as a review reference unless the patch shows a concrete blocking or callback hazard.",
+    "rule_text": "Use this when the change suggests lock-scope drift, expensive work under a mutex, or ownership confusion around callbacks, but the patch alone does not prove deadlock.",
+    "category": "concurrency",
+    "reviewability": "reference_only"
+  },
+  "draft_under_test": {
+    "title": "잠금 범위 안에서 네트워크 호출과 콜백이 실행됩니다",
+    "summary": "이 변경은 mutex를 잡은 상태에서 네트워크 refresh와 subscriber notification을 수행합니다. 잠금이 I/O와 콜백까지 확장되면 다른 호출자가 오래 막히거나 callback-under-lock 위험이 생기므로 critical section을 상태 변경에만 좁히는지 검토해야 합니다.",
+    "suggested_fix": "상태 변경만 mutex 안에서 수행하고, 네트워크 호출과 콜백은 잠금 해제 후 실행하도록 분리합니다.",
+    "severity": "medium",
+    "confidence": 0.62,
+    "should_publish": true,
+    "line_no": 42,
+    "evidence_snippet": "src/cache.cpp:42 refreshFromNetwork();",
+    "auto_fix_lines": []
+  },
+  "overall_status": "passed",
+  "stub_overall_status": "failed",
+  "results": [
+    {
+      "case_id": "cpp_ref4_applies_blocking_callback_under_lock",
+      "expected_applies": true,
+      "file_path": "src/cache.cpp",
+      "line_no": 42,
+      "candidate_line_nos": [
+        41,
+        42,
+        43,
+        44
+      ],
+      "change_snippet": "@@ -38,6 +38,10 @@ void Cache::refresh() {\n+  std::lock_guard<std::mutex> guard(mu_);\n+  refreshFromNetwork();\n+  notifySubscribers();\n+  state_ = State::Ready;\n }",
+      "why_llm_needed": "lock, network call, and callback all appear together; applicability depends on recognizing they execute while the guard is still in scope.",
+      "openai": {
+        "applies": true,
+        "reason": "",
+        "confidence": 0.96
+      },
+      "stub": {
+        "applies": true,
+        "reason": "",
+        "confidence": 0.62
+      },
+      "openai_passed": true,
+      "stub_passed": true
+    },
+    {
+      "case_id": "cpp_ref4_not_applies_work_after_lock_scope",
+      "expected_applies": false,
+      "file_path": "src/cache.cpp",
+      "line_no": 45,
+      "candidate_line_nos": [
+        41,
+        42,
+        43,
+        45,
+        46
+      ],
+      "change_snippet": "@@ -38,6 +38,12 @@ void Cache::refresh() {\n+  {\n+    std::lock_guard<std::mutex> guard(mu_);\n+    state_ = State::Ready;\n+  }\n+  refreshFromNetwork();\n+  notifySubscribers();\n }",
+      "why_llm_needed": "the same words appear nearby, but scope braces show the network call and callback happen after unlocking.",
+      "openai": {
+        "applies": false,
+        "reason": "pattern_mismatch",
+        "confidence": 0.86
+      },
+      "stub": {
+        "applies": true,
+        "reason": "",
+        "confidence": 0.62
+      },
+      "openai_passed": true,
+      "stub_passed": false
+    }
+  ],
+  "notes": [
+    "This directly exercises provider.verify_draft, not the full auto-publish lifecycle.",
+    "Current retrieval/runner policy still suppresses reference_only rules before drafting/publishing.",
+    "The stub verifier returns applies=true and cannot distinguish the negative contrast case."
+  ]
+}
