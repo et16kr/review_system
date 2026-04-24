@@ -44,7 +44,8 @@
 반대로 아래 항목은 닫힌 기반으로 보면 안 된다. 리뷰 결과상 즉시 수정 또는 문서 보정이 남아 있다.
 
 - Organization/private rule packaging
-  - filesystem extension support는 있으나 package shape와 validation owner는 deferred readiness로 남아 있다.
+  - filesystem extension support는 있고 package implementation은 deferred다.
+  - package metadata, artifact 분리, install/update/rollback gate는 deferred readiness packet에 있다.
 
 ## Post-Review Source
 
@@ -977,7 +978,7 @@ python3 -m py_compile ops/scripts/create_gitlab_merge_request.py ops/scripts/boo
 
 ### 23. Private Rule Packaging Readiness Packet
 
-상태: `queued`
+상태: `watch`
 
 연결 문서:
 
@@ -992,6 +993,24 @@ python3 -m py_compile ops/scripts/create_gitlab_merge_request.py ops/scripts/boo
 이 사전 작업이 끝나면:
 
 - private/organization rule packaging을 implementation-ready slice로 나눌 수 있다.
+
+완료 기록:
+
+- private package manifest metadata를 `package_id`, `package_version`, `package_kind`,
+  `schema_version`, `compatible_review_engine`, `extension_roots`, `included`, `provenance`로
+  좁혀 deferred readiness packet에 고정했다.
+- runtime rule-root `manifest.yaml`과 future package metadata manifest를 분리해,
+  existing loader contract를 package metadata 저장소로 확장하지 않는다고 정했다.
+- private generated artifact는 public `review-engine/data`와 public Chroma collection 이름을
+  재사용하지 않고 package id/version이 들어간 private artifact root와 collection name을 쓰도록 정했다.
+- install/update/rollback은 staging validation 후 existing `REVIEW_ENGINE_EXTENSION_RULE_ROOTS`에
+  넣을 versioned runtime root를 출력하고, update/rollback은 active pointer 전환으로 처리한다고 정했다.
+- 검증 통과:
+  - `git diff --check`
+  - `bash -n ops/scripts/advance_roadmap_with_codex.sh ops/scripts/advance_review_roadmap_with_codex.sh`
+- local GitLab lifecycle smoke와 direct OpenAI smoke는 deferred readiness 문서/계약 변경이고
+  provider/runtime success claim이 아니어서 실행하지 않았다. OpenAI direct smoke preflight는
+  configuration에 의해 skipped였다.
 
 ### 24. Multi-SCM Expansion Readiness Packet
 
@@ -1045,7 +1064,7 @@ python3 -m py_compile ops/scripts/create_gitlab_merge_request.py ops/scripts/boo
 
 ## Suggested Next Step
 
-현재 가장 자연스러운 다음 작업은 `23. Private Rule Packaging Readiness Packet`이다.
+현재 가장 자연스러운 다음 작업은 `24. Multi-SCM Expansion Readiness Packet`이다.
 
 이유:
 
@@ -1083,8 +1102,10 @@ python3 -m py_compile ops/scripts/create_gitlab_merge_request.py ops/scripts/boo
   human comparison checklist, quota 정상 환경에서의 재수집 순서를 고정했다.
 - manual rule editor readiness packet은 lifecycle CLI와 canonical YAML/Git history boundary를
   우회하지 않는 future editor scope를 정리했다.
-- 다음 queued readiness work는 private/organization rule packaging의 manifest metadata,
-  artifact 분리, install/update/rollback validation gate를 implementation-ready slice로 정리하는 작업이다.
+- private/organization rule packaging readiness packet은 manifest metadata, artifact 분리,
+  install/update/rollback validation gate를 implementation-ready slice로 정리했다.
+- 다음 queued readiness work는 GitHub adapter 후보를 시작하기 전에 GitLab과 달라지는 schema,
+  note/thread/status surface, fixture/token 요구사항, adapter extension point를 표로 고정하는 작업이다.
 
 ## Validation Baseline
 
