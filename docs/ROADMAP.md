@@ -222,24 +222,23 @@
   특정 프로젝트의 feedback이 다른 프로젝트 detect score를 흔들지 않는다.
 - `review-bot/tests/test_review_runner.py`가
   project-local override 적용과 small-sample global fallback 회귀를 함께 고정한다.
+- `.review-bot.yaml`, `summarize`, `ask`, walkthrough note를 다시 비교해
+  현재 note-first UX 확장 순서를 `summarize -> walkthrough note -> .review-bot.yaml -> ask`로 고정했다.
+- `summarize`는 existing general note stack을 재사용하는 가장 작은 UX slice로 두고,
+  walkthrough note는 그 다음 note-family 확장, `.review-bot.yaml`과 `ask`는 더 넓은 product surface라 뒤로 미룬다.
 
 다음 작업:
 
-1. `.review-bot.yaml`, `summarize`, `ask`, walkthrough note의 우선순위를 재평가한다.
+1. `summarize`를 `full-report`/`backlog`와 구분되는 lightweight general note contract로 정의한다.
+2. walkthrough note는 `summarize` contract 이후에 summary/backlog reason을 어떤 순서로 안내할지 별도 단위로 분리한다.
+3. `.review-bot.yaml`은 policy/env precedence와 운영 표현 경계가 정리된 뒤 잡는다.
+4. `ask`는 retrieval/session boundary와 provider cost/latency까지 함께 정리해야 하므로 마지막으로 둔다.
 
 검증 메모:
 
-- 이번 slice는 `review-bot` detect path의 learned rule weight를
-  global `rule_no` baseline + `project_ref` local override 구조로 분리 고정했다.
-- rerun:
-  - `env UV_CACHE_DIR=/tmp/uv-cache uv run --project review-bot pytest review-bot/tests/test_review_runner.py -k 'distinct_fingerprint or project_local_override or falls_back_to_global' -q`
-  - `env UV_CACHE_DIR=/tmp/uv-cache uv run --project review-bot pytest review-bot/tests/test_multilang_smoke_fixture.py review-bot/tests/test_provider_quality.py -q`
-  - `env UV_CACHE_DIR=/tmp/uv-cache uv run --project review-bot python -m review_bot.cli.evaluate_provider_quality --provider stub --json-output /tmp/provider_quality_stub.json`
-- deterministic validation은 direct OpenAI를 쓰지 않았고,
-  provider quality gate는 `stub`만 사용했다. lifecycle stub fallback smoke는 이번 범위 밖이다.
-- broader `review-bot` pytest, `review-engine`/`review-platform` tests,
-  GitLab lifecycle smoke, multilang smoke shell script, direct OpenAI/provider validation은
-  non-lifecycle ranking signal granularity 변경이라 생략했다.
+- 이번 slice는 코드 경로를 바꾸지 않고 roadmap 우선순위만 재정렬했다.
+- `Validation Baseline`의 release gate / pre-release smoke는 적용 대상이 없어 실행하지 않았다.
+- direct OpenAI, stub fallback, lifecycle smoke는 모두 이번 문서형 우선순위 정리 범위 밖이다.
 
 완료 기준:
 
