@@ -402,6 +402,14 @@ main `ROADMAP.md`의 현재 항목을 다 돌린 뒤 곧바로 이어서 할 후
 - `review-engine/tests/test_rule_lifecycle_cli.py`가
   disabled entry list/show가 temp rule root 기준으로 canonical YAML만 읽고
   temp data dir을 건드리지 않는 회귀를 추가해 re-enable 전 inspection 경로를 고정했다.
+- `enable-pack`/`disable-pack` command가 selected runtime의 single canonical profile YAML만 수정해
+  profile-level pack membership on/off를 entry-level rule toggle과 분리된 write boundary로 추가했다.
+- profile YAML이 explicit `enabled_packs`/`shared_packs` 없이 `default_enabled` fallback에 의존하면,
+  pack mutation이 현재 runtime selection을 explicit profile pack list로 materialize한 뒤 target pack on/off를 적용하도록 고정했다.
+- selected runtime이 여러 profile YAML merge 결과면
+  pack mutation이 single write boundary를 잃지 않도록 fail-fast 하게 막았다.
+- `review-engine/tests/test_rule_lifecycle_cli.py`가
+  explicit profile pack toggle, fallback materialization, new pack enable, merged-profile write-boundary refusal 회귀를 추가했다.
 
 범위:
 
@@ -409,20 +417,21 @@ main `ROADMAP.md`의 현재 항목을 다 돌린 뒤 곧바로 이어서 할 후
 - `show`
 - `disable`
 - `enable`
+- `disable-pack`
+- `enable-pack`
 
 다음 작업:
 
-1. profile-level pack on/off를 추가할지 결정할 때 default-enabled fallback과 profile YAML write boundary를 같이 고정한다.
-2. pack-level mutation을 넣게 되면 entry-level toggle과 운영 경계를 분리해 문서화한다.
+1. pack-level mutation을 넣게 되면 entry-level toggle과 운영 경계를 분리해 문서화한다.
 
 검증 메모:
 
-- 이번 slice는 lifecycle CLI inspection path를 넓혀
-  selected runtime pack의 disabled canonical entry도 deterministic하게 조회할 수 있게 했다.
+- 이번 slice는 lifecycle CLI에 profile-level pack on/off를 추가해
+  canonical profile YAML write boundary, `default_enabled` fallback materialization, merged-profile refusal contract를 고정했다.
 - rerun:
   - `env UV_CACHE_DIR=/tmp/uv-cache uv run --project review-engine ruff check review-engine/review_engine/cli/rule_lifecycle.py review-engine/tests/test_rule_lifecycle_cli.py`
   - `env UV_CACHE_DIR=/tmp/uv-cache uv run --project review-engine pytest review-engine/tests/test_rule_lifecycle_cli.py review-engine/tests/test_rule_runtime.py -q`
-- disabled inspection path는 temp rule root를 쓰는 CLI test로 검증했고,
+- profile pack mutation path는 temp rule root를 쓰는 CLI test로 검증했고,
   repo canonical YAML 자체는 validation 중 수정하지 않았다.
 - `ingest_guidelines`와 broader retrieval baseline은 이번 slice가 canonical YAML inspection CLI 범위라 직접 rerun하지 않았다.
 - broader `review-engine` pytest, `review-bot`/`review-platform` tests,
@@ -430,7 +439,7 @@ main `ROADMAP.md`의 현재 항목을 다 돌린 뒤 곧바로 이어서 할 후
 
 완료 기준:
 
-- 최소 CLI만으로 rule 조회와 on/off 관리가 가능하다.
+- 최소 CLI만으로 rule 조회, entry on/off, profile pack on/off 관리가 가능하다.
 - generated artifact와 canonical source 경계가 흐려지지 않는다.
 
 ### 8. OpenAI-Compatible Local LLM Backend

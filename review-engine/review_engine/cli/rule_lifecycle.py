@@ -7,12 +7,31 @@ from collections.abc import Iterable
 from pathlib import Path
 from typing import Literal
 
+import yaml
+
 from review_engine.config import Settings, get_settings
-from review_engine.ingest.rule_loader import load_rule_runtime, load_rule_runtime_selection
-from review_engine.models import GuidelineRecord, LoadedRuleContext, RuleEntry, RulePackManifest
+from review_engine.extensions import discover_extension_specs
+from review_engine.ingest.rule_loader import (
+    _dedupe,
+    _dedupe_paths,
+    _load_rule_root_manifest,
+    _load_yaml,
+    _resolve_roots_for_language,
+    load_rule_runtime,
+    load_rule_runtime_selection,
+)
+from review_engine.models import (
+    GuidelineRecord,
+    LoadedRuleContext,
+    ProfileConfig,
+    RuleEntry,
+    RulePackManifest,
+)
 
 RuntimeState = Literal["active", "reference", "excluded", "disabled"]
 MutationAction = Literal["enable", "disable"]
+PackMembershipField = Literal["enabled_packs", "shared_packs"]
+ProfileSelectionOrigin = Literal["profile_explicit", "default_enabled_fallback"]
 RUNTIME_STATE_FIELDS: tuple[tuple[RuntimeState, str], ...] = (
     ("active", "active_records"),
     ("reference", "reference_records"),
@@ -85,6 +104,22 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Optional pack filter to disambiguate duplicate rule numbers.",
     )
     enable_parser.set_defaults(handler=_handle_enable)
+
+    disable_pack_parser = subparsers.add_parser(
+        "disable-pack",
+        help="Disable one pack from the selected profile YAML runtime.",
+    )
+    _add_runtime_args(disable_pack_parser)
+    disable_pack_parser.add_argument("--pack-id", required=True, help="Pack id to disable.")
+    disable_pack_parser.set_defaults(handler=_handle_disable_pack)
+
+    enable_pack_parser = subparsers.add_parser(
+        "enable-pack",
+        help="Enable one pack in the selected profile YAML runtime.",
+    )
+    _add_runtime_args(enable_pack_parser)
+    enable_pack_parser.add_argument("--pack-id", required=True, help="Pack id to enable.")
+    enable_pack_parser.set_defaults(handler=_handle_enable_pack)
     return parser
 
 
@@ -158,6 +193,14 @@ def _handle_enable(args: argparse.Namespace) -> dict[str, object]:
     return _handle_mutation(args, action="enable")
 
 
+def _handle_disable_pack(args: argparse.Namespace) -> dict[str, object]:
+    return _handle_profile_pack_mutation(args, action="disable")
+
+
+def _handle_enable_pack(args: argparse.Namespace) -> dict[str, object]:
+    return _handle_profile_pack_mutation(args, action="enable")
+
+
 def _load_runtime(args: argparse.Namespace) -> LoadedRuleContext:
     return load_rule_runtime(
         get_settings(),
@@ -225,6 +268,95 @@ def _handle_mutation(
     }
 
 
+def _handle_profile_pack_mutation(
+    args: argparse.Namespace,
+    *,
+    action: MutationAction,
+) -> dict[str, object]:
+    if args.all_packs:
+        raise SystemExit(
+            "Profile pack mutation requires profile-selected runtime; omit --all-packs."
+        )
+
+    settings, runtime, _selected_pack_index = _load_runtime_selection(args)
+    available_pack_index = _load_available_pack_index(
+        settings=settings,
+        language_id=runtime.language_id,
+    )
+    target_pack = available_pack_index.get(args.pack_id)
+    if target_pack is None:
+        raise SystemExit(
+            "Pack not found in selected language/shared runtime roots: "
+            f"{args.pack_id}"
+        )
+
+    pack, _pack_source_path = target_pack
+    profile, profile_source_path = _find_profile_mutation_target(
+        settings=settings,
+        runtime=runtime,
+    )
+    _assert_within_write_boundary(
+        profile_source_path,
+        settings=settings,
+        runtime=runtime,
+    )
+
+    previous_enabled = args.pack_id in runtime.selected_pack_ids
+    selection_origin = _profile_selection_origin(profile)
+    enabled_packs = list(profile.enabled_packs)
+    shared_packs = list(profile.shared_packs)
+    if selection_origin == "default_enabled_fallback":
+        enabled_packs, shared_packs = _split_runtime_pack_ids(
+            runtime=runtime,
+            available_pack_index=available_pack_index,
+        )
+
+    membership_field = _pack_membership_field(pack=pack, language_id=runtime.language_id)
+    target_packs = enabled_packs if membership_field == "enabled_packs" else shared_packs
+    updated_enabled = action == "enable"
+    if updated_enabled:
+        updated_target_packs = _dedupe([*target_packs, args.pack_id])
+    else:
+        updated_target_packs = [
+            candidate for candidate in target_packs if candidate != args.pack_id
+        ]
+
+    changed = updated_target_packs != target_packs
+    if membership_field == "enabled_packs":
+        enabled_packs = updated_target_packs
+    else:
+        shared_packs = updated_target_packs
+
+    materialized_default_enabled_fallback = (
+        selection_origin == "default_enabled_fallback" and changed
+    )
+    if changed:
+        _set_profile_pack_selection(
+            path=profile_source_path,
+            profile=profile,
+            enabled_packs=enabled_packs,
+            shared_packs=shared_packs,
+        )
+
+    return {
+        **_serialize_runtime(runtime),
+        "command": f"{action}-pack",
+        "pack_id": args.pack_id,
+        "profile_source_path": str(profile_source_path),
+        "write_boundary": "canonical_profile_yaml",
+        "pack_membership_field": membership_field,
+        "selection_origin": selection_origin,
+        "materialized_default_enabled_fallback": materialized_default_enabled_fallback,
+        "previous_enabled": previous_enabled,
+        "updated_enabled": updated_enabled,
+        "changed": changed,
+        "validation_plan": _build_profile_pack_mutation_validation_plan(
+            runtime=runtime,
+            pack_id=args.pack_id,
+        ),
+    }
+
+
 def _build_mutation_validation_plan(
     *,
     runtime: LoadedRuleContext,
@@ -264,6 +396,95 @@ def _build_mutation_validation_plan(
                         *runtime_args,
                         "--rule",
                         rule_no,
+                        "--pack-id",
+                        pack_id,
+                    ]
+                ),
+            },
+            {
+                "name": "ingest_guidelines",
+                "command": _shell_join(
+                    [
+                        "uv",
+                        "run",
+                        "--project",
+                        "review-engine",
+                        "python",
+                        "-m",
+                        "review_engine.cli.ingest_guidelines",
+                    ]
+                ),
+            },
+            {
+                "name": "targeted_pytest",
+                "command": _shell_join(
+                    [
+                        "uv",
+                        "run",
+                        "--project",
+                        "review-engine",
+                        "pytest",
+                        "review-engine/tests/test_rule_lifecycle_cli.py",
+                        "review-engine/tests/test_rule_runtime.py",
+                        "-q",
+                    ]
+                ),
+            },
+        ],
+    }
+
+
+def _build_profile_pack_mutation_validation_plan(
+    *,
+    runtime: LoadedRuleContext,
+    pack_id: str,
+) -> dict[str, object]:
+    runtime_args = _build_runtime_selector_args(
+        runtime=runtime,
+        include_all_packs=False,
+    )
+    return {
+        "scope": "rule_lifecycle_profile_pack_mutation",
+        "source_of_truth": "canonical_yaml",
+        "runtime_selector": {
+            "language_id": runtime.language_id,
+            "profile_id": runtime.profile.profile_id,
+            "context_id": runtime.context_id,
+            "dialect_id": runtime.dialect_id,
+            "all_packs": False,
+            "pack_id": pack_id,
+            "selected_pack_ids": runtime.selected_pack_ids,
+        },
+        "commands": [
+            {
+                "name": "list_selected_runtime",
+                "command": _shell_join(
+                    [
+                        "uv",
+                        "run",
+                        "--project",
+                        "review-engine",
+                        "python",
+                        "-m",
+                        "review_engine.cli.rule_lifecycle",
+                        "list",
+                        *runtime_args,
+                    ]
+                ),
+            },
+            {
+                "name": "list_target_pack",
+                "command": _shell_join(
+                    [
+                        "uv",
+                        "run",
+                        "--project",
+                        "review-engine",
+                        "python",
+                        "-m",
+                        "review_engine.cli.rule_lifecycle",
+                        "list",
+                        *runtime_args,
                         "--pack-id",
                         pack_id,
                     ]
@@ -493,6 +714,161 @@ def _serialize_rule(record: GuidelineRecord, *, runtime_state: RuntimeState) -> 
     payload["runtime_state"] = runtime_state
     payload["source_path"] = payload.pop("source")
     return payload
+
+
+def _load_available_pack_index(
+    *,
+    settings: Settings,
+    language_id: str,
+) -> dict[str, tuple[RulePackManifest, Path]]:
+    roots = _resolve_runtime_roots(
+        settings=settings,
+        language_id=language_id,
+    )
+    pack_index: dict[str, tuple[RulePackManifest, Path]] = {}
+    for root in roots:
+        manifest = _load_rule_root_manifest(root)
+        for relative in manifest.pack_files:
+            path = root / relative
+            pack = RulePackManifest.model_validate(_load_yaml(path))
+            if pack.language_id not in {language_id, "shared"}:
+                continue
+            pack_index[pack.pack_id] = (pack, path.resolve())
+    return pack_index
+
+
+def _find_profile_mutation_target(
+    *,
+    settings: Settings,
+    runtime: LoadedRuleContext,
+) -> tuple[ProfileConfig, Path]:
+    matches = _load_matching_profile_sources(
+        settings=settings,
+        runtime=runtime,
+    )
+    if not matches:
+        raise SystemExit(
+            "No canonical profile YAML matched selected runtime; "
+            "pack mutation requires an explicit profile source."
+        )
+    if len(matches) > 1:
+        candidate_paths = ", ".join(str(path) for _profile, path in matches)
+        raise SystemExit(
+            "Selected runtime merges multiple profile YAML files; "
+            f"pack mutation requires a single write boundary: {candidate_paths}"
+        )
+    return matches[0]
+
+
+def _load_matching_profile_sources(
+    *,
+    settings: Settings,
+    runtime: LoadedRuleContext,
+) -> list[tuple[ProfileConfig, Path]]:
+    roots = _resolve_runtime_roots(
+        settings=settings,
+        language_id=runtime.language_id,
+    )
+    matches: list[tuple[ProfileConfig, Path]] = []
+    for root in roots:
+        manifest = _load_rule_root_manifest(root)
+        for relative in manifest.profile_files:
+            path = root / relative
+            profile = ProfileConfig.model_validate(_load_yaml(path))
+            if profile.language_id != runtime.language_id:
+                continue
+            if profile.profile_id != runtime.profile.profile_id:
+                continue
+            if profile.context_id not in {None, runtime.context_id}:
+                continue
+            if profile.dialect_id not in {None, runtime.dialect_id}:
+                continue
+            matches.append((profile, path.resolve()))
+    return matches
+
+
+def _resolve_runtime_roots(
+    *,
+    settings: Settings,
+    language_id: str,
+) -> list[Path]:
+    public_root = (settings.public_rule_root or (settings.project_root / "rules")).resolve()
+    extension_root_bases = [
+        root
+        for spec in discover_extension_specs(settings)
+        for root in spec.rule_roots
+    ]
+    return _dedupe_paths(
+        _resolve_roots_for_language(public_root, language_id)
+        + [
+            resolved_root
+            for root in extension_root_bases
+            for resolved_root in _resolve_roots_for_language(root, language_id)
+        ]
+    )
+
+
+def _profile_selection_origin(profile: ProfileConfig) -> ProfileSelectionOrigin:
+    if profile.enabled_packs or profile.shared_packs:
+        return "profile_explicit"
+    return "default_enabled_fallback"
+
+
+def _split_runtime_pack_ids(
+    *,
+    runtime: LoadedRuleContext,
+    available_pack_index: dict[str, tuple[RulePackManifest, Path]],
+) -> tuple[list[str], list[str]]:
+    enabled_packs: list[str] = []
+    shared_packs: list[str] = []
+    for pack_id in runtime.selected_pack_ids:
+        pack_and_path = available_pack_index.get(pack_id)
+        if pack_and_path is None:
+            continue
+        pack, _source_path = pack_and_path
+        if pack.language_id == "shared":
+            shared_packs.append(pack_id)
+            continue
+        if pack.language_id == runtime.language_id:
+            enabled_packs.append(pack_id)
+    return _dedupe(enabled_packs), _dedupe(shared_packs)
+
+
+def _pack_membership_field(
+    *,
+    pack: RulePackManifest,
+    language_id: str,
+) -> PackMembershipField:
+    if pack.language_id == "shared":
+        return "shared_packs"
+    if pack.language_id == language_id:
+        return "enabled_packs"
+    raise SystemExit(
+        f"Pack {pack.pack_id} does not belong to selected runtime language {language_id}."
+    )
+
+
+def _set_profile_pack_selection(
+    *,
+    path: Path,
+    profile: ProfileConfig,
+    enabled_packs: list[str],
+    shared_packs: list[str],
+) -> None:
+    updated_profile = profile.model_copy(
+        update={
+            "enabled_packs": enabled_packs,
+            "shared_packs": shared_packs,
+        }
+    )
+    path.write_text(
+        yaml.safe_dump(
+            updated_profile.model_dump(exclude_none=True),
+            sort_keys=False,
+            allow_unicode=True,
+        ),
+        encoding="utf-8",
+    )
 
 
 def _find_mutation_target(

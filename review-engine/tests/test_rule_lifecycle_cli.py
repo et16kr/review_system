@@ -6,6 +6,7 @@ from dataclasses import replace
 from pathlib import Path
 
 import pytest
+import yaml
 
 from review_engine.cli import rule_lifecycle
 from review_engine.ingest.rule_loader import load_rule_runtime
@@ -22,6 +23,10 @@ def _copy_rule_root(project_root: Path, tmp_path: Path) -> Path:
     shutil.copytree(project_root / "rules" / "python", copied_root / "python")
     shutil.copytree(project_root / "rules" / "shared", copied_root / "shared")
     return copied_root
+
+
+def _insert_after(text: str, anchor: str, addition: str) -> str:
+    return text.replace(anchor, f"{anchor}{addition}", 1)
 
 
 def test_rule_lifecycle_list_reads_selected_runtime_from_canonical_yaml(
@@ -351,4 +356,249 @@ def test_rule_lifecycle_disable_requires_pack_id_when_rule_no_is_ambiguous(
             "fastapi_service",
             "--rule",
             "PY.FAPI.1",
+        ])
+
+
+def test_rule_lifecycle_disable_pack_updates_canonical_profile_yaml_only(
+    fixture_settings,
+    monkeypatch,
+    capsys,
+    tmp_path,
+) -> None:
+    copied_rule_root = _copy_rule_root(fixture_settings.project_root, tmp_path)
+    settings = replace(fixture_settings, public_rule_root=copied_rule_root)
+
+    payload = _run_cli(
+        [
+            "disable-pack",
+            "--language-id",
+            "python",
+            "--profile-id",
+            "fastapi_service",
+            "--pack-id",
+            "fastapi_service",
+        ],
+        settings,
+        monkeypatch,
+        capsys,
+    )
+
+    profile_path = copied_rule_root / "python" / "profiles" / "fastapi_service.yaml"
+    profile_payload = yaml.safe_load(profile_path.read_text(encoding="utf-8"))
+    runtime = load_rule_runtime(
+        settings,
+        language_id="python",
+        profile_id="fastapi_service",
+    )
+    validation_commands = {
+        entry["name"]: entry["command"] for entry in payload["validation_plan"]["commands"]
+    }
+
+    assert payload["command"] == "disable-pack"
+    assert payload["write_boundary"] == "canonical_profile_yaml"
+    assert payload["profile_source_path"] == str(profile_path.resolve())
+    assert payload["pack_membership_field"] == "enabled_packs"
+    assert payload["selection_origin"] == "profile_explicit"
+    assert payload["materialized_default_enabled_fallback"] is False
+    assert payload["previous_enabled"] is True
+    assert payload["updated_enabled"] is False
+    assert payload["changed"] is True
+    assert payload["validation_plan"]["scope"] == "rule_lifecycle_profile_pack_mutation"
+    assert validation_commands["list_target_pack"] == (
+        "uv run --project review-engine python -m review_engine.cli.rule_lifecycle "
+        "list --language-id python --profile-id fastapi_service --pack-id fastapi_service"
+    )
+    assert profile_payload["enabled_packs"] == [
+        "pep8_python",
+        "pep257_docstrings",
+        "project_python",
+    ]
+    assert profile_payload["shared_packs"] == ["shared_security"]
+    assert "fastapi_service" not in runtime.selected_pack_ids
+    assert "shared_security" in runtime.selected_pack_ids
+    assert not any(settings.data_dir.iterdir())
+
+
+def test_rule_lifecycle_disable_pack_materializes_default_enabled_fallback(
+    fixture_settings,
+    monkeypatch,
+    capsys,
+    tmp_path,
+) -> None:
+    copied_rule_root = _copy_rule_root(fixture_settings.project_root, tmp_path)
+    settings = replace(fixture_settings, public_rule_root=copied_rule_root)
+    profile_path = copied_rule_root / "python" / "profiles" / "fastapi_service.yaml"
+    profile_path.write_text(
+        profile_path.read_text(encoding="utf-8").replace(
+            (
+                "enabled_packs:\n"
+                "  - pep8_python\n"
+                "  - pep257_docstrings\n"
+                "  - project_python\n"
+                "  - fastapi_service\n"
+                "shared_packs:\n"
+                "  - shared_security\n"
+            ),
+            "enabled_packs: []\nshared_packs: []\n",
+            1,
+        ),
+        encoding="utf-8",
+    )
+
+    payload = _run_cli(
+        [
+            "disable-pack",
+            "--language-id",
+            "python",
+            "--profile-id",
+            "fastapi_service",
+            "--pack-id",
+            "fastapi_service",
+        ],
+        settings,
+        monkeypatch,
+        capsys,
+    )
+
+    profile_payload = yaml.safe_load(profile_path.read_text(encoding="utf-8"))
+    runtime = load_rule_runtime(
+        settings,
+        language_id="python",
+        profile_id="fastapi_service",
+    )
+
+    assert payload["selection_origin"] == "default_enabled_fallback"
+    assert payload["materialized_default_enabled_fallback"] is True
+    assert payload["previous_enabled"] is True
+    assert payload["updated_enabled"] is False
+    assert profile_payload["enabled_packs"] == [
+        "pep8_python",
+        "pep257_docstrings",
+        "project_python",
+        "django_service",
+    ]
+    assert profile_payload["shared_packs"] == ["shared_security", "review_process"]
+    assert "fastapi_service" not in runtime.selected_pack_ids
+    assert runtime.selected_pack_ids == [
+        "pep8_python",
+        "pep257_docstrings",
+        "project_python",
+        "django_service",
+        "shared_security",
+        "review_process",
+    ]
+    assert not any(settings.data_dir.iterdir())
+
+
+def test_rule_lifecycle_enable_pack_updates_canonical_profile_yaml_only(
+    fixture_settings,
+    monkeypatch,
+    capsys,
+    tmp_path,
+) -> None:
+    copied_rule_root = _copy_rule_root(fixture_settings.project_root, tmp_path)
+    settings = replace(fixture_settings, public_rule_root=copied_rule_root)
+    manifest_path = copied_rule_root / "python" / "manifest.yaml"
+    profile_path = copied_rule_root / "python" / "profiles" / "fastapi_service.yaml"
+    shadow_pack_path = copied_rule_root / "python" / "packs" / "fastapi_shadow.yaml"
+    shadow_pack_path.write_text(
+        (copied_rule_root / "python" / "packs" / "fastapi_service.yaml")
+        .read_text(encoding="utf-8")
+        .replace("pack_id: fastapi_service\n", "pack_id: fastapi_shadow\n", 1)
+        .replace("default_enabled: true\n", "default_enabled: false\n", 1),
+        encoding="utf-8",
+    )
+    manifest_path.write_text(
+        _insert_after(
+            manifest_path.read_text(encoding="utf-8"),
+            "  - packs/fastapi_service.yaml\n",
+            "  - packs/fastapi_shadow.yaml\n",
+        ),
+        encoding="utf-8",
+    )
+
+    payload = _run_cli(
+        [
+            "enable-pack",
+            "--language-id",
+            "python",
+            "--profile-id",
+            "fastapi_service",
+            "--pack-id",
+            "fastapi_shadow",
+        ],
+        settings,
+        monkeypatch,
+        capsys,
+    )
+
+    profile_payload = yaml.safe_load(profile_path.read_text(encoding="utf-8"))
+    runtime = load_rule_runtime(
+        settings,
+        language_id="python",
+        profile_id="fastapi_service",
+    )
+
+    assert payload["command"] == "enable-pack"
+    assert payload["write_boundary"] == "canonical_profile_yaml"
+    assert payload["pack_membership_field"] == "enabled_packs"
+    assert payload["selection_origin"] == "profile_explicit"
+    assert payload["materialized_default_enabled_fallback"] is False
+    assert payload["previous_enabled"] is False
+    assert payload["updated_enabled"] is True
+    assert payload["changed"] is True
+    assert profile_payload["enabled_packs"] == [
+        "pep8_python",
+        "pep257_docstrings",
+        "project_python",
+        "fastapi_service",
+        "fastapi_shadow",
+    ]
+    assert "fastapi_shadow" in runtime.selected_pack_ids
+    assert not any(settings.data_dir.iterdir())
+
+
+def test_rule_lifecycle_disable_pack_rejects_merged_profile_yaml_write_boundary(
+    fixture_settings,
+    monkeypatch,
+    tmp_path,
+) -> None:
+    copied_rule_root = _copy_rule_root(fixture_settings.project_root, tmp_path)
+    settings = replace(fixture_settings, public_rule_root=copied_rule_root)
+    manifest_path = copied_rule_root / "python" / "manifest.yaml"
+    merged_profile_path = copied_rule_root / "python" / "profiles" / "fastapi_service_api.yaml"
+    merged_profile_path.write_text(
+        (
+            (copied_rule_root / "python" / "profiles" / "fastapi_service.yaml")
+            .read_text(encoding="utf-8")
+            .replace(
+                "priority_policy_ref: python_default\n",
+                "priority_policy_ref: python_default\ncontext_id: api\n",
+                1,
+            )
+        ),
+        encoding="utf-8",
+    )
+    manifest_path.write_text(
+        _insert_after(
+            manifest_path.read_text(encoding="utf-8"),
+            "  - profiles/fastapi_service.yaml\n",
+            "  - profiles/fastapi_service_api.yaml\n",
+        ),
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(rule_lifecycle, "get_settings", lambda: settings)
+
+    with pytest.raises(SystemExit, match=r"merges multiple profile YAML files"):
+        rule_lifecycle.main([
+            "disable-pack",
+            "--language-id",
+            "python",
+            "--profile-id",
+            "fastapi_service",
+            "--context-id",
+            "api",
+            "--pack-id",
+            "fastapi_service",
         ])
