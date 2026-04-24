@@ -112,3 +112,22 @@
 - Post-review bucket: `bug_fix`
 - Validation note: Run `cd review-engine && uv run pytest tests/test_source_coverage_matrix.py -q`
   and any affected retrieval example tests. Local GitLab smoke and provider validation are not required.
+
+### B-review-engine-04 Reject unknown canonical YAML authoring keys
+
+- Finding: `F-engine-06 Canonical YAML authoring models silently ignore unknown keys`
+- Severity: `medium`
+- Area: `review-engine`
+- Evidence: [review-engine/review_engine/models.py](/home/et16/work/review_system/review-engine/review_engine/models.py:80)
+  defines canonical authoring models as plain Pydantic `BaseModel` subclasses, while
+  [review-engine/review_engine/ingest/rule_loader.py](/home/et16/work/review_system/review-engine/review_engine/ingest/rule_loader.py:77)
+  validates YAML through `model_validate(...)`. A deterministic check showed typoed keys such as
+  `fix_guidence` and `enabled_packz` are ignored without a validation error.
+- Recommended action: Configure canonical rule/profile/policy/source manifest models to reject
+  unknown fields, or add an explicit unknown-key validation layer with clear messages. Add tests for
+  typoed `RuleEntry`, `RulePackManifest`, `ProfileConfig`, `PriorityPolicy`, root manifest, and source
+  manifest keys.
+- Follow-up target: `direct fix`
+- Post-review bucket: `bug_fix`
+- Validation note: Run `cd review-engine && uv run pytest tests/test_rule_runtime.py tests/test_rule_lifecycle_cli.py -q`
+  after the fix. Local GitLab smoke and provider validation are not required.

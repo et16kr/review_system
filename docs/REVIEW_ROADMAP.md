@@ -193,7 +193,9 @@ ops/scripts/advance_review_roadmap_with_codex.sh --model gpt-5.5 --until-done
 
 ### 5. `review-engine` Authoring And Lifecycle UX Review
 
-상태: `active`
+상태: `watch`
+
+완료: `2026-04-24`
 
 이번 작업의 범위:
 
@@ -206,6 +208,19 @@ ops/scripts/advance_review_roadmap_with_codex.sh --model gpt-5.5 --until-done
 
 - CLI 유지, editor deferred, 추가 authoring guardrail 여부가 정리된다.
 - rule authoring 개선 후보가 backlog에 들어간다.
+
+완료 기록:
+
+- [CURRENT_STATE_REVIEW.md](/home/et16/work/review_system/docs/reviews/CURRENT_STATE_REVIEW.md:1)에
+  rule lifecycle CLI는 narrow canonical YAML mutation surface로 유지하는 것이 맞고,
+  manual editor는 strict schema/readiness packet 전까지 deferred가 맞다는 판단을 남겼다.
+- [REVIEW_FINDINGS_BACKLOG.md](/home/et16/work/review_system/docs/reviews/REVIEW_FINDINGS_BACKLOG.md:1)에
+  canonical YAML authoring model이 unknown key를 silent ignore하는 문제를 후속 direct fix
+  후보로 추가했다.
+- 검증은 `git diff --check`와
+  `cd review-engine && UV_CACHE_DIR=/tmp/uv-cache uv run pytest tests/test_rule_runtime.py tests/test_rule_lifecycle_cli.py -q`로
+  제한했다. local GitLab smoke와 OpenAI direct smoke는 이 static `review-engine`
+  authoring UX review의 근거로 필요하지 않아 실행하지 않았다.
 
 ### 6. `review-bot` Lifecycle Correctness Review
 
@@ -336,7 +351,7 @@ ops/scripts/advance_review_roadmap_with_codex.sh --model gpt-5.5 --until-done
 
 ## Suggested Next Step
 
-현재 다음 실행 단위는 `5. review-engine Authoring And Lifecycle UX Review`다.
+현재 다음 실행 단위는 `6. review-bot Lifecycle Correctness Review`다.
 
 이유:
 
@@ -350,7 +365,10 @@ ops/scripts/advance_review_roadmap_with_codex.sh --model gpt-5.5 --until-done
 - `4. review-engine Correctness Review`에서 canonical YAML과 generated dataset은
   현재 일치하지만, pack/profile drift와 source coverage reverse traceability 개선 후보를
   확인했다.
-- 다음에는 minimal rule lifecycle CLI, authoring validation, manual editor deferred 판단을
+- `5. review-engine Authoring And Lifecycle UX Review`에서 lifecycle CLI는 좁게 유지하고,
+  manual editor는 deferred로 두되, unknown YAML key를 fail-fast해야 한다는 개선 후보를
+  확인했다.
+- 다음에는 `review-bot` detect/publish/sync/verify lifecycle과 feedback analytics boundary를
   점검한다.
 
 ## Validation Baseline
