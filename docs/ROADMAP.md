@@ -634,7 +634,7 @@ cd review-engine && uv run pytest tests/test_rule_runtime.py tests/test_rule_lif
 
 ### 14. Remove Or Relocate Unowned Next.js Scaffold Files
 
-상태: `active`
+상태: `watch`
 
 왜 지금 하나:
 
@@ -657,11 +657,27 @@ rg -n "review-engine/app|app/api/users/route\\.ts|app/dashboard/page\\.tsx" revi
 cd review-engine && uv run pytest tests/test_language_registry.py tests/test_multilang_regressions.py tests/test_query_conversion.py -q
 ```
 
+완료 기록:
+
+- `review-engine/app/`는 packaged runtime, Docker image, docs, deterministic fixture boundary에
+  연결되지 않은 accidental Next.js scaffold로 확인해 제거했다.
+- existing Next.js profile/language tests와 retrieval examples는 physical scaffold file이 아니라
+  logical review path를 사용하므로 그대로 유지했다.
+- 검증 통과:
+  - `rg -n "review-engine/app|app/api/users/route\\.ts|app/dashboard/page\\.tsx" review-engine review-bot docs`
+  - `cd review-engine && UV_CACHE_DIR=/tmp/uv-cache-review-engine-roadmap-14 uv run --no-sync pytest tests/test_language_registry.py tests/test_multilang_regressions.py tests/test_query_conversion.py -q`
+- `rg` 결과는 historical review docs와 logical test/example review paths만 남았고,
+  physical `review-engine/app/...` files는 final diff의 deletion entry로만 남는다.
+- 기본 `uv run`은 sandbox의 read-only `/home/et16/.cache/uv`를 피하기 위해 writable
+  `UV_CACHE_DIR`와 existing environment `--no-sync`로 검증했다.
+- local GitLab lifecycle smoke와 direct OpenAI smoke는 unowned scaffold cleanup이고
+  provider/runtime success claim이 아니어서 실행하지 않았다.
+
 관련 backlog: `B-review-engine-05`
 
 ### 15. Remove Or Merge Orphan Root Workspace Note
 
-상태: `queued`
+상태: `active`
 
 왜 지금 하나:
 
@@ -874,7 +890,7 @@ python3 -m py_compile ops/scripts/create_gitlab_merge_request.py ops/scripts/boo
 
 ## Suggested Next Step
 
-현재 가장 자연스러운 다음 작업은 `14. Remove Or Relocate Unowned Next.js Scaffold Files`이다.
+현재 가장 자연스러운 다음 작업은 `15. Remove Or Merge Orphan Root Workspace Note`이다.
 
 이유:
 
@@ -894,8 +910,10 @@ python3 -m py_compile ops/scripts/create_gitlab_merge_request.py ops/scripts/boo
 - canonical rule reverse coverage는 source coverage matrix에서 모든 canonical pack rule이
   source atom에 연결되는지 검증한다.
 - canonical YAML authoring typo는 Pydantic validation error로 fail-fast 한다.
-- 다음 `active` 항목은 unowned `review-engine/app/` scaffold 파일을 제거하거나
-  fixture/runtime boundary 안으로 옮기는 cleanup이다.
+- unowned `review-engine/app/` scaffold 파일은 제거되어 engine runtime/package/fixture boundary
+  밖의 tracked Next.js app-looking 파일이 남지 않는다.
+- 다음 `active` 항목은 root `review_system.md`가 외부 workflow에 쓰이지 않는지 확인하고
+  필요한 내용만 canonical docs로 병합한 뒤 orphan doc을 제거하는 cleanup이다.
 
 ## Validation Baseline
 
