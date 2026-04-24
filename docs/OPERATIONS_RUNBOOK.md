@@ -90,6 +90,14 @@ OPENAI_API_KEY=...
 2. structured output이 실패하거나 quota 문제가 있으면 stub로 fallback 한다.
 3. detect / publish / sync lifecycle은 가능한 한 계속 진행한다.
 
+local backend canonical policy:
+
+1. OpenAI-compatible local/backend endpoint도 새 provider를 추가하지 않고
+   `BOT_PROVIDER=openai` + `BOT_OPENAI_BASE_URL=...` 조합으로만 붙인다.
+2. normal lifecycle run에서는 `BOT_FALLBACK_PROVIDER=stub`를 유지해 fail-open behavior를 보존한다.
+3. local backend transport나 품질을 확인할 때만 direct provider smoke / provider quality artifact를 별도로 본다.
+   fallback이 일어난 lifecycle smoke는 backend success evidence로 간주하지 않는다.
+
 중요:
 
 - local GitLab lifecycle smoke는 provider fallback을 허용한 상태에서도 통과할 수 있다.
@@ -116,6 +124,16 @@ bash /home/et16/work/review_system/ops/scripts/smoke_openai_provider_direct.sh
 - 기본 OpenAI base URL일 때 잘못된 API key가 실제로 `401 invalid_api_key`를 내는지
 - 현재 설정 key/model이 direct Responses 호출에서 실제로 성공하는지
 - 또는 `insufficient_quota` 같은 direct provider 오류로 막히는지
+
+structured output acceptance 기준:
+
+- local backend도 기본 OpenAI endpoint와 동일하게 `responses.parse` 경로에서
+  publish용 `ReviewDraftPayload`, verify용 `VerifyPayload`를 반환해야 한다.
+- field normalization은 parse 성공 후 title/summary/fix/evidence 형태를 다듬는 보조 단계일 뿐,
+  malformed payload나 missing parsed payload를 정상 동작으로 간주하지 않는다.
+- local backend 결과를 prompt/ranking/rule policy 조정 근거로 쓰기 전에는
+  packaged provider quality corpus와 comparison rubric을 기준으로 review artifact를 남긴다.
+  comparison이 `failed`, `skipped`, `human_review_required=true`면 tuning 입력으로 승격하지 않는다.
 
 verify phase 기본값:
 

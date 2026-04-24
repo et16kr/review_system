@@ -86,7 +86,17 @@
   fallback이 켜져 있으면 lifecycle smoke만으로 live OpenAI 성공을 증명하지 않는다.
 - `BOT_OPENAI_BASE_URL`를 지정하면 기존 `openai` provider/client를 그대로 사용해
   OpenAI-compatible endpoint로 라우팅할 수 있다.
+- non-default `BOT_OPENAI_BASE_URL`는 transport override일 뿐 별도 provider 종류를 만들지 않는다.
+  normal lifecycle policy는 계속 `openai -> stub` fail-open 경로를 기본값으로 둔다.
 - direct provider smoke의 invalid API key probe는 기본 OpenAI base URL에서만 canonical signal로 본다.
+- local backend도 같은 structured output contract를 따라야 한다.
+  `responses.parse`가 `ReviewDraftPayload` 또는 `VerifyPayload`를 파싱하지 못하면
+  정상 backend output으로 보지 않는다.
+- local backend 결과를 prompt/ranking/rule tuning 근거로 쓰려면 packaged provider quality corpus와
+  provider comparison rubric(groundedness, evidence anchoring, claim strength, specificity,
+  actionability, brevity, noise risk)을 기준으로 남긴 artifact가 `passed`이고
+  `human_review_required=false`여야 한다. `skipped`/`failed`거나 human review가 남아 있으면
+  tuning 입력으로 승격하지 않는다.
 - `review_runs.provider_runtime`에 configured/effective provider와 fallback provenance를 저장하고,
   current-state API는 최신 run의 provenance를 바로 노출한다.
 - Markdown 문서는 명시적 unreviewable `markdown`으로 분류한다.

@@ -456,20 +456,27 @@ main `ROADMAP.md`의 현재 항목을 다 돌린 뒤 곧바로 이어서 할 후
   non-default endpoint에서는 `invalid_key_probe_status=skipped_non_default_base_url`로 경계를 분리한다.
 - `review-bot/tests/test_config.py`, `review-bot/tests/test_prompting.py`,
   `review-bot/tests/test_openai_provider_direct_smoke.py`가 base URL wiring과 direct smoke contract를 deterministic하게 고정한다.
+- `docs/CURRENT_SYSTEM.md`와 `docs/OPERATIONS_RUNBOOK.md`가
+  non-default `BOT_OPENAI_BASE_URL`를 transport override로만 해석하고,
+  normal lifecycle은 계속 `openai -> stub` fail-open 정책을 유지한다는 운영 경계를 canonical하게 고정했다.
+- 같은 문서들이 local backend structured output acceptance 기준을
+  `ReviewDraftPayload`/`VerifyPayload` parse 성공과 packaged provider-quality comparison rubric으로 고정해,
+  skipped/failed/human-review-required artifact는 prompt/ranking/rule tuning 근거로 쓰지 않도록 정리했다.
 
 다음 작업:
 
-1. fallback 정책과 structured output 품질 기준을 정한다.
-2. local backend smoke와 provider quality baseline 범위를 정한다.
+1. local backend smoke와 provider quality baseline 범위를 정한다.
 
 검증 메모:
 
-- 이번 slice는 provider transport/config contract와 direct smoke script contract만 바꿨다.
+- 이번 slice는 canonical 문서에서 local backend fallback policy와 structured output acceptance 기준을 고정했다.
 - rerun:
-  - `env UV_CACHE_DIR=/tmp/uv-cache uv run --project review-bot pytest review-bot/tests/test_config.py review-bot/tests/test_prompting.py review-bot/tests/test_openai_provider_direct_smoke.py -q`
+  - `env UV_CACHE_DIR=/tmp/uv-cache uv run --project review-bot pytest review-bot/tests/test_config.py review-bot/tests/test_openai_provider_direct_smoke.py review-bot/tests/test_provider_quality.py -q`
   - `bash -n ops/scripts/smoke_openai_provider_direct.sh`
 - broader `review-bot` pytest, provider quality gate, GitLab lifecycle smoke, mixed-language smoke,
-  direct live OpenAI smoke는 이번 endpoint-strategy 범위 밖이라 생략했다.
+  direct live OpenAI smoke는 이번 policy/documentation 범위 밖이라 생략했다.
+- validation은 deterministic `stub` provider-quality regression과 script-level network stub만 사용했고,
+  live direct OpenAI와 lifecycle fallback smoke는 사용하지 않았다.
 
 완료 기준:
 
