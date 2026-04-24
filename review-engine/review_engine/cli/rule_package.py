@@ -6,6 +6,7 @@ from pathlib import Path
 
 from review_engine.rule_package import (
     RulePackageValidationError,
+    create_rule_package_install_plan,
     validate_rule_package,
     validate_rule_package_split_gate,
 )
@@ -56,6 +57,35 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Base directory for private validation artifacts.",
     )
     split_gate_parser.set_defaults(handler=_handle_split_gate)
+
+    install_plan_parser = subparsers.add_parser(
+        "install-plan",
+        help="Emit a read-only install/update/rollback pointer plan for a valid package.",
+    )
+    install_plan_parser.add_argument(
+        "--package-root",
+        required=True,
+        type=Path,
+        help="Path to the private rule package root containing package.yaml.",
+    )
+    install_plan_parser.add_argument(
+        "--manifest-name",
+        default="package.yaml",
+        help="Package manifest filename relative to --package-root.",
+    )
+    install_plan_parser.add_argument(
+        "--private-artifact-root",
+        type=Path,
+        default=None,
+        help="Base directory for planned private runtime artifacts.",
+    )
+    install_plan_parser.add_argument(
+        "--previous-runtime-root",
+        type=Path,
+        default=None,
+        help="Optional currently active runtime root to include in update/rollback planning.",
+    )
+    install_plan_parser.set_defaults(handler=_handle_install_plan)
     return parser
 
 
@@ -76,6 +106,18 @@ def _handle_split_gate(args: argparse.Namespace) -> dict[str, object]:
             args.package_root,
             manifest_name=args.manifest_name,
             private_artifact_root=args.private_artifact_root,
+        ),
+    }
+
+
+def _handle_install_plan(args: argparse.Namespace) -> dict[str, object]:
+    return {
+        "command": "install-plan",
+        **create_rule_package_install_plan(
+            args.package_root,
+            manifest_name=args.manifest_name,
+            private_artifact_root=args.private_artifact_root,
+            previous_runtime_root=args.previous_runtime_root,
         ),
     }
 

@@ -13,6 +13,7 @@ from review_engine.ingest.build_records import ingest_all_sources
 from review_engine.ingest.rule_loader import load_rule_runtime
 from review_engine.rule_package import (
     RulePackageValidationError,
+    create_rule_package_install_plan,
     validate_rule_package,
     validate_rule_package_split_gate,
 )
@@ -187,6 +188,123 @@ def test_rule_package_split_gate_cli_emits_deterministic_json(
     assert payload["private_runtime_retrieval"]["rule_no"] == "ORG.MEM.1"
     assert payload["artifact_boundary"]["uses_public_data_dir"] is False
     assert payload["artifact_boundary"]["uses_public_collection_name"] is False
+
+
+def test_rule_package_install_plan_outputs_versioned_private_paths(
+    fixture_settings,
+    tmp_path,
+) -> None:
+    package_root = _sample_extension_root(fixture_settings.project_root)
+    private_artifact_base = tmp_path / "private-artifacts"
+    previous_runtime_root = private_artifact_base / "com.example.private_org_cpp" / "0.0.9" / "runtime"
+
+    payload = create_rule_package_install_plan(
+        package_root,
+        settings=fixture_settings,
+        private_artifact_root=private_artifact_base,
+        previous_runtime_root=previous_runtime_root,
+    )
+
+    assert payload["source_of_truth"] == "package_yaml"
+    assert payload["validation_mode"] == "install_plan"
+    assert payload["package"]["package_id"] == "com.example.private_org_cpp"
+    assert payload["package"]["package_version"] == "0.1.0"
+
+    install_paths = payload["install_paths"]
+    assert install_paths["version_root"].endswith(
+        "private-artifacts/com.example.private_org_cpp/0.1.0"
+    )
+    assert install_paths["versioned_runtime_extension_root"].endswith(
+        "private-artifacts/com.example.private_org_cpp/0.1.0/runtime"
+    )
+    assert install_paths["private_artifact_root"].endswith(
+        "private-artifacts/com.example.private_org_cpp/0.1.0/artifacts"
+    )
+    assert install_paths["split_gate_validation_artifact_root"].endswith(
+        "private-artifacts/com.example.private_org_cpp/0.1.0/validation"
+    )
+
+    public_data_dir = str(fixture_settings.project_root / "data")
+    assert all(
+        path.startswith(install_paths["private_data_dir"])
+        and "com.example.private_org_cpp/0.1.0/artifacts" in path
+        and not path.startswith(public_data_dir)
+        for path in payload["dataset_output_paths"].values()
+    )
+    assert payload["private_chroma"] == {
+        "collection_prefix": "pkg_guidelines_com_example_private_org_cpp_0_1_0",
+        "collections": {
+            "active": "pkg_guidelines_com_example_private_org_cpp_0_1_0_active_cpp",
+            "reference": "pkg_guidelines_com_example_private_org_cpp_0_1_0_reference_cpp",
+            "excluded": "pkg_guidelines_com_example_private_org_cpp_0_1_0_excluded_cpp",
+        },
+    }
+    assert payload["operator_environment"] == {
+        "variable": "REVIEW_ENGINE_EXTENSION_RULE_ROOTS",
+        "value": install_paths["versioned_runtime_extension_root"],
+    }
+    assert payload["pointer_plan"]["previous_runtime_root"] == str(previous_runtime_root.resolve())
+    assert payload["pointer_plan"]["current_runtime_root"] == install_paths[
+        "versioned_runtime_extension_root"
+    ]
+    assert payload["mutated_files"] == []
+
+
+def test_rule_package_install_plan_cli_emits_deterministic_json(
+    fixture_settings,
+    tmp_path,
+    capsys,
+) -> None:
+    package_root = _sample_extension_root(fixture_settings.project_root)
+    previous_runtime_root = tmp_path / "private-artifacts" / "previous" / "runtime"
+
+    rule_package.main(
+        [
+            "install-plan",
+            "--package-root",
+            str(package_root),
+            "--private-artifact-root",
+            str(tmp_path / "private-artifacts"),
+            "--previous-runtime-root",
+            str(previous_runtime_root),
+        ]
+    )
+
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["command"] == "install-plan"
+    assert payload["package"]["package_id"] == "com.example.private_org_cpp"
+    assert payload["install_paths"]["versioned_runtime_extension_root"].endswith(
+        "private-artifacts/com.example.private_org_cpp/0.1.0/runtime"
+    )
+    assert payload["operator_environment"]["variable"] == "REVIEW_ENGINE_EXTENSION_RULE_ROOTS"
+    assert payload["pointer_plan"]["previous_runtime_root"] == str(
+        previous_runtime_root.resolve()
+    )
+
+
+def test_rule_package_install_plan_rejects_invalid_package_without_payload(
+    fixture_settings,
+    tmp_path,
+    capsys,
+) -> None:
+    package_root = _copy_sample_package(fixture_settings.project_root, tmp_path)
+    _mutate_package_yaml(
+        package_root,
+        lambda payload: payload.update({"package_kind": "unsupported_kind"}),
+    )
+
+    with pytest.raises(SystemExit, match="Package validation failed"):
+        rule_package.main(
+            [
+                "install-plan",
+                "--package-root",
+                str(package_root),
+                "--private-artifact-root",
+                str(tmp_path / "private-artifacts"),
+            ]
+        )
+
+    assert capsys.readouterr().out == ""
 
 
 @pytest.mark.parametrize(

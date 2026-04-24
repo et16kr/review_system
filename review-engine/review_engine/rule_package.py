@@ -93,8 +93,21 @@ def _package_artifact_root(
     package_version: str,
     private_artifact_root: Path | None,
 ) -> Path:
+    return _package_version_root(
+        package_id=package_id,
+        package_version=package_version,
+        private_artifact_root=private_artifact_root,
+    ) / "validation"
+
+
+def _package_version_root(
+    *,
+    package_id: str,
+    package_version: str,
+    private_artifact_root: Path | None,
+) -> Path:
     base_root = (private_artifact_root or DEFAULT_PRIVATE_ARTIFACT_ROOT).expanduser().resolve()
-    return base_root / package_id / package_version / "validation"
+    return base_root / package_id / package_version
 
 
 def _private_collection_prefix(package_id: str, package_version: str) -> str:
@@ -112,6 +125,145 @@ def _private_collection_prefix(package_id: str, package_version: str) -> str:
 def _sanitize_collection_component(value: str) -> str:
     sanitized = _COLLECTION_COMPONENT_RE.sub("_", value).strip("_")
     return sanitized or "package"
+
+
+def create_rule_package_install_plan(
+    package_root: Path,
+    *,
+    manifest_name: str = PACKAGE_MANIFEST_NAME,
+    settings: Any | None = None,
+    private_artifact_root: Path | None = None,
+    previous_runtime_root: Path | None = None,
+) -> dict[str, Any]:
+    from review_engine.config import get_settings
+
+    base_settings = settings or get_settings()
+    package_payload = validate_rule_package(package_root, manifest_name=manifest_name)
+    extension_root_payload = package_payload["extension_roots"][0]
+    extension_relative_path = str(extension_root_payload["path"])
+    language_id = str(extension_root_payload["language_id"])
+    package_id = str(package_payload["package_id"])
+    package_version = str(package_payload["package_version"])
+    version_root = _package_version_root(
+        package_id=package_id,
+        package_version=package_version,
+        private_artifact_root=private_artifact_root,
+    )
+    runtime_package_root = version_root / "runtime"
+    versioned_runtime_extension_root = _planned_runtime_extension_root(
+        runtime_package_root=runtime_package_root,
+        extension_relative_path=extension_relative_path,
+    )
+    artifact_root = version_root / "artifacts"
+    collection_prefix = _private_collection_prefix(package_id, package_version)
+    private_settings = replace(
+        base_settings,
+        data_dir=artifact_root / "data",
+        active_dataset_path=None,
+        reference_dataset_path=None,
+        excluded_dataset_path=None,
+        chroma_path=artifact_root / "chroma",
+        collection_name=collection_prefix,
+        active_collection_name=None,
+        reference_collection_name=None,
+        excluded_collection_name=None,
+        extension_rule_roots=(versioned_runtime_extension_root,),
+        default_language_id=language_id,
+        strict_extension_loading=True,
+    )
+    dataset_output_paths = {
+        kind: str(private_settings.dataset_path(kind, language_id))
+        for kind in ("active", "reference", "excluded")
+    }
+    chroma_collections = {
+        kind: private_settings.collection_for(kind, language_id)
+        for kind in ("active", "reference", "excluded")
+    }
+    previous_root = (
+        str(previous_runtime_root.expanduser().resolve())
+        if previous_runtime_root is not None
+        else None
+    )
+    current_root = str(versioned_runtime_extension_root)
+
+    return {
+        "source_of_truth": "package_yaml",
+        "validation_mode": "install_plan",
+        "package": package_payload,
+        "validated_package_root": package_payload["package_root"],
+        "install_paths": {
+            "version_root": str(version_root),
+            "runtime_package_root": str(runtime_package_root),
+            "versioned_runtime_extension_root": current_root,
+            "private_artifact_root": str(artifact_root),
+            "private_data_dir": str(private_settings.data_dir),
+            "private_chroma_path": str(private_settings.chroma_path),
+            "split_gate_validation_artifact_root": str(
+                _package_artifact_root(
+                    package_id=package_id,
+                    package_version=package_version,
+                    private_artifact_root=private_artifact_root,
+                )
+            ),
+        },
+        "dataset_output_paths": dataset_output_paths,
+        "private_chroma": {
+            "collection_prefix": collection_prefix,
+            "collections": chroma_collections,
+        },
+        "operator_environment": {
+            "variable": "REVIEW_ENGINE_EXTENSION_RULE_ROOTS",
+            "value": current_root,
+        },
+        "pointer_plan": {
+            "current_runtime_root": current_root,
+            "previous_runtime_root": previous_root,
+            "install": {
+                "mutation": "operator_sets_environment_pointer",
+                "validation_message": (
+                    "Stage the package runtime files at versioned_runtime_extension_root "
+                    "and set REVIEW_ENGINE_EXTENSION_RULE_ROOTS to that path."
+                ),
+            },
+            "update": {
+                "mutation": "operator_replaces_environment_pointer",
+                "from_runtime_root": previous_root,
+                "to_runtime_root": current_root,
+                "validation_message": (
+                    "Run the split-gate validation for this package version before "
+                    "switching the active runtime pointer."
+                ),
+            },
+            "rollback": {
+                "mutation": "operator_restores_previous_environment_pointer",
+                "from_runtime_root": current_root,
+                "to_runtime_root": previous_root,
+                "validation_message": (
+                    "Rollback is pointer-only and requires the previous runtime root "
+                    "and private artifacts to remain available."
+                ),
+            },
+        },
+        "validation": {
+            "status": "passed",
+            "message": (
+                "package.yaml and runtime extension metadata validated; install plan "
+                "does not mutate runtime pointers or public artifacts"
+            ),
+        },
+        "mutated_files": [],
+    }
+
+
+def _planned_runtime_extension_root(
+    *,
+    runtime_package_root: Path,
+    extension_relative_path: str,
+) -> Path:
+    if extension_relative_path == ".":
+        return runtime_package_root.resolve()
+    posix_path = PurePosixPath(extension_relative_path)
+    return (runtime_package_root / Path(*posix_path.parts)).resolve()
 
 
 def _records_from_root(records: list[Any], root: Path) -> list[Any]:
