@@ -77,6 +77,9 @@
 - current seed source bundle 기준 `pending` atom은 없다.
 - `auto_review`와 `reference_only`는 의도적으로 분리한다.
 - language/profile/context/dialect routing은 registry와 query detector가 담당한다.
+- `REVIEW_ENGINE_DEFAULT_PROFILE`은 `REVIEW_ENGINE_DEFAULT_LANGUAGE`로 선택된 language에서만
+  fallback profile로 쓰인다. 명시적 `profile_id`와 path/content 기반 profile inference가 우선하며,
+  context/dialect는 request 또는 registry inference가 계속 결정한다.
 - provider prompt는 C++ 고정 가정 없이 language/profile/context hint를 사용한다.
 - Provider quality gate는 packaged corpus와 `python -m review_bot.cli.evaluate_provider_quality --provider stub` 기준으로 network 없이 실행할 수 있다.
 - Provider quality corpus는 YAML CI, FastAPI, SQL, CUDA async stream, CUDA cooperative groups regression case를 포함한다.

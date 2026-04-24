@@ -65,6 +65,7 @@ class GuidelineSearchService:
             context_id=context_id,
             dialect_id=dialect_id,
             default_language_id=self.settings.default_language_id,
+            default_profile_id=self.settings.default_profile_id,
         )
         if not match.reviewable:
             return self._empty_review_response(match)
@@ -116,6 +117,7 @@ class GuidelineSearchService:
             context_id=context_id,
             dialect_id=dialect_id,
             default_language_id=self.settings.default_language_id,
+            default_profile_id=self.settings.default_profile_id,
         )
         if not match.reviewable:
             return self._empty_review_response(match)

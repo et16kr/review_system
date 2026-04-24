@@ -11,6 +11,7 @@ from review_engine.ingest.build_records import ingest_all_sources
 from review_engine.ingest.rule_loader import load_rule_runtime
 from review_engine.models import CandidateHit, GuidelineRecord, PriorityPolicy, QueryAnalysis, QueryPattern
 from review_engine.prompting import PromptComposer
+from review_engine.retrieve.search import GuidelineSearchService
 from review_engine.retrieve.rerank import rerank_candidates
 
 
@@ -300,6 +301,34 @@ def test_missing_profile_selected_pack_fails_fast(fixture_settings, tmp_path) ->
         ),
     ):
         load_rule_runtime(replace(fixture_settings, public_rule_root=bad_root))
+
+
+def test_configured_default_profile_selects_search_runtime_for_default_language(
+    fixture_settings,
+) -> None:
+    settings = replace(
+        fixture_settings,
+        default_language_id="python",
+        default_profile_id="fastapi_service",
+    )
+    ingest_all_sources(settings)
+    service = GuidelineSearchService(settings)
+
+    response = service.review_code(
+        "def list_items():\n    return []\n",
+        top_k=5,
+        file_path="service/routes.py",
+    )
+    inferred = service.review_code(
+        "from django.conf import settings\n",
+        top_k=5,
+        file_path="service/settings.py",
+    )
+
+    assert response.language_id == "python"
+    assert response.profile_id == "fastapi_service"
+    assert response.prompt_overlay_refs == ["fastapi_service"]
+    assert inferred.profile_id == "django_service"
 
 
 @pytest.mark.parametrize(

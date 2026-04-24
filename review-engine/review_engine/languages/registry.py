@@ -232,6 +232,7 @@ class LanguageRegistry:
         context_id: str | None = None,
         dialect_id: str | None = None,
         default_language_id: str = "cpp",
+        default_profile_id: str | None = None,
     ) -> LanguageMatch:
         if language_id:
             entry = self._entries.get(language_id, self._entries[default_language_id])
@@ -243,6 +244,8 @@ class LanguageRegistry:
                 profile_id=profile_id,
                 context_id=context_id,
                 dialect_id=dialect_id,
+                default_language_id=default_language_id,
+                default_profile_id=default_profile_id,
             )
 
         path = file_path or ""
@@ -262,6 +265,8 @@ class LanguageRegistry:
                 profile_id=profile_id,
                 context_id=context_id,
                 dialect_id=dialect_id,
+                default_language_id=default_language_id,
+                default_profile_id=default_profile_id,
             )
 
         if file_path:
@@ -273,6 +278,8 @@ class LanguageRegistry:
                 profile_id=profile_id,
                 context_id=context_id,
                 dialect_id=dialect_id,
+                default_language_id=default_language_id,
+                default_profile_id=default_profile_id,
             )
 
         entry = self._entries[default_language_id]
@@ -284,6 +291,8 @@ class LanguageRegistry:
             profile_id=profile_id,
             context_id=context_id,
             dialect_id=dialect_id,
+            default_language_id=default_language_id,
+            default_profile_id=default_profile_id,
         )
 
     def _finalize_match(
@@ -296,6 +305,8 @@ class LanguageRegistry:
         profile_id: str | None,
         context_id: str | None,
         dialect_id: str | None,
+        default_language_id: str,
+        default_profile_id: str | None,
     ) -> LanguageMatch:
         inferred_profile = entry.default_profile
         inferred_context = entry.default_context_id
@@ -341,9 +352,15 @@ class LanguageRegistry:
         elif entry.language_id == "rust" and _looks_like_tokio_rust(lowered_source):
             inferred_profile = "tokio_async"
 
+        selected_profile = profile_id or _apply_configured_default_profile(
+            entry=entry,
+            inferred_profile=inferred_profile,
+            default_language_id=default_language_id,
+            default_profile_id=default_profile_id,
+        )
         return LanguageMatch(
             language_id=entry.language_id,
-            profile_id=profile_id or inferred_profile,
+            profile_id=selected_profile,
             context_id=context_id if context_id is not None else inferred_context,
             dialect_id=dialect_id if dialect_id is not None else inferred_dialect,
             reviewable=entry.reviewable,
@@ -394,6 +411,22 @@ class LanguageRegistry:
 
 def _normalize_path(file_path: str | None) -> str:
     return (file_path or "").replace("\\", "/").lower()
+
+
+def _apply_configured_default_profile(
+    *,
+    entry: LanguageRegistryEntry,
+    inferred_profile: str,
+    default_language_id: str,
+    default_profile_id: str | None,
+) -> str:
+    if (
+        default_profile_id
+        and entry.language_id == default_language_id
+        and inferred_profile == entry.default_profile
+    ):
+        return default_profile_id
+    return inferred_profile
 
 
 def _has_any_token(value: str, tokens: tuple[str, ...]) -> bool:

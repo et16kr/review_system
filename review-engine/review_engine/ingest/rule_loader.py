@@ -50,7 +50,10 @@ def load_rule_runtime_selection(
 ) -> tuple[LoadedRuleContext, dict[str, tuple[RulePackManifest, Path]]]:
     registry = get_language_registry()
     selected_language = language_id or settings.default_language_id
-    default_profile_id = profile_id or registry.get(selected_language).default_profile
+    default_profile_id = profile_id or _default_profile_for_language(
+        settings,
+        selected_language=selected_language,
+    )
     public_root = (settings.public_rule_root or (settings.project_root / "rules")).resolve()
     extension_root_bases = [
         root
@@ -219,6 +222,13 @@ def _load_rule_root_manifest(root: Path) -> RuleRootManifest:
 
 def _load_yaml(path: Path) -> dict:
     return yaml.safe_load(path.read_text(encoding="utf-8"))
+
+
+def _default_profile_for_language(settings: Settings, *, selected_language: str) -> str:
+    registry_default = get_language_registry().get(selected_language).default_profile
+    if selected_language == settings.default_language_id:
+        return settings.default_profile_id or registry_default
+    return registry_default
 
 
 def _add_pack_to_index(

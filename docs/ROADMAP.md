@@ -503,7 +503,7 @@ cd review-engine && uv run pytest tests/test_rule_runtime.py tests/test_rule_lif
 
 ### 11. Clarify Or Remove Default Profile Configuration
 
-상태: `active`
+상태: `watch`
 
 왜 지금 하나:
 
@@ -525,6 +525,22 @@ cd review-engine && uv run pytest tests/test_rule_runtime.py tests/test_rule_lif
 ```bash
 cd review-engine && uv run pytest tests/test_rule_runtime.py tests/test_multilang_regressions.py -q
 ```
+
+완료 기록:
+
+- `REVIEW_ENGINE_DEFAULT_PROFILE`은 유지하되, `REVIEW_ENGINE_DEFAULT_LANGUAGE`로 선택된
+  language에서만 fallback profile로 쓰이게 했다.
+- 명시적 request `profile_id`와 path/content 기반 profile inference가 우선하며,
+  runtime loader, language resolution, direct query analysis가 같은 fallback 의미를 사용한다.
+- targeted regression은 `default_language_id=python`, `default_profile_id=fastapi_service`에서
+  generic Python review가 FastAPI profile을 쓰고 Django inference는 계속 Django profile을 쓰는지 검증한다.
+- 검증 통과:
+  - `cd review-engine && UV_CACHE_DIR=/tmp/uv-cache-review-engine-roadmap-11 uv run --no-sync pytest tests/test_rule_runtime.py tests/test_rule_lifecycle_cli.py tests/test_source_coverage_matrix.py tests/test_multilang_regressions.py -q`
+  - `git diff --check`
+- 기본 `uv run`은 sandbox의 read-only `/home/et16/.cache/uv`를 피하기 위해 writable
+  `UV_CACHE_DIR`와 existing environment `--no-sync`로 검증했다.
+- local GitLab lifecycle smoke와 direct OpenAI smoke는 review-engine profile selection 변경이고
+  provider/runtime success claim이 아니어서 실행하지 않았다.
 
 관련 backlog: `B-review-engine-02`
 
@@ -823,7 +839,7 @@ python3 -m py_compile ops/scripts/create_gitlab_merge_request.py ops/scripts/boo
 
 ## Suggested Next Step
 
-현재 가장 자연스러운 다음 작업은 `11. Clarify Or Remove Default Profile Configuration`이다.
+현재 가장 자연스러운 다음 작업은 `12. Add Reverse Coverage For Canonical Rules`이다.
 
 이유:
 
@@ -838,7 +854,9 @@ python3 -m py_compile ops/scripts/create_gitlab_merge_request.py ops/scripts/boo
 - OpenAI direct smoke preflight는 bounded curl timeout과 timeout exit diagnostic을 남긴다.
 - review-engine selected pack resolution은 duplicate loaded pack id와 unknown explicit
   `enabled_packs`/`shared_packs` reference를 fail-fast로 처리한다.
-- 다음 `active` 항목은 default profile configuration의 실제 runtime 의미를 명확히 하는 일이다.
+- review-engine default profile configuration은 default language fallback으로 runtime selection에 반영되고,
+  explicit profile과 path/content inference가 우선한다.
+- 다음 `active` 항목은 canonical rule reverse coverage를 source coverage matrix에 추가하는 일이다.
 
 ## Validation Baseline
 

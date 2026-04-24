@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from review_engine.config import Settings, get_settings
+from review_engine.languages import get_language_registry
 from review_engine.models import QueryAnalysis
 from review_engine.query.detectors import QueryDetectorManager
 
@@ -20,7 +21,10 @@ def build_query_analysis(
     detector_refs: list[str] | None = None,
 ) -> QueryAnalysis:
     runtime_settings = settings or get_settings()
-    selected_profile = profile_id or runtime_settings.default_profile_id
+    selected_profile = profile_id or _default_profile_for_language(
+        runtime_settings,
+        language_id=language_id,
+    )
     selected_plugin = query_plugin_id or language_id
     manager = QueryDetectorManager(runtime_settings)
     patterns = manager.analyze(
@@ -52,3 +56,10 @@ def build_query_analysis(
         query_text=query_text,
         patterns=patterns,
     )
+
+
+def _default_profile_for_language(settings: Settings, *, language_id: str) -> str:
+    registry_default = get_language_registry().get(language_id).default_profile
+    if language_id == settings.default_language_id:
+        return settings.default_profile_id or registry_default
+    return registry_default
