@@ -135,7 +135,9 @@ ops/scripts/advance_review_roadmap_with_codex.sh --model gpt-5.5 --until-done
 
 ### 3. Architecture And Boundary Review
 
-상태: `active`
+상태: `watch`
+
+완료: `2026-04-24`
 
 이번 작업의 범위:
 
@@ -148,6 +150,17 @@ ops/scripts/advance_review_roadmap_with_codex.sh --model gpt-5.5 --until-done
 
 - architecture-level bug risk와 cleanup 후보가 findings로 남는다.
 - 다음 구현 roadmap에 넣어야 할 경계 정리 작업이 선별된다.
+
+완료 기록:
+
+- [CURRENT_STATE_REVIEW.md](/home/et16/work/review_system/docs/reviews/CURRENT_STATE_REVIEW.md:1)에
+  architecture boundary review 결과를 남겼다. canonical `ReviewRequestKey`는 문서,
+  API, DB, runner lookup, GitLab adapter 경계에서 일관된 것으로 평가했다.
+- [REVIEW_FINDINGS_BACKLOG.md](/home/et16/work/review_system/docs/reviews/REVIEW_FINDINGS_BACKLOG.md:1)에
+  local harness BotClient가 제거된 legacy `pr_id` bot endpoint를 호출하는 문제를
+  후속 direct fix 후보로 추가했다.
+- 검증은 `git diff --check`로 제한했다. 이 static architecture review는 local GitLab
+  smoke나 OpenAI direct smoke의 runtime signal을 근거로 삼지 않았다.
 
 ### 4. `review-engine` Correctness Review
 
@@ -310,7 +323,7 @@ ops/scripts/advance_review_roadmap_with_codex.sh --model gpt-5.5 --until-done
 
 ## Suggested Next Step
 
-현재 다음 실행 단위는 `3. Architecture And Boundary Review`다.
+현재 다음 실행 단위는 `4. review-engine Correctness Review`다.
 
 이유:
 
@@ -318,8 +331,11 @@ ops/scripts/advance_review_roadmap_with_codex.sh --model gpt-5.5 --until-done
   backlog intake contract를 고정했다.
 - `2. Product Direction And Scope Review`에서 현재 제품 방향은 유지하고,
   넓은 surface는 contract-first 또는 deferred 상태로 유지하는 것이 맞다고 평가했다.
-- 다음에는 canonical identity, local harness boundary, adapter/runner/API/DB lifecycle
-  경계가 실제 코드와 문서에서 일관되는지 점검한다.
+- `3. Architecture And Boundary Review`에서 canonical identity는 current contract와
+  일치하지만, local harness bot bridge에는 stale `pr_id` endpoint cleanup 후보가
+  남아 있음을 확인했다.
+- 다음에는 engine rule source, profile, pack identity, ingest/retrieval/rerank/detector
+  경계의 correctness를 점검한다.
 
 ## Validation Baseline
 

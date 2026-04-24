@@ -43,4 +43,21 @@
 
 ## Backlog
 
-아직 작성 전.
+### B-review-platform-01 Update local harness bot bridge to key-based bot API
+
+- Finding: `F-architecture-02 Local harness bot bridge still targets removed pr_id bot endpoints`
+- Severity: `medium`
+- Area: `review-platform`
+- Evidence: [review-platform/app/clients/bot_client.py](/home/et16/work/review_system/review-platform/app/clients/bot_client.py:12)
+  calls removed `/internal/review/pr-updated`, `/internal/review/next-batch`, and
+  `/internal/review/state/{pr_id}` endpoints, while [review-bot/review_bot/api/main.py](/home/et16/work/review_system/review-bot/review_bot/api/main.py:81)
+  exposes the current key-based review run API.
+- Recommended action: Change `review-platform`'s bot client and UI handlers to use
+  `ReviewRequestKey`-based bot APIs, or remove/hide unsupported harness bot controls until a
+  key-based next-batch contract exists. Add an unmocked contract test so this bridge cannot drift
+  again.
+- Follow-up target: `direct fix`
+- Post-review bucket: `bug_fix`
+- Validation note: Run `cd review-platform && uv run pytest tests/test_pr_flow.py -q` plus a
+  targeted review-bot API test after the fix. Local GitLab smoke is not required unless GitLab
+  adapter behavior changes.
