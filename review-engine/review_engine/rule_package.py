@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import hashlib
+import re
+from dataclasses import replace
 from pathlib import Path, PurePosixPath
 from typing import Any, TypeVar
 
@@ -17,8 +20,11 @@ from review_engine.models import (
 )
 
 PACKAGE_MANIFEST_NAME = "package.yaml"
+DEFAULT_PRIVATE_ARTIFACT_ROOT = Path("/tmp/review-engine-private-rule-packages")
+MAX_PRIVATE_COLLECTION_PREFIX_LENGTH = 48
 
 _ModelT = TypeVar("_ModelT", bound=StrictAuthoringModel)
+_COLLECTION_COMPONENT_RE = re.compile(r"[^A-Za-z0-9_-]+")
 
 
 class RulePackageValidationError(ValueError):
@@ -77,6 +83,250 @@ def validate_rule_package(
         "extension_roots": extension_roots,
         "included": included,
         "provenance": provenance,
+        "mutated_files": [],
+    }
+
+
+def _package_artifact_root(
+    *,
+    package_id: str,
+    package_version: str,
+    private_artifact_root: Path | None,
+) -> Path:
+    base_root = (private_artifact_root or DEFAULT_PRIVATE_ARTIFACT_ROOT).expanduser().resolve()
+    return base_root / package_id / package_version / "validation"
+
+
+def _private_collection_prefix(package_id: str, package_version: str) -> str:
+    package_component = _sanitize_collection_component(package_id)
+    version_component = _sanitize_collection_component(package_version)
+    prefix = f"pkg_guidelines_{package_component}_{version_component}"
+    if len(prefix) <= MAX_PRIVATE_COLLECTION_PREFIX_LENGTH:
+        return prefix
+
+    digest = hashlib.sha256(f"{package_id}:{package_version}".encode("utf-8")).hexdigest()[:12]
+    truncated = package_component[:24].rstrip("_")
+    return f"pkg_guidelines_{truncated}_{digest}"
+
+
+def _sanitize_collection_component(value: str) -> str:
+    sanitized = _COLLECTION_COMPONENT_RE.sub("_", value).strip("_")
+    return sanitized or "package"
+
+
+def _records_from_root(records: list[Any], root: Path) -> list[Any]:
+    resolved_root = root.resolve()
+    return [
+        record
+        for record in records
+        if _is_relative_to(Path(record.source).resolve(), resolved_root)
+    ]
+
+
+def _validate_private_artifact_boundary(
+    *,
+    base_settings: Any,
+    private_settings: Any,
+    ingest_summary: dict[str, Any],
+) -> dict[str, Any]:
+    public_data_dir = (base_settings.project_root / "data").resolve()
+    dataset_paths = sorted(
+        {
+            path
+            for per_language in ingest_summary.get("dataset_paths", {}).values()
+            for path in per_language.values()
+        }
+    )
+    collection_names = sorted(ingest_summary.get("collections", {}))
+    language_ids = sorted(ingest_summary.get("languages", {})) or [
+        private_settings.default_language_id
+    ]
+    public_collection_names = sorted(
+        {
+            base_settings.collection_for(kind, language_id)
+            for language_id in language_ids
+            for kind in ("active", "reference", "excluded")
+        }
+    )
+    public_collection_name_set = set(public_collection_names)
+    uses_public_data_dir = any(
+        _is_relative_to(Path(path).resolve(), public_data_dir)
+        for path in dataset_paths
+    )
+    uses_public_collection_name = any(
+        collection_name in public_collection_name_set
+        for collection_name in collection_names
+    )
+    if uses_public_data_dir:
+        raise RulePackageValidationError(
+            "private package validation attempted to use public review-engine/data artifacts"
+        )
+    if uses_public_collection_name:
+        raise RulePackageValidationError(
+            "private package validation attempted to use public Chroma collection names"
+        )
+
+    return {
+        "status": "passed",
+        "private_artifact_root": str(private_settings.data_dir.parent),
+        "private_data_dir": str(private_settings.data_dir),
+        "private_chroma_path": str(private_settings.chroma_path),
+        "private_collection_prefix": private_settings.collection_name,
+        "dataset_paths": dataset_paths,
+        "collections": collection_names,
+        "public_data_dir": str(public_data_dir),
+        "public_collection_names_checked": public_collection_names,
+        "uses_public_data_dir": False,
+        "uses_public_collection_name": False,
+    }
+
+
+def validate_rule_package_split_gate(
+    package_root: Path,
+    *,
+    manifest_name: str = PACKAGE_MANIFEST_NAME,
+    settings: Any | None = None,
+    private_artifact_root: Path | None = None,
+) -> dict[str, Any]:
+    from review_engine.config import get_settings
+    from review_engine.ingest.build_records import ingest_all_sources
+    from review_engine.ingest.rule_loader import load_rule_runtime
+    from review_engine.retrieve.search import GuidelineSearchService
+
+    base_settings = settings or get_settings()
+    package_payload = validate_rule_package(package_root, manifest_name=manifest_name)
+    extension_root = Path(package_payload["extension_roots"][0]["resolved_path"]).resolve()
+    language_id = str(package_payload["extension_roots"][0]["language_id"])
+    package_id = str(package_payload["package_id"])
+    package_version = str(package_payload["package_version"])
+    artifact_root = _package_artifact_root(
+        package_id=package_id,
+        package_version=package_version,
+        private_artifact_root=private_artifact_root,
+    )
+    private_settings = replace(
+        base_settings,
+        data_dir=artifact_root / "data",
+        active_dataset_path=None,
+        reference_dataset_path=None,
+        excluded_dataset_path=None,
+        chroma_path=artifact_root / "chroma",
+        collection_name=_private_collection_prefix(package_id, package_version),
+        active_collection_name=None,
+        reference_collection_name=None,
+        excluded_collection_name=None,
+        extension_rule_roots=(extension_root,),
+        default_language_id=language_id,
+        strict_extension_loading=True,
+    )
+
+    try:
+        private_runtime = load_rule_runtime(private_settings, language_id=language_id)
+    except Exception as exc:
+        raise RulePackageValidationError(
+            f"private runtime strict load failed: {exc}"
+        ) from exc
+
+    extension_records = _records_from_root(
+        [
+            *private_runtime.active_records,
+            *private_runtime.reference_records,
+            *private_runtime.excluded_records,
+        ],
+        extension_root,
+    )
+    active_extension_records = _records_from_root(private_runtime.active_records, extension_root)
+    if not extension_records:
+        raise RulePackageValidationError(
+            "private runtime strict load did not expose package extension records"
+        )
+    if not active_extension_records:
+        raise RulePackageValidationError(
+            "private runtime retrieval requires at least one active package extension record"
+        )
+
+    retrieval_rule_no = sorted(record.rule_no for record in active_extension_records)[0]
+    try:
+        ingest_summary = ingest_all_sources(private_settings)
+        retrieved = GuidelineSearchService(private_settings).inspect_rule(
+            retrieval_rule_no,
+            language_id=language_id,
+        )
+    except Exception as exc:
+        raise RulePackageValidationError(
+            f"private runtime retrieval failed: {exc}"
+        ) from exc
+    if retrieved is None:
+        raise RulePackageValidationError(
+            f"private runtime retrieval did not return package rule: {retrieval_rule_no}"
+        )
+    if not _is_relative_to(Path(retrieved.source).resolve(), extension_root):
+        raise RulePackageValidationError(
+            f"private runtime retrieval returned non-package rule source: {retrieved.source}"
+        )
+
+    public_settings = replace(
+        base_settings,
+        extension_rule_roots=(),
+        strict_extension_loading=True,
+    )
+    try:
+        public_runtime = load_rule_runtime(public_settings, language_id=language_id)
+    except Exception as exc:
+        raise RulePackageValidationError(
+            f"public-only runtime regression failed: {exc}"
+        ) from exc
+
+    private_rule_nos = {record.rule_no for record in extension_records}
+    public_rule_nos = {
+        record.rule_no
+        for record in [
+            *public_runtime.active_records,
+            *public_runtime.reference_records,
+            *public_runtime.excluded_records,
+        ]
+    }
+    leaked_rule_nos = sorted(private_rule_nos & public_rule_nos)
+    if leaked_rule_nos:
+        raise RulePackageValidationError(
+            "public-only runtime unexpectedly exposes package rules: "
+            + ", ".join(leaked_rule_nos)
+        )
+
+    artifact_boundary = _validate_private_artifact_boundary(
+        base_settings=base_settings,
+        private_settings=private_settings,
+        ingest_summary=ingest_summary.model_dump(),
+    )
+
+    return {
+        "source_of_truth": "package_yaml",
+        "validation_mode": "split_gate",
+        "package": package_payload,
+        "source_manifest_validation": {
+            "status": "passed",
+            "mode": "package_manifest_included_files",
+            "source_manifest_files": package_payload["included"]["source_manifest_files"],
+        },
+        "private_runtime_strict_load": {
+            "status": "passed",
+            "language_id": private_runtime.language_id,
+            "extension_rule_roots": private_runtime.extension_rule_roots,
+            "extension_rule_nos": sorted(private_rule_nos),
+        },
+        "private_runtime_retrieval": {
+            "status": "passed",
+            "rule_no": retrieval_rule_no,
+            "pack_id": retrieved.pack_id,
+            "collection_prefix": private_settings.collection_name,
+        },
+        "public_only_runtime_regression": {
+            "status": "passed",
+            "language_id": public_runtime.language_id,
+            "extension_rule_roots": public_runtime.extension_rule_roots,
+            "private_rule_visible": False,
+        },
+        "artifact_boundary": artifact_boundary,
         "mutated_files": [],
     }
 

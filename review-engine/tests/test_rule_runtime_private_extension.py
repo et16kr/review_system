@@ -11,7 +11,11 @@ import yaml
 from review_engine.cli import rule_package
 from review_engine.ingest.build_records import ingest_all_sources
 from review_engine.ingest.rule_loader import load_rule_runtime
-from review_engine.rule_package import RulePackageValidationError, validate_rule_package
+from review_engine.rule_package import (
+    RulePackageValidationError,
+    validate_rule_package,
+    validate_rule_package_split_gate,
+)
 
 
 def _sample_extension_root(project_root: Path) -> Path:
@@ -114,6 +118,77 @@ def test_rule_package_validate_cli_emits_deterministic_json(
     assert payload["mutated_files"] == []
 
 
+def test_private_package_split_gate_separates_artifacts_and_public_runtime(
+    fixture_settings,
+    tmp_path,
+) -> None:
+    package_root = _sample_extension_root(fixture_settings.project_root)
+
+    payload = validate_rule_package_split_gate(
+        package_root,
+        settings=fixture_settings,
+        private_artifact_root=tmp_path / "private-artifacts",
+    )
+
+    assert payload["source_of_truth"] == "package_yaml"
+    assert payload["validation_mode"] == "split_gate"
+    assert payload["package"]["package_id"] == "com.example.private_org_cpp"
+    assert payload["source_manifest_validation"]["status"] == "passed"
+    assert payload["source_manifest_validation"]["source_manifest_files"] == []
+    assert payload["private_runtime_strict_load"]["status"] == "passed"
+    assert payload["private_runtime_strict_load"]["extension_rule_nos"] == [
+        "ORG.MEM.1",
+        "ORG.REF.1",
+    ]
+    assert payload["private_runtime_retrieval"] == {
+        "status": "passed",
+        "rule_no": "ORG.MEM.1",
+        "pack_id": "org_cpp",
+        "collection_prefix": "pkg_guidelines_com_example_private_org_cpp_0_1_0",
+    }
+    assert payload["public_only_runtime_regression"]["private_rule_visible"] is False
+    assert payload["public_only_runtime_regression"]["extension_rule_roots"] == []
+
+    artifact_boundary = payload["artifact_boundary"]
+    assert artifact_boundary["status"] == "passed"
+    assert artifact_boundary["uses_public_data_dir"] is False
+    assert artifact_boundary["uses_public_collection_name"] is False
+    assert all(
+        str(tmp_path / "private-artifacts") in dataset_path
+        for dataset_path in artifact_boundary["dataset_paths"]
+    )
+    assert all(
+        collection.startswith("pkg_guidelines_com_example_private_org_cpp_0_1_0_")
+        for collection in artifact_boundary["collections"]
+    )
+    assert payload["mutated_files"] == []
+
+
+def test_rule_package_split_gate_cli_emits_deterministic_json(
+    fixture_settings,
+    tmp_path,
+    capsys,
+) -> None:
+    package_root = _sample_extension_root(fixture_settings.project_root)
+
+    rule_package.main(
+        [
+            "split-gate",
+            "--package-root",
+            str(package_root),
+            "--private-artifact-root",
+            str(tmp_path / "private-artifacts"),
+        ]
+    )
+
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["command"] == "split-gate"
+    assert payload["package"]["package_id"] == "com.example.private_org_cpp"
+    assert payload["private_runtime_retrieval"]["rule_no"] == "ORG.MEM.1"
+    assert payload["artifact_boundary"]["uses_public_data_dir"] is False
+    assert payload["artifact_boundary"]["uses_public_collection_name"] is False
+
+
 @pytest.mark.parametrize(
     ("mutate", "error_pattern"),
     [
@@ -163,3 +238,9 @@ def test_private_package_manifest_rejects_invalid_metadata_and_paths(
 
     with pytest.raises(RulePackageValidationError, match=error_pattern):
         validate_rule_package(package_root)
+    with pytest.raises(RulePackageValidationError, match=error_pattern):
+        validate_rule_package_split_gate(
+            package_root,
+            settings=fixture_settings,
+            private_artifact_root=tmp_path / "private-artifacts",
+        )
