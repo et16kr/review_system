@@ -41,7 +41,8 @@
 - Provider runtime guardrails
   - model/base URL/transport provenance가 lifecycle API, log, summary note에 충분히 드러나야 한다.
 - Smoke / evaluation hardening
-  - TestClient-backed gate가 hang 없이 실패 신호를 내야 한다.
+  - `review-bot` API queue TestClient gate는 bounded diagnostic을 갖췄다.
+  - `review-platform` FastAPI/TestClient gate는 아직 hang 없이 실패 신호를 내야 한다.
   - OpenAI direct smoke preflight가 bounded runtime 안에서 끝나야 한다.
 - Roadmap automation blocked artifact retention
   - implementation roadmap wrapper는 retained artifact 경로가 있지만 review-roadmap wrapper는 아직 `/tmp` scratch에 의존한다.
@@ -83,7 +84,7 @@
 
 ### 1. Make Review-Bot API Queue TestClient Gate Bounded And Diagnosable
 
-상태: `active`
+상태: `watch`
 
 왜 지금 하나:
 
@@ -101,6 +102,18 @@
 
 - `cd review-bot && uv run pytest tests/test_api_queue.py -q`가 outer timeout 없이 끝난다.
 - 실패 시에도 pytest 결과나 hang diagnostic이 남는다.
+
+완료 기록:
+
+- `review-bot` API queue suite는 deterministic ASGI test client와 per-test watchdog으로
+  TestClient/threadpool hang diagnostic을 남긴다.
+- 검증 통과:
+  - `cd review-bot && UV_CACHE_DIR=/tmp/uv-cache-review-bot-api-queue-validation-4 uv run --no-sync pytest tests/test_api_queue.py -q`
+  - `cd review-bot && UV_CACHE_DIR=/tmp/uv-cache-review-bot-runner-validation-3 uv run --no-sync pytest tests/test_review_runner.py -q`
+  - `git diff --check`
+- 기본 `uv run`은 sandbox의 read-only `/home/et16/.cache/uv` 때문에 실행 전 cache 초기화에서 실패해,
+  같은 test command를 writable `UV_CACHE_DIR`와 existing environment `--no-sync`로 검증했다.
+- local GitLab lifecycle smoke와 direct OpenAI smoke는 이 test guardrail 변경에 필요하지 않아 실행하지 않았다.
 
 관련 backlog: `B-cross-cutting-01`
 
@@ -679,13 +692,14 @@ python3 -m py_compile ops/scripts/create_gitlab_merge_request.py ops/scripts/boo
 
 ## Suggested Next Step
 
-현재 가장 자연스러운 다음 작업은 `1. Make Review-Bot API Queue TestClient Gate Bounded And Diagnosable`이다.
+현재 가장 자연스러운 다음 작업은 `2. Make Review-Platform TestClient Gates Bounded And Diagnosable`이다.
 
 이유:
 
-- 이 항목이 열려 있으면 후속 bug fix가 검증 결과 대신 timeout만 남길 수 있다.
-- review-bot API queue와 review-platform TestClient gate는 표준 검증 경로에 포함되어 있다.
-- gate reliability를 먼저 닫아야 이후 review-bot, harness, engine guardrail 수정이 작은 commit 단위로 안정적으로 진행된다.
+- review-bot API queue gate reliability는 닫혔다.
+- review-platform TestClient gate는 여전히 표준 검증 경로에 포함되어 있고,
+  harness bridge fix 전에 hang diagnostic을 먼저 갖춰야 한다.
+- gate reliability를 먼저 닫아야 이후 harness guardrail 수정이 작은 commit 단위로 안정적으로 진행된다.
 
 ## Validation Baseline
 

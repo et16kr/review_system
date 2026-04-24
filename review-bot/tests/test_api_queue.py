@@ -3,8 +3,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from unittest.mock import patch
 
-from fastapi.testclient import TestClient
-
+from asgi_test_client import TestClient
 from review_bot.api import main as api_main
 from review_bot.db.models import ReviewRequest, ReviewRun
 from review_bot.db.session import Base, SessionLocal, engine
