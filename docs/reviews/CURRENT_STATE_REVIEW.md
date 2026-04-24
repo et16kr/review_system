@@ -60,6 +60,13 @@ provider와 fallback 여부만 저장하므로, `BOT_OPENAI_BASE_URL`로 OpenAI-
 backend를 붙였을 때 API, log, summary note에서 default OpenAI와 local backend/model을
 구분할 수 없다.
 
+User-facing review UX 기준으로는 현재 6개 note command surface가 적절하다. `review`는
+명시적 trigger, `summarize`/`walkthrough`/`full-report`/`backlog`/`help`는 GitLab
+general note에서 상태를 읽는 보조 surface로 분리되어 있고, `.review-bot.yaml`과 `ask`는
+아직 contract-first roadmap 항목으로 남아 있어 구현하지 않는 판단이 맞다. 다만
+`@review-bot fullreport` 같은 directed unknown command는 webhook response에서만
+ignored_reason을 반환하므로 GitLab 사용자가 실패 이유를 보지 못한다.
+
 ## Evidence Inventory
 
 ### Evidence Levels
@@ -298,6 +305,53 @@ backend를 붙였을 때 API, log, summary note에서 default OpenAI와 local ba
   OpenAI success claim. Local GitLab lifecycle smoke was not run because provider boundary judgment
   did not require runtime GitLab evidence. Provider validation used deterministic `stub` and skipped
   OpenAI artifact paths, not direct OpenAI.
+
+### Unit 8 Evidence
+
+- Current command contract:
+  [README.md](/home/et16/work/review_system/README.md:7),
+  [docs/CURRENT_SYSTEM.md](/home/et16/work/review_system/docs/CURRENT_SYSTEM.md:24),
+  and [docs/API_CONTRACTS.md](/home/et16/work/review_system/docs/API_CONTRACTS.md:559)
+  define explicit MR note commands as the user-facing review UX.
+- Live command parser and webhook dispatch:
+  [review-bot/review_bot/api/main.py](/home/et16/work/review_system/review-bot/review_bot/api/main.py:383)
+  limits recognized note commands to `review`, `full-report`, `summarize`, `walkthrough`, `backlog`,
+  and `help`, while
+  [review-bot/review_bot/api/main.py](/home/et16/work/review_system/review-bot/review_bot/api/main.py:287)
+  dispatches report-style commands without enqueueing detect jobs.
+- General note rendering and upsert boundary:
+  [review-bot/review_bot/bot/review_runner.py](/home/et16/work/review_system/review-bot/review_bot/bot/review_runner.py:1359)
+  posts same-purpose `full-report`, `summarize`, `walkthrough`, `backlog`, and `help` notes, and
+  [review-bot/review_bot/bot/review_runner.py](/home/et16/work/review_system/review-bot/review_bot/bot/review_runner.py:3567)
+  prefers adapter `upsert_general_note` before falling back to append.
+- Note content surfaces:
+  [review-bot/review_bot/bot/review_runner.py](/home/et16/work/review_system/review-bot/review_bot/bot/review_runner.py:3667),
+  [review-bot/review_bot/bot/review_runner.py](/home/et16/work/review_system/review-bot/review_bot/bot/review_runner.py:3765),
+  [review-bot/review_bot/bot/review_runner.py](/home/et16/work/review_system/review-bot/review_bot/bot/review_runner.py:3831),
+  [review-bot/review_bot/bot/review_runner.py](/home/et16/work/review_system/review-bot/review_bot/bot/review_runner.py:3915),
+  and [review-bot/review_bot/bot/review_runner.py](/home/et16/work/review_system/review-bot/review_bot/bot/review_runner.py:4001)
+  render full report, backlog, summarize, walkthrough, and help notes.
+- Deferred UX surfaces:
+  [docs/CURRENT_SYSTEM.md](/home/et16/work/review_system/docs/CURRENT_SYSTEM.md:179)
+  states `.review-bot.yaml` and `ask` do not exist yet, while
+  [docs/ROADMAP.md](/home/et16/work/review_system/docs/ROADMAP.md:70)
+  and [docs/ROADMAP.md](/home/et16/work/review_system/docs/ROADMAP.md:93)
+  keep them as contract-definition work before implementation.
+- Unknown command behavior:
+  [review-bot/review_bot/api/main.py](/home/et16/work/review_system/review-bot/review_bot/api/main.py:244)
+  returns `ignored_reason=unknown_command:...` without posting a visible note, and
+  [review-bot/tests/test_api_queue.py](/home/et16/work/review_system/review-bot/tests/test_api_queue.py:713)
+  verifies no detect job is enqueued for `@review-bot fullreport`.
+- Static scans:
+  `rg -n 'review-bot\\.yaml|ask command|@review-bot ask|/review-bot ask|ask' README.md docs review-bot/review_bot review-bot/tests ops -g '!**/.venv/**'`
+  and
+  `rg -n 'full report|full-report|summarize|walkthrough|backlog|help|unknown_command|multiple|unsupported' review-bot/tests/test_api_queue.py review-bot/tests/test_review_runner.py docs/API_CONTRACTS.md docs/CURRENT_SYSTEM.md`.
+- Validation passed:
+  `UV_CACHE_DIR=/tmp/uv-cache uv run --project review-bot pytest review-bot/tests/test_api_queue.py::test_extract_gitlab_note_command_recognizes_supported_commands review-bot/tests/test_api_queue.py::test_extract_gitlab_note_command_flags_unknown_and_incidental review-bot/tests/test_review_runner.py::test_post_full_report_note_posts_backlog_overview review-bot/tests/test_review_runner.py::test_render_full_report_note_includes_surfacing_reason_detail_for_suppressed_items review-bot/tests/test_review_runner.py::test_post_full_report_note_upserts_same_purpose_general_note review-bot/tests/test_review_runner.py::test_post_backlog_note_posts_backlog_only_view review-bot/tests/test_review_runner.py::test_render_summarize_note_includes_aggregate_status_and_followup_commands review-bot/tests/test_review_runner.py::test_post_summarize_note_upserts_same_purpose_general_note review-bot/tests/test_review_runner.py::test_render_walkthrough_note_guides_note_order_and_backlog_reasons review-bot/tests/test_review_runner.py::test_post_walkthrough_note_upserts_same_purpose_general_note review-bot/tests/test_review_runner.py::test_render_help_note_lists_walkthrough_command -q`
+  passed with `11 passed`.
+- Skipped validation: local GitLab smoke was not run because this UX review did not need runtime
+  webhook/thread evidence. OpenAI direct smoke was skipped by configuration and was not relevant.
+  Provider validation was not used.
 
 ## Findings
 
@@ -731,6 +785,79 @@ backend를 붙였을 때 API, log, summary note에서 default OpenAI와 local ba
   provenance. Follow-up validation should run provider runtime tests plus provider quality tests;
   direct OpenAI smoke is only required if claiming live provider success.
 
+### F-ux-01 Current note command set is narrow enough for the active product boundary
+
+- Severity: `info`
+- Area: `review-bot`
+- Evidence level: `static_code`
+- Evidence: [docs/API_CONTRACTS.md](/home/et16/work/review_system/docs/API_CONTRACTS.md:561)
+  defines the supported command set as `review`, `summarize`, `walkthrough`, `full-report`,
+  `backlog`, and `help`. The live parser at
+  [review-bot/review_bot/api/main.py](/home/et16/work/review_system/review-bot/review_bot/api/main.py:383)
+  recognizes the same set, including the safety behavior that a bare mention maps to `review` and
+  unknown directed commands do not enqueue review work. [docs/CURRENT_SYSTEM.md](/home/et16/work/review_system/docs/CURRENT_SYSTEM.md:179)
+  explicitly says `.review-bot.yaml` and `ask` do not exist yet.
+- Impact: The user surface stays centered on explicit GitLab MR note triggers and status/report
+  notes. This avoids adding configuration precedence, retrieval/session, cost, latency, and answer
+  safety questions to the live command path before their contracts are ready.
+- Recommended action: Keep the current command set. Continue treating `.review-bot.yaml` and `ask`
+  as contract-definition work in the implementation roadmap before adding live behavior.
+- Follow-up target: `none`
+- Post-review bucket: `keep`
+- Validation note: Static code/doc review plus targeted command parser tests passed. No local
+  GitLab smoke or provider validation was needed.
+
+### F-ux-02 Report-style notes give users the right reading path without new UI
+
+- Severity: `info`
+- Area: `review-bot`
+- Evidence level: `deterministic_validation`
+- Evidence: [review-bot/review_bot/bot/review_runner.py](/home/et16/work/review_system/review-bot/review_bot/bot/review_runner.py:1359)
+  exposes `post_full_report_note`, `post_summarize_note`, `post_walkthrough_note`,
+  `post_backlog_note`, and `post_help_note` as Git review-system general notes. The renderers at
+  [review-bot/review_bot/bot/review_runner.py](/home/et16/work/review_system/review-bot/review_bot/bot/review_runner.py:3667)
+  through [review-bot/review_bot/bot/review_runner.py](/home/et16/work/review_system/review-bot/review_bot/bot/review_runner.py:4001)
+  separate latest run, in-flight run, current backlog, suppress counts, and backlog reason text.
+  Existing targeted tests passed for full-report/backlog rendering, summarize/walkthrough reading
+  order, help content, and same-purpose upsert behavior.
+- Impact: Users can stay inside GitLab MR notes and still answer the common questions: what was
+  just posted, what remains in backlog, why a backlog item appears, what is suppressed, and which
+  note to read next. Same-purpose upsert prevents report-style commands from creating unbounded note
+  clutter, while run-level summaries remain append-only as documented.
+- Recommended action: Keep the summarize -> backlog -> full-report reading path and same-purpose
+  upsert behavior. Revisit only after `.review-bot.yaml` or `ask` contract work changes the note
+  command model.
+- Follow-up target: `none`
+- Post-review bucket: `keep`
+- Validation note: Targeted deterministic validation passed with `11 passed`. Local GitLab smoke
+  was not required because no adapter/runtime success claim was made.
+
+### F-ux-03 Directed unknown commands are safe but invisible to GitLab users
+
+- Severity: `low`
+- Area: `review-bot`
+- Evidence level: `static_code`
+- Evidence: [review-bot/review_bot/api/main.py](/home/et16/work/review_system/review-bot/review_bot/api/main.py:244)
+  returns `accepted=False`, `status=ignored`, and `ignored_reason=unknown_command:...` when a
+  line-start bot mention has an unknown token. That is safe because
+  [review-bot/tests/test_api_queue.py](/home/et16/work/review_system/review-bot/tests/test_api_queue.py:713)
+  verifies `@review-bot fullreport` does not enqueue detect work. But the response is only a
+  webhook response; unlike `@review-bot help` at
+  [review-bot/review_bot/api/main.py](/home/et16/work/review_system/review-bot/review_bot/api/main.py:327),
+  the unknown-command path does not post a visible MR note.
+- Impact: A user who mistypes `full-report`, tries deferred `ask`, or copies an unsupported command
+  sees no GitLab-visible explanation. The failure mode is safe but looks like the bot ignored the
+  user or failed silently, which increases retries and support/debugging time.
+- Recommended action: When a directed unknown command has enough GitLab project/MR context and the
+  adapter supports general notes, post or upsert a concise same-purpose help/error note that echoes
+  the unknown token and lists supported commands. Preserve the current no-enqueue behavior and keep
+  incidental mentions silent.
+- Follow-up target: `direct fix`
+- Post-review bucket: `bug_fix`
+- Validation note: Follow-up should add deterministic tests for visible unknown-command feedback,
+  no detect enqueue, and incidental mention silence. Run targeted parser/webhook tests plus the note
+  renderer tests. Local GitLab smoke is only needed if GitLab adapter note posting changes.
+
 이후 finding은 아래 형식을 따른다.
 
 ```md
@@ -840,7 +967,19 @@ default OpenAI success를 운영자가 혼동하지 않는다.
 
 ## Interface And UX Assessment
 
-아직 평가 전. Unit 8에서 user-facing command와 note surface를 점검한다.
+현재 command UX는 note-first product boundary에 맞다. `review`만 detect job을 만들고,
+`summarize`, `walkthrough`, `full-report`, `backlog`, `help`는 current state와 backlog를
+MR general note로 읽게 한다. Report-style notes는 same-purpose upsert를 우선하므로 사용자가
+상태를 반복 조회해도 note surface가 과하게 늘어나지 않는다.
+
+`.review-bot.yaml`과 `ask`는 지금 구현하지 않는 판단이 맞다. 둘 다 precedence,
+retrieval/session, provider availability, answer safety를 먼저 정해야 하므로, 현재처럼
+implementation roadmap의 contract-definition 항목으로 남겨야 한다.
+
+수정 후보는 unknown command feedback이다. Directed unknown command는 review를 실행하지 않는
+점에서는 안전하지만, webhook response의 `ignored_reason`은 GitLab 사용자에게 보이지 않는다.
+따라서 `@review-bot fullreport` 같은 실수에는 visible help/error note를 남기는 편이
+사용자 경험과 운영 디버깅에 더 낫다.
 
 ## Roadmap / Deferred Assessment
 
@@ -857,6 +996,8 @@ default OpenAI success를 운영자가 혼동하지 않는다.
 
 ## Recommended Actions
 
-다음 review action은 `8. User Interface And Review UX Review`다. Unit 6의 API queue
+다음 review action은 `9. Ops, Smoke, And Automation Review`다. Unit 6의 API queue
 validation hang은 follow-up test-gate 조사 대상으로 남기고, Unit 7의 direct OpenAI smoke는
-configuration에 의해 skipped된 provider evidence limitation으로 남긴다.
+configuration에 의해 skipped된 provider evidence limitation으로 남긴다. Unit 8에서는
+unknown command가 GitLab 사용자에게 visible feedback을 남기지 않는 UX gap을 후속 direct
+fix 후보로 남겼다.

@@ -122,6 +122,25 @@
 - Validation note: Run `cd review-bot && uv run pytest tests/test_provider_quality.py tests/test_prompting.py::test_openai_provider_client_uses_configured_base_url tests/test_review_runner.py::test_review_runner_persists_provider_runtime_metadata_on_run_and_finding tests/test_review_runner.py::test_review_runner_persists_fallback_provider_runtime_metadata tests/test_review_runner.py::test_pr_summary_includes_live_provider_runtime_provenance tests/test_review_runner.py::test_publish_logs_and_summary_include_fallback_provider_runtime_provenance -q`.
   Run direct OpenAI smoke only when making a live provider success claim.
 
+### B-review-bot-04 Post visible feedback for directed unknown note commands
+
+- Finding: `F-ux-03 Directed unknown commands are safe but invisible to GitLab users`
+- Severity: `low`
+- Area: `review-bot`
+- Evidence: [review-bot/review_bot/api/main.py](/home/et16/work/review_system/review-bot/review_bot/api/main.py:244)
+  returns only a webhook `ignored_reason=unknown_command:...` for directed unknown commands, while
+  [review-bot/tests/test_api_queue.py](/home/et16/work/review_system/review-bot/tests/test_api_queue.py:713)
+  confirms `@review-bot fullreport` does not enqueue detect work. GitLab users do not see that
+  webhook response in the MR discussion.
+- Recommended action: For line-start bot mentions with unknown command tokens, post or upsert a
+  concise same-purpose help/error note when project/MR context and general-note support are
+  available. Preserve no-enqueue behavior and keep incidental mentions silent.
+- Follow-up target: `direct fix`
+- Post-review bucket: `bug_fix`
+- Validation note: Add deterministic tests for visible unknown-command feedback, no detect enqueue,
+  and incidental mention silence. Run targeted parser/webhook tests plus note-renderer tests. Local
+  GitLab smoke is only needed if GitLab adapter note posting changes.
+
 ### B-review-engine-01 Fail fast on unresolved or duplicate selected packs
 
 - Finding: `F-engine-02 Profile pack selection can silently drop or replace packs`

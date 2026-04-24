@@ -296,7 +296,9 @@ ops/scripts/advance_review_roadmap_with_codex.sh --model gpt-5.5 --until-done
 
 ### 8. User Interface And Review UX Review
 
-상태: `active`
+상태: `watch`
+
+완료: `2026-04-24`
 
 이번 작업의 범위:
 
@@ -309,6 +311,20 @@ ops/scripts/advance_review_roadmap_with_codex.sh --model gpt-5.5 --until-done
 
 - 사용자-facing interface 개선 후보가 정리된다.
 - 빼거나 미룰 command surface와 추가할 safety copy가 구분된다.
+
+완료 기록:
+
+- [CURRENT_STATE_REVIEW.md](/home/et16/work/review_system/docs/reviews/CURRENT_STATE_REVIEW.md:1)에
+  user-facing command와 note UX review 결과를 남겼다. 현재 6개 command surface와
+  summarize -> backlog -> full-report reading path는 유지하고, `.review-bot.yaml`과 `ask`는
+  contract-definition work 전까지 구현하지 않는 판단이 맞다고 평가했다.
+- [REVIEW_FINDINGS_BACKLOG.md](/home/et16/work/review_system/docs/reviews/REVIEW_FINDINGS_BACKLOG.md:1)에
+  directed unknown command가 webhook response에서만 ignored_reason을 반환해 GitLab 사용자에게
+  visible feedback을 주지 않는 문제를 후속 direct fix 후보로 추가했다.
+- 검증은 targeted deterministic UX tests로 제한했다. Command parser와 note renderer subset은
+  `11 passed`로 성공했다. local GitLab smoke는 runtime webhook/thread evidence가 필요하지
+  않아 실행하지 않았다. OpenAI direct smoke는 configuration에 의해 skipped였고, provider
+  validation은 이 UX review의 근거로 사용하지 않았다.
 
 ### 9. Ops, Smoke, And Automation Review
 
@@ -391,7 +407,7 @@ ops/scripts/advance_review_roadmap_with_codex.sh --model gpt-5.5 --until-done
 
 ## Suggested Next Step
 
-현재 다음 실행 단위는 `8. User Interface And Review UX Review`다.
+현재 다음 실행 단위는 `9. Ops, Smoke, And Automation Review`다.
 
 이유:
 
@@ -416,7 +432,9 @@ ops/scripts/advance_review_roadmap_with_codex.sh --model gpt-5.5 --until-done
 - `7. Provider, Fallback, And Model Backend Review`에서 lifecycle/direct provider/provider
   quality signal 분리는 유지하되, lifecycle provider runtime provenance에 model/base
   URL/transport class가 빠진 gap을 확인했다.
-- 다음에는 user-facing command와 note UX를 점검한다.
+- `8. User Interface And Review UX Review`에서 현재 command/note surface는 유지하되,
+  directed unknown command에는 GitLab-visible help/error feedback이 필요하다는 gap을 확인했다.
+- 다음에는 ops smoke와 roadmap automation의 validation signal 경계를 점검한다.
 
 ## Validation Baseline
 
