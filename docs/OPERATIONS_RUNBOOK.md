@@ -97,6 +97,8 @@ local backend canonical policy:
 2. normal lifecycle run에서는 `BOT_FALLBACK_PROVIDER=stub`를 유지해 fail-open behavior를 보존한다.
 3. local backend transport나 품질을 확인할 때만 direct provider smoke / provider quality artifact를 별도로 본다.
    fallback이 일어난 lifecycle smoke는 backend success evidence로 간주하지 않는다.
+4. provider-quality report/comparison은 `provider_runtime` provenance를 함께 남기므로
+   non-default `BOT_OPENAI_BASE_URL` baseline은 endpoint/model/transport class를 보고 live OpenAI baseline과 분리해서 읽는다.
 
 중요:
 
@@ -596,6 +598,11 @@ bash ops/scripts/smoke_local_gitlab_multilang_review.sh \
 
 OpenAI provider 비교 artifact는 API key가 있으면 실제 provider 결과를 담고,
 `OPENAI_API_KEY`가 없으면 `skipped` report와 comparison summary를 남긴다.
+report/comparison 본문에는 `provider_runtime`
+(`configured_model`, `endpoint_base_url`, `transport_class`)가 함께 들어가므로
+non-default `BOT_OPENAI_BASE_URL`을 쓴 경우 artifact filename도
+`provider_quality_openai_compatible_local_YYYY-MM-DD.md`,
+`provider_comparison_openai_compatible_local_YYYY-MM-DD.md`처럼 분리해 두는 편이 안전하다.
 comparison summary만으로 prompt/ranking weight를 바로 바꾸지 말고, 먼저 사람이 rubric으로 검토한다.
 검토 결과는 `docs/baselines/review_bot/provider_review_decisions_$(date -u +%F).md`에
 `accept_baseline`, `prompt_tune`, `ranking_tune`, `rule_gap`, `defer` 중 하나로 남긴다.
@@ -606,6 +613,22 @@ cd /home/et16/work/review_system/review-bot
 OPENAI_API_KEY=... uv run python -m review_bot.cli.evaluate_provider_quality \
   --provider openai \
   --output ../docs/baselines/review_bot/provider_quality_openai_$(date -u +%F).md
+```
+
+local backend artifact 예시:
+
+```bash
+cd /home/et16/work/review_system/review-bot
+OPENAI_API_KEY=placeholder BOT_OPENAI_BASE_URL=http://127.0.0.1:11434/v1 \
+uv run python -m review_bot.cli.evaluate_provider_quality \
+  --provider openai \
+  --output ../docs/baselines/review_bot/provider_quality_openai_compatible_local_$(date -u +%F).md \
+  --json-output /tmp/provider_quality_openai_compatible_local.json
+uv run python -m review_bot.cli.compare_provider_quality \
+  --stub-json /tmp/provider_quality_stub.json \
+  --openai-json /tmp/provider_quality_openai_compatible_local.json \
+  --output ../docs/baselines/review_bot/provider_comparison_openai_compatible_local_$(date -u +%F).md \
+  --json-output /tmp/provider_comparison_openai_compatible_local.json
 ```
 
 선택적으로 첫 open bot thread에 human reply / resolve / sync까지 포함할 수 있다.

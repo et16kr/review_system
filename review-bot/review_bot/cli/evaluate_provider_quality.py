@@ -13,12 +13,44 @@ from review_bot.quality.provider_quality import (
     render_markdown_report,
 )
 
+DEFAULT_OPENAI_BASE_URL = "https://api.openai.com/v1"
+DEFAULT_OPENAI_MODEL = "gpt-4o"
 
-def _skipped_openai_report() -> dict[str, object]:
+
+def _provider_runtime(provider_name: str) -> dict[str, object]:
+    if provider_name == "stub":
+        return {
+            "configured_provider": "stub",
+            "effective_provider": "stub",
+            "fallback_used": False,
+            "transport_class": "deterministic_stub",
+        }
+
+    base_url = (
+        str(os.getenv("BOT_OPENAI_BASE_URL", "") or "").strip().rstrip("/")
+        or DEFAULT_OPENAI_BASE_URL
+    )
+    transport_class = (
+        "default_openai_base_url"
+        if base_url == DEFAULT_OPENAI_BASE_URL
+        else "non_default_openai_compatible_base_url"
+    )
+    return {
+        "configured_provider": "openai",
+        "effective_provider": "openai",
+        "fallback_used": False,
+        "configured_model": os.getenv("BOT_OPENAI_MODEL", DEFAULT_OPENAI_MODEL),
+        "endpoint_base_url": base_url,
+        "transport_class": transport_class,
+    }
+
+
+def _skipped_openai_report(provider_runtime: dict[str, object]) -> dict[str, object]:
     return {
         "provider": "openai",
         "status": "skipped",
         "skip_reason": "OPENAI_API_KEY is not set",
+        "provider_runtime": provider_runtime,
         "summary": {
             "total_cases": 0,
             "passed_cases": 0,
@@ -82,8 +114,9 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
+    provider_runtime = _provider_runtime(args.provider)
     if args.provider == "openai" and not os.environ.get("OPENAI_API_KEY"):
-        report = _skipped_openai_report()
+        report = _skipped_openai_report(provider_runtime)
         _write_outputs(report, output=args.output, json_output=args.json_output)
         return 0
 
@@ -97,6 +130,7 @@ def main(argv: list[str] | None = None) -> int:
         provider=provider,
         cases=cases,
         provider_name=args.provider,
+        provider_runtime=provider_runtime,
     )
     _write_outputs(report, output=args.output, json_output=args.json_output)
     return 0 if report.get("status") == "passed" else 1
@@ -104,4 +138,3 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

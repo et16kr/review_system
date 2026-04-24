@@ -462,20 +462,27 @@ main `ROADMAP.md`의 현재 항목을 다 돌린 뒤 곧바로 이어서 할 후
 - 같은 문서들이 local backend structured output acceptance 기준을
   `ReviewDraftPayload`/`VerifyPayload` parse 성공과 packaged provider-quality comparison rubric으로 고정해,
   skipped/failed/human-review-required artifact는 prompt/ranking/rule tuning 근거로 쓰지 않도록 정리했다.
+- provider-quality report와 comparison artifact가 `provider_runtime`
+  (configured/effective provider, configured model, endpoint base URL, transport class)를 함께 남기도록 바뀌어
+  default OpenAI endpoint baseline과 non-default `BOT_OPENAI_BASE_URL` local-backend baseline을 artifact 자체에서 구분할 수 있게 됐다.
+- `review-bot/tests/test_provider_quality.py`와 canonical baseline/runbook 문서가
+  skipped OpenAI artifact와 comparison summary도 같은 provenance를 유지하고,
+  local-backend retained artifact filename을 별도로 두는 운영 예시를 deterministic하게 고정한다.
 
 다음 작업:
 
-1. local backend smoke와 provider quality baseline 범위를 정한다.
+1. 실제 local backend endpoint가 준비된 환경에서 direct smoke output과
+   provider-quality/comparison artifact를 repo-local retained baseline으로 한 번 캡처한다.
 
 검증 메모:
 
-- 이번 slice는 canonical 문서에서 local backend fallback policy와 structured output acceptance 기준을 고정했다.
+- 이번 slice는 provider-quality report/comparison에 local-backend provenance를 추가하고
+  canonical 문서에서 retained artifact 범위를 고정했다.
 - rerun:
-  - `env UV_CACHE_DIR=/tmp/uv-cache uv run --project review-bot pytest review-bot/tests/test_config.py review-bot/tests/test_openai_provider_direct_smoke.py review-bot/tests/test_provider_quality.py -q`
-  - `bash -n ops/scripts/smoke_openai_provider_direct.sh`
+  - `env UV_CACHE_DIR=/tmp/uv-cache uv run --project review-bot pytest review-bot/tests/test_provider_quality.py -q`
 - broader `review-bot` pytest, provider quality gate, GitLab lifecycle smoke, mixed-language smoke,
-  direct live OpenAI smoke는 이번 policy/documentation 범위 밖이라 생략했다.
-- validation은 deterministic `stub` provider-quality regression과 script-level network stub만 사용했고,
+  direct live OpenAI smoke는 이번 artifact-provenance 범위 밖이라 생략했다.
+- validation은 deterministic provider-quality CLI/report regression만 사용했고,
   live direct OpenAI와 lifecycle fallback smoke는 사용하지 않았다.
 
 완료 기준:

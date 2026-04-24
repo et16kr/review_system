@@ -12,7 +12,9 @@ Recommended files:
 - `wrong_language_backlog_28d_YYYY-MM-DD.md`
 - `provider_quality_stub_YYYY-MM-DD.md`
 - `provider_quality_openai_YYYY-MM-DD.md`
+- `provider_quality_openai_compatible_local_YYYY-MM-DD.md`
 - `provider_comparison_YYYY-MM-DD.md`
+- `provider_comparison_openai_compatible_local_YYYY-MM-DD.md`
 - `provider_review_decisions_YYYY-MM-DD.md`
 - `provider_ranking_density_YYYY-MM-DD.md`
 - `review_unit_split_audit_YYYY-MM-DD.md`
@@ -35,6 +37,9 @@ production project filter or interpreted with smoke project refs excluded.
 Provider quality snapshots compare provider draft quality against the packaged corpus.
 The `stub` snapshot is deterministic and network-free; `openai` is an opt-in artifact
 for human review and should not be required in default CI.
+If `BOT_OPENAI_BASE_URL` is non-default, keep a separate local-backend artifact name and
+use the embedded `provider_runtime` provenance (`configured_model`, `endpoint_base_url`,
+`transport_class`) to distinguish it from the default OpenAI baseline.
 Provider comparison snapshots summarize stub/OpenAI deltas and include a human-review
 checklist. If `OPENAI_API_KEY` is unavailable, the comparison can still be captured as
 `openai_status=skipped` without changing prompt or ranking weights.
@@ -83,6 +88,10 @@ uv run python -m review_bot.cli.compare_provider_quality \
   --output ../docs/baselines/review_bot/provider_comparison_$(date -u +%F).md \
   --json-output /tmp/provider_comparison.json
 ```
+
+For a non-default `BOT_OPENAI_BASE_URL`, use separate retained filenames such as
+`provider_quality_openai_compatible_local_YYYY-MM-DD.md` and
+`provider_comparison_openai_compatible_local_YYYY-MM-DD.md`.
 
 Provider/ranking/density helper:
 

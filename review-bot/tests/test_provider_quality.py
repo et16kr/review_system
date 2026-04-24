@@ -45,13 +45,29 @@ def test_provider_quality_markdown_report_includes_cuda_regression() -> None:
     assert "| cuda_cooperative_groups_grid_sync | passed |" in markdown
 
 
-def test_openai_provider_quality_cli_skips_without_api_key(monkeypatch, capsys) -> None:
+def test_openai_provider_quality_cli_skips_without_api_key(monkeypatch, capsys, tmp_path) -> None:
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.setenv("BOT_OPENAI_MODEL", "local-model")
+    monkeypatch.setenv("BOT_OPENAI_BASE_URL", "http://127.0.0.1:11434/v1")
+    json_output = tmp_path / "openai.json"
 
-    exit_code = provider_quality_main(["--provider", "openai"])
+    exit_code = provider_quality_main(
+        ["--provider", "openai", "--json-output", str(json_output)]
+    )
 
     assert exit_code == 0
-    assert "status: `skipped`" in capsys.readouterr().out
+    rendered = capsys.readouterr().out
+    assert "status: `skipped`" in rendered
+    assert "transport_class=non_default_openai_compatible_base_url" in rendered
+    report = json.loads(json_output.read_text(encoding="utf-8"))
+    assert report["provider_runtime"] == {
+        "configured_provider": "openai",
+        "effective_provider": "openai",
+        "fallback_used": False,
+        "configured_model": "local-model",
+        "endpoint_base_url": "http://127.0.0.1:11434/v1",
+        "transport_class": "non_default_openai_compatible_base_url",
+    }
 
 
 def test_provider_quality_comparison_handles_openai_skipped() -> None:
@@ -59,11 +75,25 @@ def test_provider_quality_comparison_handles_openai_skipped() -> None:
         provider=StubReviewCommentProvider(),
         cases=load_provider_quality_cases(),
         provider_name="stub",
+        provider_runtime={
+            "configured_provider": "stub",
+            "effective_provider": "stub",
+            "fallback_used": False,
+            "transport_class": "deterministic_stub",
+        },
     )
     openai_report = {
         "provider": "openai",
         "status": "skipped",
         "skip_reason": "OPENAI_API_KEY is not set",
+        "provider_runtime": {
+            "configured_provider": "openai",
+            "effective_provider": "openai",
+            "fallback_used": False,
+            "configured_model": "local-model",
+            "endpoint_base_url": "http://127.0.0.1:11434/v1",
+            "transport_class": "non_default_openai_compatible_base_url",
+        },
         "summary": {"total_cases": 0, "passed_cases": 0, "failed_cases": 0},
         "results": [],
     }
@@ -77,10 +107,17 @@ def test_provider_quality_comparison_handles_openai_skipped() -> None:
     markdown = render_provider_comparison_markdown(comparison)
 
     assert comparison["openai_status"] == "skipped"
+    assert comparison["stub_provider_runtime"]["transport_class"] == "deterministic_stub"
+    assert (
+        comparison["openai_provider_runtime"]["transport_class"]
+        == "non_default_openai_compatible_base_url"
+    )
     assert comparison["human_review_required"] is False
     assert comparison["recommended_next_action"] == (
         "defer_openai_comparison_until_api_key_available"
     )
+    assert "stub_provider_runtime" in markdown
+    assert "openai_provider_runtime" in markdown
     assert "Capture again with `OPENAI_API_KEY`" in markdown
 
 
@@ -150,11 +187,25 @@ def test_provider_quality_comparison_cli_writes_artifacts(tmp_path) -> None:
         provider=StubReviewCommentProvider(),
         cases=load_provider_quality_cases(),
         provider_name="stub",
+        provider_runtime={
+            "configured_provider": "stub",
+            "effective_provider": "stub",
+            "fallback_used": False,
+            "transport_class": "deterministic_stub",
+        },
     )
     openai_report = {
         "provider": "openai",
         "status": "skipped",
         "skip_reason": "OPENAI_API_KEY is not set",
+        "provider_runtime": {
+            "configured_provider": "openai",
+            "effective_provider": "openai",
+            "fallback_used": False,
+            "configured_model": "gpt-local",
+            "endpoint_base_url": "http://127.0.0.1:11434/v1",
+            "transport_class": "non_default_openai_compatible_base_url",
+        },
         "summary": {"total_cases": 0, "passed_cases": 0, "failed_cases": 0},
         "results": [],
     }
@@ -181,5 +232,12 @@ def test_provider_quality_comparison_cli_writes_artifacts(tmp_path) -> None:
     )
 
     assert exit_code == 0
-    assert "# Review Bot Provider Comparison" in output_path.read_text(encoding="utf-8")
-    assert json.loads(json_output_path.read_text(encoding="utf-8"))["openai_status"] == "skipped"
+    markdown = output_path.read_text(encoding="utf-8")
+    comparison = json.loads(json_output_path.read_text(encoding="utf-8"))
+    assert "# Review Bot Provider Comparison" in markdown
+    assert "endpoint_base_url=http://127.0.0.1:11434/v1" in markdown
+    assert comparison["openai_status"] == "skipped"
+    assert (
+        comparison["openai_provider_runtime"]["transport_class"]
+        == "non_default_openai_compatible_base_url"
+    )

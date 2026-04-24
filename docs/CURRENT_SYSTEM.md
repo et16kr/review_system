@@ -82,6 +82,9 @@
 - Provider quality corpus는 YAML CI, FastAPI, SQL, CUDA async stream, CUDA cooperative groups regression case를 포함한다.
 - Provider comparison artifact는 `python -m review_bot.cli.compare_provider_quality`로 생성한다.
   OpenAI API key가 없으면 `openai_status=skipped` baseline으로 남길 수 있다.
+  provider-quality report와 comparison artifact는 `provider_runtime` provenance
+  (configured/effective provider, configured model, endpoint base URL, transport class)를 함께 남겨
+  default OpenAI endpoint baseline과 non-default `BOT_OPENAI_BASE_URL` local-backend baseline을 구분한다.
 - lifecycle smoke와 direct OpenAI smoke는 다른 신호로 취급한다.
   fallback이 켜져 있으면 lifecycle smoke만으로 live OpenAI 성공을 증명하지 않는다.
 - `BOT_OPENAI_BASE_URL`를 지정하면 기존 `openai` provider/client를 그대로 사용해

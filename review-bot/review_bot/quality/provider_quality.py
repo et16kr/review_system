@@ -49,10 +49,11 @@ def evaluate_provider_quality(
     provider: ReviewCommentProvider,
     cases: list[ProviderQualityCase],
     provider_name: str,
+    provider_runtime: dict[str, object] | None = None,
 ) -> dict[str, object]:
     results = [_evaluate_case(provider=provider, case=case) for case in cases]
     failed_cases = [result for result in results if result["status"] != "passed"]
-    return {
+    report = {
         "provider": provider_name,
         "status": "passed" if not failed_cases else "failed",
         "summary": {
@@ -62,6 +63,9 @@ def evaluate_provider_quality(
         },
         "results": results,
     }
+    if provider_runtime:
+        report["provider_runtime"] = provider_runtime
+    return report
 
 
 def render_markdown_report(report: dict[str, object]) -> str:
@@ -75,6 +79,9 @@ def render_markdown_report(report: dict[str, object]) -> str:
         f"- provider: `{provider}`",
         f"- status: `{status}`",
     ]
+    runtime = _provider_runtime_dict(report.get("provider_runtime"))
+    if runtime:
+        lines.append(f"- provider_runtime: `{_render_provider_runtime(runtime)}`")
     if report.get("skip_reason"):
         lines.append(f"- skip_reason: `{report['skip_reason']}`")
     lines.extend(
@@ -150,6 +157,8 @@ def build_provider_quality_comparison(
             "corpus_revision": corpus_revision,
             "stub_status": stub_status,
             "openai_status": openai_status,
+            "stub_provider_runtime": _provider_runtime_dict(stub_report.get("provider_runtime")),
+            "openai_provider_runtime": _provider_runtime_dict(openai_report.get("provider_runtime")),
             "openai_skip_reason": str(openai_report.get("skip_reason") or ""),
             "case_count": len(stub_results),
             "compared_case_count": 0,
@@ -172,6 +181,8 @@ def build_provider_quality_comparison(
         "corpus_revision": corpus_revision,
         "stub_status": stub_status,
         "openai_status": openai_status,
+        "stub_provider_runtime": _provider_runtime_dict(stub_report.get("provider_runtime")),
+        "openai_provider_runtime": _provider_runtime_dict(openai_report.get("provider_runtime")),
         "openai_skip_reason": "",
         "case_count": len(stub_results),
         "compared_case_count": len(case_deltas),
@@ -194,6 +205,12 @@ def render_provider_comparison_markdown(report: dict[str, object]) -> str:
         f"- stub_status: `{report.get('stub_status')}`",
         f"- openai_status: `{report.get('openai_status')}`",
     ]
+    stub_runtime = _provider_runtime_dict(report.get("stub_provider_runtime"))
+    if stub_runtime:
+        lines.append(f"- stub_provider_runtime: `{_render_provider_runtime(stub_runtime)}`")
+    openai_runtime = _provider_runtime_dict(report.get("openai_provider_runtime"))
+    if openai_runtime:
+        lines.append(f"- openai_provider_runtime: `{_render_provider_runtime(openai_runtime)}`")
     if report.get("openai_skip_reason"):
         lines.append(f"- openai_skip_reason: `{report['openai_skip_reason']}`")
     lines.extend(
@@ -321,6 +338,29 @@ def _case_from_payload(payload: object) -> ProviderQualityCase:
         candidate_line_nos=tuple(int(item) for item in payload.get("candidate_line_nos", [])),
         expected=dict(payload.get("expected") or {}),
     )
+
+
+def _provider_runtime_dict(payload: object) -> dict[str, object] | None:
+    if not isinstance(payload, dict) or not payload:
+        return None
+    return {str(key): value for key, value in payload.items()}
+
+
+def _render_provider_runtime(runtime: dict[str, object]) -> str:
+    parts: list[str] = []
+    for key in (
+        "configured_provider",
+        "effective_provider",
+        "fallback_used",
+        "configured_model",
+        "endpoint_base_url",
+        "transport_class",
+    ):
+        value = runtime.get(key)
+        if value is None or value == "":
+            continue
+        parts.append(f"{key}={value}")
+    return ", ".join(parts) or "unknown"
 
 
 def _evaluate_case(
