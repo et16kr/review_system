@@ -44,8 +44,11 @@ contract readiness packet은 닫혔다. OpenAI direct smoke는 live provider로 
 현재 즉시 실행 가능한 방향:
 
 - 외부 서비스 없이 deterministic 검증으로 닫을 수 있는 rule coverage breadth pass를 진행한다.
-- `coverage_matrix.yaml` 기준 pending source atom은 없지만, rule 수가 얇거나 detector-backed
-  direct pattern을 더 만들 수 있는 언어를 순차적으로 보강한다.
+- `coverage_matrix.yaml` 기준 pending source atom은 없지만, public source 근거가 명확하고
+  detector-backed direct pattern을 더 만들 수 있는 언어를 순차적으로 보강한다.
+- rule expansion 후보는 `review-engine/rule_sources/manifest.yaml`의 `source_ref.url`이
+  실제 public guideline/documentation인 영역으로 제한한다. `example.invalid` 기반 내부
+  baseline은 먼저 source provenance를 보강한 뒤 `Now`에 올린다.
 
 현재 바로 실행하지 않는 방향:
 
@@ -67,7 +70,8 @@ Status: `active`
 
 목표:
 
-- Go는 현재 단일 pack 중심이고 rule 수가 얇으므로, detector-backed auto-review 규칙을 먼저 보강한다.
+- Go는 현재 단일 pack 중심이고 rule 수가 얇으므로, Effective Go 기반 detector-backed
+  auto-review 규칙을 먼저 보강한다.
 - HTTP client timeout, response body handling, strict JSON decoding, goroutine/error ownership처럼
   changed snippet에서 직접 확인 가능한 패턴을 우선한다.
 
@@ -97,7 +101,8 @@ Status: `queued`
 
 목표:
 
-- checked-in automation과 container build surface에서 아직 얇은 안전 규칙을 보강한다.
+- BashGuide와 Docker build best practices를 근거로 checked-in automation과 container build
+  surface의 안전 규칙을 보강한다.
 - Bash는 temporary file/trap/lock cleanup, glob/path validation, command argv shaping을 우선한다.
 - Dockerfile은 package pinning, BuildKit secret mount, runtime surface minimization을 우선한다.
 
@@ -125,7 +130,8 @@ Status: `queued`
 
 목표:
 
-- Rust/Tokio 규칙을 async cancellation, FFI/unsafe boundary, serialization/trust boundary 중심으로 보강한다.
+- Rust Book과 Tokio docs를 근거로 Rust/Tokio 규칙을 async cancellation, FFI/unsafe boundary,
+  serialization/trust boundary 중심으로 보강한다.
 - panic/unwrap 계열과 중복되지 않는 changed-snippet direct signal만 auto-review로 둔다.
 
 범위:
@@ -145,20 +151,21 @@ git diff --check
 
 - Rust 또는 Tokio pack에 source-backed rule 보강이 들어가고, query pattern test가 추가된다.
 
-### Expand C, JavaScript, And Java Service Boundary Rules
+### Expand TypeScript And JavaScript Runtime Boundary Rules
 
 Status: `queued`
 
 목표:
 
-- C, JavaScript, Java의 service/API boundary 규칙을 얇은 direct-signal 중심으로 보강한다.
-- C는 size/null/errno contracts, JavaScript는 Express/Node request boundary, Java는 Spring/Jackson
-  request validation과 resource ownership 후보를 우선한다.
+- TypeScript docs, MDN JavaScript Guide, React docs, Next.js docs를 근거로 runtime boundary
+  규칙을 보강한다.
+- TypeScript는 runtime validation, type escape hatch, async ownership을 우선한다.
+- JavaScript는 dynamic execution, DOM injection, detached promise ownership을 우선한다.
 
 범위:
 
-- 한 iteration에서 한 언어만 구현해도 된다. 여러 언어를 동시에 묶지 말고 가장 작은
-  detector-backed slice부터 처리한다.
+- 한 iteration에서 TypeScript 또는 JavaScript 중 한 언어만 구현해도 된다. 여러 언어를
+  동시에 묶지 말고 가장 작은 detector-backed slice부터 처리한다.
 - source coverage, canonical YAML rule, query pattern, deterministic test를 함께 갱신한다.
 
 검증:
@@ -173,21 +180,21 @@ git diff --check
 - 선택한 언어에 최소 하나 이상의 새 source-backed rule과 direct pattern regression이 생긴다.
 - 남은 언어는 `ROADMAP.md`에 계속 queued 상태로 유지한다.
 
-### Expand Targeted YAML, SQL, And Python Rule Gaps
+### Expand Python Framework And Runtime Boundary Rules
 
 Status: `queued`
 
 목표:
 
-- provider quality artifact에 등장한 YAML, SQL, Python/FastAPI 영역을 rule gap 관점에서도 점검한다.
-- 단, 현재 artifact의 주된 신호는 OpenAI draft length/required term 문제이므로 prompt tuning과
-  rule 보강을 섞지 않는다.
+- PEP 8, FastAPI docs, Django docs를 근거로 Python runtime/framework boundary 규칙을 보강한다.
+- FastAPI/Django request validation, async/blocking boundaries, unsafe dynamic execution,
+  deserialization trust boundary를 우선한다.
 
 범위:
 
 - existing source corpus에서 직접 detector-backed rule로 승격할 수 있는 gap만 추가한다.
-- FastAPI, SQL, CI YAML의 existing rule expectation 또는 required-term gate를 바꾸는 작업은
-  human provider review decision 없이는 하지 않는다.
+- provider quality artifact의 length/required-term 문제는 prompt/provider review 영역으로 보고,
+  rule expectation이나 required-term gate를 바꾸지 않는다.
 
 검증:
 
@@ -199,7 +206,64 @@ git diff --check
 완료 기준:
 
 - 실제 rule gap이 있으면 source-backed rule과 test가 추가된다.
-- rule gap이 없으면 retained note나 roadmap update로 `no_rule_gap_without_human_provider_decision`을 남긴다.
+- rule gap이 없으면 retained note나 roadmap update로 `no_python_rule_gap_without_human_provider_decision`을 남긴다.
+
+### Expand CUDA Official Documentation Rule Gaps
+
+Status: `queued`
+
+목표:
+
+- NVIDIA CUDA C Best Practices 및 기존 CUDA deepening source를 근거로, 이미 깊게 보강된 CUDA
+  rule set에서 남은 detector-backed gap이 있는지만 좁게 확인한다.
+- stream, synchronization, cooperative groups, TMA/WGMMA/Tensor Core 영역에서 changed snippet으로
+  직접 확인 가능한 패턴만 auto-review로 둔다.
+
+범위:
+
+- CUDA는 이미 rule 수가 많으므로 새 rule 추가보다 existing source atom과 query direct pattern
+  mismatch를 먼저 확인한다.
+- whole-program performance tuning이나 occupancy tradeoff는 계속 `reference_only`로 둔다.
+
+검증:
+
+```bash
+cd review-engine && uv run pytest tests/test_query_conversion.py tests/test_rule_runtime.py tests/test_source_coverage_matrix.py -q
+git diff --check
+```
+
+완료 기준:
+
+- 실제 detector-backed gap이 있으면 source-backed rule과 query test가 추가된다.
+- gap이 없으면 retained note나 roadmap update로 `no_cuda_rule_gap_from_official_sources`를 남긴다.
+
+### Expand Official dbt, CI YAML, And OpenAPI Schema Rules
+
+Status: `queued`
+
+목표:
+
+- dbt docs, GitLab CI YAML docs, OpenAPI spec처럼 source_ref가 명확한 하위 영역만 rule gap을 점검한다.
+- generic SQL runtime, migration SQL, product config YAML처럼 현재 `example.invalid` 또는 내부
+  baseline만 가진 영역은 이 unit에서 다루지 않는다.
+
+범위:
+
+- dbt macro/model contract, CI executable provenance, OpenAPI/schema contract width 중
+  changed snippet에서 직접 확인 가능한 패턴만 다룬다.
+- provider quality artifact의 prompt/required-term 문제와 rule 보강을 섞지 않는다.
+
+검증:
+
+```bash
+cd review-engine && uv run pytest tests/test_query_conversion.py tests/test_rule_runtime.py tests/test_source_coverage_matrix.py -q
+git diff --check
+```
+
+완료 기준:
+
+- 실제 source-backed rule gap이 있으면 rule과 deterministic query regression이 추가된다.
+- gap이 없으면 retained note나 roadmap update로 `no_yaml_sql_rule_gap_from_official_sources`를 남긴다.
 
 ## Deferred But Not Yet Executable
 
@@ -223,6 +287,14 @@ git diff --check
   - 필요 조건: 어떤 `reference_only` rule을 backlog/report/publish 중 어디까지 승격할지에 대한
     human product/risk decision
   - owner: [provider_and_model_work.md](/home/et16/work/review_system/docs/deferred/provider_and_model_work.md:1)
+- Source provenance hardening for additional rule expansion
+  - 현재 상태: C POSIX safety, Java runtime baseline, generic SQL/runtime/migration/analytics,
+    product config YAML 같은 일부 source가 내부 baseline 또는 `example.invalid` URL을 사용한다.
+  - 필요 조건: 해당 언어/영역의 public guideline 또는 organization-approved source를
+    `review-engine/rule_sources/manifest.yaml`과 source markdown `source_ref`에 먼저 고정한다.
+  - 준비되면 C, Java runtime, generic SQL, migration SQL, analytics SQL, product/Kubernetes/Helm YAML
+    rule expansion을 `Now`에 별도 unit으로 올린다.
+  - owner: [rule_authoring_and_editor.md](/home/et16/work/review_system/docs/deferred/rule_authoring_and_editor.md:1)
 - GitHub / Multi-SCM adapter expansion
   - 필요 조건: GitHub test repository, GitHub App 또는 token permissions, webhook/replay fixture,
     live smoke artifact policy
