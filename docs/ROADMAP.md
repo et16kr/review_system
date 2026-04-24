@@ -45,8 +45,6 @@
   - `review-bot` API queue TestClient gate는 bounded diagnostic을 갖췄다.
   - `review-platform` API client gate는 deterministic ASGI transport와 bounded diagnostic을 갖췄다.
   - OpenAI direct smoke preflight가 bounded runtime 안에서 끝나야 한다.
-- Roadmap automation blocked artifact retention
-  - implementation roadmap wrapper는 retained artifact 경로가 있지만 review-roadmap wrapper는 아직 `/tmp` scratch에 의존한다.
 - Organization/private rule packaging
   - filesystem extension support는 있으나 package shape와 validation owner는 deferred readiness로 남아 있다.
 
@@ -380,7 +378,7 @@ cd review-platform && uv run pytest tests/test_pr_flow.py -q
 
 ### 8. Retain Blocked Review-Roadmap Unit Artifacts
 
-상태: `active`
+상태: `watch`
 
 왜 지금 하나:
 
@@ -403,6 +401,21 @@ cd review-platform && uv run pytest tests/test_pr_flow.py -q
 ```bash
 bash -n ops/scripts/advance_review_roadmap_with_codex.sh ops/scripts/advance_roadmap_with_codex.sh
 ```
+
+완료 기록:
+
+- `advance_review_roadmap_with_codex.sh`가 blocked review unit을 normalized pending entry로 만들고,
+  exit/cleanup 또는 later completed iteration 전에 `docs/baselines/roadmap_automation/`의
+  `blocked_roadmap_units_YYYY-MM-DD.md` retained artifact로 flush한다.
+- artifact entry는 `blocked_unit`, `reason`, `blocker_type`, `validation_summary`, `status`를
+  가능한 경우 normalized single-line field로 보존한다.
+- hidden deterministic self-test가 blocked output normalization과 no-block flush가 artifact를 만들지
+  않는 case를 검증한다.
+- 검증 통과:
+  - `bash -n ops/scripts/advance_review_roadmap_with_codex.sh ops/scripts/advance_roadmap_with_codex.sh`
+  - `ops/scripts/advance_review_roadmap_with_codex.sh --self-test-blocked-artifacts`
+- local GitLab lifecycle smoke와 direct OpenAI smoke는 roadmap automation wrapper의 retained
+  artifact 처리 변경이고 provider/runtime success claim이 아니어서 실행하지 않았다.
 
 관련 backlog: `B-ops-01`
 
@@ -784,7 +797,7 @@ python3 -m py_compile ops/scripts/create_gitlab_merge_request.py ops/scripts/boo
 
 ## Suggested Next Step
 
-현재 가장 자연스러운 다음 작업은 `8. Retain Blocked Review-Roadmap Unit Artifacts`이다.
+현재 가장 자연스러운 다음 작업은 `9. Bound OpenAI Direct Smoke Preflight Runtime`이다.
 
 이유:
 
@@ -795,7 +808,8 @@ python3 -m py_compile ops/scripts/create_gitlab_merge_request.py ops/scripts/boo
 - provider runtime provenance는 lifecycle API/log/summary note에서 model/endpoint/transport까지 드러낸다.
 - directed unknown note command는 visible feedback을 남기고 no-enqueue 경로를 유지한다.
 - local harness bot bridge는 key-based bot API를 사용하고 legacy `pr_id` endpoint에 의존하지 않는다.
-- 다음 `active` 항목은 blocked review-roadmap unit artifact를 retained baseline으로 남기는 일이다.
+- review-roadmap blocked unit artifact는 retained baseline으로 남는다.
+- 다음 `active` 항목은 OpenAI direct smoke preflight runtime을 bounded 처리하는 일이다.
 
 ## Validation Baseline
 

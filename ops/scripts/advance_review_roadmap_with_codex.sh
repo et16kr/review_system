@@ -11,6 +11,7 @@ COMMIT_PREFIX="${COMMIT_PREFIX:-Advance review roadmap item}"
 OPENAI_DIRECT_SMOKE="${OPENAI_DIRECT_SMOKE:-0}"
 UNTIL_DONE=0
 NO_COMMIT=0
+SELF_TEST_BLOCKED_ARTIFACTS=0
 
 usage() {
   cat <<'EOF'
@@ -95,6 +96,10 @@ while [[ $# -gt 0 ]]; do
       NO_COMMIT=1
       shift
       ;;
+    --self-test-blocked-artifacts)
+      SELF_TEST_BLOCKED_ARTIFACTS=1
+      shift
+      ;;
     -h|--help)
       usage
       exit 0
@@ -119,35 +124,6 @@ fi
 
 if ! [[ "$UNTIL_DONE" =~ ^[01]$ ]]; then
   echo "UNTIL_DONE must be 0 or 1: $UNTIL_DONE" >&2
-  exit 2
-fi
-
-if ! command -v codex >/dev/null 2>&1; then
-  echo "codex CLI is not available on PATH." >&2
-  exit 127
-fi
-
-cd "$ROOT"
-
-if [[ "$(git rev-parse --show-toplevel)" != "$ROOT" ]]; then
-  echo "Repository root mismatch. Expected $ROOT" >&2
-  exit 2
-fi
-
-if [[ "$REVIEW_ROADMAP_FILE" = /* ]]; then
-  roadmap_rel="$(realpath --relative-to="$ROOT" "$REVIEW_ROADMAP_FILE")"
-else
-  roadmap_rel="$REVIEW_ROADMAP_FILE"
-fi
-
-if [[ "$roadmap_rel" == ..* ]]; then
-  echo "REVIEW_ROADMAP_FILE must resolve inside the repository: $REVIEW_ROADMAP_FILE" >&2
-  exit 2
-fi
-
-roadmap_abs="$ROOT/$roadmap_rel"
-if [[ ! -f "$roadmap_abs" ]]; then
-  echo "Review roadmap file not found: $roadmap_abs" >&2
   exit 2
 fi
 
@@ -222,6 +198,207 @@ append_blocked_summary() {
   } >>"$blocked_file"
 }
 
+extract_blocked_reason() {
+  local file="$1"
+  local reason
+  reason="$(extract_structured_field "$file" "BLOCKED_REASON")"
+  if [[ -n "$reason" ]]; then
+    printf '%s\n' "$reason"
+    return 0
+  fi
+  awk '
+    /^Validation run and result:/ { exit }
+    /^STATUS: / { exit }
+    /^COMMIT_MESSAGE: / { exit }
+    /^BLOCKED_UNIT: / { next }
+    /^BLOCKER_TYPE: / { next }
+    /^BLOCKED_REASON: / { next }
+    /^[[:space:]]*$/ { next }
+    { lines[++count] = $0 }
+    END {
+      for (i = 1; i <= count; i++) {
+        printf "%s%s", lines[i], (i < count ? " " : ORS)
+      }
+    }
+  ' "$file"
+}
+
+extract_validation_summary() {
+  local file="$1"
+  awk '
+    /^Validation run and result:/ { capture = 1; next }
+    capture && /^STATUS: / { exit }
+    capture && /^COMMIT_MESSAGE: / { exit }
+    capture && /^[[:space:]]*$/ { next }
+    capture {
+      line = $0
+      sub(/^[[:space:]]*-[[:space:]]*/, "", line)
+      gsub(/`/, "", line)
+      lines[++count] = line
+    }
+    END {
+      for (i = 1; i <= count; i++) {
+        printf "%s%s", lines[i], (i < count ? " | " : ORS)
+      }
+    }
+  ' "$file"
+}
+
+record_blocked_artifact_entry() {
+  local output_file="$1"
+  local attempt="$2"
+  local date_utc
+  local pending_file
+  local blocked_unit
+  local blocker_type
+  local blocked_reason
+  local validation_summary
+  local status_line
+
+  date_utc="$(date -u +%F)"
+  pending_file="$tmpdir/blocked-artifact-$date_utc.md"
+  blocked_unit="$(normalize_single_line "$(extract_blocked_unit "$output_file")")"
+  blocker_type="$(extract_structured_field "$output_file" "BLOCKER_TYPE")"
+  blocked_reason="$(normalize_single_line "$(extract_blocked_reason "$output_file")")"
+  validation_summary="$(normalize_single_line "$(extract_validation_summary "$output_file")")"
+  status_line="$(grep -E '^STATUS: (COMPLETED|BLOCKED|ROADMAP_COMPLETE)$' "$output_file" | tail -n 1 || true)"
+
+  if [[ -z "$blocked_unit" ]]; then
+    blocked_unit="blocked review roadmap unit"
+  fi
+  if [[ -z "$blocked_reason" ]]; then
+    blocked_reason="See Codex output for blocker details."
+  fi
+
+  {
+    printf '## Attempt %s\n' "$attempt"
+    printf -- '- date: %s\n' "$date_utc"
+    printf -- '- attempt: %s\n' "$attempt"
+    printf -- '- blocked_unit: %s\n' "$blocked_unit"
+    printf -- '- reason: %s\n' "$blocked_reason"
+    if [[ -n "$blocker_type" ]]; then
+      printf -- '- blocker_type: %s\n' "$blocker_type"
+    fi
+    if [[ -n "$validation_summary" ]]; then
+      printf -- '- validation_summary: %s\n' "$validation_summary"
+    fi
+    if [[ -n "$status_line" ]]; then
+      printf -- '- status: %s\n' "$status_line"
+    fi
+    printf '\n'
+  } >>"$pending_file"
+}
+
+flush_blocked_artifact_entries() {
+  local pending_files=()
+  local pending_file
+  local file_name
+  local date_utc
+  local artifact_dir
+  local artifact_file
+
+  shopt -s nullglob
+  pending_files=("$tmpdir"/blocked-artifact-*.md)
+  shopt -u nullglob
+
+  if [[ "${#pending_files[@]}" -eq 0 ]]; then
+    return 0
+  fi
+
+  artifact_dir="${ROADMAP_AUTOMATION_ARTIFACT_DIR:-$ROOT/docs/baselines/roadmap_automation}"
+  mkdir -p "$artifact_dir"
+
+  for pending_file in "${pending_files[@]}"; do
+    file_name="$(basename "$pending_file")"
+    date_utc="${file_name#blocked-artifact-}"
+    date_utc="${date_utc%.md}"
+    artifact_file="$artifact_dir/blocked_roadmap_units_${date_utc}.md"
+    if [[ ! -e "$artifact_file" ]]; then
+      printf '# Blocked Roadmap Units - %s\n\n' "$date_utc" >"$artifact_file"
+    elif [[ -s "$artifact_file" ]]; then
+      printf '\n' >>"$artifact_file"
+    fi
+    cat "$pending_file" >>"$artifact_file"
+    rm -f "$pending_file"
+  done
+}
+
+run_blocked_artifact_self_test() {
+  local test_dir
+  local old_root
+  local old_tmpdir
+  local old_artifact_dir
+  local artifact_dir
+  local output_file
+  local artifact_file
+  local no_block_dir
+
+  test_dir="$(mktemp -d)"
+  old_root="${ROOT:-}"
+  old_tmpdir="${tmpdir:-}"
+  old_artifact_dir="${ROADMAP_AUTOMATION_ARTIFACT_DIR:-}"
+  trap 'rm -rf "$test_dir"' RETURN
+
+  ROOT="$test_dir/root"
+  tmpdir="$test_dir/tmp"
+  artifact_dir="$test_dir/artifacts"
+  ROADMAP_AUTOMATION_ARTIFACT_DIR="$artifact_dir"
+  mkdir -p "$ROOT" "$tmpdir"
+
+  output_file="$test_dir/blocked-output.md"
+  cat >"$output_file" <<'EOF'
+Review unit blocked.
+BLOCKED_UNIT: ### 99. Example Review Unit
+BLOCKER_TYPE: local_gitlab_state
+BLOCKED_REASON: Local GitLab readiness probe failed.
+Validation run and result.
+- `curl --max-time 2 http://127.0.0.1:18929/-/readiness` failed.
+STATUS: BLOCKED
+EOF
+
+  record_blocked_artifact_entry "$output_file" "2"
+  flush_blocked_artifact_entries
+
+  artifact_file="$artifact_dir/blocked_roadmap_units_$(date -u +%F).md"
+  [[ -s "$artifact_file" ]] || {
+    echo "self-test failed: blocked artifact was not created" >&2
+    exit 1
+  }
+  grep -Fx -- "- blocked_unit: ### 99. Example Review Unit" "$artifact_file" >/dev/null || {
+    echo "self-test failed: blocked_unit was not normalized into the artifact" >&2
+    exit 1
+  }
+  grep -Fx -- "- blocker_type: local_gitlab_state" "$artifact_file" >/dev/null || {
+    echo "self-test failed: blocker_type was not normalized into the artifact" >&2
+    exit 1
+  }
+  grep -Fx -- "- status: STATUS: BLOCKED" "$artifact_file" >/dev/null || {
+    echo "self-test failed: status was not normalized into the artifact" >&2
+    exit 1
+  }
+
+  no_block_dir="$test_dir/no-block-artifacts"
+  tmpdir="$test_dir/no-block-tmp"
+  ROADMAP_AUTOMATION_ARTIFACT_DIR="$no_block_dir"
+  mkdir -p "$tmpdir"
+  flush_blocked_artifact_entries
+  if compgen -G "$no_block_dir/blocked_roadmap_units_*.md" >/dev/null; then
+    echo "self-test failed: no-block flush created an artifact" >&2
+    exit 1
+  fi
+
+  ROOT="$old_root"
+  tmpdir="$old_tmpdir"
+  if [[ -n "$old_artifact_dir" ]]; then
+    ROADMAP_AUTOMATION_ARTIFACT_DIR="$old_artifact_dir"
+  else
+    unset ROADMAP_AUTOMATION_ARTIFACT_DIR
+  fi
+  rm -rf "$test_dir"
+  trap - RETURN
+  echo "blocked artifact self-test passed"
+}
+
 collect_openai_direct_smoke() {
   local output_file="$1"
   local smoke_script="$ROOT/ops/scripts/smoke_openai_provider_direct.sh"
@@ -241,8 +418,43 @@ collect_openai_direct_smoke() {
   return 0
 }
 
+if [[ "$SELF_TEST_BLOCKED_ARTIFACTS" -eq 1 ]]; then
+  run_blocked_artifact_self_test
+  exit 0
+fi
+
+if ! command -v codex >/dev/null 2>&1; then
+  echo "codex CLI is not available on PATH." >&2
+  exit 127
+fi
+
+cd "$ROOT"
+
+if [[ "$(git rev-parse --show-toplevel)" != "$ROOT" ]]; then
+  echo "Repository root mismatch. Expected $ROOT" >&2
+  exit 2
+fi
+
+if [[ "$REVIEW_ROADMAP_FILE" = /* ]]; then
+  roadmap_rel="$(realpath --relative-to="$ROOT" "$REVIEW_ROADMAP_FILE")"
+else
+  roadmap_rel="$REVIEW_ROADMAP_FILE"
+fi
+
+if [[ "$roadmap_rel" == ..* ]]; then
+  echo "REVIEW_ROADMAP_FILE must resolve inside the repository: $REVIEW_ROADMAP_FILE" >&2
+  exit 2
+fi
+
+roadmap_abs="$ROOT/$roadmap_rel"
+if [[ ! -f "$roadmap_abs" ]]; then
+  echo "Review roadmap file not found: $roadmap_abs" >&2
+  exit 2
+fi
+
 tmpdir="$(mktemp -d)"
 cleanup() {
+  flush_blocked_artifact_entries || true
   rm -rf "$tmpdir"
 }
 trap cleanup EXIT
@@ -356,6 +568,7 @@ EOF
 
   case "$status" in
     ROADMAP_COMPLETE)
+      flush_blocked_artifact_entries
       echo "Review roadmap complete according to Codex."
       sed -n '1,220p' "$output"
       exit 0
@@ -369,6 +582,7 @@ EOF
       fi
       blocked_skips=$((blocked_skips + 1))
       append_blocked_summary "$output" "$blocked_units"
+      record_blocked_artifact_entry "$output" "$attempt"
       if [[ "$blocked_skips" -gt "$MAX_BLOCKED_SKIPS" ]]; then
         echo "Review roadmap iteration blocked and MAX_BLOCKED_SKIPS=$MAX_BLOCKED_SKIPS reached." >&2
         sed -n '1,220p' "$output" >&2
@@ -392,6 +606,7 @@ EOF
     exit 1
   fi
 
+  flush_blocked_artifact_entries
   changed_files="$(git diff --name-only)"
   if ! printf '%s\n' "$changed_files" | grep -Fxq "$roadmap_rel"; then
     echo "Codex completed without updating $roadmap_rel. Leaving changes uncommitted." >&2
