@@ -328,7 +328,9 @@ ops/scripts/advance_review_roadmap_with_codex.sh --model gpt-5.5 --until-done
 
 ### 9. Ops, Smoke, And Automation Review
 
-상태: `active`
+상태: `watch`
+
+완료: `2026-04-24`
 
 이번 작업의 범위:
 
@@ -341,6 +343,21 @@ ops/scripts/advance_review_roadmap_with_codex.sh --model gpt-5.5 --until-done
 
 - ops/automation cleanup 후보와 safety 개선 후보가 backlog에 들어간다.
 - review automation 자체의 사용법과 한계가 명확해진다.
+
+완료 기록:
+
+- [CURRENT_STATE_REVIEW.md](/home/et16/work/review_system/docs/reviews/CURRENT_STATE_REVIEW.md:1)에
+  ops smoke와 roadmap automation review 결과를 남겼다. Release gate, local GitLab
+  pre-release smoke, direct provider smoke를 분리하는 현재 운영 경계는 유지하는 것이 맞다고
+  평가했다.
+- [REVIEW_FINDINGS_BACKLOG.md](/home/et16/work/review_system/docs/reviews/REVIEW_FINDINGS_BACKLOG.md:1)에
+  review-roadmap blocked unit artifact retention과 OpenAI direct smoke preflight timeout을
+  후속 direct fix 후보로 추가했다.
+- 검증은 static/deterministic scope로 제한했다. Shell syntax, Python compile, direct-smoke
+  fake-curl tests, multilang fixture contract tests, wrong-language baseline rendering tests가
+  통과했다. local GitLab lifecycle/multilang smoke는 runtime evidence가 필수 근거가 아니어서
+  실행하지 않았다. OpenAI direct smoke는 configuration에 의해 skipped였고 live OpenAI 성공
+  판단은 하지 않았다.
 
 ### 10. Docs, Roadmap, And Deferred Review
 
@@ -407,7 +424,7 @@ ops/scripts/advance_review_roadmap_with_codex.sh --model gpt-5.5 --until-done
 
 ## Suggested Next Step
 
-현재 다음 실행 단위는 `9. Ops, Smoke, And Automation Review`다.
+현재 다음 실행 단위는 `10. Docs, Roadmap, And Deferred Review`다.
 
 이유:
 
@@ -434,7 +451,11 @@ ops/scripts/advance_review_roadmap_with_codex.sh --model gpt-5.5 --until-done
   URL/transport class가 빠진 gap을 확인했다.
 - `8. User Interface And Review UX Review`에서 현재 command/note surface는 유지하되,
   directed unknown command에는 GitLab-visible help/error feedback이 필요하다는 gap을 확인했다.
-- 다음에는 ops smoke와 roadmap automation의 validation signal 경계를 점검한다.
+- `9. Ops, Smoke, And Automation Review`에서 release gate, local GitLab pre-release smoke,
+  direct provider smoke의 signal 경계는 유지하되, review-roadmap blocked artifact retention과
+  direct smoke preflight timeout gap을 확인했다.
+- 다음에는 implementation roadmap, review roadmap, deferred 문서의 역할 분리와 누락된 후속
+  작업을 점검한다.
 
 ## Validation Baseline
 

@@ -141,6 +141,48 @@
   and incidental mention silence. Run targeted parser/webhook tests plus note-renderer tests. Local
   GitLab smoke is only needed if GitLab adapter note posting changes.
 
+### B-ops-01 Retain blocked review-roadmap unit artifacts
+
+- Finding: `F-ops-02 Review-roadmap blocked units are skipped but not retained for blocker audit`
+- Severity: `medium`
+- Area: `ops`
+- Evidence: [docs/baselines/roadmap_automation/README.md](/home/et16/work/review_system/docs/baselines/roadmap_automation/README.md:11)
+  requires retained blocked-unit artifacts, while
+  [ops/scripts/advance_review_roadmap_with_codex.sh](/home/et16/work/review_system/ops/scripts/advance_review_roadmap_with_codex.sh:215)
+  stores blocked review units only in a temp file and
+  [ops/scripts/advance_review_roadmap_with_codex.sh](/home/et16/work/review_system/ops/scripts/advance_review_roadmap_with_codex.sh:370)
+  skips them without flushing an artifact. The implementation wrapper already has artifact
+  recording at [ops/scripts/advance_roadmap_with_codex.sh](/home/et16/work/review_system/ops/scripts/advance_roadmap_with_codex.sh:263).
+- Recommended action: Add retained blocked-artifact recording to
+  `advance_review_roadmap_with_codex.sh`, mirroring the implementation wrapper where appropriate,
+  and include blocker type, reason, validation summary, status, and flush-on-exit behavior.
+- Follow-up target: `direct fix`
+- Post-review bucket: `bug_fix`
+- Validation note: Add a deterministic shell/wrapper test that simulates `STATUS: BLOCKED` without
+  invoking real Codex and verifies `docs/baselines/roadmap_automation/blocked_roadmap_units_*.md`
+  content. Also test that no artifact is created when no unit blocks.
+
+### B-ops-02 Bound OpenAI direct smoke preflight runtime
+
+- Finding: `F-ops-03 OpenAI direct smoke preflight can hang the roadmap loop`
+- Severity: `medium`
+- Area: `ops`
+- Evidence: [ops/scripts/advance_review_roadmap_with_codex.sh](/home/et16/work/review_system/ops/scripts/advance_review_roadmap_with_codex.sh:225)
+  and [ops/scripts/advance_roadmap_with_codex.sh](/home/et16/work/review_system/ops/scripts/advance_roadmap_with_codex.sh:342)
+  can run direct smoke before roadmap iterations, while
+  [ops/scripts/smoke_openai_provider_direct.sh](/home/et16/work/review_system/ops/scripts/smoke_openai_provider_direct.sh:95),
+  [ops/scripts/smoke_openai_provider_direct.sh](/home/et16/work/review_system/ops/scripts/smoke_openai_provider_direct.sh:115),
+  and [ops/scripts/smoke_openai_provider_direct.sh](/home/et16/work/review_system/ops/scripts/smoke_openai_provider_direct.sh:139)
+  call `curl` without bounded timeout flags or an outer timeout.
+- Recommended action: Add explicit connect and overall timeouts to each direct-smoke curl call or
+  wrap the direct-smoke preflight in a bounded `timeout`, then report timeout exit status in the
+  preflight output instead of hanging the automation loop.
+- Follow-up target: `direct fix`
+- Post-review bucket: `bug_fix`
+- Validation note: Extend `review-bot/tests/test_openai_provider_direct_smoke.py` with deterministic
+  fake-curl timeout/stall cases, and run `bash -n` for both roadmap wrappers and the direct smoke
+  script. Direct OpenAI smoke is only needed when claiming live provider success.
+
 ### B-review-engine-01 Fail fast on unresolved or duplicate selected packs
 
 - Finding: `F-engine-02 Profile pack selection can silently drop or replace packs`
