@@ -392,7 +392,9 @@ ops/scripts/advance_review_roadmap_with_codex.sh --model gpt-5.5 --until-done
 
 ### 11. Dead Code, Dead Docs, And Cleanup Review
 
-상태: `active`
+상태: `watch`
+
+완료: `2026-04-24`
 
 이번 작업의 범위:
 
@@ -404,11 +406,24 @@ ops/scripts/advance_review_roadmap_with_codex.sh --model gpt-5.5 --until-done
 
 - cleanup 후보가 risk와 함께 backlog에 정리된다.
 
+완료 기록:
+
+- [CURRENT_STATE_REVIEW.md](/home/et16/work/review_system/docs/reviews/CURRENT_STATE_REVIEW.md:1)에
+  dead code/docs cleanup review 결과를 남겼다. Tracked generated/cache artifact는 발견하지
+  않았고, root `ROADMAP_AUTOMATION_DESIGN.md`도 남아 있지 않았다.
+- [REVIEW_FINDINGS_BACKLOG.md](/home/et16/work/review_system/docs/reviews/REVIEW_FINDINGS_BACKLOG.md:1)에
+  unowned `review-engine/app/` Next.js scaffold, orphan root `review_system.md`, local GitLab
+  smoke의 TDE-named primary surface를 cleanup 후보로 추가했다.
+- 검증은 static scan, `bash -n`, `python3 -m py_compile`, `git diff --check`로 제한했다.
+  첫 broad `rg`는 local GitLab runtime volume인 `ops/gitlab/**` permission 때문에 실패했지만,
+  같은 scan을 해당 runtime data directory 제외 후 통과시켰다. local GitLab smoke와 OpenAI
+  direct smoke는 이 cleanup review의 runtime signal로 필요하지 않아 실행하지 않았다.
+
 ## Queue
 
 ### 12. Test Coverage And Missing Gate Review
 
-상태: `queued`
+상태: `active`
 
 이번 작업의 범위:
 
@@ -439,7 +454,7 @@ ops/scripts/advance_review_roadmap_with_codex.sh --model gpt-5.5 --until-done
 
 ## Suggested Next Step
 
-현재 다음 실행 단위는 `11. Dead Code, Dead Docs, And Cleanup Review`다.
+현재 다음 실행 단위는 `12. Test Coverage And Missing Gate Review`다.
 
 이유:
 
@@ -472,8 +487,11 @@ ops/scripts/advance_review_roadmap_with_codex.sh --model gpt-5.5 --until-done
 - `10. Docs, Roadmap, And Deferred Review`에서 implementation roadmap과 deferred 문서의
   큰 역할 분리는 유지하되, broad watch label 보정과 private rule packaging owner 추가를
   post-review roadmap update 후보로 남겼다.
-- 다음에는 죽은 wrapper/config/test fixture/compatibility path와 혼란을 주는 문서 이름을
-  정리 후보 관점에서 점검한다.
+- `11. Dead Code, Dead Docs, And Cleanup Review`에서 tracked generated/cache artifact는
+  발견하지 않았고, `review-engine/app/`, root `review_system.md`, TDE-named smoke internals를
+  cleanup 후보로 남겼다.
+- 다음에는 누적 findings가 targeted test나 smoke gate로 충분히 막혀 있는지, 그리고 어떤
+  validation이 gate 역할을 못 하는지 점검한다.
 
 ## Validation Baseline
 

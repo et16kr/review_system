@@ -292,3 +292,60 @@
 - Post-review bucket: `roadmap_update`
 - Validation note: Static docs/code review is sufficient until packaging behavior is implemented.
   Later implementation should run review-engine extension runtime and packaging-specific tests.
+
+### B-review-engine-05 Remove or relocate unowned Next.js scaffold files
+
+- Finding: `F-engine-08 Tracked Next.js scaffold files sit outside the engine fixture and runtime boundaries`
+- Severity: `low`
+- Area: `review-engine`
+- Evidence: [review-engine/app/api/users/route.ts](/home/et16/work/review_system/review-engine/app/api/users/route.ts:1)
+  and [review-engine/app/dashboard/page.tsx](/home/et16/work/review_system/review-engine/app/dashboard/page.tsx:1)
+  are tracked, while [review-engine/pyproject.toml](/home/et16/work/review_system/review-engine/pyproject.toml:28)
+  packages only `review_engine*` and
+  [review-engine/Dockerfile](/home/et16/work/review_system/review-engine/Dockerfile:7) does not
+  copy `app`.
+- Recommended action: Remove `review-engine/app/` if it is accidental scaffold. If it is intended
+  fixture content, relocate it under `examples/` or `tests/fixtures/` and connect it to deterministic
+  tests.
+- Follow-up target: `remove`
+- Post-review bucket: `remove`
+- Validation note: Run
+  `rg -n "review-engine/app|app/api/users/route\\.ts|app/dashboard/page\\.tsx" review-engine review-bot docs`
+  and `cd review-engine && uv run pytest tests/test_language_registry.py tests/test_multilang_regressions.py tests/test_query_conversion.py -q`
+  after the cleanup.
+
+### B-docs-03 Remove orphan root workspace note
+
+- Finding: `F-docs-04 Root review_system.md duplicates canonical docs without an owner`
+- Severity: `low`
+- Area: `docs`
+- Evidence: [review_system.md](/home/et16/work/review_system/review_system.md:1) duplicates
+  workspace structure and official entrypoint notes already owned by
+  [README.md](/home/et16/work/review_system/README.md:38) and
+  [docs/README.md](/home/et16/work/review_system/docs/README.md:6). Static scan found no references
+  to `review_system.md` from canonical docs or project code.
+- Recommended action: Remove `review_system.md` after confirming no external workflow depends on
+  the filename, folding any still-useful wording into canonical docs first if needed.
+- Follow-up target: `remove`
+- Post-review bucket: `remove`
+- Validation note: Run `rg -n "review_system\\.md" . -g '!ops/gitlab/**'` before removal and
+  `git diff --check` after docs edits.
+
+### B-ops-03 Rename local GitLab smoke internals away from TDE as primary surface
+
+- Finding: `F-ops-04 Local GitLab smoke internals still expose tde as the primary name`
+- Severity: `low`
+- Area: `ops`
+- Evidence: [ops/scripts/smoke_local_gitlab_lifecycle_review.sh](/home/et16/work/review_system/ops/scripts/smoke_local_gitlab_lifecycle_review.sh:5)
+  delegates to `smoke_local_gitlab_tde_review.sh`, and
+  [docs/OPERATIONS_RUNBOOK.md](/home/et16/work/review_system/docs/OPERATIONS_RUNBOOK.md:425)
+  plus [ops/README.md](/home/et16/work/review_system/ops/README.md:10) still present TDE-named
+  bootstrap/replay/create scripts as primary local GitLab commands.
+- Recommended action: Add lifecycle-named create/bootstrap/replay entrypoints and update docs to
+  present those as canonical. Keep TDE-named scripts as compatibility wrappers during a deprecation
+  window, or document `tde` as only the backing fixture name.
+- Follow-up target: `remove`
+- Post-review bucket: `remove`
+- Validation note: Run `bash -n` for shell wrappers, `python3 -m py_compile` for renamed Python
+  scripts, targeted wrapper tests if added, and local GitLab lifecycle smoke when the environment is
+  ready.
