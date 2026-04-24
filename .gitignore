@@ -14,3 +14,4 @@ review-engine/data/chroma/
 review-platform/storage/
 ops/.env
 ops/gitlab/
+exec_roadmap.sh
