@@ -98,6 +98,32 @@ uv run python -m review_bot.cli.compare_provider_quality \
   --json-output /tmp/provider_comparison.json
 ```
 
+Default OpenAI recapture sequence after quota/billing is healthy:
+
+1. Capture deterministic `stub` provider quality first and keep its JSON for comparison.
+2. Run default OpenAI direct smoke with `--expect-live-openai` and retain stdout as
+   `direct_openai_smoke_YYYY-MM-DD.txt`.
+3. Treat the direct smoke as success evidence only if it exits `0` and includes
+   `models_probe_status=ok` plus `live_probe_model=...`.
+4. If the direct smoke is not successful, stop and write a `provider_review_decisions_YYYY-MM-DD.md`
+   artifact with `defer`; do not tune prompts or ranking from fallback lifecycle evidence.
+5. Capture `provider_quality_openai_YYYY-MM-DD.md` and matching JSON using the same branch/commit.
+6. Capture `provider_comparison_YYYY-MM-DD.md` and matching JSON from the stub/OpenAI JSON files.
+7. Apply the comparison checklist and record case-level decisions before promoting any
+   `prompt_tune`, `ranking_tune`, or `rule_gap` follow-up.
+
+Default OpenAI comparison checklist:
+
+- provenance matches default OpenAI: `endpoint_base_url=https://api.openai.com/v1`,
+  intended `configured_model`, and `transport_class=default_openai_base_url`
+- `openai_status`, `human_review_required`, and `recommended_next_action` are recorded
+- each case is checked for groundedness, evidence anchoring, claim strength, specificity,
+  actionability, brevity, and noise risk
+- each case gets exactly one decision: `accept_baseline`, `prompt_tune`, `ranking_tune`,
+  `rule_gap`, or `defer`
+- tuning decisions cite the deterministic regression or baseline diff that will verify the
+  follow-up change
+
 For a non-default `BOT_OPENAI_BASE_URL`, use separate retained filenames such as
 `direct_openai_smoke_openai_compatible_local_YYYY-MM-DD.txt`,
 `provider_quality_openai_compatible_local_YYYY-MM-DD.md` and

@@ -900,7 +900,7 @@ python3 -m py_compile ops/scripts/create_gitlab_merge_request.py ops/scripts/boo
 
 ### 21. Provider / Ranking / Density Tuning Readiness Packet
 
-상태: `queued`
+상태: `watch`
 
 연결 문서:
 
@@ -915,6 +915,26 @@ python3 -m py_compile ops/scripts/create_gitlab_merge_request.py ops/scripts/boo
 이 사전 작업이 끝나면:
 
 - OpenAI direct artifact 재수집과 ranking/density tuning을 바로 시작할 수 있다.
+
+완료 기록:
+
+- default OpenAI direct smoke 성공 판정은 default base URL에서 `--expect-live-openai`로 실행해
+  exit `0`, `models_probe_status=ok`, `live_probe_model=...`을 모두 남긴 경우로 고정했다.
+- fallback lifecycle smoke, skipped OpenAI artifact, quota/timeout failure, local backend artifact는
+  default OpenAI prompt/ranking tuning 근거가 아니라고 명시했다.
+- human comparison checklist는 provenance, `openai_status`, `human_review_required`,
+  `recommended_next_action`, case deltas와 groundedness/evidence anchoring/claim strength/
+  specificity/actionability/brevity/noise risk 축을 확인하고, case별 decision을
+  `accept_baseline`, `prompt_tune`, `ranking_tune`, `rule_gap`, `defer` 중 하나로 남기게 했다.
+- quota/billing 정상 환경에서 deterministic stub capture -> default OpenAI direct smoke ->
+  OpenAI provider quality -> stub/OpenAI comparison -> human decision artifact 순서로
+  재수집하게 했다.
+- 검증 통과:
+  - `git diff --check`
+  - `bash -n ops/scripts/advance_roadmap_with_codex.sh ops/scripts/advance_review_roadmap_with_codex.sh`
+- local GitLab lifecycle smoke와 direct OpenAI smoke는 readiness 문서/계약 변경이고 live provider
+  success claim이 아니어서 실행하지 않았다. OpenAI direct smoke preflight는 configuration에 의해
+  skipped였다.
 
 ### 22. Manual Rule Editor Readiness Packet
 
@@ -1004,7 +1024,7 @@ python3 -m py_compile ops/scripts/create_gitlab_merge_request.py ops/scripts/boo
 
 ## Suggested Next Step
 
-현재 가장 자연스러운 다음 작업은 `21. Provider / Ranking / Density Tuning Readiness Packet`이다.
+현재 가장 자연스러운 다음 작업은 `22. Manual Rule Editor Readiness Packet`이다.
 
 이유:
 
@@ -1038,8 +1058,10 @@ python3 -m py_compile ops/scripts/create_gitlab_merge_request.py ops/scripts/boo
   evidence response, summarize/walkthrough 이후 UX 목적을 고정했다.
 - local backend capture prep은 default OpenAI와 OpenAI-compatible local backend artifact가 섞이지
   않도록 env/provenance/retained filename 기준과 capture success/human-review/defer 판정을 고정했다.
-- 다음 queued readiness work는 provider/ranking/density tuning을 시작하기 전 direct smoke 성공 조건과
-  human comparison checklist, quota 정상 환경에서의 재수집 순서를 정리하는 작업이다.
+- provider/ranking/density tuning readiness packet은 default OpenAI direct smoke 성공 조건과
+  human comparison checklist, quota 정상 환경에서의 재수집 순서를 고정했다.
+- 다음 queued readiness work는 manual rule editor가 lifecycle CLI와 canonical YAML/Git history
+  boundary를 우회하지 않도록 실행 전 packet을 정리하는 작업이다.
 
 ## Validation Baseline
 
