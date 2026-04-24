@@ -6,6 +6,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 import pytest
+from fastapi import HTTPException
 
 from review_bot.bot import review_runner as review_runner_module
 from review_bot.analytics.wrong_language import (
@@ -1081,6 +1082,108 @@ def test_review_runner_waits_for_expected_head_on_gitlab_note_trigger(monkeypatc
         assert refreshed.head_sha == expected_head_sha
         assert meta_calls["count"] >= 2
         assert diff_calls["count"] >= 2
+    finally:
+        session.close()
+
+
+def test_review_runner_fails_retryably_when_expected_head_never_settles(monkeypatch) -> None:
+    _reset_db()
+
+    runner = ReviewRunner()
+    adapter = FakeAdapter()
+    key = ReviewRequestKey(
+        review_system="gitlab",
+        project_ref="group/project-a",
+        review_request_id="7992",
+    )
+    expected_head_sha = "new-head"
+    stale_head_sha = "stale-head"
+    adapter.set_diff(key, path="src/a.cpp", patch=_malloc_patch(), head_sha=stale_head_sha)
+    runner.platform_client = adapter
+    runner.engine_client = EngineStub([_result("R.10", category="memory")])
+    runner.provider = FixedProvider()
+
+    key_tuple = _key_tuple(key)
+    base_meta = adapter.meta_by_key[key_tuple]
+    base_diff = adapter.diff_by_key[key_tuple]
+    meta_calls = {"count": 0}
+    diff_calls = {"count": 0}
+
+    def fetch_review_request_meta(test_key: ReviewRequestKey) -> ReviewRequestMeta:
+        assert test_key == key
+        meta_calls["count"] += 1
+        return ReviewRequestMeta(
+            key=key,
+            title=base_meta.title,
+            source_branch=base_meta.source_branch,
+            target_branch=base_meta.target_branch,
+            base_sha=base_meta.base_sha,
+            start_sha=base_meta.start_sha,
+            head_sha=stale_head_sha,
+        )
+
+    def fetch_diff(
+        test_key: ReviewRequestKey,
+        *,
+        mode: str,
+        base_sha: str | None = None,
+    ) -> DiffPayload:
+        assert test_key == key
+        assert mode == "manual"
+        assert base_sha is None
+        diff_calls["count"] += 1
+        return DiffPayload(
+            pull_request={
+                **base_diff.pull_request,
+                "head_sha": stale_head_sha,
+            },
+            files=list(base_diff.files),
+        )
+
+    monkeypatch.setattr(adapter, "fetch_review_request_meta", fetch_review_request_meta)
+    monkeypatch.setattr(adapter, "fetch_diff", fetch_diff)
+    monkeypatch.setattr("review_bot.bot.review_runner.time.sleep", lambda _: None)
+
+    session = SessionLocal()
+    try:
+        review_run = runner.create_review_run_for_key(
+            session,
+            key,
+            trigger="gitlab:note_mention",
+            mode="manual",
+            meta=ReviewRequestMeta(
+                key=key,
+                title="MR 7992",
+                source_branch="feature",
+                target_branch="main",
+                head_sha=expected_head_sha,
+            ),
+        )
+
+        with pytest.raises(HTTPException) as exc_info:
+            runner.execute_review_run(session, review_run.id)
+
+        assert exc_info.value.status_code == 500
+        assert "expected new-head, observed stale-head" in str(exc_info.value.detail)
+
+        refreshed = session.get(ReviewRun, review_run.id)
+        assert refreshed is not None
+        assert refreshed.status == "failed"
+        assert refreshed.head_sha == expected_head_sha
+        assert refreshed.error_category == "expected_head_not_settled"
+        assert session.query(FindingEvidence).filter_by(review_run_id=review_run.id).count() == 0
+
+        dead_letter = session.query(DeadLetterRecord).filter_by(review_run_id=review_run.id).one()
+        assert dead_letter.stage == "detect"
+        assert dead_letter.error_category == "expected_head_not_settled"
+        assert dead_letter.replayable is True
+        assert adapter.publish_checks[-1].state == "failed"
+
+        expected_calls = (
+            1 + review_runner_module._NOTE_MENTION_EXPECTED_HEAD_RETRIES  # noqa: SLF001
+        )
+        assert meta_calls["count"] == expected_calls
+        assert diff_calls["count"] == expected_calls
     finally:
         session.close()
 

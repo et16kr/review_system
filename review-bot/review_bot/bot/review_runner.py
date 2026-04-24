@@ -584,7 +584,14 @@ class ReviewRunner:
             expected_head_sha,
             observed_head_sha,
         )
-        return refreshed_meta, refreshed_diff
+        raise ReviewBotError(
+            (
+                "GitLab note-trigger head did not settle before detect: "
+                f"expected {expected_head_sha}, observed {observed_head_sha or 'unknown'}"
+            ),
+            category="expected_head_not_settled",
+            retryable=True,
+        )
 
     def execute_publish_phase(self, session: Session, review_run_id: str) -> None:
         review_run = self._get_review_run(session, review_run_id)

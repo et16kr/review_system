@@ -152,7 +152,7 @@
 
 ### 3. Fail Or Defer GitLab Note-Trigger When Expected Head Never Settles
 
-상태: `active`
+상태: `watch`
 
 왜 지금 하나:
 
@@ -177,6 +177,21 @@ cd review-bot && uv run pytest tests/test_review_runner.py tests/test_api_queue.
 ```
 
 GitLab head handling을 바꾸므로 local GitLab 환경이 준비되어 있으면 lifecycle smoke도 실행한다.
+
+완료 기록:
+
+- GitLab note-trigger detect에서 expected head가 settle retry 이후에도 관찰되지 않으면
+  stale diff로 detect를 계속하지 않고 retryable `expected_head_not_settled` 실패로 남긴다.
+- never-settled runner regression test를 추가해 stale observed head가 successful detect result나
+  finding evidence로 저장되지 않는지 검증했다.
+- 검증 통과:
+  - `cd review-bot && UV_CACHE_DIR=/tmp/uv-cache-review-bot-roadmap-3-validation uv run --no-sync pytest tests/test_review_runner.py tests/test_api_queue.py -q`
+  - `git diff --check`
+- 기본 `uv run`은 sandbox의 read-only `/home/et16/.cache/uv`를 피하기 위해 writable
+  `UV_CACHE_DIR`와 existing environment `--no-sync`로 검증했다.
+- local GitLab readiness probe `curl -fsS --max-time 2 http://127.0.0.1:18929/-/readiness`가
+  connection refused로 끝나 lifecycle smoke는 실행하지 않았다.
+- direct OpenAI smoke는 provider success claim이 아니므로 실행하지 않았다.
 
 관련 backlog: `B-review-bot-01`
 
@@ -702,15 +717,14 @@ python3 -m py_compile ops/scripts/create_gitlab_merge_request.py ops/scripts/boo
 
 ## Suggested Next Step
 
-현재 가장 자연스러운 다음 작업은 `3. Fail Or Defer GitLab Note-Trigger When Expected Head Never Settles`이다.
+현재 가장 자연스러운 다음 작업은 `4. Scope Adapter Thread And Feedback Identity Explicitly`이다.
 
 이유:
 
 - review-bot API queue gate reliability는 닫혔다.
 - review-platform API client gate reliability도 닫혔다.
-- 다음 `active` 항목은 GitLab note-trigger stale head handling의 correctness guardrail이다.
-- GitLab head handling 변경은 deterministic runner test를 먼저 요구하고,
-  local GitLab lifecycle smoke는 환경이 준비된 경우에만 추가한다.
+- GitLab note-trigger stale head handling의 correctness guardrail은 닫혔다.
+- 다음 `active` 항목은 adapter thread/feedback identity scope를 contract와 storage에서 맞추는 일이다.
 
 ## Validation Baseline
 
