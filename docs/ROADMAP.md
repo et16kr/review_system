@@ -263,8 +263,15 @@
 
 - `review-engine/examples/extensions/private_org_cpp/`에
   manifest/pack/profile/policy를 갖춘 opt-in private extension sample root를 추가했다.
-- `review-engine/tests/test_rule_runtime.py`가 repo sample root를 직접 로드해
-  organization rule 활성화와 public rule override/exclude 경로를 회귀로 고정한다.
+- `ops/scripts/run_review_engine_extension_ci.sh`가
+  repo-local deterministic release gate를 `public-only`와 `private-enabled` 경로로 분리해
+  CI caller가 public core와 repo sample private extension 검증을 독립적으로 호출할 수 있게 했다.
+- `review-engine/tests/test_rule_runtime.py`와
+  `review-engine/tests/test_rule_runtime_private_extension.py`가 분리되어
+  public loader/runtime 회귀와 repo sample private extension 회귀가 서로 다른 gate에서 돌 수 있게 됐다.
+- `review-engine/tests/test_rule_runtime_private_extension.py`가
+  repo sample root load와 ingest summary 둘 다에서 organization policy record와
+  public rule override/exclude 경로를 회귀로 고정한다.
 - `docs/CURRENT_SYSTEM.md`와 sample extension README가
   dev/prod extension failure policy를 canonical하게 문서화하고,
   `REVIEW_ENGINE_EXTENSION_RULE_ROOTS`/`REVIEW_ENGINE_STRICT_EXTENSION_LOADING`
@@ -275,18 +282,18 @@
 
 다음 작업:
 
-1. CI에서 public-only와 private-enabled 경로를 분리한다.
-2. `source_family` legacy alias 제거 또는 장기 호환 방침을 결정한다.
-3. `pack_weight`, `reference_only`, conflict action의 운영 표현 방식을 확정한다.
+1. `source_family` legacy alias 제거 또는 장기 호환 방침을 결정한다.
+2. `pack_weight`, `reference_only`, conflict action의 운영 표현 방식을 확정한다.
 
 검증 메모:
 
-- 이번 slice는 extension failure policy 문서와 sample config example을 추가하고,
-  explicit filesystem extension root fail-fast 경계를 loader regression test로 고정했다.
+- 이번 slice는 repo-local extension release gate를 `public-only`와 `private-enabled`로 분리하고,
+  repo sample private extension 회귀를 별도 pytest target으로 고정했다.
 - rerun:
-  - `env UV_CACHE_DIR=/tmp/uv-cache uv run --project review-engine pytest review-engine/tests/test_rule_runtime.py -q`
+  - `bash ops/scripts/run_review_engine_extension_ci.sh --mode public-only`
+  - `bash ops/scripts/run_review_engine_extension_ci.sh --mode private-enabled`
 - broader `review-engine` pytest, ingest/retrieval baseline, `review-bot`/`review-platform` tests,
-  GitLab smoke, provider/direct OpenAI validation은 public runtime 비변경과 docs/sample root 범위로 생략했다.
+  GitLab smoke, provider/direct OpenAI validation은 extension release-gate split 범위로 생략했다.
 
 완료 기준:
 

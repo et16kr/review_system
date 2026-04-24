@@ -116,7 +116,8 @@
   운영자가 직접 선택한 입력이므로 dev/prod 모두 fail-fast 한다.
 - broken import/init entry point는 detector/prompt plugin이 optional surface인 현재 구조상
   dev/prod 모두 warning-only로 남기고 public core를 계속 로드한다.
-- private/public CI split과 private rule packaging은 아직 roadmap 대상이다.
+- private/public release gate는 `ops/scripts/run_review_engine_extension_ci.sh`로 분리됐다.
+- private rule packaging은 아직 roadmap 대상이다.
 - 우선순위는 특정 조직명 하드코딩이 아니라 pack/profile policy로 표현한다.
 
 ## Adapter State
