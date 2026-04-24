@@ -103,6 +103,141 @@ def test_rule_lifecycle_show_fails_when_rule_is_absent_from_selected_runtime(
         ])
 
 
+def test_rule_lifecycle_preview_validates_authoring_runtime_without_ingest(
+    fixture_settings,
+    monkeypatch,
+    capsys,
+) -> None:
+    payload = _run_cli(
+        ["preview", "--language-id", "python", "--profile-id", "fastapi_service"],
+        fixture_settings,
+        monkeypatch,
+        capsys,
+    )
+
+    pack_ids = {pack["pack_id"] for pack in payload["pack_resolution"]["selected_packs"]}
+
+    assert payload["command"] == "preview"
+    assert payload["source_of_truth"] == "canonical_yaml"
+    assert payload["validation_status"] == "passed"
+    assert payload["profile_resolution"]["profile_id"] == "fastapi_service"
+    assert payload["source_coverage"]["status"] == "passed"
+    assert "python.fastapi_service_deepening" in payload["source_coverage"][
+        "relevant_source_ids"
+    ]
+    assert "fastapi_service" in pack_ids
+    assert payload["ingest_retrieval_impact"]["reads_generated_artifacts"] is False
+    assert payload["ingest_retrieval_impact"]["writes_generated_artifacts"] is False
+    assert payload["ingest_retrieval_impact"]["writes_vector_store"] is False
+    assert payload["ingest_retrieval_impact"]["record_counts"]["active"] > 0
+    assert payload["validation_plan"]["scope"] == "rule_authoring_preview"
+    assert not any(fixture_settings.data_dir.iterdir())
+
+
+def test_rule_lifecycle_preview_reports_typoed_metadata(
+    fixture_settings,
+    monkeypatch,
+    tmp_path,
+) -> None:
+    copied_rule_root = _copy_rule_root(fixture_settings.project_root, tmp_path)
+    settings = replace(fixture_settings, public_rule_root=copied_rule_root)
+    pack_path = copied_rule_root / "python" / "packs" / "fastapi_service.yaml"
+    pack_path.write_text(
+        pack_path.read_text(encoding="utf-8").replace(
+            "    fix_guidance: Move blocking work",
+            "    fix_guidence: Move blocking work",
+            1,
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(rule_lifecycle, "get_settings", lambda: settings)
+
+    with pytest.raises(
+        SystemExit,
+        match=r"canonical YAML validation failed: entries\.0\.fix_guidence",
+    ):
+        rule_lifecycle.main([
+            "preview",
+            "--language-id",
+            "python",
+            "--profile-id",
+            "fastapi_service",
+        ])
+
+    assert not any(settings.data_dir.iterdir())
+
+
+def test_rule_lifecycle_preview_reports_unknown_selected_pack(
+    fixture_settings,
+    monkeypatch,
+    tmp_path,
+) -> None:
+    copied_rule_root = _copy_rule_root(fixture_settings.project_root, tmp_path)
+    settings = replace(fixture_settings, public_rule_root=copied_rule_root)
+    profile_path = copied_rule_root / "python" / "profiles" / "fastapi_service.yaml"
+    profile_path.write_text(
+        _insert_after(
+            profile_path.read_text(encoding="utf-8"),
+            "  - fastapi_service\n",
+            "  - missing_authoring_pack\n",
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(rule_lifecycle, "get_settings", lambda: settings)
+
+    with pytest.raises(
+        SystemExit,
+        match=r"selected runtime validation failed: .*missing_authoring_pack",
+    ):
+        rule_lifecycle.main([
+            "preview",
+            "--language-id",
+            "python",
+            "--profile-id",
+            "fastapi_service",
+        ])
+
+    assert not any(settings.data_dir.iterdir())
+
+
+def test_rule_lifecycle_preview_reports_source_coverage_miss(
+    fixture_settings,
+    monkeypatch,
+    tmp_path,
+) -> None:
+    copied_rule_root = _copy_rule_root(fixture_settings.project_root, tmp_path)
+    settings = replace(fixture_settings, public_rule_root=copied_rule_root)
+    pack_path = copied_rule_root / "python" / "packs" / "fastapi_service.yaml"
+    pack_path.write_text(
+        pack_path.read_text(encoding="utf-8")
+        + (
+            "\n"
+            "  - rule_no: PY.FAPI.NEW\n"
+            "    section: PYFAPI\n"
+            "    title: New FastAPI rule without source coverage\n"
+            "    summary: New authoring preview fixtures must be covered by a source atom.\n"
+            "    text: A new canonical rule should not pass authoring preview until "
+            "source coverage names it.\n"
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(rule_lifecycle, "get_settings", lambda: settings)
+
+    with pytest.raises(
+        SystemExit,
+        match=r"source coverage missing for selected runtime rules: PY\.FAPI\.NEW",
+    ):
+        rule_lifecycle.main([
+            "preview",
+            "--language-id",
+            "python",
+            "--profile-id",
+            "fastapi_service",
+        ])
+
+    assert not any(settings.data_dir.iterdir())
+
+
 def test_rule_lifecycle_list_includes_disabled_entries_from_selected_packs(
     fixture_settings,
     monkeypatch,

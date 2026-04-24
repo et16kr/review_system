@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Literal
 
 import yaml
+from pydantic import ValidationError
 
 from review_engine.config import Settings, get_settings
 from review_engine.extensions import discover_extension_specs
@@ -26,6 +27,7 @@ from review_engine.models import (
     ProfileConfig,
     RuleEntry,
     RulePackManifest,
+    RuleSourceManifest,
 )
 
 RuntimeState = Literal["active", "reference", "excluded", "disabled"]
@@ -78,6 +80,16 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Optional pack filter to disambiguate duplicate rule numbers.",
     )
     show_parser.set_defaults(handler=_handle_show)
+
+    preview_parser = subparsers.add_parser(
+        "preview",
+        help=(
+            "Validate and preview the selected authoring runtime without reading or "
+            "writing generated artifacts."
+        ),
+    )
+    _add_runtime_args(preview_parser)
+    preview_parser.set_defaults(handler=_handle_preview)
 
     disable_parser = subparsers.add_parser(
         "disable",
@@ -182,6 +194,67 @@ def _handle_show(args: argparse.Namespace) -> dict[str, object]:
     return {
         **_serialize_runtime(runtime),
         "rule": _serialize_rule(record, runtime_state=runtime_state),
+    }
+
+
+def _handle_preview(args: argparse.Namespace) -> dict[str, object]:
+    try:
+        settings, runtime, selected_pack_index = _load_runtime_selection(args)
+    except ValidationError as exc:
+        raise SystemExit(
+            "Rule authoring preview failed: canonical YAML validation failed: "
+            f"{_format_validation_error(exc)}"
+        ) from exc
+    except (ValueError, yaml.YAMLError) as exc:
+        raise SystemExit(
+            "Rule authoring preview failed: selected runtime validation failed: "
+            f"{exc}"
+        ) from exc
+
+    try:
+        source_coverage = _build_source_coverage_preview(
+            settings=settings,
+            runtime=runtime,
+            selected_pack_index=selected_pack_index,
+        )
+    except ValidationError as exc:
+        raise SystemExit(
+            "Rule authoring preview failed: source manifest validation failed: "
+            f"{_format_validation_error(exc)}"
+        ) from exc
+    except (FileNotFoundError, KeyError, TypeError, ValueError, yaml.YAMLError) as exc:
+        raise SystemExit(
+            "Rule authoring preview failed: source coverage validation failed: "
+            f"{exc}"
+        ) from exc
+    if source_coverage["status"] != "passed":
+        missing_rules = ", ".join(source_coverage["missing_rule_nos"])
+        raise SystemExit(
+            "Rule authoring preview failed: source coverage missing for "
+            f"selected runtime rules: {missing_rules}"
+        )
+
+    return {
+        **_serialize_runtime(runtime),
+        "command": "preview",
+        "validation_status": "passed",
+        "profile_resolution": _build_profile_resolution_preview(
+            settings=settings,
+            runtime=runtime,
+        ),
+        "pack_resolution": _build_pack_resolution_preview(
+            selected_pack_index=selected_pack_index,
+        ),
+        "source_coverage": source_coverage,
+        "ingest_retrieval_impact": _build_ingest_retrieval_impact_preview(
+            settings=settings,
+            runtime=runtime,
+            selected_pack_index=selected_pack_index,
+        ),
+        "validation_plan": _build_preview_validation_plan(
+            runtime=runtime,
+            include_all_packs=args.all_packs,
+        ),
     }
 
 
@@ -521,6 +594,261 @@ def _build_profile_pack_mutation_validation_plan(
             },
         ],
     }
+
+
+def _build_preview_validation_plan(
+    *,
+    runtime: LoadedRuleContext,
+    include_all_packs: bool,
+) -> dict[str, object]:
+    runtime_args = _build_runtime_selector_args(
+        runtime=runtime,
+        include_all_packs=include_all_packs,
+    )
+    return {
+        "scope": "rule_authoring_preview",
+        "source_of_truth": "canonical_yaml",
+        "runtime_selector": {
+            "language_id": runtime.language_id,
+            "profile_id": runtime.profile.profile_id,
+            "context_id": runtime.context_id,
+            "dialect_id": runtime.dialect_id,
+            "all_packs": include_all_packs,
+            "selected_pack_ids": runtime.selected_pack_ids,
+        },
+        "commands": [
+            {
+                "name": "preview_selected_runtime",
+                "command": _shell_join(
+                    [
+                        "uv",
+                        "run",
+                        "--project",
+                        "review-engine",
+                        "python",
+                        "-m",
+                        "review_engine.cli.rule_lifecycle",
+                        "preview",
+                        *runtime_args,
+                    ]
+                ),
+            },
+            {
+                "name": "targeted_pytest",
+                "command": _shell_join(
+                    [
+                        "uv",
+                        "run",
+                        "--project",
+                        "review-engine",
+                        "pytest",
+                        "review-engine/tests/test_rule_lifecycle_cli.py",
+                        "review-engine/tests/test_rule_runtime.py",
+                        "review-engine/tests/test_source_coverage_matrix.py",
+                        "-q",
+                    ]
+                ),
+            },
+        ],
+    }
+
+
+def _build_profile_resolution_preview(
+    *,
+    settings: Settings,
+    runtime: LoadedRuleContext,
+) -> dict[str, object]:
+    matching_profiles = _load_matching_profile_sources(
+        settings=settings,
+        runtime=runtime,
+    )
+    return {
+        "profile_id": runtime.profile.profile_id,
+        "language_id": runtime.profile.language_id,
+        "context_id": runtime.context_id,
+        "dialect_id": runtime.dialect_id,
+        "priority_policy_ref": runtime.profile.priority_policy_ref,
+        "selection_origin": _profile_selection_origin(runtime.profile),
+        "prompt_overlay_refs": runtime.prompt_overlay_refs,
+        "detector_refs": runtime.detector_refs,
+        "source_paths": [str(path) for _profile, path in matching_profiles],
+        "source_count": len(matching_profiles),
+    }
+
+
+def _build_pack_resolution_preview(
+    *,
+    selected_pack_index: dict[str, tuple[RulePackManifest, Path]],
+) -> dict[str, object]:
+    packs: list[dict[str, object]] = []
+    for pack_id, (pack, source_path) in selected_pack_index.items():
+        disabled_count = sum(1 for entry in pack.entries if not entry.enabled)
+        packs.append(
+            {
+                "pack_id": pack_id,
+                "language_id": pack.language_id,
+                "namespace": pack.namespace,
+                "source_kind": pack.source_kind,
+                "default_enabled": pack.default_enabled,
+                "source_path": str(source_path.resolve()),
+                "entry_count": len(pack.entries),
+                "enabled_entry_count": len(pack.entries) - disabled_count,
+                "disabled_entry_count": disabled_count,
+            }
+        )
+    return {
+        "selected_pack_count": len(packs),
+        "selected_packs": packs,
+    }
+
+
+def _build_source_coverage_preview(
+    *,
+    settings: Settings,
+    runtime: LoadedRuleContext,
+    selected_pack_index: dict[str, tuple[RulePackManifest, Path]],
+) -> dict[str, object]:
+    source_root = (
+        settings.rule_source_root or (settings.project_root / "rule_sources")
+    ).resolve()
+    manifest_path = source_root / "manifest.yaml"
+    coverage_path = source_root / "coverage_matrix.yaml"
+    manifest = RuleSourceManifest.model_validate(_load_yaml(manifest_path))
+    coverage = _load_yaml(coverage_path)
+    if not isinstance(coverage, dict):
+        raise ValueError("coverage_matrix.yaml must contain a YAML mapping")
+
+    manifest_source_ids = {
+        source.rule_source_id
+        for language in manifest.languages
+        for source in language.sources
+    }
+    coverage_sources = _iter_coverage_sources(coverage)
+    coverage_source_ids = {
+        str(source["rule_source_id"])
+        for source in coverage_sources
+        if "rule_source_id" in source
+    }
+    if coverage_source_ids != manifest_source_ids:
+        missing = sorted(manifest_source_ids - coverage_source_ids)
+        extra = sorted(coverage_source_ids - manifest_source_ids)
+        raise ValueError(
+            "coverage_matrix.yaml source ids must match rule_sources/manifest.yaml "
+            f"(missing={missing}, extra={extra})"
+        )
+
+    selected_rule_nos = _selected_pack_entry_rule_nos(selected_pack_index)
+    covered_rule_nos: set[str] = set()
+    coverage_atom_count = 0
+    relevant_source_ids: set[str] = set()
+    for source in coverage_sources:
+        atoms = source.get("atoms", [])
+        if not isinstance(atoms, list):
+            raise ValueError("coverage_matrix.yaml source atoms must be a list")
+        for atom in atoms:
+            if not isinstance(atom, dict):
+                raise ValueError("coverage_matrix.yaml atoms must be YAML mappings")
+            canonical_rules = atom.get("canonical_rules", [])
+            if not isinstance(canonical_rules, list):
+                raise ValueError("coverage_matrix.yaml canonical_rules must be a list")
+            canonical_rule_set = {str(rule_no) for rule_no in canonical_rules}
+            if canonical_rule_set & selected_rule_nos:
+                relevant_source_ids.add(str(source["rule_source_id"]))
+            covered_rule_nos.update(canonical_rule_set)
+            coverage_atom_count += 1
+
+    missing_rule_nos = sorted(selected_rule_nos - covered_rule_nos)
+    covered_selected_rule_nos = sorted(selected_rule_nos & covered_rule_nos)
+    return {
+        "status": "passed" if not missing_rule_nos else "failed",
+        "source_of_truth": "rule_sources_coverage_matrix",
+        "source_root": str(source_root),
+        "manifest_path": str(manifest_path),
+        "coverage_matrix_path": str(coverage_path),
+        "selected_rule_count": len(selected_rule_nos),
+        "covered_selected_rule_count": len(covered_selected_rule_nos),
+        "missing_rule_nos": missing_rule_nos,
+        "relevant_source_ids": sorted(relevant_source_ids),
+        "manifest_source_count": len(manifest_source_ids),
+        "coverage_source_count": len(coverage_source_ids),
+        "coverage_atom_count": coverage_atom_count,
+    }
+
+
+def _build_ingest_retrieval_impact_preview(
+    *,
+    settings: Settings,
+    runtime: LoadedRuleContext,
+    selected_pack_index: dict[str, tuple[RulePackManifest, Path]],
+) -> dict[str, object]:
+    disabled_entry_count = sum(
+        1
+        for pack, _source_path in selected_pack_index.values()
+        for entry in pack.entries
+        if not entry.enabled
+    )
+    return {
+        "source_of_truth": "canonical_yaml",
+        "reads_generated_artifacts": False,
+        "writes_generated_artifacts": False,
+        "writes_vector_store": False,
+        "record_counts": {
+            "active": len(runtime.active_records),
+            "reference": len(runtime.reference_records),
+            "excluded": len(runtime.excluded_records),
+            "disabled": disabled_entry_count,
+        },
+        "parsed_pack_counts": runtime.parsed_pack_counts,
+        "would_update_dataset_paths": {
+            "active": str(settings.dataset_path("active", runtime.language_id)),
+            "reference": str(settings.dataset_path("reference", runtime.language_id)),
+            "excluded": str(settings.dataset_path("excluded", runtime.language_id)),
+        },
+        "would_update_collections": {
+            "active": settings.collection_for("active", runtime.language_id),
+            "reference": settings.collection_for("reference", runtime.language_id),
+            "excluded": settings.collection_for("excluded", runtime.language_id),
+        },
+    }
+
+
+def _iter_coverage_sources(coverage: dict) -> list[dict]:
+    languages = coverage.get("languages", [])
+    if not isinstance(languages, list):
+        raise ValueError("coverage_matrix.yaml languages must be a list")
+    sources: list[dict] = []
+    for language in languages:
+        if not isinstance(language, dict):
+            raise ValueError("coverage_matrix.yaml language entries must be YAML mappings")
+        language_sources = language.get("sources", [])
+        if not isinstance(language_sources, list):
+            raise ValueError("coverage_matrix.yaml language sources must be a list")
+        for source in language_sources:
+            if not isinstance(source, dict):
+                raise ValueError("coverage_matrix.yaml source entries must be YAML mappings")
+            if "rule_source_id" not in source:
+                raise ValueError("coverage_matrix.yaml source entry missing rule_source_id")
+            sources.append(source)
+    return sources
+
+
+def _selected_pack_entry_rule_nos(
+    selected_pack_index: dict[str, tuple[RulePackManifest, Path]],
+) -> set[str]:
+    return {
+        entry.rule_no
+        for pack, _source_path in selected_pack_index.values()
+        for entry in pack.entries
+    }
+
+
+def _format_validation_error(exc: ValidationError) -> str:
+    first_error = exc.errors()[0] if exc.errors() else {}
+    location = ".".join(str(part) for part in first_error.get("loc", ()))
+    message = str(first_error.get("msg", exc))
+    if not location:
+        return message
+    return f"{location}: {message}"
 
 
 def _build_runtime_selector_args(
