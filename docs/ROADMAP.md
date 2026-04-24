@@ -35,11 +35,12 @@
 - minimal rule lifecycle CLI의 좁은 운영 범위
 - `review`, `summarize`, `walkthrough`, `full-report`, `backlog`, `help` note command surface
 - deterministic gate, local GitLab runtime smoke, direct provider smoke를 분리하는 운영 원칙
+- lifecycle `provider_runtime` provenance가 configured/effective provider, fallback, configured model,
+  sanitized endpoint base URL, transport class를 run state, finding evidence, structured log,
+  summary note에 일관되게 남기는 구조
 
 반대로 아래 항목은 닫힌 기반으로 보면 안 된다. 리뷰 결과상 즉시 수정 또는 문서 보정이 남아 있다.
 
-- Provider runtime guardrails
-  - model/base URL/transport provenance가 lifecycle API, log, summary note에 충분히 드러나야 한다.
 - Smoke / evaluation hardening
   - `review-bot` API queue TestClient gate는 bounded diagnostic을 갖췄다.
   - `review-platform` API client gate는 deterministic ASGI transport와 bounded diagnostic을 갖췄다.
@@ -243,7 +244,7 @@ cd review-bot && uv run pytest tests/test_review_runner.py tests/test_api_queue.
 
 ### 5. Add Model And Endpoint Provenance To Lifecycle Provider Runtime
 
-상태: `active`
+상태: `watch`
 
 왜 지금 하나:
 
@@ -269,6 +270,22 @@ cd review-bot && uv run pytest tests/test_review_runner.py -q
 ```
 
 direct OpenAI smoke는 live provider success claim을 할 때만 실행한다.
+
+완료 기록:
+
+- lifecycle `provider_runtime`에 `configured_model`, sanitized `endpoint_base_url`,
+  `transport_class`를 추가해 run state API, finding evidence, structured log, summary note가
+  같은 provenance를 보이게 했다.
+- default OpenAI, OpenAI-compatible local backend, deterministic stub, fallback case를
+  targeted tests로 덮었다.
+- 검증 통과:
+  - `cd review-bot && UV_CACHE_DIR=/tmp/uv-cache-review-bot-roadmap-5 uv run --no-sync pytest tests/test_provider_quality.py tests/test_prompting.py -q`
+  - `cd review-bot && UV_CACHE_DIR=/tmp/uv-cache-review-bot-roadmap-5-runner uv run --no-sync pytest tests/test_review_runner.py -q`
+  - `cd review-bot && UV_CACHE_DIR=/tmp/uv-cache-review-bot-roadmap-5-api uv run --no-sync pytest tests/test_api_queue.py -q`
+  - `git diff --check`
+  - `bash -n ops/scripts/advance_roadmap_with_codex.sh ops/scripts/advance_review_roadmap_with_codex.sh`
+- validation은 deterministic fake OpenAI metadata와 stub fallback path를 사용했다.
+  direct OpenAI smoke는 live provider success claim이 아니고 preflight도 skipped configuration이라 실행하지 않았다.
 
 관련 backlog: `B-review-bot-03`
 
@@ -735,7 +752,7 @@ python3 -m py_compile ops/scripts/create_gitlab_merge_request.py ops/scripts/boo
 
 ## Suggested Next Step
 
-현재 가장 자연스러운 다음 작업은 `5. Add Model And Endpoint Provenance To Lifecycle Provider Runtime`이다.
+현재 가장 자연스러운 다음 작업은 `6. Post Visible Feedback For Directed Unknown Note Commands`이다.
 
 이유:
 
@@ -743,7 +760,8 @@ python3 -m py_compile ops/scripts/create_gitlab_merge_request.py ops/scripts/boo
 - review-platform API client gate reliability도 닫혔다.
 - GitLab note-trigger stale head handling의 correctness guardrail은 닫혔다.
 - adapter thread/feedback identity scope는 contract와 storage에서 맞춰졌다.
-- 다음 `active` 항목은 provider runtime provenance를 lifecycle API/log/summary note에 일관되게 드러내는 일이다.
+- provider runtime provenance는 lifecycle API/log/summary note에서 model/endpoint/transport까지 드러낸다.
+- 다음 `active` 항목은 directed unknown note command에 visible feedback을 남기는 일이다.
 
 ## Validation Baseline
 

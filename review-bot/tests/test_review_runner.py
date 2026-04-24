@@ -270,6 +270,9 @@ def test_review_runner_persists_provider_runtime_metadata_on_run_and_finding() -
 
     class NamedProvider(FixedProvider):
         provider_name = "openai"
+        configured_model = "gpt-5.5"
+        endpoint_base_url = "https://api.openai.com/v1"
+        transport_class = "default_openai_base_url"
 
     runner = ReviewRunner()
     adapter = FakeAdapter()
@@ -292,6 +295,9 @@ def test_review_runner_persists_provider_runtime_metadata_on_run_and_finding() -
             "effective_provider": "openai",
             "fallback_used": False,
             "fallback_reason": None,
+            "configured_model": "gpt-5.5",
+            "endpoint_base_url": "https://api.openai.com/v1",
+            "transport_class": "default_openai_base_url",
         }
         assert evidence.raw_engine_payload["provider_runtime"] == stored_run.provider_runtime
         assert state["provider_runtime"] == stored_run.provider_runtime
@@ -304,6 +310,9 @@ def test_review_runner_persists_fallback_provider_runtime_metadata() -> None:
 
     class BuildFailingProvider(FixedProvider):
         provider_name = "openai"
+        configured_model = "local-model"
+        endpoint_base_url = "http://127.0.0.1:11434/v1"
+        transport_class = "non_default_openai_compatible_base_url"
 
         def build_draft(self, **kwargs):  # type: ignore[override]
             del kwargs
@@ -336,6 +345,9 @@ def test_review_runner_persists_fallback_provider_runtime_metadata() -> None:
             "effective_provider": "stub",
             "fallback_used": True,
             "fallback_reason": "build_draft_error:RuntimeError",
+            "configured_model": "local-model",
+            "endpoint_base_url": "http://127.0.0.1:11434/v1",
+            "transport_class": "non_default_openai_compatible_base_url",
         }
         assert evidence.raw_engine_payload["provider_runtime"] == stored_run.provider_runtime
         assert state["provider_runtime"] == stored_run.provider_runtime
@@ -348,6 +360,9 @@ def test_pr_summary_includes_live_provider_runtime_provenance() -> None:
 
     class NamedProvider(FixedProvider):
         provider_name = "openai"
+        configured_model = "gpt-5.5"
+        endpoint_base_url = "https://api.openai.com/v1"
+        transport_class = "default_openai_base_url"
 
     runner = ReviewRunner()
     adapter = FakeAdapter()
@@ -364,7 +379,8 @@ def test_pr_summary_includes_live_provider_runtime_provenance() -> None:
         assert len(adapter.general_notes) == 1
         assert (
             "이번 run provider: configured `openai`, effective `openai` "
-            "(live provider path)."
+            "(live provider path); model `gpt-5.5`, endpoint `https://api.openai.com/v1`, "
+            "transport `default_openai_base_url`."
         ) in adapter.general_notes[0]
     finally:
         session.close()
@@ -375,6 +391,9 @@ def test_publish_logs_and_summary_include_fallback_provider_runtime_provenance()
 
     class BuildFailingProvider(FixedProvider):
         provider_name = "openai"
+        configured_model = "local-model"
+        endpoint_base_url = "http://127.0.0.1:11434/v1"
+        transport_class = "non_default_openai_compatible_base_url"
 
         def build_draft(self, **kwargs):  # type: ignore[override]
             del kwargs
@@ -401,7 +420,9 @@ def test_publish_logs_and_summary_include_fallback_provider_runtime_provenance()
 
         expected_summary = (
             "configured `openai`, effective `stub` (stub fallback path), "
-            "reason `build_draft_error:RuntimeError`"
+            "reason `build_draft_error:RuntimeError`; model `local-model`, "
+            "endpoint `http://127.0.0.1:11434/v1`, "
+            "transport `non_default_openai_compatible_base_url`"
         )
         assert len(adapter.general_notes) == 1
         assert f"이번 run provider: {expected_summary}." in adapter.general_notes[0]
@@ -424,6 +445,9 @@ def test_publish_logs_and_summary_include_fallback_provider_runtime_provenance()
                 "effective_provider": "stub",
                 "fallback_used": True,
                 "fallback_reason": "build_draft_error:RuntimeError",
+                "configured_model": "local-model",
+                "endpoint_base_url": "http://127.0.0.1:11434/v1",
+                "transport_class": "non_default_openai_compatible_base_url",
             }
             assert event["provider_runtime_summary"] == expected_summary
     finally:
@@ -4296,6 +4320,7 @@ def test_render_summarize_note_includes_aggregate_status_and_followup_commands()
             "effective_provider": "stub",
             "fallback_used": False,
             "fallback_reason": None,
+            "transport_class": "deterministic_stub",
         },
         "published_batch_count": 1,
         "open_finding_count": 3,
@@ -4324,7 +4349,8 @@ def test_render_summarize_note_includes_aggregate_status_and_followup_commands()
     assert "진행/대기 중 run: `run-2` (`queued`)" in note
     assert "마지막 완료 run: `run-1` (`success`)" in note
     assert (
-        "provider: configured `stub`, effective `stub` (deterministic stub path)" in note
+        "provider: configured `stub`, effective `stub` (deterministic stub path); "
+        "transport `deterministic_stub`" in note
     )
     assert "- 현재 backlog: 2개" in note
     assert "- 기존 open backlog: 1개" in note

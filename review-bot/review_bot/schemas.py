@@ -48,6 +48,9 @@ class ProviderRuntimeResponse(BaseModel):
     effective_provider: str
     fallback_used: bool
     fallback_reason: str | None = None
+    configured_model: str | None = None
+    endpoint_base_url: str | None = None
+    transport_class: str | None = None
 
 
 class ReviewRequestStateResponse(BaseModel):

@@ -168,6 +168,9 @@ def test_review_request_state_response_includes_provider_runtime_provenance() ->
             "effective_provider": "stub",
             "fallback_used": True,
             "fallback_reason": "build_draft_error:RuntimeError",
+            "configured_model": "local-model",
+            "endpoint_base_url": "http://127.0.0.1:11434/v1",
+            "transport_class": "non_default_openai_compatible_base_url",
         },
         "published_batch_count": 1,
         "open_finding_count": 3,
@@ -194,6 +197,9 @@ def test_review_request_state_response_includes_provider_runtime_provenance() ->
         "effective_provider": "stub",
         "fallback_used": True,
         "fallback_reason": "build_draft_error:RuntimeError",
+        "configured_model": "local-model",
+        "endpoint_base_url": "http://127.0.0.1:11434/v1",
+        "transport_class": "non_default_openai_compatible_base_url",
     }
 
 

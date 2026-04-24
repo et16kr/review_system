@@ -4,6 +4,13 @@ from dataclasses import dataclass, field
 from typing import Literal
 
 
+def _runtime_metadata_value(value: object) -> str | None:
+    text = str(value or "").replace("\r", " ").replace("\n", " ").strip()
+    if not text:
+        return None
+    return text[:500]
+
+
 @dataclass
 class FindingDraft:
     title: str
@@ -32,6 +39,9 @@ class ProviderRuntimeMetadata:
     effective_provider: str
     fallback_used: bool = False
     fallback_reason: str | None = None
+    configured_model: str | None = None
+    endpoint_base_url: str | None = None
+    transport_class: str | None = None
 
 
 @dataclass(frozen=True)
@@ -42,6 +52,9 @@ class ProviderDraftResult:
 
 class ReviewCommentProvider:
     provider_name = "unknown"
+    configured_model: str | None = None
+    endpoint_base_url: str | None = None
+    transport_class: str | None = None
 
     def build_draft(
         self,
@@ -117,10 +130,26 @@ class ReviewCommentProvider:
         )
         return ProviderDraftResult(
             draft=draft,
-            runtime=ProviderRuntimeMetadata(
-                configured_provider=self.provider_name,
-                effective_provider=self.provider_name,
-            ),
+            runtime=self.provider_runtime_metadata(),
+        )
+
+    def provider_runtime_metadata(
+        self,
+        *,
+        configured_provider: str | None = None,
+        effective_provider: str | None = None,
+        fallback_used: bool = False,
+        fallback_reason: str | None = None,
+    ) -> ProviderRuntimeMetadata:
+        provider_name = _runtime_metadata_value(self.provider_name) or "unknown"
+        return ProviderRuntimeMetadata(
+            configured_provider=configured_provider or provider_name,
+            effective_provider=effective_provider or provider_name,
+            fallback_used=fallback_used,
+            fallback_reason=_runtime_metadata_value(fallback_reason),
+            configured_model=_runtime_metadata_value(getattr(self, "configured_model", None)),
+            endpoint_base_url=_runtime_metadata_value(getattr(self, "endpoint_base_url", None)),
+            transport_class=_runtime_metadata_value(getattr(self, "transport_class", None)),
         )
 
     def verify_draft(

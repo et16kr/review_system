@@ -116,25 +116,50 @@ class FallbackReviewCommentProvider(ReviewCommentProvider):
         configured_provider = self._provider_name(self.primary)
         if self.primary_build_available:
             try:
-                return ProviderDraftResult(
-                    draft=self.primary.build_draft(**kwargs),
-                    runtime=ProviderRuntimeMetadata(
-                        configured_provider=configured_provider,
-                        effective_provider=self._provider_name(self.primary),
-                    ),
-                )
+                return self.primary.build_draft_with_runtime(**kwargs)
             except Exception as exc:
                 self.primary_build_available = False
                 self.primary_build_failure_reason = f"build_draft_error:{type(exc).__name__}"
 
+        fallback_result = self.fallback.build_draft_with_runtime(**kwargs)
         return ProviderDraftResult(
-            draft=self.fallback.build_draft(**kwargs),
-            runtime=ProviderRuntimeMetadata(
+            draft=fallback_result.draft,
+            runtime=self._fallback_runtime(
                 configured_provider=configured_provider,
-                effective_provider=self._provider_name(self.fallback),
-                fallback_used=True,
-                fallback_reason=self.primary_build_failure_reason or "primary_build_disabled",
+                fallback_runtime=fallback_result.runtime,
             ),
+        )
+
+    def provider_runtime_metadata(
+        self,
+        *,
+        configured_provider: str | None = None,
+        effective_provider: str | None = None,
+        fallback_used: bool = False,
+        fallback_reason: str | None = None,
+    ) -> ProviderRuntimeMetadata:
+        primary_runtime = self.primary.provider_runtime_metadata()
+        primary_unavailable = not self.primary_build_available
+        use_fallback = fallback_used or primary_unavailable
+        return ProviderRuntimeMetadata(
+            configured_provider=configured_provider or primary_runtime.configured_provider,
+            effective_provider=(
+                effective_provider
+                or (
+                    self._provider_name(self.fallback)
+                    if use_fallback
+                    else primary_runtime.effective_provider
+                )
+            ),
+            fallback_used=use_fallback,
+            fallback_reason=(
+                fallback_reason
+                if fallback_reason is not None
+                else (self.primary_build_failure_reason if use_fallback else None)
+            ),
+            configured_model=primary_runtime.configured_model,
+            endpoint_base_url=primary_runtime.endpoint_base_url,
+            transport_class=primary_runtime.transport_class,
         )
 
     def verify_draft(
@@ -193,3 +218,20 @@ class FallbackReviewCommentProvider(ReviewCommentProvider):
     def _provider_name(provider: ReviewCommentProvider) -> str:
         name = str(getattr(provider, "provider_name", "unknown") or "").strip()
         return name or "unknown"
+
+    def _fallback_runtime(
+        self,
+        *,
+        configured_provider: str,
+        fallback_runtime: ProviderRuntimeMetadata,
+    ) -> ProviderRuntimeMetadata:
+        primary_runtime = self.primary.provider_runtime_metadata()
+        return ProviderRuntimeMetadata(
+            configured_provider=configured_provider,
+            effective_provider=fallback_runtime.effective_provider,
+            fallback_used=True,
+            fallback_reason=self.primary_build_failure_reason or "primary_build_disabled",
+            configured_model=primary_runtime.configured_model,
+            endpoint_base_url=primary_runtime.endpoint_base_url,
+            transport_class=primary_runtime.transport_class or fallback_runtime.transport_class,
+        )

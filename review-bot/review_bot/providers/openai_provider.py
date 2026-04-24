@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import re
 from typing import Literal
+from urllib.parse import urlsplit, urlunsplit
 
 from openai import OpenAI
 from pydantic import BaseModel, Field
@@ -13,6 +14,8 @@ from review_bot.providers.prompting import get_prompt_composer
 
 logger = logging.getLogger(__name__)
 
+DEFAULT_OPENAI_BASE_URL = "https://api.openai.com/v1"
+
 _BOT_TITLE_PREFIX_RE = re.compile(r"^\s*\[봇 리뷰\]\[[^\]]+\]\s*")
 _TITLE_LABEL_RE = re.compile(r"^\s*(제목|title)\s*:\s*", re.IGNORECASE)
 _SUMMARY_LABEL_RE = re.compile(r"^\s*(요약|설명|summary|description)\s*:\s*", re.IGNORECASE)
@@ -21,6 +24,24 @@ _FIX_LABEL_RE = re.compile(
     re.IGNORECASE,
 )
 _BLOCKQUOTE_RE = re.compile(r"^\s*>+\s?")
+
+
+def _sanitize_endpoint_base_url(value: str | None) -> str:
+    raw = str(value or DEFAULT_OPENAI_BASE_URL).strip().rstrip("/")
+    if not raw:
+        return DEFAULT_OPENAI_BASE_URL
+    parsed = urlsplit(raw)
+    if parsed.scheme and parsed.netloc:
+        netloc = parsed.netloc.rsplit("@", maxsplit=1)[-1]
+        path = parsed.path.rstrip("/")
+        return urlunsplit((parsed.scheme, netloc, path, "", ""))
+    return raw.split("?", maxsplit=1)[0].split("#", maxsplit=1)[0].rstrip("/")
+
+
+def _openai_transport_class(endpoint_base_url: str) -> str:
+    if endpoint_base_url == DEFAULT_OPENAI_BASE_URL:
+        return "default_openai_base_url"
+    return "non_default_openai_compatible_base_url"
 
 _BASE_SYSTEM_FALLBACK = (
     "당신은 공개 멀티 랭귀지 가이드라인을 바탕으로 변경 코드를 검토하는 선임 리뷰어입니다.\n\n"
@@ -331,6 +352,9 @@ class OpenAIReviewCommentProvider(ReviewCommentProvider):
         settings = get_settings()
         self.model = settings.openai_model
         self.base_url = settings.openai_base_url
+        self.configured_model = str(settings.openai_model or "").strip() or None
+        self.endpoint_base_url = _sanitize_endpoint_base_url(settings.openai_base_url)
+        self.transport_class = _openai_transport_class(self.endpoint_base_url)
         self._max_retries = settings.openai_max_retries
         self._timeout = settings.openai_timeout_seconds
         self._prompt_composer = get_prompt_composer()

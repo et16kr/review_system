@@ -3268,24 +3268,32 @@ class ReviewRunner:
             return
 
     def _default_provider_runtime(self) -> dict[str, object]:
+        provider = getattr(self, "provider", None)
+        if provider is not None and hasattr(provider, "provider_runtime_metadata"):
+            return self._provider_runtime_payload(provider.provider_runtime_metadata())
         configured_provider = str(self.settings.provider_name or "").strip() or "unknown"
-        return {
-            "configured_provider": configured_provider,
-            "effective_provider": configured_provider,
-            "fallback_used": False,
-            "fallback_reason": None,
-        }
+        return self._provider_runtime_payload(
+            ProviderRuntimeMetadata(
+                configured_provider=configured_provider,
+                effective_provider=configured_provider,
+            )
+        )
 
     def _provider_runtime_payload(
         self,
         runtime: ProviderRuntimeMetadata,
     ) -> dict[str, object]:
-        return {
+        payload: dict[str, object] = {
             "configured_provider": runtime.configured_provider,
             "effective_provider": runtime.effective_provider,
             "fallback_used": bool(runtime.fallback_used),
             "fallback_reason": runtime.fallback_reason,
         }
+        for key in ("configured_model", "endpoint_base_url", "transport_class"):
+            value = getattr(runtime, key, None)
+            if value:
+                payload[key] = value
+        return payload
 
     def _normalize_provider_runtime_payload(
         self,
@@ -3296,23 +3304,36 @@ class ReviewRunner:
         effective_provider = str(payload.get("effective_provider") or "").strip()
         fallback_reason = str(payload.get("fallback_reason") or "").strip() or None
         fallback_used = bool(payload.get("fallback_used"))
+        configured_model = str(payload.get("configured_model") or "").strip() or None
+        endpoint_base_url = str(payload.get("endpoint_base_url") or "").strip() or None
+        transport_class = str(payload.get("transport_class") or "").strip() or None
         if (
             not configured_provider
             and not effective_provider
             and not fallback_used
             and fallback_reason is None
+            and configured_model is None
+            and endpoint_base_url is None
+            and transport_class is None
         ):
             return None
         if not configured_provider:
             configured_provider = effective_provider or "unknown"
         if not effective_provider:
             effective_provider = configured_provider or "unknown"
-        return {
+        normalized: dict[str, object] = {
             "configured_provider": configured_provider,
             "effective_provider": effective_provider,
             "fallback_used": fallback_used,
             "fallback_reason": fallback_reason,
         }
+        if configured_model:
+            normalized["configured_model"] = configured_model
+        if endpoint_base_url:
+            normalized["endpoint_base_url"] = endpoint_base_url
+        if transport_class:
+            normalized["transport_class"] = transport_class
+        return normalized
 
     def _state_provider_runtime(self, review_run: Any | None) -> dict[str, object] | None:
         if review_run is None:
@@ -3331,27 +3352,53 @@ class ReviewRunner:
         effective_provider = str(normalized["effective_provider"])
         fallback_used = bool(normalized["fallback_used"])
         fallback_reason = normalized["fallback_reason"]
+        runtime_details = self._provider_runtime_detail_suffix(normalized)
         if configured_provider == "unknown" and effective_provider == "unknown" and not fallback_used:
             return None
         if fallback_used:
             summary = (
-                f"configured `{configured_provider}`, effective `{effective_provider}` "
+                f"configured {self._code_span(configured_provider)}, "
+                f"effective {self._code_span(effective_provider)} "
                 "(stub fallback path)"
             )
             if fallback_reason:
-                summary += f", reason `{fallback_reason}`"
-            return summary
+                summary += f", reason {self._code_span(str(fallback_reason))}"
+            return summary + runtime_details
         if effective_provider == "stub":
             return (
-                f"configured `{configured_provider}`, effective `{effective_provider}` "
-                "(deterministic stub path)"
+                f"configured {self._code_span(configured_provider)}, "
+                f"effective {self._code_span(effective_provider)} "
+                f"(deterministic stub path){runtime_details}"
             )
         if configured_provider == effective_provider:
             return (
-                f"configured `{configured_provider}`, effective `{effective_provider}` "
-                "(live provider path)"
+                f"configured {self._code_span(configured_provider)}, "
+                f"effective {self._code_span(effective_provider)} "
+                f"(live provider path){runtime_details}"
             )
-        return f"configured `{configured_provider}`, effective `{effective_provider}`"
+        return (
+            f"configured {self._code_span(configured_provider)}, "
+            f"effective {self._code_span(effective_provider)}{runtime_details}"
+        )
+
+    @staticmethod
+    def _code_span(value: str) -> str:
+        safe_value = value.replace("`", "'")
+        return f"`{safe_value}`"
+
+    def _provider_runtime_detail_suffix(self, payload: dict[str, object]) -> str:
+        details: list[str] = []
+        for label, key in (
+            ("model", "configured_model"),
+            ("endpoint", "endpoint_base_url"),
+            ("transport", "transport_class"),
+        ):
+            value = str(payload.get(key) or "").strip()
+            if value:
+                details.append(f"{label} {self._code_span(value)}")
+        if not details:
+            return ""
+        return "; " + ", ".join(details)
 
     def _provider_runtime_log_fields(self, review_run: ReviewRun) -> dict[str, Any]:
         provider_runtime = self._state_provider_runtime(review_run)

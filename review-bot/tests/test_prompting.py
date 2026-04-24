@@ -116,6 +116,56 @@ def test_openai_provider_client_uses_configured_base_url(monkeypatch) -> None:
     }
 
 
+def test_openai_provider_runtime_metadata_identifies_default_endpoint(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "review_bot.providers.openai_provider.get_settings",
+        lambda: SimpleNamespace(
+            openai_model="gpt-5.5",
+            openai_base_url=None,
+            openai_max_retries=2,
+            openai_timeout_seconds=30,
+        ),
+    )
+
+    runtime = OpenAIReviewCommentProvider().provider_runtime_metadata()
+
+    assert runtime.configured_provider == "openai"
+    assert runtime.effective_provider == "openai"
+    assert runtime.configured_model == "gpt-5.5"
+    assert runtime.endpoint_base_url == "https://api.openai.com/v1"
+    assert runtime.transport_class == "default_openai_base_url"
+
+
+def test_openai_provider_runtime_metadata_sanitizes_local_backend_endpoint(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "review_bot.providers.openai_provider.get_settings",
+        lambda: SimpleNamespace(
+            openai_model="local-model",
+            openai_base_url="http://user:secret@127.0.0.1:11434/v1?token=hidden",
+            openai_max_retries=2,
+            openai_timeout_seconds=30,
+        ),
+    )
+
+    runtime = OpenAIReviewCommentProvider().provider_runtime_metadata()
+
+    assert runtime.configured_provider == "openai"
+    assert runtime.effective_provider == "openai"
+    assert runtime.configured_model == "local-model"
+    assert runtime.endpoint_base_url == "http://127.0.0.1:11434/v1"
+    assert runtime.transport_class == "non_default_openai_compatible_base_url"
+
+
+def test_stub_provider_runtime_metadata_identifies_deterministic_transport() -> None:
+    runtime = StubReviewCommentProvider().provider_runtime_metadata()
+
+    assert runtime.configured_provider == "stub"
+    assert runtime.effective_provider == "stub"
+    assert runtime.configured_model is None
+    assert runtime.endpoint_base_url is None
+    assert runtime.transport_class == "deterministic_stub"
+
+
 def test_openai_provider_does_not_fallback_to_cpp_prompt_and_sanitizes_fields(monkeypatch) -> None:
     class FakeComposer:
         def compose(self, *, language_id: str | None, profile_id: str, context_id=None, overlay_refs=None) -> str:

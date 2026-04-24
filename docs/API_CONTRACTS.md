@@ -243,7 +243,10 @@ Response:
     "configured_provider": "openai",
     "effective_provider": "stub",
     "fallback_used": true,
-    "fallback_reason": "build_draft_error:RuntimeError"
+    "fallback_reason": "build_draft_error:RuntimeError",
+    "configured_model": "local-model",
+    "endpoint_base_url": "http://127.0.0.1:11434/v1",
+    "transport_class": "non_default_openai_compatible_base_url"
   },
   "published_batch_count": 1,
   "open_finding_count": 3,
@@ -258,7 +261,9 @@ Response:
 
 표현 정책:
 
-- `provider_runtime`는 마지막 review run의 configured/effective provider와 fallback 사용 여부를 나타낸다.
+- `provider_runtime`는 마지막 review run의 configured/effective provider, fallback 사용 여부,
+  configured model, sanitized endpoint base URL, transport class를 나타낸다.
+- `endpoint_base_url`는 userinfo/query/fragment를 제거한 값이다.
 - legacy row나 run 부재로 provenance를 복원할 수 없으면 `provider_runtime`은 `null`일 수 있다.
 
 ### `GET /internal/review/requests/{review_system}/{project_ref}/{review_request_id}/full-report`
