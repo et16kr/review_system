@@ -5,6 +5,8 @@ from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 from unittest.mock import patch
 
+import pytest
+
 from review_bot.bot import review_runner as review_runner_module
 from review_bot.analytics.wrong_language import (
     classify_wrong_language_cause,
@@ -4203,6 +4205,163 @@ def test_load_rule_effectiveness_weights_uses_distinct_fingerprint() -> None:
         assert "TEST.RULE.001" in weights
         # 3 human-resolved out of 6 unique fingerprints = 0.5 → weight ≈ 1.2.
         assert weights["TEST.RULE.001"] == 1.2
+    finally:
+        session.close()
+
+
+def _seed_rule_effectiveness_project(
+    session,
+    *,
+    project_ref: str,
+    review_request_id: str,
+    resolved_fingerprints: set[str],
+    all_fingerprints: list[str],
+) -> None:
+    from review_bot.db.models import (
+        FindingDecision as FD,
+        FindingEvidence as FE,
+        ReviewRequest,
+        ReviewRun,
+        ThreadSyncState as TSS,
+    )
+
+    review_request = ReviewRequest(
+        review_system="gitlab",
+        project_ref=project_ref,
+        review_request_id=review_request_id,
+    )
+    session.add(review_request)
+    session.flush()
+
+    review_run = ReviewRun(
+        review_request_pk=review_request.id,
+        review_system="gitlab",
+        project_ref=project_ref,
+        review_request_id=review_request_id,
+        trigger="test",
+        mode="manual",
+        status="success",
+    )
+    session.add(review_run)
+    session.flush()
+
+    evidence = FE(
+        review_run_id=review_run.id,
+        review_request_pk=review_request.id,
+        file_path="src/a.cpp",
+        patch_digest=f"digest-{review_request_id}",
+        change_snippet="",
+    )
+    session.add(evidence)
+    session.flush()
+
+    for fingerprint in all_fingerprints:
+        if fingerprint in resolved_fingerprints:
+            session.add(
+                TSS(
+                    review_request_pk=review_request.id,
+                    review_system="gitlab",
+                    project_ref=project_ref,
+                    review_request_id=review_request_id,
+                    finding_fingerprint=fingerprint,
+                    anchor_signature=f"sig-{fingerprint}",
+                    adapter_thread_ref=f"thread-{fingerprint}",
+                    sync_status="resolved",
+                    resolution_reason="remote_resolved_manual_only",
+                )
+            )
+        session.add(
+            FD(
+                review_run_id=review_run.id,
+                evidence_id=evidence.id,
+                review_request_pk=review_request.id,
+                review_system="gitlab",
+                project_ref=project_ref,
+                review_request_id=review_request_id,
+                fingerprint=fingerprint,
+                dedupe_key=f"dk-{fingerprint}",
+                file_path="src/a.cpp",
+                rule_no="TEST.RULE.001",
+                source_family="cpp_core",
+                score_raw=0.9,
+                score_final=0.9,
+                anchor_signature=f"sig-{fingerprint}",
+                state="resolved" if fingerprint in resolved_fingerprints else "published",
+            )
+        )
+
+
+def test_load_rule_effectiveness_weights_uses_project_local_override() -> None:
+    _reset_db()
+
+    runner = ReviewRunner()
+    session = SessionLocal()
+    try:
+        _seed_rule_effectiveness_project(
+            session,
+            project_ref="group/project-a",
+            review_request_id="501",
+            resolved_fingerprints={f"project-a-fp-{idx}" for idx in range(5)},
+            all_fingerprints=[f"project-a-fp-{idx}" for idx in range(5)],
+        )
+        _seed_rule_effectiveness_project(
+            session,
+            project_ref="group/project-b",
+            review_request_id="502",
+            resolved_fingerprints=set(),
+            all_fingerprints=[f"project-b-fp-{idx}" for idx in range(5)],
+        )
+        session.commit()
+
+        global_weights = runner._load_rule_effectiveness_weights(session)  # noqa: SLF001
+        project_a_weights = runner._load_rule_effectiveness_weights(  # noqa: SLF001
+            session,
+            project_ref="group/project-a",
+        )
+        project_b_weights = runner._load_rule_effectiveness_weights(  # noqa: SLF001
+            session,
+            project_ref="group/project-b",
+        )
+
+        assert global_weights["TEST.RULE.001"] == 1.2
+        assert project_a_weights["TEST.RULE.001"] == 1.2
+        assert project_b_weights["TEST.RULE.001"] == 0.8
+    finally:
+        session.close()
+
+
+def test_load_rule_effectiveness_weights_falls_back_to_global_when_project_sample_is_small() -> None:
+    _reset_db()
+
+    runner = ReviewRunner()
+    session = SessionLocal()
+    try:
+        _seed_rule_effectiveness_project(
+            session,
+            project_ref="group/project-a",
+            review_request_id="503",
+            resolved_fingerprints=set(),
+            all_fingerprints=[f"project-a-fp-{idx}" for idx in range(5)],
+        )
+        _seed_rule_effectiveness_project(
+            session,
+            project_ref="group/project-b",
+            review_request_id="504",
+            resolved_fingerprints={f"project-b-fp-{idx}" for idx in range(4)},
+            all_fingerprints=[f"project-b-fp-{idx}" for idx in range(4)],
+        )
+        session.commit()
+
+        global_weights = runner._load_rule_effectiveness_weights(session)  # noqa: SLF001
+        project_b_weights = runner._load_rule_effectiveness_weights(  # noqa: SLF001
+            session,
+            project_ref="group/project-b",
+        )
+
+        assert global_weights["TEST.RULE.001"] == pytest.approx(0.8 + (4 / 9) * 0.4)
+        assert project_b_weights["TEST.RULE.001"] == pytest.approx(
+            global_weights["TEST.RULE.001"]
+        )
     finally:
         session.close()
 

@@ -216,24 +216,30 @@
   `project_ref`를 생략하면 legacy shared scope로 남도록 했다.
 - `review-bot` detect path가 similar-code 검색마다 현재 `review_request.project_ref`를 전달하고,
   legacy search client signature를 쓰는 test stub도 fallback으로 계속 허용한다.
+- `review-bot` learned `rule_no` weight가 전체 프로젝트 공통 baseline과
+  현재 `project_ref` local override를 분리해 계산되도록 바뀌었다.
+- project-local override는 같은 rule의 distinct surfaced fingerprint가 충분할 때만 덮어쓰므로
+  특정 프로젝트의 feedback이 다른 프로젝트 detect score를 흔들지 않는다.
+- `review-bot/tests/test_review_runner.py`가
+  project-local override 적용과 small-sample global fallback 회귀를 함께 고정한다.
 
 다음 작업:
 
-1. project-local feedback이 global quality metric을 왜곡하지 않도록 learned weight granularity를 정한다.
-2. `.review-bot.yaml`, `summarize`, `ask`, walkthrough note의 우선순위를 재평가한다.
+1. `.review-bot.yaml`, `summarize`, `ask`, walkthrough note의 우선순위를 재평가한다.
 
 검증 메모:
 
-- 이번 slice는 same-file `file_context` path와 project-scoped `similar_code` index/search contract를
-  `review-engine` API/store와 `review-bot` detect path에서 분리 고정했다.
+- 이번 slice는 `review-bot` detect path의 learned rule weight를
+  global `rule_no` baseline + `project_ref` local override 구조로 분리 고정했다.
 - rerun:
-  - `env UV_CACHE_DIR=/tmp/uv-cache uv run --project review-engine python -u -m pytest review-engine/tests/test_codebase_scope.py -q`
-  - `env UV_CACHE_DIR=/tmp/uv-cache uv run --project review-bot pytest review-bot/tests/test_review_runner.py::test_review_runner_publishes_inline_comment_and_persists_thread_state review-bot/tests/test_review_runner.py::test_review_runner_passes_project_ref_to_codebase_search -q`
-  - `env UV_CACHE_DIR=/tmp/uv-cache uv run --project review-bot pytest review-bot/tests/test_integration_phase1_4.py -k rag_search_codebase_client_returns_list -q`
-- deterministic validation은 direct OpenAI도 lifecycle stub fallback도 쓰지 않고
-  direct endpoint function call, in-memory runner stub, no-engine client error handling만 사용했다.
-- broader `review-engine/tests/test_api.py` FastAPI `TestClient`, `review-bot` broader pytest,
-  GitLab lifecycle smoke, multilang smoke, direct OpenAI/provider validation은 이번 범위 밖이라 생략했다.
+  - `env UV_CACHE_DIR=/tmp/uv-cache uv run --project review-bot pytest review-bot/tests/test_review_runner.py -k 'distinct_fingerprint or project_local_override or falls_back_to_global' -q`
+  - `env UV_CACHE_DIR=/tmp/uv-cache uv run --project review-bot pytest review-bot/tests/test_multilang_smoke_fixture.py review-bot/tests/test_provider_quality.py -q`
+  - `env UV_CACHE_DIR=/tmp/uv-cache uv run --project review-bot python -m review_bot.cli.evaluate_provider_quality --provider stub --json-output /tmp/provider_quality_stub.json`
+- deterministic validation은 direct OpenAI를 쓰지 않았고,
+  provider quality gate는 `stub`만 사용했다. lifecycle stub fallback smoke는 이번 범위 밖이다.
+- broader `review-bot` pytest, `review-engine`/`review-platform` tests,
+  GitLab lifecycle smoke, multilang smoke shell script, direct OpenAI/provider validation은
+  non-lifecycle ranking signal granularity 변경이라 생략했다.
 
 완료 기준:
 

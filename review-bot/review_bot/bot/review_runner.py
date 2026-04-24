@@ -7,7 +7,7 @@ import time
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Iterable, Literal
 
 from fastapi import HTTPException
 from sqlalchemy import func
@@ -407,7 +407,10 @@ class ReviewRunner:
             session.flush()
             # N+1 방지: 피드백 신호와 규칙 가중치를 루프 전에 일괄 로드
             feedback_cache = self._load_feedback_cache(session, review_request.id)
-            rule_weights = self._load_rule_effectiveness_weights(session)
+            rule_weights = self._load_rule_effectiveness_weights(
+                session,
+                project_ref=review_request.project_ref,
+            )
 
             seen_human_keys: set[str] = set()
             detect_t0 = __import__("time").monotonic()
@@ -1984,7 +1987,12 @@ class ReviewRunner:
 
         return fp_to_threads, thread_to_events
 
-    def _load_rule_effectiveness_weights(self, session: Session) -> dict[str, float]:
+    def _load_rule_effectiveness_weights(
+        self,
+        session: Session,
+        *,
+        project_ref: str | None = None,
+    ) -> dict[str, float]:
         """규칙별 인간 해소율을 기반으로 스코어 가중치를 계산한다.
 
         집계 단위는 row가 아니라 고유 finding(``fingerprint``)이다.
@@ -1992,6 +2000,10 @@ class ReviewRunner:
 
         human-resolve(개발자가 직접 resolve)만 긍정 신호로 사용한다.
         auto-resolve(no_longer_eligible)는 retrieval 품질과 무관하므로 제외한다.
+
+        기본 baseline은 전체 프로젝트 공통 `rule_no` weight다.
+        현재 review request의 `project_ref`에 충분한 distinct surfaced sample이 있으면
+        같은 `rule_no`에 project-local override를 덮어써 cross-project contamination을 막는다.
         """
         human_resolved_fps: set[str] = {
             fp
@@ -2005,11 +2017,37 @@ class ReviewRunner:
             .all()
         }
 
+        latest_states = self.latest_rule_effectiveness_states(session)
+        global_weights = self._rule_effectiveness_weights_for_states(
+            latest_states.values(),
+            human_resolved_fps=human_resolved_fps,
+        )
+        if not project_ref:
+            return global_weights
+
+        project_weights = self._rule_effectiveness_weights_for_states(
+            (
+                row
+                for row in latest_states.values()
+                if row.project_ref == project_ref
+            ),
+            human_resolved_fps=human_resolved_fps,
+        )
+        if not project_weights:
+            return global_weights
+        return {**global_weights, **project_weights}
+
+    def _rule_effectiveness_weights_for_states(
+        self,
+        rows: Iterable[RuleEffectivenessFingerprintState],
+        *,
+        human_resolved_fps: set[str],
+    ) -> dict[str, float]:
         surfaced_fps_by_rule: dict[str, set[str]] = {}
-        for fingerprint, row in self.latest_rule_effectiveness_states(session).items():
+        for row in rows:
             if row.state not in _RULE_EFFECTIVENESS_SURFACED_STATES or not row.rule_no:
                 continue
-            surfaced_fps_by_rule.setdefault(row.rule_no, set()).add(fingerprint)
+            surfaced_fps_by_rule.setdefault(row.rule_no, set()).add(row.fingerprint)
 
         weights: dict[str, float] = {}
         for rule_no, fingerprints in surfaced_fps_by_rule.items():
