@@ -57,7 +57,7 @@
 
 ### 1. Review Frame And Evidence Inventory
 
-상태: `active`
+상태: `watch`
 
 이번 작업의 범위:
 
@@ -70,6 +70,12 @@
 
 - 이후 review unit이 같은 형식으로 findings를 누적할 수 있다.
 - 리뷰 범위와 evidence source가 문서에서 명확하다.
+
+`2026-04-24` 업데이트:
+
+- [docs/reviews/CURRENT_STATE_REVIEW.md](/home/et16/work/review_system/docs/reviews/CURRENT_STATE_REVIEW.md:1)에 review scope, evidence inventory, validation mode split, finding contract를 고정했다.
+- [docs/reviews/REVIEW_FINDINGS_BACKLOG.md](/home/et16/work/review_system/docs/reviews/REVIEW_FINDINGS_BACKLOG.md:1)에 backlog intake rule과 field contract를 고정했다.
+- 이번 unit은 문서 프레임 정리만 수행했으므로 runtime test, local GitLab smoke, provider-direct smoke는 실행하지 않았다.
 
 ### 2. Architecture And Direction Review
 
@@ -184,14 +190,19 @@
 
 ## Suggested Next Step
 
-현재 가장 자연스러운 시작점은 `1. Review Frame And Evidence Inventory`다.
+현재 가장 자연스러운 다음 단계는 `2. Architecture And Direction Review`다.
 
 이유:
 
-- 전체 리뷰를 한 번에 끝내기보다, evidence source와 findings 형식을 먼저 고정해야 이후 단계가 흔들리지 않는다.
-- automation이 이 문서를 순서대로 읽고 진행할 수 있게 하려면 첫 단위가 산출물 형식을 먼저 정해야 한다.
+- evidence source와 findings 형식이 먼저 고정되어 이후 architecture review를 같은 형식으로 바로 누적할 수 있다.
+- 다음 단계에서 canonical docs 기준 방향성과 경계부터 점검해야 deep review의 판단 기준이 흔들리지 않는다.
 
 ## Validation Baseline
+
+`2026-04-24` unit 1 실행 메모:
+
+- docs-only review frame 작업이라 `git diff --check`만 deterministic validation으로 사용한다.
+- targeted test, local GitLab smoke, provider-direct smoke는 runtime claim이 없는 이번 unit 범위 밖이라 생략한다.
 
 리뷰 문서 작업:
 
