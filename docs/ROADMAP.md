@@ -27,14 +27,12 @@
 
 ## Current Snapshot
 
-`2026-04-24` `gpt-5.5` 리뷰 라운드 이후 post-review immediate fixes, cleanup,
-contract readiness packet은 닫혔다. OpenAI direct smoke는 live provider로 통과했고,
-`reference_only` 규칙도 `provider.verify_draft` 직접 호출에서는 LLM이 적용/비적용 대조
-케이스를 구분하는 신호가 확인됐다.
+`2026-04-25` 기준으로 post-review immediate fixes, cleanup, contract readiness,
+source gap closure처럼 이미 닫힌 항목은 이 roadmap에서 제거한다.
 
-현재 roadmap에는 완료 항목을 반복 노출하지 않고, 외부 조건 없이 시작 가능한 slice가
-생길 때만 `Now`에 올린다. 사람의 품질 판단이나 정책 승인이 필요한 작업은 내일
-결정 대상으로 미룬다.
+현재 roadmap에는 완료 항목을 반복 노출하지 않고, 외부 조건 없이 시작 가능한 slice만
+`Now`에 올린다. live provider, 외부 권한, 사람의 품질 판단, product/risk decision이
+필요한 작업은 `Deferred But Not Yet Executable` 또는 `docs/deferred/*.md`에 둔다.
 
 완료된 작업은 이 문서에 반복해서 남기지 않는다. 완료 이력은 git history,
 [CURRENT_SYSTEM.md](/home/et16/work/review_system/docs/CURRENT_SYSTEM.md:1),
@@ -43,30 +41,52 @@ contract readiness packet은 닫혔다. OpenAI direct smoke는 live provider로 
 
 현재 즉시 실행 가능한 방향:
 
-- 없음. 새 source-backed deterministic slice가 식별되면 `Now`에 올린다.
-- CUDA official documentation gap check는 `CUDA.ASYNC.4` pinned-memory async transfer rule로
-  닫혔다.
-- dbt/CI YAML/OpenAPI schema official source gap check는 `SQL.DBT.3` side-effecting
-  `run_query` command-scope rule로 닫혔다. CI YAML과 OpenAPI schema 쪽은 이번 pass에서
-  추가 detector-backed direct pattern gap이 없어 `no_yaml_sql_rule_gap_from_official_sources`로
-  retained 한다.
-- `coverage_matrix.yaml` 기준 pending source atom은 없다.
-
-현재 바로 실행하지 않는 방향:
-
-- `reference_only` LLM applicability smoke packaging: OpenAI direct smoke가
-  `api.openai.com` DNS 해석 실패로 막혀 있어 지금 자동 진행할 수 없다.
-- provider/ranking/density tuning: OpenAI direct smoke와 comparison artifact는 생겼지만,
-  comparison이 `failed` / `human_review_required=true`이고 triage packet도 review input일 뿐이므로
-  사람의 품질 판단이 필요하다.
-- `reference_only` 자동 게시 또는 자동 승격 정책: LLM 검증 신호는 생겼지만, 어떤 규칙을
-  어디까지 자동화할지 product/risk decision이 필요하다.
-- GitHub/Multi-SCM adapter: test repository, token/permissions, webhook 또는 replay fixture가 필요하다.
-- auto-fix/apply: trust metric, low-risk fix class, reviewer approval, audit, rollback evidence가 필요하다.
+- 회사별 코딩 규칙을 아직 받기 전, rule authoring intake guide와 template 요구사항을 먼저
+  문서화한다.
+- manual rule editor, private rule package install/update automation, provider tuning,
+  reference-only promotion, multi-SCM, auto-fix는 deferred readiness 조건이 충족될 때까지
+  구현하지 않는다.
 
 ## Now
 
-현재 `active` unit은 없다.
+### Prepare company rule intake guide and template (`active`)
+
+목표:
+
+- 회사별 코딩 규칙 문서를 받기 전에, 사람이 작성할 원본 문서 형식과 agent가 canonical
+  rule pack으로 변환할 때 필요한 검증 기준을 먼저 고정한다.
+- 이 unit은 문서/계약 작업이다. 실제 회사 rule pack, web editor, DB-backed rule state,
+  generated dataset/vector store 변경은 포함하지 않는다.
+
+요구사항:
+
+- `docs/company_rules/AUTHORING_GUIDE.md`를 추가한다.
+  - 회사 규칙 문서에서 canonical YAML rule pack으로 변환하는 흐름을 설명한다.
+  - `auto_review`, `reference_only`, `manual_only` 같은 reviewability 판정 기준을 둔다.
+  - source/provenance, owner, approval, rollout, validation command, regression 필요 여부를
+    어떻게 남길지 정의한다.
+  - private/organization rule도 canonical YAML과 Git review를 source of truth로 유지한다고
+    명시한다.
+- `docs/company_rules/COMPANY_RULE_TEMPLATE.md`를 추가한다.
+  - rule id, title, language, scope/profile, status, reviewability, severity, intent,
+    bad/good example, exception, detection hints, source/provenance, rollout note를 포함한다.
+  - Markdown 원본 템플릿이어야 하며, engine 내부 YAML schema를 사람이 직접 외우게 만들지 않는다.
+- template에서 자동 리뷰 가능 여부가 불확실한 규칙은 기본적으로 `reference_only` 또는
+  `manual_only`로 시작하도록 안내한다.
+- guide에는 `review-engine` validation entry point를 포함한다.
+  - `uv run python -m review_engine.cli.rule_lifecycle preview ...`
+  - 필요 시 `uv run pytest tests/test_rule_runtime.py tests/test_rule_lifecycle_cli.py -q`
+- guide에는 편집기 범위를 명확히 제한한다.
+  - v0 편집기는 rule 보기, preview, validation result, enable/disable 같은 canonical YAML
+    보조 도구까지로 본다.
+  - 자유 입력 web editor, DB-backed rule state, generated artifact 직접 수정은 deferred로 둔다.
+
+완료 기준:
+
+- 위 두 문서가 추가되고 서로 링크된다.
+- `ROADMAP.md`의 deferred 항목과 충돌하지 않게 manual editor와 private package automation은
+  여전히 deferred로 남는다.
+- `git diff --check`가 통과한다.
 
 ## Deferred But Not Yet Executable
 
@@ -98,6 +118,20 @@ contract readiness packet은 닫혔다. OpenAI direct smoke는 live provider로 
   - 준비되면 C, Java runtime, generic SQL, migration SQL, analytics SQL, product/Kubernetes/Helm YAML
     rule expansion을 `Now`에 별도 unit으로 올린다.
   - owner: [rule_authoring_and_editor.md](/home/et16/work/review_system/docs/deferred/rule_authoring_and_editor.md:1)
+- Manual rule editor / broad authoring UI
+  - 현재 상태: canonical YAML, lifecycle CLI, strict authoring validation은 존재하지만,
+    별도 editor/UI는 아직 product boundary와 write boundary가 넓다.
+  - 필요 조건: company rule intake guide/template, canonical YAML authoring model, profile/policy
+    merge boundary, source coverage validation, approval/audit 경로를 먼저 고정한다.
+  - 준비되면 rule 보기, preview, validation result, enable/disable 중심의 좁은 editor v0를
+    `Now`에 별도 unit으로 올린다.
+  - owner: [rule_authoring_and_editor.md](/home/et16/work/review_system/docs/deferred/rule_authoring_and_editor.md:1)
+- Private rule package install/update automation
+  - 현재 상태: filesystem extension root와 package validation readiness는 있으나, 회사별 rule
+    package 배포/업데이트/롤백 workflow는 아직 구현 대상이 아니다.
+  - 필요 조건: package metadata, private generated artifact 분리, install/update/rollback 절차,
+    validation gate를 먼저 확정한다.
+  - owner: [rule_authoring_and_editor.md](/home/et16/work/review_system/docs/deferred/rule_authoring_and_editor.md:61)
 - GitHub / Multi-SCM adapter expansion
   - 필요 조건: GitHub test repository, GitHub App 또는 token permissions, webhook/replay fixture,
     live smoke artifact policy
