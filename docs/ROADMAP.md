@@ -39,54 +39,19 @@ source gap closure처럼 이미 닫힌 항목은 이 roadmap에서 제거한다.
 [CURRENT_STATE_REVIEW.md](/home/et16/work/review_system/docs/reviews/CURRENT_STATE_REVIEW.md:1),
 그리고 관련 baseline artifact를 기준으로 확인한다.
 
-현재 즉시 실행 가능한 방향:
+현재 즉시 실행 가능한 항목은 없다.
 
-- 회사별 코딩 규칙을 아직 받기 전, rule authoring intake guide와 template 요구사항을 먼저
-  문서화한다.
+- 회사별 코딩 규칙 intake guide와 template는
+  [docs/company_rules/AUTHORING_GUIDE.md](/home/et16/work/review_system/docs/company_rules/AUTHORING_GUIDE.md:1)와
+  [docs/company_rules/COMPANY_RULE_TEMPLATE.md](/home/et16/work/review_system/docs/company_rules/COMPANY_RULE_TEMPLATE.md:1)에 둔다.
 - manual rule editor, private rule package install/update automation, provider tuning,
   reference-only promotion, multi-SCM, auto-fix는 deferred readiness 조건이 충족될 때까지
   구현하지 않는다.
 
 ## Now
 
-### Prepare company rule intake guide and template (`active`)
-
-목표:
-
-- 회사별 코딩 규칙 문서를 받기 전에, 사람이 작성할 원본 문서 형식과 agent가 canonical
-  rule pack으로 변환할 때 필요한 검증 기준을 먼저 고정한다.
-- 이 unit은 문서/계약 작업이다. 실제 회사 rule pack, web editor, DB-backed rule state,
-  generated dataset/vector store 변경은 포함하지 않는다.
-
-요구사항:
-
-- `docs/company_rules/AUTHORING_GUIDE.md`를 추가한다.
-  - 회사 규칙 문서에서 canonical YAML rule pack으로 변환하는 흐름을 설명한다.
-  - `auto_review`, `reference_only`, `manual_only` 같은 reviewability 판정 기준을 둔다.
-  - source/provenance, owner, approval, rollout, validation command, regression 필요 여부를
-    어떻게 남길지 정의한다.
-  - private/organization rule도 canonical YAML과 Git review를 source of truth로 유지한다고
-    명시한다.
-- `docs/company_rules/COMPANY_RULE_TEMPLATE.md`를 추가한다.
-  - rule id, title, language, scope/profile, status, reviewability, severity, intent,
-    bad/good example, exception, detection hints, source/provenance, rollout note를 포함한다.
-  - Markdown 원본 템플릿이어야 하며, engine 내부 YAML schema를 사람이 직접 외우게 만들지 않는다.
-- template에서 자동 리뷰 가능 여부가 불확실한 규칙은 기본적으로 `reference_only` 또는
-  `manual_only`로 시작하도록 안내한다.
-- guide에는 `review-engine` validation entry point를 포함한다.
-  - `uv run python -m review_engine.cli.rule_lifecycle preview ...`
-  - 필요 시 `uv run pytest tests/test_rule_runtime.py tests/test_rule_lifecycle_cli.py -q`
-- guide에는 편집기 범위를 명확히 제한한다.
-  - v0 편집기는 rule 보기, preview, validation result, enable/disable 같은 canonical YAML
-    보조 도구까지로 본다.
-  - 자유 입력 web editor, DB-backed rule state, generated artifact 직접 수정은 deferred로 둔다.
-
-완료 기준:
-
-- 위 두 문서가 추가되고 서로 링크된다.
-- `ROADMAP.md`의 deferred 항목과 충돌하지 않게 manual editor와 private package automation은
-  여전히 deferred로 남는다.
-- `git diff --check`가 통과한다.
+현재 `active` 항목은 없다. 아래 deferred readiness 조건이 충족되면 새 `active` unit을
+roadmap order에 맞춰 추가한다.
 
 ## Deferred But Not Yet Executable
 
