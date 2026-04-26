@@ -28,7 +28,7 @@ Options:
                      Maximum blocked roadmap units to skip in one run. Default: MAX_BLOCKED_SKIPS or 10.
   --model NAME       Pass a model to codex exec. Default: CODEX_MODEL or Codex default.
   --sandbox MODE     Sandbox for codex exec. Default: CODEX_SANDBOX or workspace-write.
-  --until-done       Continue until Codex reports ROADMAP_COMPLETE.
+  --until-done       Continue unattended until Codex reports ROADMAP_COMPLETE.
   --enable-openai-direct-smoke
                      Run provider-direct smoke preflight before each iteration.
   --skip-openai-direct-smoke
@@ -384,9 +384,10 @@ You are advancing __ROADMAP_ABS__.
 
 Follow AGENTS.md and the repository's existing validation guidance.
 
-Perform exactly one smallest executable roadmap unit:
+Perform exactly one smallest executable roadmap unit for this iteration:
 1. Read __ROADMAP_REL__ and pick the next executable item in roadmap order.
 1a. If this run already encountered blocked roadmap units, do not pick them again. Move to the next executable item after those blocked units.
+1b. Queued items whose prerequisites are now completed are executable. When completing a prerequisite unit, update __ROADMAP_REL__ so the next queued unit can be picked automatically by a following --until-done iteration.
 2. Before editing, decide whether the item is blocked by missing credentials, external services, human review, local GitLab state, ambiguous product decisions, or unsafe scope.
 3. If blocked, do not edit files. Explain the blocker and finish with STATUS: BLOCKED.
 4. If executable, create the temporary design note at docs/ROADMAP_AUTOMATION_DESIGN.md.
@@ -398,7 +399,7 @@ Perform exactly one smallest executable roadmap unit:
 Hard constraints:
 - Do not run git add, git commit, git reset, git checkout, or git clean.
 - Do not touch unrelated files.
-- Do not bundle multiple roadmap units.
+- Do not bundle multiple roadmap units into one commit; unattended runs continue by starting the next iteration automatically.
 - Do not leave docs/ROADMAP_AUTOMATION_DESIGN.md in the final diff.
 - If tests fail and you cannot fix them within this one unit, leave the diff for inspection and finish with STATUS: BLOCKED.
 - If there is no executable roadmap work left, do not edit files and finish with STATUS: ROADMAP_COMPLETE.

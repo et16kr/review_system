@@ -21,8 +21,11 @@
 - 한 roadmap unit은 가능하면 한 commit에서 닫는다.
 - 아래 `###` 항목 하나가 `advance_roadmap_with_codex.sh`의 한 iteration에서 고를 수 있는 최소 실행 단위다.
 - 한 iteration에서 두 개 이상의 `###` 항목을 묶지 않는다.
+- unattended 실행은 `--until-done`을 사용한다. 이 경우에도 한 commit에는 한 unit만 담고,
+  script가 다음 iteration을 자동으로 시작한다.
 - `active` 항목을 roadmap order대로 먼저 처리한다.
 - `queued` 항목은 앞선 관련 `active` 항목이 완료되거나 blocked로 기록된 뒤 처리한다.
+- queued 항목의 prerequisite이 완료되면 다음 `--until-done` iteration에서 바로 실행 가능한 항목으로 본다.
 - blocked이면 final output의 `BLOCKED_UNIT`에 아래 heading을 그대로 쓴다.
 
 ## Current Snapshot
@@ -40,6 +43,15 @@ source gap closure처럼 이미 닫힌 항목은 이 roadmap에서 제거한다.
 그리고 관련 baseline artifact를 기준으로 확인한다.
 
 현재 즉시 실행 가능한 항목은 rule self-test foundation이다.
+밤새 전체 chain을 맡길 때는 아래 명령을 사용한다.
+
+```bash
+bash /home/et16/work/review_system/ops/scripts/advance_roadmap_with_codex.sh --until-done
+```
+
+이 명령은 사람 확인 없이 가능한 unit을 순서대로 처리하고, 각 unit을 별도 commit으로 남긴다.
+외부 서비스, human decision, unsafe scope, 해결 불가능한 test failure가 나오면 blocked artifact와
+uncommitted diff를 남기고 멈춘다.
 
 - 회사별 코딩 규칙 intake guide와 template는
   [docs/company_rules/AUTHORING_GUIDE.md](/home/et16/work/review_system/docs/company_rules/AUTHORING_GUIDE.md:1)와
