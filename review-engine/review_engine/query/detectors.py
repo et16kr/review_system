@@ -62,6 +62,7 @@ class QueryDetectorManager:
         profile_id: str,
         query_plugin_id: str,
         detector_refs: list[str] | None,
+        include_shared_detector: bool = True,
         file_path: str | None,
         file_context: str | None,
         diff: str | None,
@@ -78,6 +79,15 @@ class QueryDetectorManager:
                 code=code,
             )
         )
+        if include_shared_detector and query_plugin_id != "shared":
+            patterns.extend(
+                BuiltinLanguageDetector("shared").analyze(
+                    file_path=file_path,
+                    file_context=file_context,
+                    diff=diff,
+                    code=code,
+                )
+            )
         for plugin in self._extension_plugins:
             if allowed and plugin.plugin_id not in allowed:
                 continue

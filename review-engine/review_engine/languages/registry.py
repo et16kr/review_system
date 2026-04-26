@@ -635,7 +635,6 @@ def _build_entries() -> dict[str, LanguageRegistryEntry]:
             display_name="Shared",
             query_plugin_id="shared",
             default_profile="default",
-            reviewable=False,
         ),
         "unknown": LanguageRegistryEntry(
             language_id="unknown",

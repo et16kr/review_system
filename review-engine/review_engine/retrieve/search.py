@@ -88,6 +88,7 @@ class GuidelineSearchService:
             dialect_id=runtime.dialect_id,
             query_plugin_id=match.query_plugin_id,
             detector_refs=runtime.detector_refs,
+            include_shared_detector=bool(runtime.shared_pack_ids),
         )
         analysis = self._augment_diff_analysis_with_context(analysis, file_context)
         return self._review_analysis(analysis, runtime=runtime, top_k=top_k)
@@ -140,6 +141,7 @@ class GuidelineSearchService:
             dialect_id=runtime.dialect_id,
             query_plugin_id=match.query_plugin_id,
             detector_refs=runtime.detector_refs,
+            include_shared_detector=bool(runtime.shared_pack_ids),
         )
         return self._review_analysis(analysis, runtime=runtime, top_k=top_k)
 
@@ -163,7 +165,12 @@ class GuidelineSearchService:
             top_n=max(40, top_k * 4),
         )
         candidates = self._select_runtime_candidates(candidates, runtime)
-        candidates = self._augment_with_pattern_hints(candidates, analysis, runtime.language_id)
+        candidates = self._augment_with_pattern_hints(
+            candidates,
+            analysis,
+            runtime.language_id,
+            include_shared_hints=bool(runtime.shared_pack_ids),
+        )
         candidates = self._select_runtime_candidates(candidates, runtime)
         reranked = rerank_candidates(
             candidates,
@@ -234,6 +241,7 @@ class GuidelineSearchService:
             dialect_id=analysis.dialect_id,
             query_plugin_id=analysis.query_plugin_id,
             detector_refs=analysis.detector_refs,
+            include_shared_detector=False,
         )
         if not context_analysis.patterns:
             return analysis
@@ -255,12 +263,24 @@ class GuidelineSearchService:
         candidates: list[CandidateHit],
         analysis: QueryAnalysis,
         language_id: str,
+        *,
+        include_shared_hints: bool,
     ) -> list[CandidateHit]:
-        hinted_rule_nos = QueryDetectorManager(self.settings).collect_hinted_rules(
-            query_plugin_id=analysis.query_plugin_id or analysis.language_id,
+        detector_manager = QueryDetectorManager(self.settings)
+        query_plugin_id = analysis.query_plugin_id or analysis.language_id
+        hinted_rule_nos = detector_manager.collect_hinted_rules(
+            query_plugin_id=query_plugin_id,
             patterns=analysis.patterns,
             direct_only=True,
         )
+        if include_shared_hints and query_plugin_id != "shared":
+            hinted_rule_nos.update(
+                detector_manager.collect_hinted_rules(
+                    query_plugin_id="shared",
+                    patterns=analysis.patterns,
+                    direct_only=True,
+                )
+            )
         existing_by_rule = {candidate.record.rule_no: candidate for candidate in candidates}
         for rule_no in sorted(hinted_rule_nos):
             existing = existing_by_rule.get(rule_no)

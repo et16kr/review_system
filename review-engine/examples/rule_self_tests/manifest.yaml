@@ -4731,6 +4731,483 @@ cases:
   top_k: 80
   judgment: accepted
   judgment_note: Direct detector pattern yaml_ambiguous_boolean_default is the minimal hard-gate signal for YAML.SCHEMA.2.
+- case_id: shared/SEC.1/hardcoded-secret
+  rule_no: SEC.1
+  language_id: shared
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: security.txt
+  violating_path: cases/shared/security_baseline/violating.txt
+  compliant_path: cases/shared/security_baseline/compliant.txt
+  expected_patterns:
+  - hardcoded_secret
+  expected_rules:
+  - SEC.1
+  - SEC.4
+  - SEC.7
+  forbidden_rules_in_compliant:
+  - SEC.1
+  - SEC.4
+  - SEC.7
+  top_k: 30
+  judgment: accepted
+  judgment_note: Explicit shared-language hardcoded secret case validates shared security rules independent of host language routing.
+- case_id: shared/SEC.2/shell-injection
+  rule_no: SEC.2
+  language_id: shared
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: security.txt
+  violating_path: cases/shared/security_baseline/violating.txt
+  compliant_path: cases/shared/security_baseline/compliant.txt
+  expected_patterns:
+  - shell_injection
+  expected_rules:
+  - SEC.2
+  - SEC.5
+  forbidden_rules_in_compliant:
+  - SEC.2
+  - SEC.5
+  top_k: 30
+  judgment: accepted
+  judgment_note: Explicit shared-language shell execution case validates shared security rules independent of host language routing.
+- case_id: shared/SEC.3/dynamic-sql
+  rule_no: SEC.3
+  language_id: shared
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: security.txt
+  violating_path: cases/shared/security_baseline/violating.txt
+  compliant_path: cases/shared/security_baseline/compliant.txt
+  expected_patterns:
+  - sql_injection
+  - dynamic_sql
+  expected_rules:
+  - SEC.3
+  - SEC.6
+  forbidden_rules_in_compliant:
+  - SEC.3
+  - SEC.6
+  top_k: 30
+  judgment: accepted
+  judgment_note: Explicit shared-language dynamic SQL case validates shared security rules independent of host language routing.
+- case_id: shared/SEC.4/fallback-secret
+  rule_no: SEC.4
+  language_id: shared
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: security.txt
+  violating_path: cases/shared/security_baseline/violating.txt
+  compliant_path: cases/shared/security_baseline/compliant.txt
+  expected_patterns:
+  - hardcoded_secret
+  expected_rules:
+  - SEC.1
+  - SEC.4
+  - SEC.7
+  forbidden_rules_in_compliant:
+  - SEC.1
+  - SEC.4
+  - SEC.7
+  top_k: 30
+  judgment: accepted
+  judgment_note: Explicit shared-language hardcoded secret case validates shared fallback-secret rules independent of host language routing.
+- case_id: shared/SEC.5/structured-command-api
+  rule_no: SEC.5
+  language_id: shared
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: security.txt
+  violating_path: cases/shared/security_baseline/violating.txt
+  compliant_path: cases/shared/security_baseline/compliant.txt
+  expected_patterns:
+  - shell_injection
+  expected_rules:
+  - SEC.2
+  - SEC.5
+  forbidden_rules_in_compliant:
+  - SEC.2
+  - SEC.5
+  top_k: 30
+  judgment: accepted
+  judgment_note: Explicit shared-language shell execution case validates shared structured-command rules independent of host language routing.
+- case_id: shared/SEC.6/dynamic-query-structure
+  rule_no: SEC.6
+  language_id: shared
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: security.txt
+  violating_path: cases/shared/security_baseline/violating.txt
+  compliant_path: cases/shared/security_baseline/compliant.txt
+  expected_patterns:
+  - dynamic_sql
+  expected_rules:
+  - SEC.3
+  - SEC.6
+  forbidden_rules_in_compliant:
+  - SEC.3
+  - SEC.6
+  top_k: 30
+  judgment: accepted
+  judgment_note: Explicit shared-language dynamic SQL case validates shared structural-query rules independent of host language routing.
+- case_id: shared/SEC.7/bootstrap-secret
+  rule_no: SEC.7
+  language_id: shared
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: security.txt
+  violating_path: cases/shared/security_baseline/violating.txt
+  compliant_path: cases/shared/security_baseline/compliant.txt
+  expected_patterns:
+  - hardcoded_secret
+  expected_rules:
+  - SEC.1
+  - SEC.4
+  - SEC.7
+  forbidden_rules_in_compliant:
+  - SEC.1
+  - SEC.4
+  - SEC.7
+  top_k: 30
+  judgment: accepted
+  judgment_note: Explicit shared-language hardcoded secret case validates shared bootstrap-secret rules independent of host language routing.
+- case_id: python/shared/SEC.1/hardcoded-secret
+  rule_no: SEC.1
+  language_id: python
+  rule_language_id: shared
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: app/security.py
+  violating_path: cases/python/shared_security/violating.py
+  compliant_path: cases/python/shared_security/compliant.py
+  expected_patterns:
+  - hardcoded_secret
+  expected_rules:
+  - SEC.1
+  - SEC.4
+  - SEC.7
+  forbidden_rules_in_compliant:
+  - SEC.1
+  - SEC.4
+  - SEC.7
+  top_k: 30
+  judgment: accepted
+  judgment_note: Host-language Python review must apply shared hardcoded-secret rules from the shared security pack.
+- case_id: python/shared/SEC.2/shell-injection
+  rule_no: SEC.2
+  language_id: python
+  rule_language_id: shared
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: app/security.py
+  violating_path: cases/python/shared_security/violating.py
+  compliant_path: cases/python/shared_security/compliant.py
+  expected_patterns:
+  - shell_injection
+  expected_rules:
+  - SEC.2
+  - SEC.5
+  forbidden_rules_in_compliant:
+  - SEC.2
+  - SEC.5
+  top_k: 30
+  judgment: accepted
+  judgment_note: Host-language Python review must apply shared shell-execution rules from the shared security pack.
+- case_id: python/shared/SEC.3/dynamic-sql
+  rule_no: SEC.3
+  language_id: python
+  rule_language_id: shared
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: app/security.py
+  violating_path: cases/python/shared_security/violating.py
+  compliant_path: cases/python/shared_security/compliant.py
+  expected_patterns:
+  - sql_injection
+  - dynamic_sql
+  expected_rules:
+  - SEC.3
+  - SEC.6
+  forbidden_rules_in_compliant:
+  - SEC.3
+  - SEC.6
+  top_k: 30
+  judgment: accepted
+  judgment_note: Host-language Python review must apply shared dynamic SQL rules from the shared security pack.
+- case_id: javascript/shared/SEC.1/hardcoded-secret
+  rule_no: SEC.1
+  language_id: javascript
+  rule_language_id: shared
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: src/security.js
+  violating_path: cases/javascript/shared_security/violating.js
+  compliant_path: cases/javascript/shared_security/compliant.js
+  expected_patterns:
+  - hardcoded_secret
+  expected_rules:
+  - SEC.1
+  - SEC.4
+  - SEC.7
+  forbidden_rules_in_compliant:
+  - SEC.1
+  - SEC.4
+  - SEC.7
+  top_k: 30
+  judgment: accepted
+  judgment_note: Host-language JavaScript review must apply shared hardcoded-secret rules from the shared security pack.
+- case_id: javascript/shared/SEC.2/shell-injection
+  rule_no: SEC.2
+  language_id: javascript
+  rule_language_id: shared
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: src/security.js
+  violating_path: cases/javascript/shared_security/violating.js
+  compliant_path: cases/javascript/shared_security/compliant.js
+  expected_patterns:
+  - shell_injection
+  expected_rules:
+  - SEC.2
+  - SEC.5
+  forbidden_rules_in_compliant:
+  - SEC.2
+  - SEC.5
+  top_k: 30
+  judgment: accepted
+  judgment_note: Host-language JavaScript review must apply shared shell-execution rules from the shared security pack.
+- case_id: javascript/shared/SEC.3/dynamic-sql
+  rule_no: SEC.3
+  language_id: javascript
+  rule_language_id: shared
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: src/security.js
+  violating_path: cases/javascript/shared_security/violating.js
+  compliant_path: cases/javascript/shared_security/compliant.js
+  expected_patterns:
+  - sql_injection
+  - dynamic_sql
+  expected_rules:
+  - SEC.3
+  - SEC.6
+  forbidden_rules_in_compliant:
+  - SEC.3
+  - SEC.6
+  top_k: 30
+  judgment: accepted
+  judgment_note: Host-language JavaScript review must apply shared dynamic SQL rules from the shared security pack.
+- case_id: typescript/shared/SEC.1/hardcoded-secret
+  rule_no: SEC.1
+  language_id: typescript
+  rule_language_id: shared
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: src/security.ts
+  violating_path: cases/typescript/shared_security/violating.ts
+  compliant_path: cases/typescript/shared_security/compliant.ts
+  expected_patterns:
+  - hardcoded_secret
+  expected_rules:
+  - SEC.1
+  - SEC.4
+  - SEC.7
+  forbidden_rules_in_compliant:
+  - SEC.1
+  - SEC.4
+  - SEC.7
+  top_k: 30
+  judgment: accepted
+  judgment_note: Host-language TypeScript review must apply shared hardcoded-secret rules from the shared security pack.
+- case_id: typescript/shared/SEC.2/shell-injection
+  rule_no: SEC.2
+  language_id: typescript
+  rule_language_id: shared
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: src/security.ts
+  violating_path: cases/typescript/shared_security/violating.ts
+  compliant_path: cases/typescript/shared_security/compliant.ts
+  expected_patterns:
+  - shell_injection
+  expected_rules:
+  - SEC.2
+  - SEC.5
+  forbidden_rules_in_compliant:
+  - SEC.2
+  - SEC.5
+  top_k: 30
+  judgment: accepted
+  judgment_note: Host-language TypeScript review must apply shared shell-execution rules from the shared security pack.
+- case_id: typescript/shared/SEC.3/dynamic-sql
+  rule_no: SEC.3
+  language_id: typescript
+  rule_language_id: shared
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: src/security.ts
+  violating_path: cases/typescript/shared_security/violating.ts
+  compliant_path: cases/typescript/shared_security/compliant.ts
+  expected_patterns:
+  - sql_injection
+  - dynamic_sql
+  expected_rules:
+  - SEC.3
+  - SEC.6
+  forbidden_rules_in_compliant:
+  - SEC.3
+  - SEC.6
+  top_k: 30
+  judgment: accepted
+  judgment_note: Host-language TypeScript review must apply shared dynamic SQL rules from the shared security pack.
+- case_id: java/shared/SEC.1/hardcoded-secret
+  rule_no: SEC.1
+  language_id: java
+  rule_language_id: shared
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: src/main/java/SecurityReview.java
+  violating_path: cases/java/shared_security/violating.java
+  compliant_path: cases/java/shared_security/compliant.java
+  expected_patterns:
+  - hardcoded_secret
+  expected_rules:
+  - SEC.1
+  - SEC.4
+  - SEC.7
+  forbidden_rules_in_compliant:
+  - SEC.1
+  - SEC.4
+  - SEC.7
+  top_k: 30
+  judgment: accepted
+  judgment_note: Host-language Java review must apply shared hardcoded-secret rules from the shared security pack.
+- case_id: java/shared/SEC.2/shell-injection
+  rule_no: SEC.2
+  language_id: java
+  rule_language_id: shared
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: src/main/java/SecurityReview.java
+  violating_path: cases/java/shared_security/violating.java
+  compliant_path: cases/java/shared_security/compliant.java
+  expected_patterns:
+  - shell_injection
+  expected_rules:
+  - SEC.2
+  - SEC.5
+  forbidden_rules_in_compliant:
+  - SEC.2
+  - SEC.5
+  top_k: 30
+  judgment: accepted
+  judgment_note: Host-language Java review must apply shared shell-execution rules from the shared security pack.
+- case_id: java/shared/SEC.3/dynamic-sql
+  rule_no: SEC.3
+  language_id: java
+  rule_language_id: shared
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: src/main/java/SecurityReview.java
+  violating_path: cases/java/shared_security/violating.java
+  compliant_path: cases/java/shared_security/compliant.java
+  expected_patterns:
+  - sql_injection
+  - dynamic_sql
+  expected_rules:
+  - SEC.3
+  - SEC.6
+  forbidden_rules_in_compliant:
+  - SEC.3
+  - SEC.6
+  top_k: 30
+  judgment: accepted
+  judgment_note: Host-language Java review must apply shared dynamic SQL rules from the shared security pack.
+- case_id: go/shared/SEC.1/hardcoded-secret
+  rule_no: SEC.1
+  language_id: go
+  rule_language_id: shared
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: security/review.go
+  violating_path: cases/go/shared_security/violating.go
+  compliant_path: cases/go/shared_security/compliant.go
+  expected_patterns:
+  - hardcoded_secret
+  expected_rules:
+  - SEC.1
+  - SEC.4
+  - SEC.7
+  forbidden_rules_in_compliant:
+  - SEC.1
+  - SEC.4
+  - SEC.7
+  top_k: 30
+  judgment: accepted
+  judgment_note: Host-language Go review must apply shared hardcoded-secret rules from the shared security pack.
+- case_id: go/shared/SEC.2/shell-injection
+  rule_no: SEC.2
+  language_id: go
+  rule_language_id: shared
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: security/review.go
+  violating_path: cases/go/shared_security/violating.go
+  compliant_path: cases/go/shared_security/compliant.go
+  expected_patterns:
+  - shell_injection
+  expected_rules:
+  - SEC.2
+  - SEC.5
+  forbidden_rules_in_compliant:
+  - SEC.2
+  - SEC.5
+  top_k: 30
+  judgment: accepted
+  judgment_note: Host-language Go review must apply shared shell-execution rules from the shared security pack.
+- case_id: go/shared/SEC.3/dynamic-sql
+  rule_no: SEC.3
+  language_id: go
+  rule_language_id: shared
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: security/review.go
+  violating_path: cases/go/shared_security/violating.go
+  compliant_path: cases/go/shared_security/compliant.go
+  expected_patterns:
+  - sql_injection
+  - dynamic_sql
+  expected_rules:
+  - SEC.3
+  - SEC.6
+  forbidden_rules_in_compliant:
+  - SEC.3
+  - SEC.6
+  top_k: 30
+  judgment: accepted
+  judgment_note: Host-language Go review must apply shared dynamic SQL rules from the shared security pack.
 waivers:
 - waiver_id: bash-reference-initial-waiver
   language_id: bash
@@ -4856,19 +5333,6 @@ waivers:
   - RUST.REF.3
   - RUST.TOKIO.REF.1
   - RUST.TOKIO.REF.2
-- waiver_id: shared-auto-host-validation-pending
-  language_id: shared
-  reviewability: auto_review
-  reason: pending_shared_host_validation
-  detail: Shared security host-language behavior is a separate queued roadmap unit.
-  rule_nos:
-  - SEC.1
-  - SEC.2
-  - SEC.3
-  - SEC.4
-  - SEC.5
-  - SEC.6
-  - SEC.7
 - waiver_id: shared-reference-initial-waiver
   language_id: shared
   reviewability: reference_only

@@ -19,6 +19,7 @@ def build_query_analysis(
     dialect_id: str | None = None,
     query_plugin_id: str | None = None,
     detector_refs: list[str] | None = None,
+    include_shared_detector: bool = True,
 ) -> QueryAnalysis:
     runtime_settings = settings or get_settings()
     selected_profile = profile_id or _default_profile_for_language(
@@ -32,6 +33,7 @@ def build_query_analysis(
         profile_id=selected_profile,
         query_plugin_id=selected_plugin,
         detector_refs=detector_refs,
+        include_shared_detector=include_shared_detector,
         file_path=file_path,
         file_context=file_context,
         diff=source_text if input_kind == "diff" else None,

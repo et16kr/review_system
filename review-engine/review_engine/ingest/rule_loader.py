@@ -188,11 +188,15 @@ def discover_rule_languages(settings: Settings) -> list[str]:
     registry = get_language_registry()
     discovered: set[str] = set()
     public_root = (settings.public_rule_root or (settings.project_root / "rules")).resolve()
+    if _resolve_roots_for_language(public_root, "shared"):
+        discovered.add("shared")
     for language_id in registry.reviewable_languages():
         if _resolve_roots_for_language(public_root, language_id):
             discovered.add(language_id)
     for spec in discover_extension_specs(settings):
         for root in spec.rule_roots:
+            if _resolve_roots_for_language(root, "shared"):
+                discovered.add("shared")
             for language_id in registry.reviewable_languages():
                 if _resolve_roots_for_language(root, language_id):
                     discovered.add(language_id)

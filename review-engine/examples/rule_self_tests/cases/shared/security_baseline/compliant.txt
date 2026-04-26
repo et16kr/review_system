@@ -1,0 +1,3 @@
+api_key = load_secret("service_api_key")
+subprocess.run(["id", user_id], check=True)
+query = "SELECT * FROM users WHERE id = ?"

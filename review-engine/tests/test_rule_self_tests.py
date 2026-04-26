@@ -53,6 +53,7 @@ class RuleSelfTestCase(BaseModel):
     case_id: str
     rule_no: str
     language_id: str
+    rule_language_id: str | None = None
     profile_id: str | None = None
     context_id: str | None = None
     dialect_id: str | None = None
@@ -139,7 +140,11 @@ def _enabled_rule_entries() -> dict[RuleKey, RuleEntryInfo]:
 
 
 def _case_key(case: RuleSelfTestCase) -> RuleKey:
-    return RuleKey(case.language_id, case.rule_no)
+    return RuleKey(case.rule_language_id or case.language_id, case.rule_no)
+
+
+def _expected_rule_language_id(case: RuleSelfTestCase) -> str:
+    return case.rule_language_id or case.language_id
 
 
 def _waiver_keys(waiver: RuleSelfTestWaiver) -> set[RuleKey]:
@@ -258,6 +263,11 @@ def test_rule_self_test_manifest_is_valid() -> None:
         key = _case_key(case)
         assert key in entries, f"case references unknown enabled rule: {key}"
         assert entries[key].reviewability == case.reviewability
+        for rule_no in sorted(set(case.expected_rules + case.forbidden_rules_in_compliant)):
+            expected_key = RuleKey(_expected_rule_language_id(case), rule_no)
+            assert expected_key in entries, (
+                f"case references unknown expected/forbidden rule: {expected_key}"
+            )
 
     for waiver in manifest.waivers:
         for key in _waiver_keys(waiver):
@@ -311,6 +321,18 @@ def test_self_test_coverage_does_not_regress() -> None:
         for key, entry in _enabled_rule_entries().items()
         if key.language_id == "shared" and entry.reviewability == "auto_review"
     }
+    explicit_shared_case_keys = {
+        RuleKey(_expected_rule_language_id(case), rule_no)
+        for case in manifest.cases
+        if case.language_id == "shared" and _expected_rule_language_id(case) == "shared"
+        for rule_no in case.expected_rules
+    }
+    shared_host_case_keys = {
+        RuleKey(_expected_rule_language_id(case), rule_no)
+        for case in manifest.cases
+        if case.language_id != "shared" and _expected_rule_language_id(case) == "shared"
+        for rule_no in case.expected_rules
+    }
 
     assert not missing_direct_cases, "Missing direct detector self-test case: " + ", ".join(
         f"{key.language_id}:{key.rule_no}" for key in missing_direct_cases
@@ -322,8 +344,16 @@ def test_self_test_coverage_does_not_regress() -> None:
         "hard_gated_reviewable_direct_detector_backed_auto_rules"
     ]
     assert len(gap_keys) <= baseline["cxx_detector_gap_auto_rules"]
-    assert shared_auto_keys <= shared_host_pending_keys
-    assert len(shared_auto_keys) <= baseline["shared_auto_rules_pending_host_validation"]
+    assert shared_auto_keys <= explicit_shared_case_keys
+    assert shared_auto_keys <= shared_host_case_keys
+    assert not shared_host_pending_keys
+    assert len(shared_host_pending_keys) <= baseline["shared_auto_rules_pending_host_validation"]
+    assert len(shared_auto_keys & explicit_shared_case_keys) >= baseline[
+        "shared_auto_rules_explicit_shared_cases"
+    ]
+    assert len(shared_auto_keys & shared_host_case_keys) >= baseline[
+        "shared_auto_rules_host_language_validated"
+    ]
 
 
 @pytest.mark.parametrize("case", _auto_review_cases(), ids=lambda case: case.case_id)
@@ -335,7 +365,8 @@ def test_violating_cases_detect_expected_rules(real_search_service, case: RuleSe
     )
 
     returned_patterns = set(response.detected_patterns)
-    returned_rules = {result.rule_no for result in response.results}
+    returned_rule_languages = {result.rule_no: result.language_id for result in response.results}
+    returned_rules = set(returned_rule_languages)
 
     assert response.language_id == case.language_id
     assert response.profile_id == case.profile_id
@@ -343,6 +374,8 @@ def test_violating_cases_detect_expected_rules(real_search_service, case: RuleSe
     assert response.dialect_id == case.dialect_id
     assert set(case.expected_patterns) <= returned_patterns
     assert set(case.expected_rules) <= returned_rules
+    for rule_no in case.expected_rules:
+        assert returned_rule_languages[rule_no] == _expected_rule_language_id(case)
 
 
 @pytest.mark.parametrize("case", _load_manifest().cases, ids=lambda case: case.case_id)

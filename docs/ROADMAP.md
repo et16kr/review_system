@@ -8,7 +8,7 @@
 외부 계정, live provider quota, 사람 승인, 별도 repository 권한이 필요한 작업은 실행 조건이 준비될 때까지
 `docs/deferred/*.md`에 남긴다.
 
-마지막 코드 상태 점검일: `2026-04-26`
+마지막 코드 상태 점검일: `2026-04-27`
 
 상태 표기:
 
@@ -42,7 +42,7 @@ source gap closure처럼 이미 닫힌 항목은 이 roadmap에서 제거한다.
 [CURRENT_STATE_REVIEW.md](/home/et16/work/review_system/docs/reviews/CURRENT_STATE_REVIEW.md:1),
 그리고 관련 baseline artifact를 기준으로 확인한다.
 
-현재 즉시 실행 가능한 항목은 shared security rule host-language validation이다.
+현재 외부 조건 없이 즉시 실행 가능한 `active` 항목은 없다.
 밤새 전체 chain을 맡길 때는 아래 명령을 사용한다.
 
 ```bash
@@ -62,24 +62,7 @@ uncommitted diff를 남기고 멈춘다.
 
 ## Now
 
-### Verify shared security rules in host languages
-
-- status: `active`
-- prerequisite: rule self-test manifest runner is implemented
-- 목적: `SEC.*` shared auto rule이 explicit `language_id=shared`뿐 아니라 주요 host language
-  review에서도 기대대로 작동하는지 확인한다.
-- scope:
-  - Python, JavaScript/TypeScript, Java, Go에서 hardcoded secret, shell execution, dynamic SQL
-    specimen을 추가한다.
-  - 현재 runtime이 shared detector를 host language review에 적용하지 않으면, 먼저 failing/waiver
-    contract로 기록하고 runtime 변경 여부를 별도 판단한다.
-- out of scope:
-  - shared process/reference rule의 auto-review promotion
-- done when:
-  - shared security rule의 explicit shared-language self-test와 host-language behavior가
-    manifest에 구분되어 기록된다.
-- validation:
-  - `cd review-engine && uv run pytest tests/test_rule_self_tests.py tests/test_query_conversion.py -q`
+현재 `Now`에 남은 executable unit은 없다.
 
 ## Deferred But Not Yet Executable
 
