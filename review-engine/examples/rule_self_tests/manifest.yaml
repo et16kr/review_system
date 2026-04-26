@@ -987,6 +987,276 @@ cases:
   top_k: 80
   judgment: accepted
   judgment_note: Direct detector pattern primitive_format_specifier is the minimal hard-gate signal for SL.io.3.
+- case_id: cpp/R.13/raw_new
+  rule_no: R.13
+  language_id: cpp
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: sample.cpp
+  violating_path: cases/cpp/direct_detector/raw_new/violating.cpp
+  compliant_path: cases/cpp/direct_detector/compliant.cpp
+  expected_patterns:
+  - raw_new
+  expected_rules:
+  - R.13
+  forbidden_rules_in_compliant:
+  - R.13
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern raw_new is the minimal hard-gate signal for R.13.
+- case_id: cpp/R.33/raw_new
+  rule_no: R.33
+  language_id: cpp
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: sample.cpp
+  violating_path: cases/cpp/direct_detector/raw_new/violating.cpp
+  compliant_path: cases/cpp/direct_detector/compliant.cpp
+  expected_patterns:
+  - raw_new
+  expected_rules:
+  - R.33
+  forbidden_rules_in_compliant:
+  - R.33
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern raw_new is the minimal hard-gate signal for R.33.
+- case_id: cpp/R.37/manual_delete
+  rule_no: R.37
+  language_id: cpp
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: sample.cpp
+  violating_path: cases/cpp/direct_detector/manual_delete/violating.cpp
+  compliant_path: cases/cpp/direct_detector/compliant.cpp
+  expected_patterns:
+  - manual_delete
+  expected_rules:
+  - R.37
+  forbidden_rules_in_compliant:
+  - R.37
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern manual_delete is the minimal hard-gate signal for R.37.
+- case_id: cpp/I.12/raw_new
+  rule_no: I.12
+  language_id: cpp
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: sample.cpp
+  violating_path: cases/cpp/direct_detector/raw_new/violating.cpp
+  compliant_path: cases/cpp/direct_detector/compliant.cpp
+  expected_patterns:
+  - raw_new
+  expected_rules:
+  - I.12
+  forbidden_rules_in_compliant:
+  - I.12
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern raw_new is the minimal hard-gate signal for I.12.
+- case_id: cpp/F.7/raw_new
+  rule_no: F.7
+  language_id: cpp
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: sample.cpp
+  violating_path: cases/cpp/direct_detector/raw_new/violating.cpp
+  compliant_path: cases/cpp/direct_detector/compliant.cpp
+  expected_patterns:
+  - raw_new
+  expected_rules:
+  - F.7
+  forbidden_rules_in_compliant:
+  - F.7
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern raw_new is the minimal hard-gate signal for F.7.
+- case_id: cpp/NM.1/malloc_free
+  rule_no: NM.1
+  language_id: cpp
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: sample.cpp
+  violating_path: cases/cpp/direct_detector/malloc_free/violating.cpp
+  compliant_path: cases/cpp/direct_detector/compliant.cpp
+  expected_patterns:
+  - malloc_free
+  expected_rules:
+  - NM.1
+  forbidden_rules_in_compliant:
+  - NM.1
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern malloc_free is the minimal hard-gate signal for NM.1.
+- case_id: cpp/NM.2/manual_delete
+  rule_no: NM.2
+  language_id: cpp
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: sample.cpp
+  violating_path: cases/cpp/direct_detector/manual_delete/violating.cpp
+  compliant_path: cases/cpp/direct_detector/compliant.cpp
+  expected_patterns:
+  - manual_delete
+  expected_rules:
+  - NM.2
+  forbidden_rules_in_compliant:
+  - NM.2
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern manual_delete is the minimal hard-gate signal for NM.2.
+- case_id: cpp/NM.3/malloc_free
+  rule_no: NM.3
+  language_id: cpp
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: sample.cpp
+  violating_path: cases/cpp/direct_detector/malloc_free/violating.cpp
+  compliant_path: cases/cpp/direct_detector/compliant.cpp
+  expected_patterns:
+  - malloc_free
+  expected_rules:
+  - NM.3
+  forbidden_rules_in_compliant:
+  - NM.3
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern malloc_free is the minimal hard-gate signal for NM.3.
+- case_id: cpp/NM.4/malloc_free
+  rule_no: NM.4
+  language_id: cpp
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: sample.cpp
+  violating_path: cases/cpp/direct_detector/malloc_free/violating.cpp
+  compliant_path: cases/cpp/direct_detector/compliant.cpp
+  expected_patterns:
+  - malloc_free
+  expected_rules:
+  - NM.4
+  forbidden_rules_in_compliant:
+  - NM.4
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern malloc_free is the minimal hard-gate signal for NM.4.
+- case_id: cpp/CPP.PROJ.1/raw_new
+  rule_no: CPP.PROJ.1
+  language_id: cpp
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: sample.cpp
+  violating_path: cases/cpp/direct_detector/raw_new/violating.cpp
+  compliant_path: cases/cpp/direct_detector/compliant.cpp
+  expected_patterns:
+  - raw_new
+  expected_rules:
+  - CPP.PROJ.1
+  forbidden_rules_in_compliant:
+  - CPP.PROJ.1
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern raw_new is the minimal hard-gate signal for CPP.PROJ.1.
+- case_id: cpp/CPP.PROJ.2/direct_system_call
+  rule_no: CPP.PROJ.2
+  language_id: cpp
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: sample.cpp
+  violating_path: cases/cpp/direct_detector/direct_system_call/violating.cpp
+  compliant_path: cases/cpp/direct_detector/compliant.cpp
+  expected_patterns:
+  - direct_system_call
+  expected_rules:
+  - CPP.PROJ.2
+  forbidden_rules_in_compliant:
+  - CPP.PROJ.2
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern direct_system_call is the minimal hard-gate signal for CPP.PROJ.2.
+- case_id: cpp/CPP.PROJ.3/manual_lock_unlock
+  rule_no: CPP.PROJ.3
+  language_id: cpp
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: sample.cpp
+  violating_path: cases/cpp/direct_detector/manual_lock_unlock/violating.cpp
+  compliant_path: cases/cpp/direct_detector/compliant.cpp
+  expected_patterns:
+  - manual_lock_unlock
+  expected_rules:
+  - CPP.PROJ.3
+  forbidden_rules_in_compliant:
+  - CPP.PROJ.3
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern manual_lock_unlock is the minimal hard-gate signal for CPP.PROJ.3.
+- case_id: cpp/CPP.PROJ.4/direct_system_header
+  rule_no: CPP.PROJ.4
+  language_id: cpp
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: sample.cpp
+  violating_path: cases/cpp/direct_detector/direct_system_header/violating.cpp
+  compliant_path: cases/cpp/direct_detector/compliant.cpp
+  expected_patterns:
+  - direct_system_header
+  expected_rules:
+  - CPP.PROJ.4
+  forbidden_rules_in_compliant:
+  - CPP.PROJ.4
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern direct_system_header is the minimal hard-gate signal for CPP.PROJ.4.
+- case_id: cpp/CPP.PROJ.5/primitive_format_specifier
+  rule_no: CPP.PROJ.5
+  language_id: cpp
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: sample.cpp
+  violating_path: cases/cpp/direct_detector/primitive_format_specifier/violating.cpp
+  compliant_path: cases/cpp/direct_detector/compliant.cpp
+  expected_patterns:
+  - primitive_format_specifier
+  expected_rules:
+  - CPP.PROJ.5
+  forbidden_rules_in_compliant:
+  - CPP.PROJ.5
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern primitive_format_specifier is the minimal hard-gate signal for CPP.PROJ.5.
+- case_id: cpp/CPP.PROJ.6/raw_new
+  rule_no: CPP.PROJ.6
+  language_id: cpp
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: sample.cpp
+  violating_path: cases/cpp/direct_detector/raw_new/violating.cpp
+  compliant_path: cases/cpp/direct_detector/compliant.cpp
+  expected_patterns:
+  - raw_new
+  expected_rules:
+  - CPP.PROJ.6
+  forbidden_rules_in_compliant:
+  - CPP.PROJ.6
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern raw_new is the minimal hard-gate signal for CPP.PROJ.6.
 - case_id: cuda/CUDA.1/cuda_kernel_launch
   rule_no: CUDA.1
   language_id: cuda
@@ -4482,27 +4752,6 @@ waivers:
   - C.POSIX.6
   - C.PROJ.4
   - C.PROJ.5
-- waiver_id: cpp-auto-needs-detector-gap
-  language_id: cpp
-  reviewability: auto_review
-  reason: needs_detector
-  detail: These C++ rules do not yet have stable direct detector hints; covered by the C++ gap roadmap unit.
-  rule_nos:
-  - R.13
-  - R.33
-  - R.37
-  - I.12
-  - F.7
-  - NM.1
-  - NM.2
-  - NM.3
-  - NM.4
-  - CPP.PROJ.1
-  - CPP.PROJ.2
-  - CPP.PROJ.3
-  - CPP.PROJ.4
-  - CPP.PROJ.5
-  - CPP.PROJ.6
 - waiver_id: cpp-reference-initial-waiver
   language_id: cpp
   reviewability: reference_only

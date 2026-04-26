@@ -42,7 +42,7 @@ source gap closure처럼 이미 닫힌 항목은 이 roadmap에서 제거한다.
 [CURRENT_STATE_REVIEW.md](/home/et16/work/review_system/docs/reviews/CURRENT_STATE_REVIEW.md:1),
 그리고 관련 baseline artifact를 기준으로 확인한다.
 
-현재 즉시 실행 가능한 항목은 C++ self-test detector gap closure다.
+현재 즉시 실행 가능한 항목은 shared security rule host-language validation이다.
 밤새 전체 chain을 맡길 때는 아래 명령을 사용한다.
 
 ```bash
@@ -62,33 +62,9 @@ uncommitted diff를 남기고 멈춘다.
 
 ## Now
 
-### Close C++ self-test detector gap
-
-- status: `active`
-- prerequisite: direct detector-backed self-test corpus baseline exists at
-  [docs/baselines/review_engine/rule_self_test_coverage_2026-04-26.md](/home/et16/work/review_system/docs/baselines/review_engine/rule_self_test_coverage_2026-04-26.md:1)
-- 목적: direct hint가 없는 C++ `auto_review` rule 15개를 stable hard gate 대상으로 올린다.
-- affected rules:
-  - `R.13`, `R.33`, `R.37`, `I.12`, `F.7`
-  - `NM.1`, `NM.2`, `NM.3`, `NM.4`
-  - `CPP.PROJ.1`, `CPP.PROJ.2`, `CPP.PROJ.3`, `CPP.PROJ.4`, `CPP.PROJ.5`, `CPP.PROJ.6`
-- scope:
-  - `review_engine/query/languages/cpp.py`의 `PatternSpec`, `hinted_rules`,
-    `direct_hint_patterns` 보강
-  - 필요한 경우 `review_engine/retrieve/applicability.py` pattern alias/category signal 보강
-  - 각 rule의 violating/compliant C++ specimen 추가
-  - retrieval similarity만으로 통과시키지 않고 detector pattern과 expected rule을 같이 검증
-- out of scope:
-  - 대규모 C++ parser 도입. regex로 안정화가 안 되는 case만 별도 AST/structured detector 후보로 남긴다.
-- done when:
-  - C++ gap 15개가 `needs_detector` waiver 없이 accepted self-test case를 갖는다.
-  - 기존 C++ retrieval/diff contract가 회귀하지 않는다.
-- validation:
-  - `cd review-engine && uv run pytest tests/test_rule_self_tests.py tests/test_query_conversion.py tests/test_cpp_diff_contracts.py -q`
-
 ### Verify shared security rules in host languages
 
-- status: `queued`
+- status: `active`
 - prerequisite: rule self-test manifest runner is implemented
 - 목적: `SEC.*` shared auto rule이 explicit `language_id=shared`뿐 아니라 주요 host language
   review에서도 기대대로 작동하는지 확인한다.

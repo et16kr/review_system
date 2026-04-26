@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pytest
 
+from review_engine.languages import get_language_registry
 from review_engine.query.code_to_query import build_query_analysis
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -34,18 +35,33 @@ def test_cpp_diff_contract_manifest_uses_repo_local_non_altibase_examples() -> N
 
 
 @pytest.mark.parametrize(
-    ("example_path", "focus_patterns"),
+    ("example_path", "source_path", "focus_patterns"),
     [
-        (str(item["example_path"]), tuple(item["focus_patterns"]))
+        (
+            str(item["example_path"]),
+            str(item["source_path"]),
+            tuple(item["focus_patterns"]),
+        )
         for item in DIFF_CASES
     ],
 )
 def test_cpp_diff_contract_focus_patterns_are_detected(
     example_path: str,
+    source_path: str,
     focus_patterns: tuple[str, ...],
 ) -> None:
     payload = _repo_path(example_path).read_text(encoding="utf-8")
-    analysis = build_query_analysis(payload, input_kind="diff")
+    match = get_language_registry().resolve(file_path=source_path, source_text=payload)
+    analysis = build_query_analysis(
+        payload,
+        input_kind="diff",
+        file_path=source_path,
+        language_id=match.language_id,
+        profile_id=match.profile_id,
+        context_id=match.context_id,
+        dialect_id=match.dialect_id,
+        query_plugin_id=match.query_plugin_id,
+    )
     detected = {pattern.name for pattern in analysis.patterns}
 
     for pattern_name in focus_patterns:
@@ -53,19 +69,24 @@ def test_cpp_diff_contract_focus_patterns_are_detected(
 
 
 @pytest.mark.parametrize(
-    ("example_path", "expected_rules"),
+    ("example_path", "source_path", "expected_rules"),
     [
-        (str(item["example_path"]), tuple(item["expected_rules"]))
+        (
+            str(item["example_path"]),
+            str(item["source_path"]),
+            tuple(item["expected_rules"]),
+        )
         for item in DIFF_CASES
     ],
 )
 def test_cpp_diff_contract_expected_rules_are_present_in_top6(
     real_search_service,
     example_path: str,
+    source_path: str,
     expected_rules: tuple[str, ...],
 ) -> None:
     payload = _repo_path(example_path).read_text(encoding="utf-8")
-    response = real_search_service.review_diff(payload, top_k=6)
+    response = real_search_service.review_diff(payload, top_k=6, file_path=source_path)
     returned_rules = {result.rule_no for result in response.results}
 
     for rule_no in expected_rules:
