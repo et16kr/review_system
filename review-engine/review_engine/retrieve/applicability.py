@@ -35,6 +35,7 @@ DIRECT_CATEGORY_SIGNALS: dict[str, set[str]] = {
         "tokio_detached_spawn",
         "set_e_missing",
         "async_effect_callback",
+        "cuda_kernel_launch",
     },
     "wrapper_usage": {"direct_system_call", "manual_lock_unlock"},
     "portability": {"direct_system_header", "include_portability"},
@@ -53,10 +54,12 @@ DIRECT_CATEGORY_SIGNALS: dict[str, set[str]] = {
         "any_type",
         "non_null_assertion",
         "ts_ignore",
+        "ts_nocheck",
         "ts_expect_error",
         "null_return",
         "unsafe_string_api",
         "malloc_free",
+        "ownership_ambiguity",
     },
 }
 

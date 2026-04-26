@@ -42,7 +42,7 @@ source gap closure처럼 이미 닫힌 항목은 이 roadmap에서 제거한다.
 [CURRENT_STATE_REVIEW.md](/home/et16/work/review_system/docs/reviews/CURRENT_STATE_REVIEW.md:1),
 그리고 관련 baseline artifact를 기준으로 확인한다.
 
-현재 즉시 실행 가능한 항목은 direct detector-backed rule self-test corpus backfill이다.
+현재 즉시 실행 가능한 항목은 C++ self-test detector gap closure다.
 밤새 전체 chain을 맡길 때는 아래 명령을 사용한다.
 
 ```bash
@@ -62,32 +62,11 @@ uncommitted diff를 남기고 멈춘다.
 
 ## Now
 
-### Backfill direct detector-backed rule self-test corpus
-
-- status: `active`
-- prerequisite: rule self-test manifest runner is implemented
-- 목적: direct-hinted `auto_review` rule 250개에 대해 가능한 한 rule별 violating/compliant
-  specimen을 채워 hard gate coverage를 올린다.
-- scope:
-  - bash, c, cuda, dockerfile, go, java, javascript, python, rust, sql, typescript, yaml의
-    direct-hinted `auto_review` rule 우선 backfill
-  - 각 case에 `judgment: accepted`와 짧은 판단 note를 남긴다.
-  - 기존 `examples/multilang`와 `examples/multilang_safe` fixture를 재사용할 수 있으면
-    새 파일을 늘리기보다 manifest에서 공유한다.
-  - coverage baseline artifact를 `docs/baselines/review_engine/` 아래에 남긴다.
-- out of scope:
-  - C++ direct hint가 없는 15개 rule hard-gate 전환
-  - provider quality나 GitLab smoke
-- done when:
-  - direct-hinted `auto_review` rule coverage가 baseline으로 기록된다.
-  - compliant specimen에서 target rule이 나오는 false-positive regression을 잡을 수 있다.
-- validation:
-  - `cd review-engine && uv run pytest tests/test_rule_self_tests.py tests/test_multilang_regressions.py -q`
-
 ### Close C++ self-test detector gap
 
-- status: `queued`
-- prerequisite: `Backfill direct detector-backed rule self-test corpus`
+- status: `active`
+- prerequisite: direct detector-backed self-test corpus baseline exists at
+  [docs/baselines/review_engine/rule_self_test_coverage_2026-04-26.md](/home/et16/work/review_system/docs/baselines/review_engine/rule_self_test_coverage_2026-04-26.md:1)
 - 목적: direct hint가 없는 C++ `auto_review` rule 15개를 stable hard gate 대상으로 올린다.
 - affected rules:
   - `R.13`, `R.33`, `R.37`, `I.12`, `F.7`

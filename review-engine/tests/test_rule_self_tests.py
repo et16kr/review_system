@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
@@ -9,11 +10,17 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from review_engine.ingest.rule_loader import _load_yaml
 from review_engine.models import RulePackManifest
+from review_engine.query.languages import BUILTIN_QUERY_PLUGINS
+from review_engine.retrieve.applicability import DIRECT_CATEGORY_SIGNALS
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = PROJECT_ROOT.parent
 MANIFEST_PATH = PROJECT_ROOT / "examples/rule_self_tests/manifest.yaml"
 MANIFEST_ROOT = MANIFEST_PATH.parent
+COVERAGE_BASELINE_PATH = (
+    REPO_ROOT / "docs/baselines/review_engine/rule_self_test_coverage_2026-04-26.md"
+)
 
 WaiverReason = Literal[
     "pending_backfill",
@@ -35,6 +42,8 @@ class RuleKey:
 @dataclass(frozen=True)
 class RuleEntryInfo:
     reviewability: str
+    category: str
+    trigger_patterns: tuple[str, ...]
     source_path: Path
 
 
@@ -122,6 +131,8 @@ def _enabled_rule_entries() -> dict[RuleKey, RuleEntryInfo]:
                 )
             entries[key] = RuleEntryInfo(
                 reviewability=entry.reviewability,
+                category=entry.category,
+                trigger_patterns=tuple(entry.trigger_patterns),
                 source_path=pack_path,
             )
     return entries
@@ -155,6 +166,41 @@ def _validate_review_path(review_path: str | None) -> None:
     path = Path(review_path)
     if path.is_absolute() or any(part == ".." for part in path.parts):
         raise AssertionError(f"review_path must be repo-local: {review_path}")
+
+
+def _parse_coverage_baseline() -> dict[str, int]:
+    payload = COVERAGE_BASELINE_PATH.read_text(encoding="utf-8")
+    metrics: dict[str, int] = {}
+    for match in re.finditer(r"^- ([a-z0-9_]+): (\d+)$", payload, flags=re.MULTILINE):
+        metrics[match.group(1)] = int(match.group(2))
+    return metrics
+
+
+def _direct_detector_backed_auto_keys() -> tuple[set[RuleKey], set[RuleKey]]:
+    direct_keys: set[RuleKey] = set()
+    gap_keys: set[RuleKey] = set()
+
+    for key, entry in _enabled_rule_entries().items():
+        if entry.reviewability != "auto_review" or key.language_id == "shared":
+            continue
+        plugin = BUILTIN_QUERY_PLUGINS[key.language_id]
+        compatible_patterns = []
+        for trigger_pattern in entry.trigger_patterns:
+            if trigger_pattern not in plugin.direct_hint_patterns:
+                continue
+            if key.rule_no not in plugin.hinted_rules.get(trigger_pattern, ()):
+                continue
+            direct_signals = DIRECT_CATEGORY_SIGNALS.get(entry.category)
+            if direct_signals is not None and trigger_pattern not in direct_signals:
+                continue
+            compatible_patterns.append(trigger_pattern)
+
+        if compatible_patterns:
+            direct_keys.add(key)
+        else:
+            gap_keys.add(key)
+
+    return direct_keys, gap_keys
 
 
 def _read_case_payload(case: RuleSelfTestCase, *, variant: Literal["violating", "compliant"]) -> str:
@@ -241,6 +287,43 @@ def test_every_enabled_rule_entry_is_accounted_for() -> None:
     assert not missing, "Missing rule self-test case or waiver: " + ", ".join(
         f"{key.language_id}:{key.rule_no}" for key in missing
     )
+
+
+def test_self_test_coverage_does_not_regress() -> None:
+    manifest = _load_manifest()
+    baseline = _parse_coverage_baseline()
+    case_keys = {_case_key(case) for case in manifest.cases}
+    direct_keys, gap_keys = _direct_detector_backed_auto_keys()
+    missing_direct_cases = sorted(direct_keys - case_keys)
+    pending_backfill_waivers = [
+        waiver.waiver_id
+        for waiver in manifest.waivers
+        if waiver.reason == "pending_backfill"
+    ]
+    shared_host_pending_keys = {
+        key
+        for waiver in manifest.waivers
+        if waiver.reason == "pending_shared_host_validation"
+        for key in _waiver_keys(waiver)
+    }
+    shared_auto_keys = {
+        key
+        for key, entry in _enabled_rule_entries().items()
+        if key.language_id == "shared" and entry.reviewability == "auto_review"
+    }
+
+    assert not missing_direct_cases, "Missing direct detector self-test case: " + ", ".join(
+        f"{key.language_id}:{key.rule_no}" for key in missing_direct_cases
+    )
+    assert not pending_backfill_waivers
+    assert {key.language_id for key in gap_keys} <= {"cpp"}
+    assert len(direct_keys) >= baseline["reviewable_direct_detector_backed_auto_rules"]
+    assert len(direct_keys & case_keys) >= baseline[
+        "hard_gated_reviewable_direct_detector_backed_auto_rules"
+    ]
+    assert len(gap_keys) <= baseline["cxx_detector_gap_auto_rules"]
+    assert shared_auto_keys <= shared_host_pending_keys
+    assert len(shared_auto_keys) <= baseline["shared_auto_rules_pending_host_validation"]
 
 
 @pytest.mark.parametrize("case", _auto_review_cases(), ids=lambda case: case.case_id)

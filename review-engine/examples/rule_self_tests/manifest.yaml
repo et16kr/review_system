@@ -1,578 +1,4677 @@
 schema_version: 1
 cases:
-  - case_id: python/PY.1/mutable-default
-    rule_no: PY.1
-    language_id: python
-    profile_id: default
-    reviewability: auto_review
-    input_kind: code
-    violating_path: cases/python/PY.1/violating.py
-    compliant_path: cases/python/PY.1/compliant.py
-    expected_patterns: [mutable_default]
-    expected_rules: [PY.1]
-    forbidden_rules_in_compliant: [PY.1]
-    top_k: 12
-    judgment: accepted
-    judgment_note: Minimal function differs only by mutable default versus None sentinel.
-  - case_id: yaml/YAML.CI.6/gitlab-remote-bootstrap
-    rule_no: YAML.CI.6
-    language_id: yaml
-    profile_id: gitlab_ci
-    context_id: gitlab_ci
-    reviewability: auto_review
-    input_kind: code
-    review_path: .gitlab-ci.yml
-    violating_path: cases/yaml/YAML.CI.6/violating.yml
-    compliant_path: cases/yaml/YAML.CI.6/compliant.yml
-    expected_patterns: [ci_remote_bootstrap]
-    expected_rules: [YAML.CI.6]
-    forbidden_rules_in_compliant: [YAML.CI.6]
-    top_k: 12
-    judgment: accepted
-    judgment_note: GitLab CI job differs only by remote shell bootstrap versus local script.
-  - case_id: python/PY.DOC.1/reference-only-missing-docstring
-    rule_no: PY.DOC.1
-    language_id: python
-    profile_id: default
-    reviewability: reference_only
-    input_kind: code
-    violating_path: cases/python/PY.DOC.1/violating.py
-    compliant_path: cases/python/PY.DOC.1/compliant.py
-    forbidden_rules_in_violating: [PY.DOC.1]
-    forbidden_rules_in_compliant: [PY.DOC.1]
-    top_k: 12
-    judgment: accepted
-    judgment_note: Reference-only docstring guidance must load for inspection but not auto-review.
+- case_id: python/PY.1/mutable-default
+  rule_no: PY.1
+  language_id: python
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  violating_path: cases/python/PY.1/violating.py
+  compliant_path: cases/python/PY.1/compliant.py
+  expected_patterns:
+  - mutable_default
+  expected_rules:
+  - PY.1
+  forbidden_rules_in_compliant:
+  - PY.1
+  top_k: 12
+  judgment: accepted
+  judgment_note: Minimal function differs only by mutable default versus None sentinel.
+- case_id: yaml/YAML.CI.6/gitlab-remote-bootstrap
+  rule_no: YAML.CI.6
+  language_id: yaml
+  profile_id: gitlab_ci
+  context_id: gitlab_ci
+  reviewability: auto_review
+  input_kind: code
+  review_path: .gitlab-ci.yml
+  violating_path: cases/yaml/YAML.CI.6/violating.yml
+  compliant_path: cases/yaml/YAML.CI.6/compliant.yml
+  expected_patterns:
+  - ci_remote_bootstrap
+  expected_rules:
+  - YAML.CI.6
+  forbidden_rules_in_compliant:
+  - YAML.CI.6
+  top_k: 12
+  judgment: accepted
+  judgment_note: GitLab CI job differs only by remote shell bootstrap versus local script.
+- case_id: python/PY.DOC.1/reference-only-missing-docstring
+  rule_no: PY.DOC.1
+  language_id: python
+  profile_id: default
+  reviewability: reference_only
+  input_kind: code
+  violating_path: cases/python/PY.DOC.1/violating.py
+  compliant_path: cases/python/PY.DOC.1/compliant.py
+  forbidden_rules_in_violating:
+  - PY.DOC.1
+  forbidden_rules_in_compliant:
+  - PY.DOC.1
+  top_k: 12
+  judgment: accepted
+  judgment_note: Reference-only docstring guidance must load for inspection but not auto-review.
+- case_id: bash/BASH.1/unquoted_variable
+  rule_no: BASH.1
+  language_id: bash
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: script.sh
+  violating_path: cases/bash/direct_detector/unquoted_variable/violating.sh
+  compliant_path: cases/bash/direct_detector/compliant.sh
+  expected_patterns:
+  - unquoted_variable
+  expected_rules:
+  - BASH.1
+  forbidden_rules_in_compliant:
+  - BASH.1
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern unquoted_variable is the minimal hard-gate signal for BASH.1.
+- case_id: bash/BASH.2/rm_rf_glob
+  rule_no: BASH.2
+  language_id: bash
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: script.sh
+  violating_path: cases/bash/direct_detector/rm_rf_glob/violating.sh
+  compliant_path: cases/bash/direct_detector/compliant.sh
+  expected_patterns:
+  - rm_rf_glob
+  expected_rules:
+  - BASH.2
+  forbidden_rules_in_compliant:
+  - BASH.2
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern rm_rf_glob is the minimal hard-gate signal for BASH.2.
+- case_id: bash/BASH.3/unquoted_variable
+  rule_no: BASH.3
+  language_id: bash
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: script.sh
+  violating_path: cases/bash/direct_detector/unquoted_variable/violating.sh
+  compliant_path: cases/bash/direct_detector/compliant.sh
+  expected_patterns:
+  - unquoted_variable
+  expected_rules:
+  - BASH.3
+  forbidden_rules_in_compliant:
+  - BASH.3
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern unquoted_variable is the minimal hard-gate signal for BASH.3.
+- case_id: bash/BASH.4/rm_rf_glob
+  rule_no: BASH.4
+  language_id: bash
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: script.sh
+  violating_path: cases/bash/direct_detector/rm_rf_glob/violating.sh
+  compliant_path: cases/bash/direct_detector/compliant.sh
+  expected_patterns:
+  - rm_rf_glob
+  expected_rules:
+  - BASH.4
+  forbidden_rules_in_compliant:
+  - BASH.4
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern rm_rf_glob is the minimal hard-gate signal for BASH.4.
+- case_id: bash/BASH.5/sudo_usage
+  rule_no: BASH.5
+  language_id: bash
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: script.sh
+  violating_path: cases/bash/direct_detector/sudo_usage/violating.sh
+  compliant_path: cases/bash/direct_detector/compliant.sh
+  expected_patterns:
+  - sudo_usage
+  expected_rules:
+  - BASH.5
+  forbidden_rules_in_compliant:
+  - BASH.5
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern sudo_usage is the minimal hard-gate signal for BASH.5.
+- case_id: bash/BASH.SAFE.1/set_e_missing
+  rule_no: BASH.SAFE.1
+  language_id: bash
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: script.sh
+  violating_path: cases/bash/direct_detector/set_e_missing/violating.sh
+  compliant_path: cases/bash/direct_detector/compliant.sh
+  expected_patterns:
+  - set_e_missing
+  expected_rules:
+  - BASH.SAFE.1
+  forbidden_rules_in_compliant:
+  - BASH.SAFE.1
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern set_e_missing is the minimal hard-gate signal for BASH.SAFE.1.
+- case_id: bash/BASH.SAFE.2/curl_pipe_shell
+  rule_no: BASH.SAFE.2
+  language_id: bash
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: script.sh
+  violating_path: cases/bash/direct_detector/curl_pipe_shell/violating.sh
+  compliant_path: cases/bash/direct_detector/compliant.sh
+  expected_patterns:
+  - curl_pipe_shell
+  expected_rules:
+  - BASH.SAFE.2
+  forbidden_rules_in_compliant:
+  - BASH.SAFE.2
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern curl_pipe_shell is the minimal hard-gate signal for BASH.SAFE.2.
+- case_id: bash/BASH.SAFE.3/set_e_missing
+  rule_no: BASH.SAFE.3
+  language_id: bash
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: script.sh
+  violating_path: cases/bash/direct_detector/set_e_missing/violating.sh
+  compliant_path: cases/bash/direct_detector/compliant.sh
+  expected_patterns:
+  - set_e_missing
+  expected_rules:
+  - BASH.SAFE.3
+  forbidden_rules_in_compliant:
+  - BASH.SAFE.3
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern set_e_missing is the minimal hard-gate signal for BASH.SAFE.3.
+- case_id: bash/BASH.SAFE.4/curl_pipe_shell
+  rule_no: BASH.SAFE.4
+  language_id: bash
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: script.sh
+  violating_path: cases/bash/direct_detector/curl_pipe_shell/violating.sh
+  compliant_path: cases/bash/direct_detector/compliant.sh
+  expected_patterns:
+  - curl_pipe_shell
+  expected_rules:
+  - BASH.SAFE.4
+  forbidden_rules_in_compliant:
+  - BASH.SAFE.4
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern curl_pipe_shell is the minimal hard-gate signal for BASH.SAFE.4.
+- case_id: bash/BASH.SAFE.5/curl_insecure
+  rule_no: BASH.SAFE.5
+  language_id: bash
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: script.sh
+  violating_path: cases/bash/direct_detector/curl_insecure/violating.sh
+  compliant_path: cases/bash/direct_detector/compliant.sh
+  expected_patterns:
+  - curl_insecure
+  expected_rules:
+  - BASH.SAFE.5
+  forbidden_rules_in_compliant:
+  - BASH.SAFE.5
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern curl_insecure is the minimal hard-gate signal for BASH.SAFE.5.
+- case_id: bash/BASH.SAFE.6/sudo_usage
+  rule_no: BASH.SAFE.6
+  language_id: bash
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: script.sh
+  violating_path: cases/bash/direct_detector/sudo_usage/violating.sh
+  compliant_path: cases/bash/direct_detector/compliant.sh
+  expected_patterns:
+  - sudo_usage
+  expected_rules:
+  - BASH.SAFE.6
+  forbidden_rules_in_compliant:
+  - BASH.SAFE.6
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern sudo_usage is the minimal hard-gate signal for BASH.SAFE.6.
+- case_id: bash/BASH.SAFE.8/mktemp_without_trap
+  rule_no: BASH.SAFE.8
+  language_id: bash
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: script.sh
+  violating_path: cases/bash/direct_detector/mktemp_without_trap/violating.sh
+  compliant_path: cases/bash/direct_detector/compliant.sh
+  expected_patterns:
+  - mktemp_without_trap
+  expected_rules:
+  - BASH.SAFE.8
+  forbidden_rules_in_compliant:
+  - BASH.SAFE.8
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern mktemp_without_trap is the minimal hard-gate signal for BASH.SAFE.8.
+- case_id: c/C.NM.1/malloc_free
+  rule_no: C.NM.1
+  language_id: c
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: sample.c
+  violating_path: cases/c/direct_detector/malloc_free/violating.c
+  compliant_path: cases/c/direct_detector/compliant.c
+  expected_patterns:
+  - malloc_free
+  expected_rules:
+  - C.NM.1
+  forbidden_rules_in_compliant:
+  - C.NM.1
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern malloc_free is the minimal hard-gate signal for C.NM.1.
+- case_id: c/C.NM.2/malloc_free
+  rule_no: C.NM.2
+  language_id: c
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: sample.c
+  violating_path: cases/c/direct_detector/malloc_free/violating.c
+  compliant_path: cases/c/direct_detector/compliant.c
+  expected_patterns:
+  - malloc_free
+  expected_rules:
+  - C.NM.2
+  forbidden_rules_in_compliant:
+  - C.NM.2
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern malloc_free is the minimal hard-gate signal for C.NM.2.
+- case_id: c/C.NM.3/malloc_free
+  rule_no: C.NM.3
+  language_id: c
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: sample.c
+  violating_path: cases/c/direct_detector/malloc_free/violating.c
+  compliant_path: cases/c/direct_detector/compliant.c
+  expected_patterns:
+  - malloc_free
+  expected_rules:
+  - C.NM.3
+  forbidden_rules_in_compliant:
+  - C.NM.3
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern malloc_free is the minimal hard-gate signal for C.NM.3.
+- case_id: c/C.POSIX.1/unsafe_string_api
+  rule_no: C.POSIX.1
+  language_id: c
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: sample.c
+  violating_path: cases/c/direct_detector/unsafe_string_api/violating.c
+  compliant_path: cases/c/direct_detector/compliant.c
+  expected_patterns:
+  - unsafe_string_api
+  expected_rules:
+  - C.POSIX.1
+  forbidden_rules_in_compliant:
+  - C.POSIX.1
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern unsafe_string_api is the minimal hard-gate signal for C.POSIX.1.
+- case_id: c/C.POSIX.2/manual_cleanup_goto
+  rule_no: C.POSIX.2
+  language_id: c
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: sample.c
+  violating_path: cases/c/direct_detector/manual_cleanup_goto/violating.c
+  compliant_path: cases/c/direct_detector/compliant.c
+  expected_patterns:
+  - manual_cleanup_goto
+  expected_rules:
+  - C.POSIX.2
+  forbidden_rules_in_compliant:
+  - C.POSIX.2
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern manual_cleanup_goto is the minimal hard-gate signal for C.POSIX.2.
+- case_id: c/C.POSIX.3/unsafe_string_api
+  rule_no: C.POSIX.3
+  language_id: c
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: sample.c
+  violating_path: cases/c/direct_detector/unsafe_string_api/violating.c
+  compliant_path: cases/c/direct_detector/compliant.c
+  expected_patterns:
+  - unsafe_string_api
+  expected_rules:
+  - C.POSIX.3
+  forbidden_rules_in_compliant:
+  - C.POSIX.3
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern unsafe_string_api is the minimal hard-gate signal for C.POSIX.3.
+- case_id: c/C.POSIX.4/manual_cleanup_goto
+  rule_no: C.POSIX.4
+  language_id: c
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: sample.c
+  violating_path: cases/c/direct_detector/manual_cleanup_goto/violating.c
+  compliant_path: cases/c/direct_detector/compliant.c
+  expected_patterns:
+  - manual_cleanup_goto
+  expected_rules:
+  - C.POSIX.4
+  forbidden_rules_in_compliant:
+  - C.POSIX.4
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern manual_cleanup_goto is the minimal hard-gate signal for C.POSIX.4.
+- case_id: c/C.POSIX.5/primitive_format_specifier
+  rule_no: C.POSIX.5
+  language_id: c
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: sample.c
+  violating_path: cases/c/direct_detector/primitive_format_specifier/violating.c
+  compliant_path: cases/c/direct_detector/compliant.c
+  expected_patterns:
+  - primitive_format_specifier
+  expected_rules:
+  - C.POSIX.5
+  forbidden_rules_in_compliant:
+  - C.POSIX.5
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern primitive_format_specifier is the minimal hard-gate signal for C.POSIX.5.
+- case_id: c/C.PROJ.1/unsafe_string_api
+  rule_no: C.PROJ.1
+  language_id: c
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: sample.c
+  violating_path: cases/c/direct_detector/unsafe_string_api/violating.c
+  compliant_path: cases/c/direct_detector/compliant.c
+  expected_patterns:
+  - unsafe_string_api
+  expected_rules:
+  - C.PROJ.1
+  forbidden_rules_in_compliant:
+  - C.PROJ.1
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern unsafe_string_api is the minimal hard-gate signal for C.PROJ.1.
+- case_id: c/C.PROJ.2/unsafe_string_api
+  rule_no: C.PROJ.2
+  language_id: c
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: sample.c
+  violating_path: cases/c/direct_detector/unsafe_string_api/violating.c
+  compliant_path: cases/c/direct_detector/compliant.c
+  expected_patterns:
+  - unsafe_string_api
+  expected_rules:
+  - C.PROJ.2
+  forbidden_rules_in_compliant:
+  - C.PROJ.2
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern unsafe_string_api is the minimal hard-gate signal for C.PROJ.2.
+- case_id: c/C.PROJ.3/primitive_format_specifier
+  rule_no: C.PROJ.3
+  language_id: c
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: sample.c
+  violating_path: cases/c/direct_detector/primitive_format_specifier/violating.c
+  compliant_path: cases/c/direct_detector/compliant.c
+  expected_patterns:
+  - primitive_format_specifier
+  expected_rules:
+  - C.PROJ.3
+  forbidden_rules_in_compliant:
+  - C.PROJ.3
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern primitive_format_specifier is the minimal hard-gate signal for C.PROJ.3.
+- case_id: cpp/CP.20/manual_lock_unlock
+  rule_no: CP.20
+  language_id: cpp
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: sample.cpp
+  violating_path: cases/cpp/direct_detector/manual_lock_unlock/violating.cpp
+  compliant_path: cases/cpp/direct_detector/compliant.cpp
+  expected_patterns:
+  - manual_lock_unlock
+  expected_rules:
+  - CP.20
+  forbidden_rules_in_compliant:
+  - CP.20
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern manual_lock_unlock is the minimal hard-gate signal for CP.20.
+- case_id: cpp/CP.21/manual_lock_unlock
+  rule_no: CP.21
+  language_id: cpp
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: sample.cpp
+  violating_path: cases/cpp/direct_detector/manual_lock_unlock/violating.cpp
+  compliant_path: cases/cpp/direct_detector/compliant.cpp
+  expected_patterns:
+  - manual_lock_unlock
+  expected_rules:
+  - CP.21
+  forbidden_rules_in_compliant:
+  - CP.21
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern manual_lock_unlock is the minimal hard-gate signal for CP.21.
+- case_id: cpp/CP.22/manual_lock_unlock
+  rule_no: CP.22
+  language_id: cpp
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: sample.cpp
+  violating_path: cases/cpp/direct_detector/manual_lock_unlock/violating.cpp
+  compliant_path: cases/cpp/direct_detector/compliant.cpp
+  expected_patterns:
+  - manual_lock_unlock
+  expected_rules:
+  - CP.22
+  forbidden_rules_in_compliant:
+  - CP.22
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern manual_lock_unlock is the minimal hard-gate signal for CP.22.
+- case_id: cpp/E.19/malloc_free
+  rule_no: E.19
+  language_id: cpp
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: sample.cpp
+  violating_path: cases/cpp/direct_detector/malloc_free/violating.cpp
+  compliant_path: cases/cpp/direct_detector/compliant.cpp
+  expected_patterns:
+  - malloc_free
+  expected_rules:
+  - E.19
+  forbidden_rules_in_compliant:
+  - E.19
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern malloc_free is the minimal hard-gate signal for E.19.
+- case_id: cpp/ES.34/primitive_format_specifier
+  rule_no: ES.34
+  language_id: cpp
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: sample.cpp
+  violating_path: cases/cpp/direct_detector/primitive_format_specifier/violating.cpp
+  compliant_path: cases/cpp/direct_detector/compliant.cpp
+  expected_patterns:
+  - primitive_format_specifier
+  expected_rules:
+  - ES.34
+  forbidden_rules_in_compliant:
+  - ES.34
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern primitive_format_specifier is the minimal hard-gate signal for ES.34.
+- case_id: cpp/ES.6/for_initializer_declaration
+  rule_no: ES.6
+  language_id: cpp
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: sample.cpp
+  violating_path: cases/cpp/direct_detector/for_initializer_declaration/violating.cpp
+  compliant_path: cases/cpp/direct_detector/compliant.cpp
+  expected_patterns:
+  - for_initializer_declaration
+  expected_rules:
+  - ES.6
+  forbidden_rules_in_compliant:
+  - ES.6
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern for_initializer_declaration is the minimal hard-gate signal for ES.6.
+- case_id: cpp/ES.77/continue_usage
+  rule_no: ES.77
+  language_id: cpp
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: sample.cpp
+  violating_path: cases/cpp/direct_detector/continue_usage/violating.cpp
+  compliant_path: cases/cpp/direct_detector/compliant.cpp
+  expected_patterns:
+  - continue_usage
+  expected_rules:
+  - ES.77
+  forbidden_rules_in_compliant:
+  - ES.77
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern continue_usage is the minimal hard-gate signal for ES.77.
+- case_id: cpp/ES.78/switch_without_default
+  rule_no: ES.78
+  language_id: cpp
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: sample.cpp
+  violating_path: cases/cpp/direct_detector/switch_without_default/violating.cpp
+  compliant_path: cases/cpp/direct_detector/compliant.cpp
+  expected_patterns:
+  - switch_without_default
+  expected_rules:
+  - ES.78
+  forbidden_rules_in_compliant:
+  - ES.78
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern switch_without_default is the minimal hard-gate signal for ES.78.
+- case_id: cpp/ES.79/switch_without_default
+  rule_no: ES.79
+  language_id: cpp
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: sample.cpp
+  violating_path: cases/cpp/direct_detector/switch_without_default/violating.cpp
+  compliant_path: cases/cpp/direct_detector/compliant.cpp
+  expected_patterns:
+  - switch_without_default
+  expected_rules:
+  - ES.79
+  forbidden_rules_in_compliant:
+  - ES.79
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern switch_without_default is the minimal hard-gate signal for ES.79.
+- case_id: cpp/F.16/primitive_types
+  rule_no: F.16
+  language_id: cpp
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: sample.cpp
+  violating_path: cases/cpp/direct_detector/primitive_types/violating.cpp
+  compliant_path: cases/cpp/direct_detector/compliant.cpp
+  expected_patterns:
+  - primitive_types
+  expected_rules:
+  - F.16
+  forbidden_rules_in_compliant:
+  - F.16
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern primitive_types is the minimal hard-gate signal for F.16.
+- case_id: cpp/F.48/return_move_local
+  rule_no: F.48
+  language_id: cpp
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: sample.cpp
+  violating_path: cases/cpp/direct_detector/return_move_local/violating.cpp
+  compliant_path: cases/cpp/direct_detector/compliant.cpp
+  expected_patterns:
+  - return_move_local
+  expected_rules:
+  - F.48
+  forbidden_rules_in_compliant:
+  - F.48
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern return_move_local is the minimal hard-gate signal for F.48.
+- case_id: cpp/I.11/ownership_ambiguity
+  rule_no: I.11
+  language_id: cpp
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: sample.cpp
+  violating_path: cases/cpp/direct_detector/ownership_ambiguity/violating.cpp
+  compliant_path: cases/cpp/direct_detector/compliant.cpp
+  expected_patterns:
+  - ownership_ambiguity
+  expected_rules:
+  - I.11
+  forbidden_rules_in_compliant:
+  - I.11
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern ownership_ambiguity is the minimal hard-gate signal for I.11.
+- case_id: cpp/I.4/primitive_types
+  rule_no: I.4
+  language_id: cpp
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: sample.cpp
+  violating_path: cases/cpp/direct_detector/primitive_types/violating.cpp
+  compliant_path: cases/cpp/direct_detector/compliant.cpp
+  expected_patterns:
+  - primitive_types
+  expected_rules:
+  - I.4
+  forbidden_rules_in_compliant:
+  - I.4
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern primitive_types is the minimal hard-gate signal for I.4.
+- case_id: cpp/P.11/direct_system_call
+  rule_no: P.11
+  language_id: cpp
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: sample.cpp
+  violating_path: cases/cpp/direct_detector/direct_system_call/violating.cpp
+  compliant_path: cases/cpp/direct_detector/compliant.cpp
+  expected_patterns:
+  - direct_system_call
+  expected_rules:
+  - P.11
+  forbidden_rules_in_compliant:
+  - P.11
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern direct_system_call is the minimal hard-gate signal for P.11.
+- case_id: cpp/P.8/malloc_free
+  rule_no: P.8
+  language_id: cpp
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: sample.cpp
+  violating_path: cases/cpp/direct_detector/malloc_free/violating.cpp
+  compliant_path: cases/cpp/direct_detector/compliant.cpp
+  expected_patterns:
+  - malloc_free
+  expected_rules:
+  - P.8
+  forbidden_rules_in_compliant:
+  - P.8
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern malloc_free is the minimal hard-gate signal for P.8.
+- case_id: cpp/R.1/malloc_free
+  rule_no: R.1
+  language_id: cpp
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: sample.cpp
+  violating_path: cases/cpp/direct_detector/malloc_free/violating.cpp
+  compliant_path: cases/cpp/direct_detector/compliant.cpp
+  expected_patterns:
+  - malloc_free
+  expected_rules:
+  - R.1
+  forbidden_rules_in_compliant:
+  - R.1
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern malloc_free is the minimal hard-gate signal for R.1.
+- case_id: cpp/R.10/malloc_free
+  rule_no: R.10
+  language_id: cpp
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: sample.cpp
+  violating_path: cases/cpp/direct_detector/malloc_free/violating.cpp
+  compliant_path: cases/cpp/direct_detector/compliant.cpp
+  expected_patterns:
+  - malloc_free
+  expected_rules:
+  - R.10
+  forbidden_rules_in_compliant:
+  - R.10
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern malloc_free is the minimal hard-gate signal for R.10.
+- case_id: cpp/R.11/raw_new
+  rule_no: R.11
+  language_id: cpp
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: sample.cpp
+  violating_path: cases/cpp/direct_detector/raw_new/violating.cpp
+  compliant_path: cases/cpp/direct_detector/compliant.cpp
+  expected_patterns:
+  - raw_new
+  expected_rules:
+  - R.11
+  forbidden_rules_in_compliant:
+  - R.11
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern raw_new is the minimal hard-gate signal for R.11.
+- case_id: cpp/R.12/raw_new
+  rule_no: R.12
+  language_id: cpp
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: sample.cpp
+  violating_path: cases/cpp/direct_detector/raw_new/violating.cpp
+  compliant_path: cases/cpp/direct_detector/compliant.cpp
+  expected_patterns:
+  - raw_new
+  expected_rules:
+  - R.12
+  forbidden_rules_in_compliant:
+  - R.12
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern raw_new is the minimal hard-gate signal for R.12.
+- case_id: cpp/R.15/manual_delete
+  rule_no: R.15
+  language_id: cpp
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: sample.cpp
+  violating_path: cases/cpp/direct_detector/manual_delete/violating.cpp
+  compliant_path: cases/cpp/direct_detector/compliant.cpp
+  expected_patterns:
+  - manual_delete
+  expected_rules:
+  - R.15
+  forbidden_rules_in_compliant:
+  - R.15
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern manual_delete is the minimal hard-gate signal for R.15.
+- case_id: cpp/R.20/raw_new
+  rule_no: R.20
+  language_id: cpp
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: sample.cpp
+  violating_path: cases/cpp/direct_detector/raw_new/violating.cpp
+  compliant_path: cases/cpp/direct_detector/compliant.cpp
+  expected_patterns:
+  - raw_new
+  expected_rules:
+  - R.20
+  forbidden_rules_in_compliant:
+  - R.20
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern raw_new is the minimal hard-gate signal for R.20.
+- case_id: cpp/R.22/raw_new
+  rule_no: R.22
+  language_id: cpp
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: sample.cpp
+  violating_path: cases/cpp/direct_detector/raw_new/violating.cpp
+  compliant_path: cases/cpp/direct_detector/compliant.cpp
+  expected_patterns:
+  - raw_new
+  expected_rules:
+  - R.22
+  forbidden_rules_in_compliant:
+  - R.22
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern raw_new is the minimal hard-gate signal for R.22.
+- case_id: cpp/R.23/raw_new
+  rule_no: R.23
+  language_id: cpp
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: sample.cpp
+  violating_path: cases/cpp/direct_detector/raw_new/violating.cpp
+  compliant_path: cases/cpp/direct_detector/compliant.cpp
+  expected_patterns:
+  - raw_new
+  expected_rules:
+  - R.23
+  forbidden_rules_in_compliant:
+  - R.23
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern raw_new is the minimal hard-gate signal for R.23.
+- case_id: cpp/R.3/raw_new
+  rule_no: R.3
+  language_id: cpp
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: sample.cpp
+  violating_path: cases/cpp/direct_detector/raw_new/violating.cpp
+  compliant_path: cases/cpp/direct_detector/compliant.cpp
+  expected_patterns:
+  - raw_new
+  expected_rules:
+  - R.3
+  forbidden_rules_in_compliant:
+  - R.3
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern raw_new is the minimal hard-gate signal for R.3.
+- case_id: cpp/R.30/raw_new
+  rule_no: R.30
+  language_id: cpp
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: sample.cpp
+  violating_path: cases/cpp/direct_detector/raw_new/violating.cpp
+  compliant_path: cases/cpp/direct_detector/compliant.cpp
+  expected_patterns:
+  - raw_new
+  expected_rules:
+  - R.30
+  forbidden_rules_in_compliant:
+  - R.30
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern raw_new is the minimal hard-gate signal for R.30.
+- case_id: cpp/R.32/raw_new
+  rule_no: R.32
+  language_id: cpp
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: sample.cpp
+  violating_path: cases/cpp/direct_detector/raw_new/violating.cpp
+  compliant_path: cases/cpp/direct_detector/compliant.cpp
+  expected_patterns:
+  - raw_new
+  expected_rules:
+  - R.32
+  forbidden_rules_in_compliant:
+  - R.32
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern raw_new is the minimal hard-gate signal for R.32.
+- case_id: cpp/R.5/raw_new
+  rule_no: R.5
+  language_id: cpp
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: sample.cpp
+  violating_path: cases/cpp/direct_detector/raw_new/violating.cpp
+  compliant_path: cases/cpp/direct_detector/compliant.cpp
+  expected_patterns:
+  - raw_new
+  expected_rules:
+  - R.5
+  forbidden_rules_in_compliant:
+  - R.5
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern raw_new is the minimal hard-gate signal for R.5.
+- case_id: cpp/SF.13/direct_system_header
+  rule_no: SF.13
+  language_id: cpp
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: sample.cpp
+  violating_path: cases/cpp/direct_detector/direct_system_header/violating.cpp
+  compliant_path: cases/cpp/direct_detector/compliant.cpp
+  expected_patterns:
+  - direct_system_header
+  expected_rules:
+  - SF.13
+  forbidden_rules_in_compliant:
+  - SF.13
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern direct_system_header is the minimal hard-gate signal for SF.13.
+- case_id: cpp/SL.io.3/primitive_format_specifier
+  rule_no: SL.io.3
+  language_id: cpp
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: sample.cpp
+  violating_path: cases/cpp/direct_detector/primitive_format_specifier/violating.cpp
+  compliant_path: cases/cpp/direct_detector/compliant.cpp
+  expected_patterns:
+  - primitive_format_specifier
+  expected_rules:
+  - SL.io.3
+  forbidden_rules_in_compliant:
+  - SL.io.3
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern primitive_format_specifier is the minimal hard-gate signal for SL.io.3.
+- case_id: cuda/CUDA.1/cuda_kernel_launch
+  rule_no: CUDA.1
+  language_id: cuda
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: kernel.cu
+  violating_path: cases/cuda/direct_detector/cuda_kernel_launch/violating.cu
+  compliant_path: cases/cuda/direct_detector/compliant.cu
+  expected_patterns:
+  - cuda_kernel_launch
+  expected_rules:
+  - CUDA.1
+  forbidden_rules_in_compliant:
+  - CUDA.1
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern cuda_kernel_launch is the minimal hard-gate signal for CUDA.1.
+- case_id: cuda/CUDA.2/cuda_malloc
+  rule_no: CUDA.2
+  language_id: cuda
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: kernel.cu
+  violating_path: cases/cuda/direct_detector/cuda_malloc/violating.cu
+  compliant_path: cases/cuda/direct_detector/compliant.cu
+  expected_patterns:
+  - cuda_malloc
+  expected_rules:
+  - CUDA.2
+  forbidden_rules_in_compliant:
+  - CUDA.2
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern cuda_malloc is the minimal hard-gate signal for CUDA.2.
+- case_id: cuda/CUDA.3/cuda_divergent_syncthreads
+  rule_no: CUDA.3
+  language_id: cuda
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: kernel.cu
+  violating_path: cases/cuda/direct_detector/cuda_divergent_syncthreads/violating.cu
+  compliant_path: cases/cuda/direct_detector/compliant.cu
+  expected_patterns:
+  - cuda_divergent_syncthreads
+  expected_rules:
+  - CUDA.3
+  forbidden_rules_in_compliant:
+  - CUDA.3
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern cuda_divergent_syncthreads is the minimal hard-gate signal for CUDA.3.
+- case_id: cuda/CUDA.4/cuda_device_sync
+  rule_no: CUDA.4
+  language_id: cuda
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: kernel.cu
+  violating_path: cases/cuda/direct_detector/cuda_device_sync/violating.cu
+  compliant_path: cases/cuda/direct_detector/compliant.cu
+  expected_patterns:
+  - cuda_device_sync
+  expected_rules:
+  - CUDA.4
+  forbidden_rules_in_compliant:
+  - CUDA.4
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern cuda_device_sync is the minimal hard-gate signal for CUDA.4.
+- case_id: cuda/CUDA.5/cuda_kernel_launch
+  rule_no: CUDA.5
+  language_id: cuda
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: kernel.cu
+  violating_path: cases/cuda/direct_detector/cuda_kernel_launch/violating.cu
+  compliant_path: cases/cuda/direct_detector/compliant.cu
+  expected_patterns:
+  - cuda_kernel_launch
+  expected_rules:
+  - CUDA.5
+  forbidden_rules_in_compliant:
+  - CUDA.5
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern cuda_kernel_launch is the minimal hard-gate signal for CUDA.5.
+- case_id: cuda/CUDA.6/cuda_host_device
+  rule_no: CUDA.6
+  language_id: cuda
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: kernel.cu
+  violating_path: cases/cuda/direct_detector/cuda_host_device/violating.cu
+  compliant_path: cases/cuda/direct_detector/compliant.cu
+  expected_patterns:
+  - cuda_host_device
+  expected_rules:
+  - CUDA.6
+  forbidden_rules_in_compliant:
+  - CUDA.6
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern cuda_host_device is the minimal hard-gate signal for CUDA.6.
+- case_id: cuda/CUDA.7/cuda_shared_memory
+  rule_no: CUDA.7
+  language_id: cuda
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: kernel.cu
+  violating_path: cases/cuda/direct_detector/cuda_shared_memory/violating.cu
+  compliant_path: cases/cuda/direct_detector/compliant.cu
+  expected_patterns:
+  - cuda_shared_memory
+  expected_rules:
+  - CUDA.7
+  forbidden_rules_in_compliant:
+  - CUDA.7
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern cuda_shared_memory is the minimal hard-gate signal for CUDA.7.
+- case_id: cuda/CUDA.8/cuda_managed_memory
+  rule_no: CUDA.8
+  language_id: cuda
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: kernel.cu
+  violating_path: cases/cuda/direct_detector/cuda_managed_memory/violating.cu
+  compliant_path: cases/cuda/direct_detector/compliant.cu
+  expected_patterns:
+  - cuda_managed_memory
+  expected_rules:
+  - CUDA.8
+  forbidden_rules_in_compliant:
+  - CUDA.8
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern cuda_managed_memory is the minimal hard-gate signal for CUDA.8.
+- case_id: cuda/CUDA.ASYNC.1/cuda_async_default_stream
+  rule_no: CUDA.ASYNC.1
+  language_id: cuda
+  profile_id: cuda_async_runtime
+  reviewability: auto_review
+  input_kind: code
+  review_path: kernel.cu
+  violating_path: cases/cuda/direct_detector/cuda_async_default_stream/violating.cu
+  compliant_path: cases/cuda/direct_detector/compliant.cu
+  expected_patterns:
+  - cuda_async_default_stream
+  expected_rules:
+  - CUDA.ASYNC.1
+  forbidden_rules_in_compliant:
+  - CUDA.ASYNC.1
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern cuda_async_default_stream is the minimal hard-gate signal for CUDA.ASYNC.1.
+- case_id: cuda/CUDA.ASYNC.2/cuda_stream_callback
+  rule_no: CUDA.ASYNC.2
+  language_id: cuda
+  profile_id: cuda_async_runtime
+  reviewability: auto_review
+  input_kind: code
+  review_path: kernel.cu
+  violating_path: cases/cuda/direct_detector/cuda_stream_callback/violating.cu
+  compliant_path: cases/cuda/direct_detector/compliant.cu
+  expected_patterns:
+  - cuda_stream_callback
+  expected_rules:
+  - CUDA.ASYNC.2
+  forbidden_rules_in_compliant:
+  - CUDA.ASYNC.2
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern cuda_stream_callback is the minimal hard-gate signal for CUDA.ASYNC.2.
+- case_id: cuda/CUDA.ASYNC.3/cuda_stream_create_in_loop
+  rule_no: CUDA.ASYNC.3
+  language_id: cuda
+  profile_id: cuda_async_runtime
+  reviewability: auto_review
+  input_kind: code
+  review_path: kernel.cu
+  violating_path: cases/cuda/direct_detector/cuda_stream_create_in_loop/violating.cu
+  compliant_path: cases/cuda/direct_detector/compliant.cu
+  expected_patterns:
+  - cuda_stream_create_in_loop
+  expected_rules:
+  - CUDA.ASYNC.3
+  forbidden_rules_in_compliant:
+  - CUDA.ASYNC.3
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern cuda_stream_create_in_loop is the minimal hard-gate signal for CUDA.ASYNC.3.
+- case_id: cuda/CUDA.ASYNC.4/cuda_async_pageable_host_transfer
+  rule_no: CUDA.ASYNC.4
+  language_id: cuda
+  profile_id: cuda_async_runtime
+  reviewability: auto_review
+  input_kind: code
+  review_path: kernel.cu
+  violating_path: cases/cuda/direct_detector/cuda_async_pageable_host_transfer/violating.cu
+  compliant_path: cases/cuda/direct_detector/compliant.cu
+  expected_patterns:
+  - cuda_async_pageable_host_transfer
+  expected_rules:
+  - CUDA.ASYNC.4
+  forbidden_rules_in_compliant:
+  - CUDA.ASYNC.4
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern cuda_async_pageable_host_transfer is the minimal hard-gate signal for CUDA.ASYNC.4.
+- case_id: cuda/CUDA.CG.1/cuda_cg_partition_in_branch
+  rule_no: CUDA.CG.1
+  language_id: cuda
+  profile_id: cuda_cooperative_groups
+  reviewability: auto_review
+  input_kind: code
+  review_path: kernel.cu
+  violating_path: cases/cuda/direct_detector/cuda_cg_partition_in_branch/violating.cu
+  compliant_path: cases/cuda/direct_detector/compliant.cu
+  expected_patterns:
+  - cuda_cg_partition_in_branch
+  expected_rules:
+  - CUDA.CG.1
+  forbidden_rules_in_compliant:
+  - CUDA.CG.1
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern cuda_cg_partition_in_branch is the minimal hard-gate signal for CUDA.CG.1.
+- case_id: cuda/CUDA.CG.2/cuda_cg_grid_sync
+  rule_no: CUDA.CG.2
+  language_id: cuda
+  profile_id: cuda_cooperative_groups
+  reviewability: auto_review
+  input_kind: code
+  review_path: kernel.cu
+  violating_path: cases/cuda/direct_detector/cuda_cg_grid_sync/violating.cu
+  compliant_path: cases/cuda/direct_detector/compliant.cu
+  expected_patterns:
+  - cuda_cg_grid_sync
+  expected_rules:
+  - CUDA.CG.2
+  forbidden_rules_in_compliant:
+  - CUDA.CG.2
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern cuda_cg_grid_sync is the minimal hard-gate signal for CUDA.CG.2.
+- case_id: cuda/CUDA.CG.3/cuda_cg_divergent_sync
+  rule_no: CUDA.CG.3
+  language_id: cuda
+  profile_id: cuda_cooperative_groups
+  reviewability: auto_review
+  input_kind: code
+  review_path: kernel.cu
+  violating_path: cases/cuda/direct_detector/cuda_cg_divergent_sync/violating.cu
+  compliant_path: cases/cuda/direct_detector/compliant.cu
+  expected_patterns:
+  - cuda_cg_divergent_sync
+  expected_rules:
+  - CUDA.CG.3
+  forbidden_rules_in_compliant:
+  - CUDA.CG.3
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern cuda_cg_divergent_sync is the minimal hard-gate signal for CUDA.CG.3.
+- case_id: cuda/CUDA.CLUSTER.1/cuda_cluster_sync_in_branch
+  rule_no: CUDA.CLUSTER.1
+  language_id: cuda
+  profile_id: cuda_thread_block_cluster
+  reviewability: auto_review
+  input_kind: code
+  review_path: kernel.cu
+  violating_path: cases/cuda/direct_detector/cuda_cluster_sync_in_branch/violating.cu
+  compliant_path: cases/cuda/direct_detector/compliant.cu
+  expected_patterns:
+  - cuda_cluster_sync_in_branch
+  expected_rules:
+  - CUDA.CLUSTER.1
+  forbidden_rules_in_compliant:
+  - CUDA.CLUSTER.1
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern cuda_cluster_sync_in_branch is the minimal hard-gate signal for CUDA.CLUSTER.1.
+- case_id: cuda/CUDA.CLUSTER.2/cuda_cluster_dsm_without_sync
+  rule_no: CUDA.CLUSTER.2
+  language_id: cuda
+  profile_id: cuda_thread_block_cluster
+  reviewability: auto_review
+  input_kind: code
+  review_path: kernel.cu
+  violating_path: cases/cuda/direct_detector/cuda_cluster_dsm_without_sync/violating.cu
+  compliant_path: cases/cuda/direct_detector/compliant.cu
+  expected_patterns:
+  - cuda_cluster_dsm_without_sync
+  expected_rules:
+  - CUDA.CLUSTER.2
+  forbidden_rules_in_compliant:
+  - CUDA.CLUSTER.2
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern cuda_cluster_dsm_without_sync is the minimal hard-gate signal for CUDA.CLUSTER.2.
+- case_id: cuda/CUDA.CLUSTER.3/cuda_cluster_launch_without_contract
+  rule_no: CUDA.CLUSTER.3
+  language_id: cuda
+  profile_id: cuda_thread_block_cluster
+  reviewability: auto_review
+  input_kind: code
+  review_path: kernel.cu
+  violating_path: cases/cuda/direct_detector/cuda_cluster_launch_without_contract/violating.cu
+  compliant_path: cases/cuda/direct_detector/compliant.cu
+  expected_patterns:
+  - cuda_cluster_launch_without_contract
+  expected_rules:
+  - CUDA.CLUSTER.3
+  forbidden_rules_in_compliant:
+  - CUDA.CLUSTER.3
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern cuda_cluster_launch_without_contract is the minimal hard-gate signal for CUDA.CLUSTER.3.
+- case_id: cuda/CUDA.MG.1/cuda_set_device_in_loop
+  rule_no: CUDA.MG.1
+  language_id: cuda
+  profile_id: cuda_multigpu
+  reviewability: auto_review
+  input_kind: code
+  review_path: kernel.cu
+  violating_path: cases/cuda/direct_detector/cuda_set_device_in_loop/violating.cu
+  compliant_path: cases/cuda/direct_detector/compliant.cu
+  expected_patterns:
+  - cuda_set_device_in_loop
+  expected_rules:
+  - CUDA.MG.1
+  forbidden_rules_in_compliant:
+  - CUDA.MG.1
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern cuda_set_device_in_loop is the minimal hard-gate signal for CUDA.MG.1.
+- case_id: cuda/CUDA.MG.2/cuda_peer_access
+  rule_no: CUDA.MG.2
+  language_id: cuda
+  profile_id: cuda_multigpu
+  reviewability: auto_review
+  input_kind: code
+  review_path: kernel.cu
+  violating_path: cases/cuda/direct_detector/cuda_peer_access/violating.cu
+  compliant_path: cases/cuda/direct_detector/compliant.cu
+  expected_patterns:
+  - cuda_peer_access
+  expected_rules:
+  - CUDA.MG.2
+  forbidden_rules_in_compliant:
+  - CUDA.MG.2
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern cuda_peer_access is the minimal hard-gate signal for CUDA.MG.2.
+- case_id: cuda/CUDA.MG.3/cuda_nccl_collective
+  rule_no: CUDA.MG.3
+  language_id: cuda
+  profile_id: cuda_multigpu
+  reviewability: auto_review
+  input_kind: code
+  review_path: kernel.cu
+  violating_path: cases/cuda/direct_detector/cuda_nccl_collective/violating.cu
+  compliant_path: cases/cuda/direct_detector/compliant.cu
+  expected_patterns:
+  - cuda_nccl_collective
+  expected_rules:
+  - CUDA.MG.3
+  forbidden_rules_in_compliant:
+  - CUDA.MG.3
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern cuda_nccl_collective is the minimal hard-gate signal for CUDA.MG.3.
+- case_id: cuda/CUDA.PERF.1/cuda_atomic
+  rule_no: CUDA.PERF.1
+  language_id: cuda
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: kernel.cu
+  violating_path: cases/cuda/direct_detector/cuda_atomic/violating.cu
+  compliant_path: cases/cuda/direct_detector/compliant.cu
+  expected_patterns:
+  - cuda_atomic
+  expected_rules:
+  - CUDA.PERF.1
+  forbidden_rules_in_compliant:
+  - CUDA.PERF.1
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern cuda_atomic is the minimal hard-gate signal for CUDA.PERF.1.
+- case_id: cuda/CUDA.PERF.2/cuda_warp_divergence
+  rule_no: CUDA.PERF.2
+  language_id: cuda
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: kernel.cu
+  violating_path: cases/cuda/direct_detector/cuda_warp_divergence/violating.cu
+  compliant_path: cases/cuda/direct_detector/compliant.cu
+  expected_patterns:
+  - cuda_warp_divergence
+  expected_rules:
+  - CUDA.PERF.2
+  forbidden_rules_in_compliant:
+  - CUDA.PERF.2
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern cuda_warp_divergence is the minimal hard-gate signal for CUDA.PERF.2.
+- case_id: cuda/CUDA.PERF.3/cuda_memcpy_async
+  rule_no: CUDA.PERF.3
+  language_id: cuda
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: kernel.cu
+  violating_path: cases/cuda/direct_detector/cuda_memcpy_async/violating.cu
+  compliant_path: cases/cuda/direct_detector/compliant.cu
+  expected_patterns:
+  - cuda_memcpy_async
+  expected_rules:
+  - CUDA.PERF.3
+  forbidden_rules_in_compliant:
+  - CUDA.PERF.3
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern cuda_memcpy_async is the minimal hard-gate signal for CUDA.PERF.3.
+- case_id: cuda/CUDA.PIPE.1/cuda_pipeline_copy_without_wait
+  rule_no: CUDA.PIPE.1
+  language_id: cuda
+  profile_id: cuda_pipeline_async
+  reviewability: auto_review
+  input_kind: code
+  review_path: kernel.cu
+  violating_path: cases/cuda/direct_detector/cuda_pipeline_copy_without_wait/violating.cu
+  compliant_path: cases/cuda/direct_detector/compliant.cu
+  expected_patterns:
+  - cuda_pipeline_copy_without_wait
+  expected_rules:
+  - CUDA.PIPE.1
+  forbidden_rules_in_compliant:
+  - CUDA.PIPE.1
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern cuda_pipeline_copy_without_wait is the minimal hard-gate signal for CUDA.PIPE.1.
+- case_id: cuda/CUDA.PIPE.2/cuda_pipeline_phase_ops_in_branch
+  rule_no: CUDA.PIPE.2
+  language_id: cuda
+  profile_id: cuda_pipeline_async
+  reviewability: auto_review
+  input_kind: code
+  review_path: kernel.cu
+  violating_path: cases/cuda/direct_detector/cuda_pipeline_phase_ops_in_branch/violating.cu
+  compliant_path: cases/cuda/direct_detector/compliant.cu
+  expected_patterns:
+  - cuda_pipeline_phase_ops_in_branch
+  expected_rules:
+  - CUDA.PIPE.2
+  forbidden_rules_in_compliant:
+  - CUDA.PIPE.2
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern cuda_pipeline_phase_ops_in_branch is the minimal hard-gate signal for CUDA.PIPE.2.
+- case_id: cuda/CUDA.PIPE.3/cuda_pipeline_barrier_in_branch
+  rule_no: CUDA.PIPE.3
+  language_id: cuda
+  profile_id: cuda_pipeline_async
+  reviewability: auto_review
+  input_kind: code
+  review_path: kernel.cu
+  violating_path: cases/cuda/direct_detector/cuda_pipeline_barrier_in_branch/violating.cu
+  compliant_path: cases/cuda/direct_detector/compliant.cu
+  expected_patterns:
+  - cuda_pipeline_barrier_in_branch
+  expected_rules:
+  - CUDA.PIPE.3
+  forbidden_rules_in_compliant:
+  - CUDA.PIPE.3
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern cuda_pipeline_barrier_in_branch is the minimal hard-gate signal for CUDA.PIPE.3.
+- case_id: cuda/CUDA.TC.1/cuda_tensor_core_divergent_collective
+  rule_no: CUDA.TC.1
+  language_id: cuda
+  profile_id: cuda_tensor_core
+  reviewability: auto_review
+  input_kind: code
+  review_path: kernel.cu
+  violating_path: cases/cuda/direct_detector/cuda_tensor_core_divergent_collective/violating.cu
+  compliant_path: cases/cuda/direct_detector/compliant.cu
+  expected_patterns:
+  - cuda_tensor_core_divergent_collective
+  expected_rules:
+  - CUDA.TC.1
+  forbidden_rules_in_compliant:
+  - CUDA.TC.1
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern cuda_tensor_core_divergent_collective is the minimal hard-gate signal for CUDA.TC.1.
+- case_id: cuda/CUDA.TC.2/cuda_tensor_inline_ptx
+  rule_no: CUDA.TC.2
+  language_id: cuda
+  profile_id: cuda_tensor_core
+  reviewability: auto_review
+  input_kind: code
+  review_path: kernel.cu
+  violating_path: cases/cuda/direct_detector/cuda_tensor_inline_ptx/violating.cu
+  compliant_path: cases/cuda/direct_detector/compliant.cu
+  expected_patterns:
+  - cuda_tensor_inline_ptx
+  expected_rules:
+  - CUDA.TC.2
+  forbidden_rules_in_compliant:
+  - CUDA.TC.2
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern cuda_tensor_inline_ptx is the minimal hard-gate signal for CUDA.TC.2.
+- case_id: cuda/CUDA.TC.3/cuda_tensor_mixed_precision_boundary
+  rule_no: CUDA.TC.3
+  language_id: cuda
+  profile_id: cuda_tensor_core
+  reviewability: auto_review
+  input_kind: code
+  review_path: kernel.cu
+  violating_path: cases/cuda/direct_detector/cuda_tensor_mixed_precision_boundary/violating.cu
+  compliant_path: cases/cuda/direct_detector/compliant.cu
+  expected_patterns:
+  - cuda_tensor_mixed_precision_boundary
+  expected_rules:
+  - CUDA.TC.3
+  forbidden_rules_in_compliant:
+  - CUDA.TC.3
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern cuda_tensor_mixed_precision_boundary is the minimal hard-gate signal for CUDA.TC.3.
+- case_id: cuda/CUDA.TMA.1/cuda_tma_copy_without_wait
+  rule_no: CUDA.TMA.1
+  language_id: cuda
+  profile_id: cuda_tma
+  reviewability: auto_review
+  input_kind: code
+  review_path: kernel.cu
+  violating_path: cases/cuda/direct_detector/cuda_tma_copy_without_wait/violating.cu
+  compliant_path: cases/cuda/direct_detector/compliant.cu
+  expected_patterns:
+  - cuda_tma_copy_without_wait
+  expected_rules:
+  - CUDA.TMA.1
+  forbidden_rules_in_compliant:
+  - CUDA.TMA.1
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern cuda_tma_copy_without_wait is the minimal hard-gate signal for CUDA.TMA.1.
+- case_id: cuda/CUDA.TMA.2/cuda_tma_tensor_map_pointer_without_contract
+  rule_no: CUDA.TMA.2
+  language_id: cuda
+  profile_id: cuda_tma
+  reviewability: auto_review
+  input_kind: code
+  review_path: kernel.cu
+  violating_path: cases/cuda/direct_detector/cuda_tma_tensor_map_pointer_without_contract/violating.cu
+  compliant_path: cases/cuda/direct_detector/compliant.cu
+  expected_patterns:
+  - cuda_tma_tensor_map_pointer_without_contract
+  expected_rules:
+  - CUDA.TMA.2
+  forbidden_rules_in_compliant:
+  - CUDA.TMA.2
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern cuda_tma_tensor_map_pointer_without_contract is the minimal hard-gate signal for CUDA.TMA.2.
+- case_id: cuda/CUDA.TMA.3/cuda_tma_tensormap_replace_without_fence
+  rule_no: CUDA.TMA.3
+  language_id: cuda
+  profile_id: cuda_tma
+  reviewability: auto_review
+  input_kind: code
+  review_path: kernel.cu
+  violating_path: cases/cuda/direct_detector/cuda_tma_tensormap_replace_without_fence/violating.cu
+  compliant_path: cases/cuda/direct_detector/compliant.cu
+  expected_patterns:
+  - cuda_tma_tensormap_replace_without_fence
+  expected_rules:
+  - CUDA.TMA.3
+  forbidden_rules_in_compliant:
+  - CUDA.TMA.3
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern cuda_tma_tensormap_replace_without_fence is the minimal hard-gate signal for CUDA.TMA.3.
+- case_id: cuda/CUDA.WGMMA.1/cuda_wgmma_issue_in_branch
+  rule_no: CUDA.WGMMA.1
+  language_id: cuda
+  profile_id: cuda_wgmma
+  reviewability: auto_review
+  input_kind: code
+  review_path: kernel.cu
+  violating_path: cases/cuda/direct_detector/cuda_wgmma_issue_in_branch/violating.cu
+  compliant_path: cases/cuda/direct_detector/compliant.cu
+  expected_patterns:
+  - cuda_wgmma_issue_in_branch
+  expected_rules:
+  - CUDA.WGMMA.1
+  forbidden_rules_in_compliant:
+  - CUDA.WGMMA.1
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern cuda_wgmma_issue_in_branch is the minimal hard-gate signal for CUDA.WGMMA.1.
+- case_id: cuda/CUDA.WGMMA.2/cuda_wgmma_group_ops_in_branch
+  rule_no: CUDA.WGMMA.2
+  language_id: cuda
+  profile_id: cuda_wgmma
+  reviewability: auto_review
+  input_kind: code
+  review_path: kernel.cu
+  violating_path: cases/cuda/direct_detector/cuda_wgmma_group_ops_in_branch/violating.cu
+  compliant_path: cases/cuda/direct_detector/compliant.cu
+  expected_patterns:
+  - cuda_wgmma_group_ops_in_branch
+  expected_rules:
+  - CUDA.WGMMA.2
+  forbidden_rules_in_compliant:
+  - CUDA.WGMMA.2
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern cuda_wgmma_group_ops_in_branch is the minimal hard-gate signal for CUDA.WGMMA.2.
+- case_id: cuda/CUDA.WGMMA.3/cuda_wgmma_epilogue_before_wait
+  rule_no: CUDA.WGMMA.3
+  language_id: cuda
+  profile_id: cuda_wgmma
+  reviewability: auto_review
+  input_kind: code
+  review_path: kernel.cu
+  violating_path: cases/cuda/direct_detector/cuda_wgmma_epilogue_before_wait/violating.cu
+  compliant_path: cases/cuda/direct_detector/compliant.cu
+  expected_patterns:
+  - cuda_wgmma_epilogue_before_wait
+  expected_rules:
+  - CUDA.WGMMA.3
+  forbidden_rules_in_compliant:
+  - CUDA.WGMMA.3
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern cuda_wgmma_epilogue_before_wait is the minimal hard-gate signal for CUDA.WGMMA.3.
+- case_id: dockerfile/DOCKER.1/latest_tag
+  rule_no: DOCKER.1
+  language_id: dockerfile
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: Dockerfile
+  violating_path: cases/dockerfile/direct_detector/latest_tag/violating.Dockerfile
+  compliant_path: cases/dockerfile/direct_detector/compliant.Dockerfile
+  expected_patterns:
+  - latest_tag
+  expected_rules:
+  - DOCKER.1
+  forbidden_rules_in_compliant:
+  - DOCKER.1
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern latest_tag is the minimal hard-gate signal for DOCKER.1.
+- case_id: dockerfile/DOCKER.2/apt_get_update_install_split
+  rule_no: DOCKER.2
+  language_id: dockerfile
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: Dockerfile
+  violating_path: cases/dockerfile/direct_detector/apt_get_update_install_split/violating.Dockerfile
+  compliant_path: cases/dockerfile/direct_detector/compliant.Dockerfile
+  expected_patterns:
+  - apt_get_update_install_split
+  expected_rules:
+  - DOCKER.2
+  forbidden_rules_in_compliant:
+  - DOCKER.2
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern apt_get_update_install_split is the minimal hard-gate signal for DOCKER.2.
+- case_id: dockerfile/DOCKER.3/latest_tag
+  rule_no: DOCKER.3
+  language_id: dockerfile
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: Dockerfile
+  violating_path: cases/dockerfile/direct_detector/latest_tag/violating.Dockerfile
+  compliant_path: cases/dockerfile/direct_detector/compliant.Dockerfile
+  expected_patterns:
+  - latest_tag
+  expected_rules:
+  - DOCKER.3
+  forbidden_rules_in_compliant:
+  - DOCKER.3
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern latest_tag is the minimal hard-gate signal for DOCKER.3.
+- case_id: dockerfile/DOCKER.4/copy_dot
+  rule_no: DOCKER.4
+  language_id: dockerfile
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: Dockerfile
+  violating_path: cases/dockerfile/direct_detector/copy_dot/violating.Dockerfile
+  compliant_path: cases/dockerfile/direct_detector/compliant.Dockerfile
+  expected_patterns:
+  - copy_dot
+  expected_rules:
+  - DOCKER.4
+  forbidden_rules_in_compliant:
+  - DOCKER.4
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern copy_dot is the minimal hard-gate signal for DOCKER.4.
+- case_id: dockerfile/DOCKER.5/add_remote_url
+  rule_no: DOCKER.5
+  language_id: dockerfile
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: Dockerfile
+  violating_path: cases/dockerfile/direct_detector/add_remote_url/violating.Dockerfile
+  compliant_path: cases/dockerfile/direct_detector/compliant.Dockerfile
+  expected_patterns:
+  - add_remote_url
+  expected_rules:
+  - DOCKER.5
+  forbidden_rules_in_compliant:
+  - DOCKER.5
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern add_remote_url is the minimal hard-gate signal for DOCKER.5.
+- case_id: dockerfile/DOCKER.6/apt_upgrade
+  rule_no: DOCKER.6
+  language_id: dockerfile
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: Dockerfile
+  violating_path: cases/dockerfile/direct_detector/apt_upgrade/violating.Dockerfile
+  compliant_path: cases/dockerfile/direct_detector/compliant.Dockerfile
+  expected_patterns:
+  - apt_upgrade
+  expected_rules:
+  - DOCKER.6
+  forbidden_rules_in_compliant:
+  - DOCKER.6
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern apt_upgrade is the minimal hard-gate signal for DOCKER.6.
+- case_id: dockerfile/DOCKER.7/copy_from_builder_usr_local
+  rule_no: DOCKER.7
+  language_id: dockerfile
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: Dockerfile
+  violating_path: cases/dockerfile/direct_detector/copy_from_builder_usr_local/violating.Dockerfile
+  compliant_path: cases/dockerfile/direct_detector/compliant.Dockerfile
+  expected_patterns:
+  - copy_from_builder_usr_local
+  expected_rules:
+  - DOCKER.7
+  forbidden_rules_in_compliant:
+  - DOCKER.7
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern copy_from_builder_usr_local is the minimal hard-gate signal for DOCKER.7.
+- case_id: dockerfile/DOCKER.8/apt_get_install_unpinned
+  rule_no: DOCKER.8
+  language_id: dockerfile
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: Dockerfile
+  violating_path: cases/dockerfile/direct_detector/apt_get_install_unpinned/violating.Dockerfile
+  compliant_path: cases/dockerfile/direct_detector/compliant.Dockerfile
+  expected_patterns:
+  - apt_get_install_unpinned
+  expected_rules:
+  - DOCKER.8
+  forbidden_rules_in_compliant:
+  - DOCKER.8
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern apt_get_install_unpinned is the minimal hard-gate signal for DOCKER.8.
+- case_id: dockerfile/DOCKER.SEC.1/root_user
+  rule_no: DOCKER.SEC.1
+  language_id: dockerfile
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: Dockerfile
+  violating_path: cases/dockerfile/direct_detector/root_user/violating.Dockerfile
+  compliant_path: cases/dockerfile/direct_detector/compliant.Dockerfile
+  expected_patterns:
+  - root_user
+  expected_rules:
+  - DOCKER.SEC.1
+  forbidden_rules_in_compliant:
+  - DOCKER.SEC.1
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern root_user is the minimal hard-gate signal for DOCKER.SEC.1.
+- case_id: dockerfile/DOCKER.SEC.2/copy_dot
+  rule_no: DOCKER.SEC.2
+  language_id: dockerfile
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: Dockerfile
+  violating_path: cases/dockerfile/direct_detector/copy_dot/violating.Dockerfile
+  compliant_path: cases/dockerfile/direct_detector/compliant.Dockerfile
+  expected_patterns:
+  - copy_dot
+  expected_rules:
+  - DOCKER.SEC.2
+  forbidden_rules_in_compliant:
+  - DOCKER.SEC.2
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern copy_dot is the minimal hard-gate signal for DOCKER.SEC.2.
+- case_id: dockerfile/DOCKER.SEC.3/root_user
+  rule_no: DOCKER.SEC.3
+  language_id: dockerfile
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: Dockerfile
+  violating_path: cases/dockerfile/direct_detector/root_user/violating.Dockerfile
+  compliant_path: cases/dockerfile/direct_detector/compliant.Dockerfile
+  expected_patterns:
+  - root_user
+  expected_rules:
+  - DOCKER.SEC.3
+  forbidden_rules_in_compliant:
+  - DOCKER.SEC.3
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern root_user is the minimal hard-gate signal for DOCKER.SEC.3.
+- case_id: dockerfile/DOCKER.SEC.4/copy_dot
+  rule_no: DOCKER.SEC.4
+  language_id: dockerfile
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: Dockerfile
+  violating_path: cases/dockerfile/direct_detector/copy_dot/violating.Dockerfile
+  compliant_path: cases/dockerfile/direct_detector/compliant.Dockerfile
+  expected_patterns:
+  - copy_dot
+  expected_rules:
+  - DOCKER.SEC.4
+  forbidden_rules_in_compliant:
+  - DOCKER.SEC.4
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern copy_dot is the minimal hard-gate signal for DOCKER.SEC.4.
+- case_id: dockerfile/DOCKER.SEC.5/curl_pipe_shell_run
+  rule_no: DOCKER.SEC.5
+  language_id: dockerfile
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: Dockerfile
+  violating_path: cases/dockerfile/direct_detector/curl_pipe_shell_run/violating.Dockerfile
+  compliant_path: cases/dockerfile/direct_detector/compliant.Dockerfile
+  expected_patterns:
+  - curl_pipe_shell_run
+  expected_rules:
+  - DOCKER.SEC.5
+  forbidden_rules_in_compliant:
+  - DOCKER.SEC.5
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern curl_pipe_shell_run is the minimal hard-gate signal for DOCKER.SEC.5.
+- case_id: dockerfile/DOCKER.SEC.6/add_remote_url
+  rule_no: DOCKER.SEC.6
+  language_id: dockerfile
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: Dockerfile
+  violating_path: cases/dockerfile/direct_detector/add_remote_url/violating.Dockerfile
+  compliant_path: cases/dockerfile/direct_detector/compliant.Dockerfile
+  expected_patterns:
+  - add_remote_url
+  expected_rules:
+  - DOCKER.SEC.6
+  forbidden_rules_in_compliant:
+  - DOCKER.SEC.6
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern add_remote_url is the minimal hard-gate signal for DOCKER.SEC.6.
+- case_id: dockerfile/DOCKER.SEC.7/build_secret_arg_env
+  rule_no: DOCKER.SEC.7
+  language_id: dockerfile
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: Dockerfile
+  violating_path: cases/dockerfile/direct_detector/build_secret_arg_env/violating.Dockerfile
+  compliant_path: cases/dockerfile/direct_detector/compliant.Dockerfile
+  expected_patterns:
+  - build_secret_arg_env
+  expected_rules:
+  - DOCKER.SEC.7
+  forbidden_rules_in_compliant:
+  - DOCKER.SEC.7
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern build_secret_arg_env is the minimal hard-gate signal for DOCKER.SEC.7.
+- case_id: go/GO.1/defer_close_missing
+  rule_no: GO.1
+  language_id: go
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: sample.go
+  violating_path: cases/go/direct_detector/defer_close_missing/violating.go
+  compliant_path: cases/go/direct_detector/compliant.go
+  expected_patterns:
+  - defer_close_missing
+  expected_rules:
+  - GO.1
+  forbidden_rules_in_compliant:
+  - GO.1
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern defer_close_missing is the minimal hard-gate signal for GO.1.
+- case_id: go/GO.10/goroutine_leak
+  rule_no: GO.10
+  language_id: go
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: sample.go
+  violating_path: cases/go/direct_detector/goroutine_leak/violating.go
+  compliant_path: cases/go/direct_detector/compliant.go
+  expected_patterns:
+  - goroutine_leak
+  expected_rules:
+  - GO.10
+  forbidden_rules_in_compliant:
+  - GO.10
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern goroutine_leak is the minimal hard-gate signal for GO.10.
+- case_id: go/GO.11/sentinel_error_compare
+  rule_no: GO.11
+  language_id: go
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: sample.go
+  violating_path: cases/go/direct_detector/sentinel_error_compare/violating.go
+  compliant_path: cases/go/direct_detector/compliant.go
+  expected_patterns:
+  - sentinel_error_compare
+  expected_rules:
+  - GO.11
+  forbidden_rules_in_compliant:
+  - GO.11
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern sentinel_error_compare is the minimal hard-gate signal for GO.11.
+- case_id: go/GO.12/transaction_commit_without_rollback
+  rule_no: GO.12
+  language_id: go
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: sample.go
+  violating_path: cases/go/direct_detector/transaction_commit_without_rollback/violating.go
+  compliant_path: cases/go/direct_detector/compliant.go
+  expected_patterns:
+  - transaction_commit_without_rollback
+  expected_rules:
+  - GO.12
+  forbidden_rules_in_compliant:
+  - GO.12
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern transaction_commit_without_rollback is the minimal hard-gate signal for GO.12.
+- case_id: go/GO.13/http_handler_json_decode_without_validation
+  rule_no: GO.13
+  language_id: go
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: sample.go
+  violating_path: cases/go/direct_detector/http_handler_json_decode_without_validation/violating.go
+  compliant_path: cases/go/direct_detector/compliant.go
+  expected_patterns:
+  - http_handler_json_decode_without_validation
+  expected_rules:
+  - GO.13
+  forbidden_rules_in_compliant:
+  - GO.13
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern http_handler_json_decode_without_validation is the minimal hard-gate signal for GO.13.
+- case_id: go/GO.14/http_client_without_timeout
+  rule_no: GO.14
+  language_id: go
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: sample.go
+  violating_path: cases/go/direct_detector/http_client_without_timeout/violating.go
+  compliant_path: cases/go/direct_detector/compliant.go
+  expected_patterns:
+  - http_client_without_timeout
+  expected_rules:
+  - GO.14
+  forbidden_rules_in_compliant:
+  - GO.14
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern http_client_without_timeout is the minimal hard-gate signal for GO.14.
+- case_id: go/GO.15/http_response_body_without_close
+  rule_no: GO.15
+  language_id: go
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: sample.go
+  violating_path: cases/go/direct_detector/http_response_body_without_close/violating.go
+  compliant_path: cases/go/direct_detector/compliant.go
+  expected_patterns:
+  - http_response_body_without_close
+  expected_rules:
+  - GO.15
+  forbidden_rules_in_compliant:
+  - GO.15
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern http_response_body_without_close is the minimal hard-gate signal for GO.15.
+- case_id: go/GO.2/context_missing
+  rule_no: GO.2
+  language_id: go
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: sample.go
+  violating_path: cases/go/direct_detector/context_missing/violating.go
+  compliant_path: cases/go/direct_detector/compliant.go
+  expected_patterns:
+  - context_missing
+  expected_rules:
+  - GO.2
+  forbidden_rules_in_compliant:
+  - GO.2
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern context_missing is the minimal hard-gate signal for GO.2.
+- case_id: go/GO.3/ignored_error
+  rule_no: GO.3
+  language_id: go
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: sample.go
+  violating_path: cases/go/direct_detector/ignored_error/violating.go
+  compliant_path: cases/go/direct_detector/compliant.go
+  expected_patterns:
+  - ignored_error
+  expected_rules:
+  - GO.3
+  forbidden_rules_in_compliant:
+  - GO.3
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern ignored_error is the minimal hard-gate signal for GO.3.
+- case_id: go/GO.4/goroutine_leak
+  rule_no: GO.4
+  language_id: go
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: sample.go
+  violating_path: cases/go/direct_detector/goroutine_leak/violating.go
+  compliant_path: cases/go/direct_detector/compliant.go
+  expected_patterns:
+  - goroutine_leak
+  expected_rules:
+  - GO.4
+  forbidden_rules_in_compliant:
+  - GO.4
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern goroutine_leak is the minimal hard-gate signal for GO.4.
+- case_id: go/GO.5/context_missing
+  rule_no: GO.5
+  language_id: go
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: sample.go
+  violating_path: cases/go/direct_detector/context_missing/violating.go
+  compliant_path: cases/go/direct_detector/compliant.go
+  expected_patterns:
+  - context_missing
+  expected_rules:
+  - GO.5
+  forbidden_rules_in_compliant:
+  - GO.5
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern context_missing is the minimal hard-gate signal for GO.5.
+- case_id: go/GO.6/defer_close_missing
+  rule_no: GO.6
+  language_id: go
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: sample.go
+  violating_path: cases/go/direct_detector/defer_close_missing/violating.go
+  compliant_path: cases/go/direct_detector/compliant.go
+  expected_patterns:
+  - defer_close_missing
+  expected_rules:
+  - GO.6
+  forbidden_rules_in_compliant:
+  - GO.6
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern defer_close_missing is the minimal hard-gate signal for GO.6.
+- case_id: go/GO.7/ignored_error
+  rule_no: GO.7
+  language_id: go
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: sample.go
+  violating_path: cases/go/direct_detector/ignored_error/violating.go
+  compliant_path: cases/go/direct_detector/compliant.go
+  expected_patterns:
+  - ignored_error
+  expected_rules:
+  - GO.7
+  forbidden_rules_in_compliant:
+  - GO.7
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern ignored_error is the minimal hard-gate signal for GO.7.
+- case_id: go/GO.8/context_background
+  rule_no: GO.8
+  language_id: go
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: sample.go
+  violating_path: cases/go/direct_detector/context_background/violating.go
+  compliant_path: cases/go/direct_detector/compliant.go
+  expected_patterns:
+  - context_background
+  expected_rules:
+  - GO.8
+  forbidden_rules_in_compliant:
+  - GO.8
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern context_background is the minimal hard-gate signal for GO.8.
+- case_id: go/GO.9/panic_call
+  rule_no: GO.9
+  language_id: go
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: sample.go
+  violating_path: cases/go/direct_detector/panic_call/violating.go
+  compliant_path: cases/go/direct_detector/compliant.go
+  expected_patterns:
+  - panic_call
+  expected_rules:
+  - GO.9
+  forbidden_rules_in_compliant:
+  - GO.9
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern panic_call is the minimal hard-gate signal for GO.9.
+- case_id: java/JAVA.1/try_without_resources
+  rule_no: JAVA.1
+  language_id: java
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: Sample.java
+  violating_path: cases/java/direct_detector/try_without_resources/violating.java
+  compliant_path: cases/java/direct_detector/compliant.java
+  expected_patterns:
+  - try_without_resources
+  expected_rules:
+  - JAVA.1
+  forbidden_rules_in_compliant:
+  - JAVA.1
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern try_without_resources is the minimal hard-gate signal for JAVA.1.
+- case_id: java/JAVA.2/null_return
+  rule_no: JAVA.2
+  language_id: java
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: Sample.java
+  violating_path: cases/java/direct_detector/null_return/violating.java
+  compliant_path: cases/java/direct_detector/compliant.java
+  expected_patterns:
+  - null_return
+  expected_rules:
+  - JAVA.2
+  forbidden_rules_in_compliant:
+  - JAVA.2
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern null_return is the minimal hard-gate signal for JAVA.2.
+- case_id: java/JAVA.3/null_return
+  rule_no: JAVA.3
+  language_id: java
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: Sample.java
+  violating_path: cases/java/direct_detector/null_return/violating.java
+  compliant_path: cases/java/direct_detector/compliant.java
+  expected_patterns:
+  - null_return
+  expected_rules:
+  - JAVA.3
+  forbidden_rules_in_compliant:
+  - JAVA.3
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern null_return is the minimal hard-gate signal for JAVA.3.
+- case_id: java/JAVA.4/try_without_resources
+  rule_no: JAVA.4
+  language_id: java
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: Sample.java
+  violating_path: cases/java/direct_detector/try_without_resources/violating.java
+  compliant_path: cases/java/direct_detector/compliant.java
+  expected_patterns:
+  - try_without_resources
+  expected_rules:
+  - JAVA.4
+  forbidden_rules_in_compliant:
+  - JAVA.4
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern try_without_resources is the minimal hard-gate signal for JAVA.4.
+- case_id: java/JAVA.PROJ.1/string_sql_concatenation
+  rule_no: JAVA.PROJ.1
+  language_id: java
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: Sample.java
+  violating_path: cases/java/direct_detector/string_sql_concatenation/violating.java
+  compliant_path: cases/java/direct_detector/compliant.java
+  expected_patterns:
+  - string_sql_concatenation
+  expected_rules:
+  - JAVA.PROJ.1
+  forbidden_rules_in_compliant:
+  - JAVA.PROJ.1
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern string_sql_concatenation is the minimal hard-gate signal for JAVA.PROJ.1.
+- case_id: java/JAVA.PROJ.2/synchronized_collection
+  rule_no: JAVA.PROJ.2
+  language_id: java
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: Sample.java
+  violating_path: cases/java/direct_detector/synchronized_collection/violating.java
+  compliant_path: cases/java/direct_detector/compliant.java
+  expected_patterns:
+  - synchronized_collection
+  expected_rules:
+  - JAVA.PROJ.2
+  forbidden_rules_in_compliant:
+  - JAVA.PROJ.2
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern synchronized_collection is the minimal hard-gate signal for JAVA.PROJ.2.
+- case_id: java/JAVA.PROJ.3/string_sql_concatenation
+  rule_no: JAVA.PROJ.3
+  language_id: java
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: Sample.java
+  violating_path: cases/java/direct_detector/string_sql_concatenation/violating.java
+  compliant_path: cases/java/direct_detector/compliant.java
+  expected_patterns:
+  - string_sql_concatenation
+  expected_rules:
+  - JAVA.PROJ.3
+  forbidden_rules_in_compliant:
+  - JAVA.PROJ.3
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern string_sql_concatenation is the minimal hard-gate signal for JAVA.PROJ.3.
+- case_id: java/JAVA.PROJ.4/synchronized_collection
+  rule_no: JAVA.PROJ.4
+  language_id: java
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: Sample.java
+  violating_path: cases/java/direct_detector/synchronized_collection/violating.java
+  compliant_path: cases/java/direct_detector/compliant.java
+  expected_patterns:
+  - synchronized_collection
+  expected_rules:
+  - JAVA.PROJ.4
+  forbidden_rules_in_compliant:
+  - JAVA.PROJ.4
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern synchronized_collection is the minimal hard-gate signal for JAVA.PROJ.4.
+- case_id: java/JAVA.PROJ.5/catch_exception
+  rule_no: JAVA.PROJ.5
+  language_id: java
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: Sample.java
+  violating_path: cases/java/direct_detector/catch_exception/violating.java
+  compliant_path: cases/java/direct_detector/compliant.java
+  expected_patterns:
+  - catch_exception
+  expected_rules:
+  - JAVA.PROJ.5
+  forbidden_rules_in_compliant:
+  - JAVA.PROJ.5
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern catch_exception is the minimal hard-gate signal for JAVA.PROJ.5.
+- case_id: java/JAVA.PROJ.6/new_thread
+  rule_no: JAVA.PROJ.6
+  language_id: java
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: Sample.java
+  violating_path: cases/java/direct_detector/new_thread/violating.java
+  compliant_path: cases/java/direct_detector/compliant.java
+  expected_patterns:
+  - new_thread
+  expected_rules:
+  - JAVA.PROJ.6
+  forbidden_rules_in_compliant:
+  - JAVA.PROJ.6
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern new_thread is the minimal hard-gate signal for JAVA.PROJ.6.
+- case_id: java/JAVA.SPRING.1/spring_field_injection
+  rule_no: JAVA.SPRING.1
+  language_id: java
+  profile_id: spring_backend
+  reviewability: auto_review
+  input_kind: code
+  review_path: src/main/java/AppController.java
+  violating_path: cases/java/direct_detector/spring_field_injection/violating.java
+  compliant_path: cases/java/direct_detector/compliant.java
+  expected_patterns:
+  - spring_field_injection
+  expected_rules:
+  - JAVA.SPRING.1
+  forbidden_rules_in_compliant:
+  - JAVA.SPRING.1
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern spring_field_injection is the minimal hard-gate signal for JAVA.SPRING.1.
+- case_id: java/JAVA.SPRING.2/spring_transaction_on_controller
+  rule_no: JAVA.SPRING.2
+  language_id: java
+  profile_id: spring_backend
+  reviewability: auto_review
+  input_kind: code
+  review_path: src/main/java/AppController.java
+  violating_path: cases/java/direct_detector/spring_transaction_on_controller/violating.java
+  compliant_path: cases/java/direct_detector/compliant.java
+  expected_patterns:
+  - spring_transaction_on_controller
+  expected_rules:
+  - JAVA.SPRING.2
+  forbidden_rules_in_compliant:
+  - JAVA.SPRING.2
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern spring_transaction_on_controller is the minimal hard-gate signal for JAVA.SPRING.2.
+- case_id: java/JAVA.SPRING.3/spring_configuration_properties
+  rule_no: JAVA.SPRING.3
+  language_id: java
+  profile_id: spring_backend
+  reviewability: auto_review
+  input_kind: code
+  review_path: src/main/java/AppController.java
+  violating_path: cases/java/direct_detector/spring_configuration_properties/violating.java
+  compliant_path: cases/java/direct_detector/compliant.java
+  expected_patterns:
+  - spring_configuration_properties
+  expected_rules:
+  - JAVA.SPRING.3
+  forbidden_rules_in_compliant:
+  - JAVA.SPRING.3
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern spring_configuration_properties is the minimal hard-gate signal for JAVA.SPRING.3.
+- case_id: java/JAVA.SPRING.4/spring_findall_request_path
+  rule_no: JAVA.SPRING.4
+  language_id: java
+  profile_id: spring_backend
+  reviewability: auto_review
+  input_kind: code
+  review_path: src/main/java/AppController.java
+  violating_path: cases/java/direct_detector/spring_findall_request_path/violating.java
+  compliant_path: cases/java/direct_detector/compliant.java
+  expected_patterns:
+  - spring_findall_request_path
+  expected_rules:
+  - JAVA.SPRING.4
+  forbidden_rules_in_compliant:
+  - JAVA.SPRING.4
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern spring_findall_request_path is the minimal hard-gate signal for JAVA.SPRING.4.
+- case_id: javascript/JS.1/eval_usage
+  rule_no: JS.1
+  language_id: javascript
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: src/app.js
+  violating_path: cases/javascript/direct_detector/eval_usage/violating.js
+  compliant_path: cases/javascript/direct_detector/compliant.js
+  expected_patterns:
+  - eval_usage
+  expected_rules:
+  - JS.1
+  forbidden_rules_in_compliant:
+  - JS.1
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern eval_usage is the minimal hard-gate signal for JS.1.
+- case_id: javascript/JS.2/innerhtml
+  rule_no: JS.2
+  language_id: javascript
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: src/app.js
+  violating_path: cases/javascript/direct_detector/innerhtml/violating.js
+  compliant_path: cases/javascript/direct_detector/compliant.js
+  expected_patterns:
+  - innerhtml
+  expected_rules:
+  - JS.2
+  forbidden_rules_in_compliant:
+  - JS.2
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern innerhtml is the minimal hard-gate signal for JS.2.
+- case_id: javascript/JS.3/innerhtml
+  rule_no: JS.3
+  language_id: javascript
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: src/app.js
+  violating_path: cases/javascript/direct_detector/innerhtml/violating.js
+  compliant_path: cases/javascript/direct_detector/compliant.js
+  expected_patterns:
+  - innerhtml
+  expected_rules:
+  - JS.3
+  forbidden_rules_in_compliant:
+  - JS.3
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern innerhtml is the minimal hard-gate signal for JS.3.
+- case_id: javascript/JS.4/eval_usage
+  rule_no: JS.4
+  language_id: javascript
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: src/app.js
+  violating_path: cases/javascript/direct_detector/eval_usage/violating.js
+  compliant_path: cases/javascript/direct_detector/compliant.js
+  expected_patterns:
+  - eval_usage
+  expected_rules:
+  - JS.4
+  forbidden_rules_in_compliant:
+  - JS.4
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern eval_usage is the minimal hard-gate signal for JS.4.
+- case_id: javascript/JS.5/document_write
+  rule_no: JS.5
+  language_id: javascript
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: src/app.js
+  violating_path: cases/javascript/direct_detector/document_write/violating.js
+  compliant_path: cases/javascript/direct_detector/compliant.js
+  expected_patterns:
+  - document_write
+  expected_rules:
+  - JS.5
+  forbidden_rules_in_compliant:
+  - JS.5
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern document_write is the minimal hard-gate signal for JS.5.
+- case_id: javascript/JS.6/function_constructor
+  rule_no: JS.6
+  language_id: javascript
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: src/app.js
+  violating_path: cases/javascript/direct_detector/function_constructor/violating.js
+  compliant_path: cases/javascript/direct_detector/compliant.js
+  expected_patterns:
+  - function_constructor
+  expected_rules:
+  - JS.6
+  forbidden_rules_in_compliant:
+  - JS.6
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern function_constructor is the minimal hard-gate signal for JS.6.
+- case_id: javascript/JS.NEXT.1/next_route_request_json
+  rule_no: JS.NEXT.1
+  language_id: javascript
+  profile_id: nextjs_frontend
+  context_id: app_router
+  reviewability: auto_review
+  input_kind: code
+  review_path: app/route.js
+  violating_path: cases/javascript/direct_detector/next_route_request_json/violating.js
+  compliant_path: cases/javascript/direct_detector/compliant.js
+  expected_patterns:
+  - next_route_request_json
+  expected_rules:
+  - JS.NEXT.1
+  forbidden_rules_in_compliant:
+  - JS.NEXT.1
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern next_route_request_json is the minimal hard-gate signal for JS.NEXT.1.
+- case_id: javascript/JS.NEXT.2/next_server_action_formdata
+  rule_no: JS.NEXT.2
+  language_id: javascript
+  profile_id: nextjs_frontend
+  context_id: app_router
+  reviewability: auto_review
+  input_kind: code
+  review_path: app/route.js
+  violating_path: cases/javascript/direct_detector/next_server_action_formdata/violating.js
+  compliant_path: cases/javascript/direct_detector/compliant.js
+  expected_patterns:
+  - next_server_action_formdata
+  expected_rules:
+  - JS.NEXT.2
+  forbidden_rules_in_compliant:
+  - JS.NEXT.2
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern next_server_action_formdata is the minimal hard-gate signal for JS.NEXT.2.
+- case_id: javascript/JS.NEXT.3/next_client_secret_env
+  rule_no: JS.NEXT.3
+  language_id: javascript
+  profile_id: nextjs_frontend
+  context_id: app_router
+  reviewability: auto_review
+  input_kind: code
+  review_path: app/route.js
+  violating_path: cases/javascript/direct_detector/next_client_secret_env/violating.js
+  compliant_path: cases/javascript/direct_detector/compliant.js
+  expected_patterns:
+  - next_client_secret_env
+  expected_rules:
+  - JS.NEXT.3
+  forbidden_rules_in_compliant:
+  - JS.NEXT.3
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern next_client_secret_env is the minimal hard-gate signal for JS.NEXT.3.
+- case_id: javascript/JS.NEXT.4/next_server_component_browser_api
+  rule_no: JS.NEXT.4
+  language_id: javascript
+  profile_id: nextjs_frontend
+  context_id: app_router
+  reviewability: auto_review
+  input_kind: code
+  review_path: app/route.js
+  violating_path: cases/javascript/direct_detector/next_server_component_browser_api/violating.js
+  compliant_path: cases/javascript/direct_detector/compliant.js
+  expected_patterns:
+  - next_server_component_browser_api
+  expected_rules:
+  - JS.NEXT.4
+  forbidden_rules_in_compliant:
+  - JS.NEXT.4
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern next_server_component_browser_api is the minimal hard-gate signal for JS.NEXT.4.
+- case_id: javascript/JS.NODE.1/promise_without_await
+  rule_no: JS.NODE.1
+  language_id: javascript
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: src/app.js
+  violating_path: cases/javascript/direct_detector/promise_without_await/violating.js
+  compliant_path: cases/javascript/direct_detector/compliant.js
+  expected_patterns:
+  - promise_without_await
+  expected_rules:
+  - JS.NODE.1
+  forbidden_rules_in_compliant:
+  - JS.NODE.1
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern promise_without_await is the minimal hard-gate signal for JS.NODE.1.
+- case_id: javascript/JS.NODE.2/loose_equality
+  rule_no: JS.NODE.2
+  language_id: javascript
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: src/app.js
+  violating_path: cases/javascript/direct_detector/loose_equality/violating.js
+  compliant_path: cases/javascript/direct_detector/compliant.js
+  expected_patterns:
+  - loose_equality
+  expected_rules:
+  - JS.NODE.2
+  forbidden_rules_in_compliant:
+  - JS.NODE.2
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern loose_equality is the minimal hard-gate signal for JS.NODE.2.
+- case_id: javascript/JS.NODE.3/promise_without_await
+  rule_no: JS.NODE.3
+  language_id: javascript
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: src/app.js
+  violating_path: cases/javascript/direct_detector/promise_without_await/violating.js
+  compliant_path: cases/javascript/direct_detector/compliant.js
+  expected_patterns:
+  - promise_without_await
+  expected_rules:
+  - JS.NODE.3
+  forbidden_rules_in_compliant:
+  - JS.NODE.3
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern promise_without_await is the minimal hard-gate signal for JS.NODE.3.
+- case_id: javascript/JS.NODE.4/loose_equality
+  rule_no: JS.NODE.4
+  language_id: javascript
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: src/app.js
+  violating_path: cases/javascript/direct_detector/loose_equality/violating.js
+  compliant_path: cases/javascript/direct_detector/compliant.js
+  expected_patterns:
+  - loose_equality
+  expected_rules:
+  - JS.NODE.4
+  forbidden_rules_in_compliant:
+  - JS.NODE.4
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern loose_equality is the minimal hard-gate signal for JS.NODE.4.
+- case_id: javascript/JS.NODE.5/settimeout_string
+  rule_no: JS.NODE.5
+  language_id: javascript
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: src/app.js
+  violating_path: cases/javascript/direct_detector/settimeout_string/violating.js
+  compliant_path: cases/javascript/direct_detector/compliant.js
+  expected_patterns:
+  - settimeout_string
+  expected_rules:
+  - JS.NODE.5
+  forbidden_rules_in_compliant:
+  - JS.NODE.5
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern settimeout_string is the minimal hard-gate signal for JS.NODE.5.
+- case_id: python/PY.2/bare_except
+  rule_no: PY.2
+  language_id: python
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: sample.py
+  violating_path: cases/python/direct_detector/bare_except/violating.py
+  compliant_path: cases/python/direct_detector/compliant.py
+  expected_patterns:
+  - bare_except
+  expected_rules:
+  - PY.2
+  forbidden_rules_in_compliant:
+  - PY.2
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern bare_except is the minimal hard-gate signal for PY.2.
+- case_id: python/PY.3/bare_except
+  rule_no: PY.3
+  language_id: python
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: sample.py
+  violating_path: cases/python/direct_detector/bare_except/violating.py
+  compliant_path: cases/python/direct_detector/compliant.py
+  expected_patterns:
+  - bare_except
+  expected_rules:
+  - PY.3
+  forbidden_rules_in_compliant:
+  - PY.3
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern bare_except is the minimal hard-gate signal for PY.3.
+- case_id: python/PY.4/mutable_default
+  rule_no: PY.4
+  language_id: python
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: sample.py
+  violating_path: cases/python/direct_detector/mutable_default/violating.py
+  compliant_path: cases/python/direct_detector/compliant.py
+  expected_patterns:
+  - mutable_default
+  expected_rules:
+  - PY.4
+  forbidden_rules_in_compliant:
+  - PY.4
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern mutable_default is the minimal hard-gate signal for PY.4.
+- case_id: python/PY.5/except_exception
+  rule_no: PY.5
+  language_id: python
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: sample.py
+  violating_path: cases/python/direct_detector/except_exception/violating.py
+  compliant_path: cases/python/direct_detector/compliant.py
+  expected_patterns:
+  - except_exception
+  expected_rules:
+  - PY.5
+  forbidden_rules_in_compliant:
+  - PY.5
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern except_exception is the minimal hard-gate signal for PY.5.
+- case_id: python/PY.DJ.1/django_debug_true
+  rule_no: PY.DJ.1
+  language_id: python
+  profile_id: django_service
+  reviewability: auto_review
+  input_kind: code
+  review_path: app/views.py
+  violating_path: cases/python/direct_detector/django_debug_true/violating.py
+  compliant_path: cases/python/direct_detector/compliant.py
+  expected_patterns:
+  - django_debug_true
+  expected_rules:
+  - PY.DJ.1
+  forbidden_rules_in_compliant:
+  - PY.DJ.1
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern django_debug_true is the minimal hard-gate signal for PY.DJ.1.
+- case_id: python/PY.DJ.2/django_csrf_exempt
+  rule_no: PY.DJ.2
+  language_id: python
+  profile_id: django_service
+  reviewability: auto_review
+  input_kind: code
+  review_path: app/views.py
+  violating_path: cases/python/direct_detector/django_csrf_exempt/violating.py
+  compliant_path: cases/python/direct_detector/compliant.py
+  expected_patterns:
+  - django_csrf_exempt
+  expected_rules:
+  - PY.DJ.2
+  forbidden_rules_in_compliant:
+  - PY.DJ.2
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern django_csrf_exempt is the minimal hard-gate signal for PY.DJ.2.
+- case_id: python/PY.DJ.3/django_raw_sql
+  rule_no: PY.DJ.3
+  language_id: python
+  profile_id: django_service
+  reviewability: auto_review
+  input_kind: code
+  review_path: app/views.py
+  violating_path: cases/python/direct_detector/django_raw_sql/violating.py
+  compliant_path: cases/python/direct_detector/compliant.py
+  expected_patterns:
+  - django_raw_sql
+  expected_rules:
+  - PY.DJ.3
+  forbidden_rules_in_compliant:
+  - PY.DJ.3
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern django_raw_sql is the minimal hard-gate signal for PY.DJ.3.
+- case_id: python/PY.DJ.4/django_mark_safe
+  rule_no: PY.DJ.4
+  language_id: python
+  profile_id: django_service
+  reviewability: auto_review
+  input_kind: code
+  review_path: app/views.py
+  violating_path: cases/python/direct_detector/django_mark_safe/violating.py
+  compliant_path: cases/python/direct_detector/compliant.py
+  expected_patterns:
+  - django_mark_safe
+  expected_rules:
+  - PY.DJ.4
+  forbidden_rules_in_compliant:
+  - PY.DJ.4
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern django_mark_safe is the minimal hard-gate signal for PY.DJ.4.
+- case_id: python/PY.FAPI.1/fastapi_blocking_in_async
+  rule_no: PY.FAPI.1
+  language_id: python
+  profile_id: fastapi_service
+  reviewability: auto_review
+  input_kind: code
+  review_path: app/main.py
+  violating_path: cases/python/direct_detector/fastapi_blocking_in_async/violating.py
+  compliant_path: cases/python/direct_detector/compliant.py
+  expected_patterns:
+  - fastapi_blocking_in_async
+  expected_rules:
+  - PY.FAPI.1
+  forbidden_rules_in_compliant:
+  - PY.FAPI.1
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern fastapi_blocking_in_async is the minimal hard-gate signal for PY.FAPI.1.
+- case_id: python/PY.FAPI.2/fastapi_request_json
+  rule_no: PY.FAPI.2
+  language_id: python
+  profile_id: fastapi_service
+  reviewability: auto_review
+  input_kind: code
+  review_path: app/main.py
+  violating_path: cases/python/direct_detector/fastapi_request_json/violating.py
+  compliant_path: cases/python/direct_detector/compliant.py
+  expected_patterns:
+  - fastapi_request_json
+  expected_rules:
+  - PY.FAPI.2
+  forbidden_rules_in_compliant:
+  - PY.FAPI.2
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern fastapi_request_json is the minimal hard-gate signal for PY.FAPI.2.
+- case_id: python/PY.PROJ.1/open_without_context
+  rule_no: PY.PROJ.1
+  language_id: python
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: sample.py
+  violating_path: cases/python/direct_detector/open_without_context/violating.py
+  compliant_path: cases/python/direct_detector/compliant.py
+  expected_patterns:
+  - open_without_context
+  expected_rules:
+  - PY.PROJ.1
+  forbidden_rules_in_compliant:
+  - PY.PROJ.1
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern open_without_context is the minimal hard-gate signal for PY.PROJ.1.
+- case_id: python/PY.PROJ.2/subprocess_shell_true
+  rule_no: PY.PROJ.2
+  language_id: python
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: sample.py
+  violating_path: cases/python/direct_detector/subprocess_shell_true/violating.py
+  compliant_path: cases/python/direct_detector/compliant.py
+  expected_patterns:
+  - subprocess_shell_true
+  expected_rules:
+  - PY.PROJ.2
+  forbidden_rules_in_compliant:
+  - PY.PROJ.2
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern subprocess_shell_true is the minimal hard-gate signal for PY.PROJ.2.
+- case_id: python/PY.PROJ.3/open_without_context
+  rule_no: PY.PROJ.3
+  language_id: python
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: sample.py
+  violating_path: cases/python/direct_detector/open_without_context/violating.py
+  compliant_path: cases/python/direct_detector/compliant.py
+  expected_patterns:
+  - open_without_context
+  expected_rules:
+  - PY.PROJ.3
+  forbidden_rules_in_compliant:
+  - PY.PROJ.3
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern open_without_context is the minimal hard-gate signal for PY.PROJ.3.
+- case_id: python/PY.PROJ.4/subprocess_shell_true
+  rule_no: PY.PROJ.4
+  language_id: python
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: sample.py
+  violating_path: cases/python/direct_detector/subprocess_shell_true/violating.py
+  compliant_path: cases/python/direct_detector/compliant.py
+  expected_patterns:
+  - subprocess_shell_true
+  expected_rules:
+  - PY.PROJ.4
+  forbidden_rules_in_compliant:
+  - PY.PROJ.4
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern subprocess_shell_true is the minimal hard-gate signal for PY.PROJ.4.
+- case_id: python/PY.PROJ.5/eval_exec
+  rule_no: PY.PROJ.5
+  language_id: python
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: sample.py
+  violating_path: cases/python/direct_detector/eval_exec/violating.py
+  compliant_path: cases/python/direct_detector/compliant.py
+  expected_patterns:
+  - eval_exec
+  expected_rules:
+  - PY.PROJ.5
+  forbidden_rules_in_compliant:
+  - PY.PROJ.5
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern eval_exec is the minimal hard-gate signal for PY.PROJ.5.
+- case_id: python/PY.PROJ.6/assert_usage
+  rule_no: PY.PROJ.6
+  language_id: python
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: sample.py
+  violating_path: cases/python/direct_detector/assert_usage/violating.py
+  compliant_path: cases/python/direct_detector/compliant.py
+  expected_patterns:
+  - assert_usage
+  expected_rules:
+  - PY.PROJ.6
+  forbidden_rules_in_compliant:
+  - PY.PROJ.6
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern assert_usage is the minimal hard-gate signal for PY.PROJ.6.
+- case_id: python/PY.PROJ.7/yaml_unsafe_load
+  rule_no: PY.PROJ.7
+  language_id: python
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: sample.py
+  violating_path: cases/python/direct_detector/yaml_unsafe_load/violating.py
+  compliant_path: cases/python/direct_detector/compliant.py
+  expected_patterns:
+  - yaml_unsafe_load
+  expected_rules:
+  - PY.PROJ.7
+  forbidden_rules_in_compliant:
+  - PY.PROJ.7
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern yaml_unsafe_load is the minimal hard-gate signal for PY.PROJ.7.
+- case_id: rust/RUST.1/unsafe_block
+  rule_no: RUST.1
+  language_id: rust
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: src/lib.rs
+  violating_path: cases/rust/direct_detector/unsafe_block/violating.rs
+  compliant_path: cases/rust/direct_detector/compliant.rs
+  expected_patterns:
+  - unsafe_block
+  expected_rules:
+  - RUST.1
+  forbidden_rules_in_compliant:
+  - RUST.1
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern unsafe_block is the minimal hard-gate signal for RUST.1.
+- case_id: rust/RUST.10/rust_ffi_boundary
+  rule_no: RUST.10
+  language_id: rust
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: src/lib.rs
+  violating_path: cases/rust/direct_detector/rust_ffi_boundary/violating.rs
+  compliant_path: cases/rust/direct_detector/compliant.rs
+  expected_patterns:
+  - rust_ffi_boundary
+  expected_rules:
+  - RUST.10
+  forbidden_rules_in_compliant:
+  - RUST.10
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern rust_ffi_boundary is the minimal hard-gate signal for RUST.10.
+- case_id: rust/RUST.2/unwrap_usage
+  rule_no: RUST.2
+  language_id: rust
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: src/lib.rs
+  violating_path: cases/rust/direct_detector/unwrap_usage/violating.rs
+  compliant_path: cases/rust/direct_detector/compliant.rs
+  expected_patterns:
+  - unwrap_usage
+  expected_rules:
+  - RUST.2
+  forbidden_rules_in_compliant:
+  - RUST.2
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern unwrap_usage is the minimal hard-gate signal for RUST.2.
+- case_id: rust/RUST.3/todo_macro
+  rule_no: RUST.3
+  language_id: rust
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: src/lib.rs
+  violating_path: cases/rust/direct_detector/todo_macro/violating.rs
+  compliant_path: cases/rust/direct_detector/compliant.rs
+  expected_patterns:
+  - todo_macro
+  expected_rules:
+  - RUST.3
+  forbidden_rules_in_compliant:
+  - RUST.3
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern todo_macro is the minimal hard-gate signal for RUST.3.
+- case_id: rust/RUST.4/panic_macro
+  rule_no: RUST.4
+  language_id: rust
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: src/lib.rs
+  violating_path: cases/rust/direct_detector/panic_macro/violating.rs
+  compliant_path: cases/rust/direct_detector/compliant.rs
+  expected_patterns:
+  - panic_macro
+  expected_rules:
+  - RUST.4
+  forbidden_rules_in_compliant:
+  - RUST.4
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern panic_macro is the minimal hard-gate signal for RUST.4.
+- case_id: rust/RUST.5/unwrap_usage
+  rule_no: RUST.5
+  language_id: rust
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: src/lib.rs
+  violating_path: cases/rust/direct_detector/unwrap_usage/violating.rs
+  compliant_path: cases/rust/direct_detector/compliant.rs
+  expected_patterns:
+  - unwrap_usage
+  expected_rules:
+  - RUST.5
+  forbidden_rules_in_compliant:
+  - RUST.5
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern unwrap_usage is the minimal hard-gate signal for RUST.5.
+- case_id: rust/RUST.6/unsafe_block
+  rule_no: RUST.6
+  language_id: rust
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: src/lib.rs
+  violating_path: cases/rust/direct_detector/unsafe_block/violating.rs
+  compliant_path: cases/rust/direct_detector/compliant.rs
+  expected_patterns:
+  - unsafe_block
+  expected_rules:
+  - RUST.6
+  forbidden_rules_in_compliant:
+  - RUST.6
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern unsafe_block is the minimal hard-gate signal for RUST.6.
+- case_id: rust/RUST.7/todo_macro
+  rule_no: RUST.7
+  language_id: rust
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: src/lib.rs
+  violating_path: cases/rust/direct_detector/todo_macro/violating.rs
+  compliant_path: cases/rust/direct_detector/compliant.rs
+  expected_patterns:
+  - todo_macro
+  expected_rules:
+  - RUST.7
+  forbidden_rules_in_compliant:
+  - RUST.7
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern todo_macro is the minimal hard-gate signal for RUST.7.
+- case_id: rust/RUST.8/dbg_macro
+  rule_no: RUST.8
+  language_id: rust
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: src/lib.rs
+  violating_path: cases/rust/direct_detector/dbg_macro/violating.rs
+  compliant_path: cases/rust/direct_detector/compliant.rs
+  expected_patterns:
+  - dbg_macro
+  expected_rules:
+  - RUST.8
+  forbidden_rules_in_compliant:
+  - RUST.8
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern dbg_macro is the minimal hard-gate signal for RUST.8.
+- case_id: rust/RUST.9/unsafe_fn
+  rule_no: RUST.9
+  language_id: rust
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: src/lib.rs
+  violating_path: cases/rust/direct_detector/unsafe_fn/violating.rs
+  compliant_path: cases/rust/direct_detector/compliant.rs
+  expected_patterns:
+  - unsafe_fn
+  expected_rules:
+  - RUST.9
+  forbidden_rules_in_compliant:
+  - RUST.9
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern unsafe_fn is the minimal hard-gate signal for RUST.9.
+- case_id: rust/RUST.TOKIO.1/tokio_blocking_in_async
+  rule_no: RUST.TOKIO.1
+  language_id: rust
+  profile_id: tokio_async
+  reviewability: auto_review
+  input_kind: code
+  review_path: src/lib.rs
+  violating_path: cases/rust/direct_detector/tokio_blocking_in_async/violating.rs
+  compliant_path: cases/rust/direct_detector/compliant.rs
+  expected_patterns:
+  - tokio_blocking_in_async
+  expected_rules:
+  - RUST.TOKIO.1
+  forbidden_rules_in_compliant:
+  - RUST.TOKIO.1
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern tokio_blocking_in_async is the minimal hard-gate signal for RUST.TOKIO.1.
+- case_id: rust/RUST.TOKIO.2/tokio_detached_spawn
+  rule_no: RUST.TOKIO.2
+  language_id: rust
+  profile_id: tokio_async
+  reviewability: auto_review
+  input_kind: code
+  review_path: src/lib.rs
+  violating_path: cases/rust/direct_detector/tokio_detached_spawn/violating.rs
+  compliant_path: cases/rust/direct_detector/compliant.rs
+  expected_patterns:
+  - tokio_detached_spawn
+  expected_rules:
+  - RUST.TOKIO.2
+  forbidden_rules_in_compliant:
+  - RUST.TOKIO.2
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern tokio_detached_spawn is the minimal hard-gate signal for RUST.TOKIO.2.
+- case_id: rust/RUST.TOKIO.3/tokio_unbounded_channel
+  rule_no: RUST.TOKIO.3
+  language_id: rust
+  profile_id: tokio_async
+  reviewability: auto_review
+  input_kind: code
+  review_path: src/lib.rs
+  violating_path: cases/rust/direct_detector/tokio_unbounded_channel/violating.rs
+  compliant_path: cases/rust/direct_detector/compliant.rs
+  expected_patterns:
+  - tokio_unbounded_channel
+  expected_rules:
+  - RUST.TOKIO.3
+  forbidden_rules_in_compliant:
+  - RUST.TOKIO.3
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern tokio_unbounded_channel is the minimal hard-gate signal for RUST.TOKIO.3.
+- case_id: sql/SQL.1/select_star
+  rule_no: SQL.1
+  language_id: sql
+  profile_id: default
+  context_id: generic
+  dialect_id: generic
+  reviewability: auto_review
+  input_kind: code
+  review_path: queries/report.sql
+  violating_path: cases/sql/direct_detector/select_star/violating.sql
+  compliant_path: cases/sql/direct_detector/compliant.sql
+  expected_patterns:
+  - select_star
+  expected_rules:
+  - SQL.1
+  forbidden_rules_in_compliant:
+  - SQL.1
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern select_star is the minimal hard-gate signal for SQL.1.
+- case_id: sql/SQL.2/implicit_join
+  rule_no: SQL.2
+  language_id: sql
+  profile_id: default
+  context_id: generic
+  dialect_id: generic
+  reviewability: auto_review
+  input_kind: code
+  review_path: queries/report.sql
+  violating_path: cases/sql/direct_detector/implicit_join/violating.sql
+  compliant_path: cases/sql/direct_detector/compliant.sql
+  expected_patterns:
+  - implicit_join
+  expected_rules:
+  - SQL.2
+  forbidden_rules_in_compliant:
+  - SQL.2
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern implicit_join is the minimal hard-gate signal for SQL.2.
+- case_id: sql/SQL.3/implicit_join
+  rule_no: SQL.3
+  language_id: sql
+  profile_id: default
+  context_id: generic
+  dialect_id: generic
+  reviewability: auto_review
+  input_kind: code
+  review_path: queries/report.sql
+  violating_path: cases/sql/direct_detector/implicit_join/violating.sql
+  compliant_path: cases/sql/direct_detector/compliant.sql
+  expected_patterns:
+  - implicit_join
+  expected_rules:
+  - SQL.3
+  forbidden_rules_in_compliant:
+  - SQL.3
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern implicit_join is the minimal hard-gate signal for SQL.3.
+- case_id: sql/SQL.4/select_star
+  rule_no: SQL.4
+  language_id: sql
+  profile_id: default
+  context_id: generic
+  dialect_id: generic
+  reviewability: auto_review
+  input_kind: code
+  review_path: queries/report.sql
+  violating_path: cases/sql/direct_detector/select_star/violating.sql
+  compliant_path: cases/sql/direct_detector/compliant.sql
+  expected_patterns:
+  - select_star
+  expected_rules:
+  - SQL.4
+  forbidden_rules_in_compliant:
+  - SQL.4
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern select_star is the minimal hard-gate signal for SQL.4.
+- case_id: sql/SQL.5/order_by_ordinal
+  rule_no: SQL.5
+  language_id: sql
+  profile_id: default
+  context_id: generic
+  dialect_id: generic
+  reviewability: auto_review
+  input_kind: code
+  review_path: queries/report.sql
+  violating_path: cases/sql/direct_detector/order_by_ordinal/violating.sql
+  compliant_path: cases/sql/direct_detector/compliant.sql
+  expected_patterns:
+  - order_by_ordinal
+  expected_rules:
+  - SQL.5
+  forbidden_rules_in_compliant:
+  - SQL.5
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern order_by_ordinal is the minimal hard-gate signal for SQL.5.
+- case_id: sql/SQL.6/not_in_subquery
+  rule_no: SQL.6
+  language_id: sql
+  profile_id: default
+  context_id: generic
+  dialect_id: generic
+  reviewability: auto_review
+  input_kind: code
+  review_path: queries/report.sql
+  violating_path: cases/sql/direct_detector/not_in_subquery/violating.sql
+  compliant_path: cases/sql/direct_detector/compliant.sql
+  expected_patterns:
+  - not_in_subquery
+  expected_rules:
+  - SQL.6
+  forbidden_rules_in_compliant:
+  - SQL.6
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern not_in_subquery is the minimal hard-gate signal for SQL.6.
+- case_id: sql/SQL.DBT.1/dbt_select_star_ref
+  rule_no: SQL.DBT.1
+  language_id: sql
+  profile_id: dbt_warehouse
+  context_id: analytics
+  dialect_id: generic
+  reviewability: auto_review
+  input_kind: code
+  review_path: models/dbt/model.sql
+  violating_path: cases/sql/direct_detector/dbt_select_star_ref/violating.sql
+  compliant_path: cases/sql/direct_detector/compliant.sql
+  expected_patterns:
+  - dbt_select_star_ref
+  expected_rules:
+  - SQL.DBT.1
+  forbidden_rules_in_compliant:
+  - SQL.DBT.1
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern dbt_select_star_ref is the minimal hard-gate signal for SQL.DBT.1.
+- case_id: sql/SQL.DBT.2/dbt_run_query
+  rule_no: SQL.DBT.2
+  language_id: sql
+  profile_id: dbt_warehouse
+  context_id: analytics
+  dialect_id: generic
+  reviewability: auto_review
+  input_kind: code
+  review_path: models/dbt/model.sql
+  violating_path: cases/sql/direct_detector/dbt_run_query/violating.sql
+  compliant_path: cases/sql/direct_detector/compliant.sql
+  expected_patterns:
+  - dbt_run_query
+  expected_rules:
+  - SQL.DBT.2
+  forbidden_rules_in_compliant:
+  - SQL.DBT.2
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern dbt_run_query is the minimal hard-gate signal for SQL.DBT.2.
+- case_id: sql/SQL.DBT.3/dbt_run_query_side_effect_without_command_scope
+  rule_no: SQL.DBT.3
+  language_id: sql
+  profile_id: dbt_warehouse
+  context_id: analytics
+  dialect_id: generic
+  reviewability: auto_review
+  input_kind: code
+  review_path: models/dbt/model.sql
+  violating_path: cases/sql/direct_detector/dbt_run_query_side_effect_without_command_scope/violating.sql
+  compliant_path: cases/sql/direct_detector/compliant.sql
+  expected_patterns:
+  - dbt_run_query_side_effect_without_command_scope
+  expected_rules:
+  - SQL.DBT.3
+  forbidden_rules_in_compliant:
+  - SQL.DBT.3
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern dbt_run_query_side_effect_without_command_scope is the minimal hard-gate signal for SQL.DBT.3.
+- case_id: sql/SQL.MIG.1/migration_drop_table
+  rule_no: SQL.MIG.1
+  language_id: sql
+  profile_id: migration_sql
+  context_id: generic
+  dialect_id: generic
+  reviewability: auto_review
+  input_kind: code
+  review_path: migrations/20260426_update.sql
+  violating_path: cases/sql/direct_detector/migration_drop_table/violating.sql
+  compliant_path: cases/sql/direct_detector/compliant.sql
+  expected_patterns:
+  - migration_drop_table
+  expected_rules:
+  - SQL.MIG.1
+  forbidden_rules_in_compliant:
+  - SQL.MIG.1
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern migration_drop_table is the minimal hard-gate signal for SQL.MIG.1.
+- case_id: sql/SQL.MIG.2/migration_drop_column
+  rule_no: SQL.MIG.2
+  language_id: sql
+  profile_id: migration_sql
+  context_id: generic
+  dialect_id: generic
+  reviewability: auto_review
+  input_kind: code
+  review_path: migrations/20260426_update.sql
+  violating_path: cases/sql/direct_detector/migration_drop_column/violating.sql
+  compliant_path: cases/sql/direct_detector/compliant.sql
+  expected_patterns:
+  - migration_drop_column
+  expected_rules:
+  - SQL.MIG.2
+  forbidden_rules_in_compliant:
+  - SQL.MIG.2
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern migration_drop_column is the minimal hard-gate signal for SQL.MIG.2.
+- case_id: sql/SQL.MIG.3/migration_set_not_null
+  rule_no: SQL.MIG.3
+  language_id: sql
+  profile_id: migration_sql
+  context_id: generic
+  dialect_id: generic
+  reviewability: auto_review
+  input_kind: code
+  review_path: migrations/20260426_update.sql
+  violating_path: cases/sql/direct_detector/migration_set_not_null/violating.sql
+  compliant_path: cases/sql/direct_detector/compliant.sql
+  expected_patterns:
+  - migration_set_not_null
+  expected_rules:
+  - SQL.MIG.3
+  forbidden_rules_in_compliant:
+  - SQL.MIG.3
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern migration_set_not_null is the minimal hard-gate signal for SQL.MIG.3.
+- case_id: sql/SQL.MIG.4/migration_create_index_plain
+  rule_no: SQL.MIG.4
+  language_id: sql
+  profile_id: migration_sql
+  context_id: generic
+  dialect_id: postgresql
+  reviewability: auto_review
+  input_kind: code
+  review_path: migrations/20260426_update.sql
+  violating_path: cases/sql/direct_detector/migration_create_index_plain/violating.sql
+  compliant_path: cases/sql/direct_detector/compliant.sql
+  expected_patterns:
+  - migration_create_index_plain
+  expected_rules:
+  - SQL.MIG.4
+  forbidden_rules_in_compliant:
+  - SQL.MIG.4
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern migration_create_index_plain is the minimal hard-gate signal for SQL.MIG.4.
+- case_id: sql/SQL.MIG.5/migration_drop_cascade
+  rule_no: SQL.MIG.5
+  language_id: sql
+  profile_id: migration_sql
+  context_id: generic
+  dialect_id: generic
+  reviewability: auto_review
+  input_kind: code
+  review_path: migrations/20260426_update.sql
+  violating_path: cases/sql/direct_detector/migration_drop_cascade/violating.sql
+  compliant_path: cases/sql/direct_detector/compliant.sql
+  expected_patterns:
+  - migration_drop_cascade
+  expected_rules:
+  - SQL.MIG.5
+  forbidden_rules_in_compliant:
+  - SQL.MIG.5
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern migration_drop_cascade is the minimal hard-gate signal for SQL.MIG.5.
+- case_id: sql/SQL.PG.1/dynamic_sql
+  rule_no: SQL.PG.1
+  language_id: sql
+  profile_id: default
+  context_id: generic
+  dialect_id: postgresql
+  reviewability: auto_review
+  input_kind: code
+  review_path: queries/report.sql
+  violating_path: cases/sql/direct_detector/dynamic_sql/violating.sql
+  compliant_path: cases/sql/direct_detector/compliant.sql
+  expected_patterns:
+  - dynamic_sql
+  expected_rules:
+  - SQL.PG.1
+  forbidden_rules_in_compliant:
+  - SQL.PG.1
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern dynamic_sql is the minimal hard-gate signal for SQL.PG.1.
+- case_id: sql/SQL.PG.2/dynamic_sql
+  rule_no: SQL.PG.2
+  language_id: sql
+  profile_id: default
+  context_id: generic
+  dialect_id: postgresql
+  reviewability: auto_review
+  input_kind: code
+  review_path: queries/report.sql
+  violating_path: cases/sql/direct_detector/dynamic_sql/violating.sql
+  compliant_path: cases/sql/direct_detector/compliant.sql
+  expected_patterns:
+  - dynamic_sql
+  expected_rules:
+  - SQL.PG.2
+  forbidden_rules_in_compliant:
+  - SQL.PG.2
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern dynamic_sql is the minimal hard-gate signal for SQL.PG.2.
+- case_id: sql/SQL.PG.3/dynamic_sql
+  rule_no: SQL.PG.3
+  language_id: sql
+  profile_id: default
+  context_id: generic
+  dialect_id: postgresql
+  reviewability: auto_review
+  input_kind: code
+  review_path: queries/report.sql
+  violating_path: cases/sql/direct_detector/dynamic_sql/violating.sql
+  compliant_path: cases/sql/direct_detector/compliant.sql
+  expected_patterns:
+  - dynamic_sql
+  expected_rules:
+  - SQL.PG.3
+  forbidden_rules_in_compliant:
+  - SQL.PG.3
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern dynamic_sql is the minimal hard-gate signal for SQL.PG.3.
+- case_id: sql/SQL.PROJ.1/delete_without_where
+  rule_no: SQL.PROJ.1
+  language_id: sql
+  profile_id: default
+  context_id: generic
+  dialect_id: generic
+  reviewability: auto_review
+  input_kind: code
+  review_path: queries/report.sql
+  violating_path: cases/sql/direct_detector/delete_without_where/violating.sql
+  compliant_path: cases/sql/direct_detector/compliant.sql
+  expected_patterns:
+  - delete_without_where
+  expected_rules:
+  - SQL.PROJ.1
+  forbidden_rules_in_compliant:
+  - SQL.PROJ.1
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern delete_without_where is the minimal hard-gate signal for SQL.PROJ.1.
+- case_id: sql/SQL.PROJ.2/delete_without_where
+  rule_no: SQL.PROJ.2
+  language_id: sql
+  profile_id: default
+  context_id: generic
+  dialect_id: generic
+  reviewability: auto_review
+  input_kind: code
+  review_path: queries/report.sql
+  violating_path: cases/sql/direct_detector/delete_without_where/violating.sql
+  compliant_path: cases/sql/direct_detector/compliant.sql
+  expected_patterns:
+  - delete_without_where
+  expected_rules:
+  - SQL.PROJ.2
+  forbidden_rules_in_compliant:
+  - SQL.PROJ.2
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern delete_without_where is the minimal hard-gate signal for SQL.PROJ.2.
+- case_id: sql/SQL.PROJ.3/dynamic_sql
+  rule_no: SQL.PROJ.3
+  language_id: sql
+  profile_id: default
+  context_id: generic
+  dialect_id: generic
+  reviewability: auto_review
+  input_kind: code
+  review_path: queries/report.sql
+  violating_path: cases/sql/direct_detector/dynamic_sql/violating.sql
+  compliant_path: cases/sql/direct_detector/compliant.sql
+  expected_patterns:
+  - dynamic_sql
+  expected_rules:
+  - SQL.PROJ.3
+  forbidden_rules_in_compliant:
+  - SQL.PROJ.3
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern dynamic_sql is the minimal hard-gate signal for SQL.PROJ.3.
+- case_id: sql/SQL.WH.1/group_by_ordinal
+  rule_no: SQL.WH.1
+  language_id: sql
+  profile_id: analytics_warehouse
+  context_id: analytics
+  dialect_id: generic
+  reviewability: auto_review
+  input_kind: code
+  review_path: warehouse/report.sql
+  violating_path: cases/sql/direct_detector/group_by_ordinal/violating.sql
+  compliant_path: cases/sql/direct_detector/compliant.sql
+  expected_patterns:
+  - group_by_ordinal
+  expected_rules:
+  - SQL.WH.1
+  forbidden_rules_in_compliant:
+  - SQL.WH.1
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern group_by_ordinal is the minimal hard-gate signal for SQL.WH.1.
+- case_id: sql/SQL.WH.2/limit_without_order
+  rule_no: SQL.WH.2
+  language_id: sql
+  profile_id: analytics_warehouse
+  context_id: analytics
+  dialect_id: generic
+  reviewability: auto_review
+  input_kind: code
+  review_path: warehouse/report.sql
+  violating_path: cases/sql/direct_detector/limit_without_order/violating.sql
+  compliant_path: cases/sql/direct_detector/compliant.sql
+  expected_patterns:
+  - limit_without_order
+  expected_rules:
+  - SQL.WH.2
+  forbidden_rules_in_compliant:
+  - SQL.WH.2
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern limit_without_order is the minimal hard-gate signal for SQL.WH.2.
+- case_id: typescript/TS.1/any_type
+  rule_no: TS.1
+  language_id: typescript
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: src/app.ts
+  violating_path: cases/typescript/direct_detector/any_type/violating.ts
+  compliant_path: cases/typescript/direct_detector/compliant.ts
+  expected_patterns:
+  - any_type
+  expected_rules:
+  - TS.1
+  forbidden_rules_in_compliant:
+  - TS.1
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern any_type is the minimal hard-gate signal for TS.1.
+- case_id: typescript/TS.2/non_null_assertion
+  rule_no: TS.2
+  language_id: typescript
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: src/app.ts
+  violating_path: cases/typescript/direct_detector/non_null_assertion/violating.ts
+  compliant_path: cases/typescript/direct_detector/compliant.ts
+  expected_patterns:
+  - non_null_assertion
+  expected_rules:
+  - TS.2
+  forbidden_rules_in_compliant:
+  - TS.2
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern non_null_assertion is the minimal hard-gate signal for TS.2.
+- case_id: typescript/TS.3/any_type
+  rule_no: TS.3
+  language_id: typescript
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: src/app.ts
+  violating_path: cases/typescript/direct_detector/any_type/violating.ts
+  compliant_path: cases/typescript/direct_detector/compliant.ts
+  expected_patterns:
+  - any_type
+  expected_rules:
+  - TS.3
+  forbidden_rules_in_compliant:
+  - TS.3
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern any_type is the minimal hard-gate signal for TS.3.
+- case_id: typescript/TS.4/non_null_assertion
+  rule_no: TS.4
+  language_id: typescript
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: src/app.ts
+  violating_path: cases/typescript/direct_detector/non_null_assertion/violating.ts
+  compliant_path: cases/typescript/direct_detector/compliant.ts
+  expected_patterns:
+  - non_null_assertion
+  expected_rules:
+  - TS.4
+  forbidden_rules_in_compliant:
+  - TS.4
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern non_null_assertion is the minimal hard-gate signal for TS.4.
+- case_id: typescript/TS.5/promise_without_await
+  rule_no: TS.5
+  language_id: typescript
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: src/app.ts
+  violating_path: cases/typescript/direct_detector/promise_without_await/violating.ts
+  compliant_path: cases/typescript/direct_detector/compliant.ts
+  expected_patterns:
+  - promise_without_await
+  expected_rules:
+  - TS.5
+  forbidden_rules_in_compliant:
+  - TS.5
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern promise_without_await is the minimal hard-gate signal for TS.5.
+- case_id: typescript/TS.6/async_effect_callback
+  rule_no: TS.6
+  language_id: typescript
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: src/app.ts
+  violating_path: cases/typescript/direct_detector/async_effect_callback/violating.ts
+  compliant_path: cases/typescript/direct_detector/compliant.ts
+  expected_patterns:
+  - async_effect_callback
+  expected_rules:
+  - TS.6
+  forbidden_rules_in_compliant:
+  - TS.6
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern async_effect_callback is the minimal hard-gate signal for TS.6.
+- case_id: typescript/TS.7/jsx_dangerous_html
+  rule_no: TS.7
+  language_id: typescript
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: src/app.ts
+  violating_path: cases/typescript/direct_detector/jsx_dangerous_html/violating.ts
+  compliant_path: cases/typescript/direct_detector/compliant.ts
+  expected_patterns:
+  - jsx_dangerous_html
+  expected_rules:
+  - TS.7
+  forbidden_rules_in_compliant:
+  - TS.7
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern jsx_dangerous_html is the minimal hard-gate signal for TS.7.
+- case_id: typescript/TS.8/void_fetch_call
+  rule_no: TS.8
+  language_id: typescript
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: src/app.ts
+  violating_path: cases/typescript/direct_detector/void_fetch_call/violating.ts
+  compliant_path: cases/typescript/direct_detector/compliant.ts
+  expected_patterns:
+  - void_fetch_call
+  expected_rules:
+  - TS.8
+  forbidden_rules_in_compliant:
+  - TS.8
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern void_fetch_call is the minimal hard-gate signal for TS.8.
+- case_id: typescript/TS.API.1/ts_ignore
+  rule_no: TS.API.1
+  language_id: typescript
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: src/app.ts
+  violating_path: cases/typescript/direct_detector/ts_ignore/violating.ts
+  compliant_path: cases/typescript/direct_detector/compliant.ts
+  expected_patterns:
+  - ts_ignore
+  expected_rules:
+  - TS.API.1
+  forbidden_rules_in_compliant:
+  - TS.API.1
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern ts_ignore is the minimal hard-gate signal for TS.API.1.
+- case_id: typescript/TS.API.10/response_json_cast
+  rule_no: TS.API.10
+  language_id: typescript
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: src/app.ts
+  violating_path: cases/typescript/direct_detector/response_json_cast/violating.ts
+  compliant_path: cases/typescript/direct_detector/compliant.ts
+  expected_patterns:
+  - response_json_cast
+  expected_rules:
+  - TS.API.10
+  forbidden_rules_in_compliant:
+  - TS.API.10
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern response_json_cast is the minimal hard-gate signal for TS.API.10.
+- case_id: typescript/TS.API.2/unsafe_json_parse
+  rule_no: TS.API.2
+  language_id: typescript
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: src/app.ts
+  violating_path: cases/typescript/direct_detector/unsafe_json_parse/violating.ts
+  compliant_path: cases/typescript/direct_detector/compliant.ts
+  expected_patterns:
+  - unsafe_json_parse
+  expected_rules:
+  - TS.API.2
+  forbidden_rules_in_compliant:
+  - TS.API.2
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern unsafe_json_parse is the minimal hard-gate signal for TS.API.2.
+- case_id: typescript/TS.API.3/ts_ignore
+  rule_no: TS.API.3
+  language_id: typescript
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: src/app.ts
+  violating_path: cases/typescript/direct_detector/ts_ignore/violating.ts
+  compliant_path: cases/typescript/direct_detector/compliant.ts
+  expected_patterns:
+  - ts_ignore
+  expected_rules:
+  - TS.API.3
+  forbidden_rules_in_compliant:
+  - TS.API.3
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern ts_ignore is the minimal hard-gate signal for TS.API.3.
+- case_id: typescript/TS.API.4/unsafe_json_parse
+  rule_no: TS.API.4
+  language_id: typescript
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: src/app.ts
+  violating_path: cases/typescript/direct_detector/unsafe_json_parse/violating.ts
+  compliant_path: cases/typescript/direct_detector/compliant.ts
+  expected_patterns:
+  - unsafe_json_parse
+  expected_rules:
+  - TS.API.4
+  forbidden_rules_in_compliant:
+  - TS.API.4
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern unsafe_json_parse is the minimal hard-gate signal for TS.API.4.
+- case_id: typescript/TS.API.5/any_type
+  rule_no: TS.API.5
+  language_id: typescript
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: src/app.ts
+  violating_path: cases/typescript/direct_detector/any_type/violating.ts
+  compliant_path: cases/typescript/direct_detector/compliant.ts
+  expected_patterns:
+  - any_type
+  expected_rules:
+  - TS.API.5
+  forbidden_rules_in_compliant:
+  - TS.API.5
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern any_type is the minimal hard-gate signal for TS.API.5.
+- case_id: typescript/TS.API.6/ts_expect_error
+  rule_no: TS.API.6
+  language_id: typescript
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: src/app.ts
+  violating_path: cases/typescript/direct_detector/ts_expect_error/violating.ts
+  compliant_path: cases/typescript/direct_detector/compliant.ts
+  expected_patterns:
+  - ts_expect_error
+  expected_rules:
+  - TS.API.6
+  forbidden_rules_in_compliant:
+  - TS.API.6
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern ts_expect_error is the minimal hard-gate signal for TS.API.6.
+- case_id: typescript/TS.API.7/double_cast
+  rule_no: TS.API.7
+  language_id: typescript
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: src/app.ts
+  violating_path: cases/typescript/direct_detector/double_cast/violating.ts
+  compliant_path: cases/typescript/direct_detector/compliant.ts
+  expected_patterns:
+  - double_cast
+  expected_rules:
+  - TS.API.7
+  forbidden_rules_in_compliant:
+  - TS.API.7
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern double_cast is the minimal hard-gate signal for TS.API.7.
+- case_id: typescript/TS.API.8/hooks_exhaustive_deps_disable
+  rule_no: TS.API.8
+  language_id: typescript
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: src/app.ts
+  violating_path: cases/typescript/direct_detector/hooks_exhaustive_deps_disable/violating.ts
+  compliant_path: cases/typescript/direct_detector/compliant.ts
+  expected_patterns:
+  - hooks_exhaustive_deps_disable
+  expected_rules:
+  - TS.API.8
+  forbidden_rules_in_compliant:
+  - TS.API.8
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern hooks_exhaustive_deps_disable is the minimal hard-gate signal for TS.API.8.
+- case_id: typescript/TS.API.9/ts_nocheck
+  rule_no: TS.API.9
+  language_id: typescript
+  profile_id: default
+  reviewability: auto_review
+  input_kind: code
+  review_path: src/app.ts
+  violating_path: cases/typescript/direct_detector/ts_nocheck/violating.ts
+  compliant_path: cases/typescript/direct_detector/compliant.ts
+  expected_patterns:
+  - ts_nocheck
+  expected_rules:
+  - TS.API.9
+  forbidden_rules_in_compliant:
+  - TS.API.9
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern ts_nocheck is the minimal hard-gate signal for TS.API.9.
+- case_id: typescript/TS.NEXT.1/next_route_request_json
+  rule_no: TS.NEXT.1
+  language_id: typescript
+  profile_id: nextjs_frontend
+  context_id: app_router
+  reviewability: auto_review
+  input_kind: code
+  review_path: app/route.ts
+  violating_path: cases/typescript/direct_detector/next_route_request_json/violating.ts
+  compliant_path: cases/typescript/direct_detector/compliant.ts
+  expected_patterns:
+  - next_route_request_json
+  expected_rules:
+  - TS.NEXT.1
+  forbidden_rules_in_compliant:
+  - TS.NEXT.1
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern next_route_request_json is the minimal hard-gate signal for TS.NEXT.1.
+- case_id: typescript/TS.NEXT.2/next_server_action_formdata
+  rule_no: TS.NEXT.2
+  language_id: typescript
+  profile_id: nextjs_frontend
+  context_id: app_router
+  reviewability: auto_review
+  input_kind: code
+  review_path: app/route.ts
+  violating_path: cases/typescript/direct_detector/next_server_action_formdata/violating.ts
+  compliant_path: cases/typescript/direct_detector/compliant.ts
+  expected_patterns:
+  - next_server_action_formdata
+  expected_rules:
+  - TS.NEXT.2
+  forbidden_rules_in_compliant:
+  - TS.NEXT.2
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern next_server_action_formdata is the minimal hard-gate signal for TS.NEXT.2.
+- case_id: typescript/TS.NEXT.3/next_client_secret_env
+  rule_no: TS.NEXT.3
+  language_id: typescript
+  profile_id: nextjs_frontend
+  context_id: app_router
+  reviewability: auto_review
+  input_kind: code
+  review_path: app/route.ts
+  violating_path: cases/typescript/direct_detector/next_client_secret_env/violating.ts
+  compliant_path: cases/typescript/direct_detector/compliant.ts
+  expected_patterns:
+  - next_client_secret_env
+  expected_rules:
+  - TS.NEXT.3
+  forbidden_rules_in_compliant:
+  - TS.NEXT.3
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern next_client_secret_env is the minimal hard-gate signal for TS.NEXT.3.
+- case_id: typescript/TS.NEXT.4/next_server_component_browser_api
+  rule_no: TS.NEXT.4
+  language_id: typescript
+  profile_id: nextjs_frontend
+  context_id: app_router
+  reviewability: auto_review
+  input_kind: code
+  review_path: app/route.ts
+  violating_path: cases/typescript/direct_detector/next_server_component_browser_api/violating.ts
+  compliant_path: cases/typescript/direct_detector/compliant.ts
+  expected_patterns:
+  - next_server_component_browser_api
+  expected_rules:
+  - TS.NEXT.4
+  forbidden_rules_in_compliant:
+  - TS.NEXT.4
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern next_server_component_browser_api is the minimal hard-gate signal for TS.NEXT.4.
+- case_id: yaml/YAML.2/latest_tag
+  rule_no: YAML.2
+  language_id: yaml
+  profile_id: default
+  context_id: generic
+  reviewability: auto_review
+  input_kind: code
+  review_path: plain.yaml
+  violating_path: cases/yaml/direct_detector/latest_tag/violating.yaml
+  compliant_path: cases/yaml/direct_detector/compliant.yaml
+  expected_patterns:
+  - latest_tag
+  expected_rules:
+  - YAML.2
+  forbidden_rules_in_compliant:
+  - YAML.2
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern latest_tag is the minimal hard-gate signal for YAML.2.
+- case_id: yaml/YAML.CI.1/permissions_write_all
+  rule_no: YAML.CI.1
+  language_id: yaml
+  profile_id: github_actions
+  context_id: github_actions
+  reviewability: auto_review
+  input_kind: code
+  review_path: .github/workflows/ci.yml
+  violating_path: cases/yaml/direct_detector/permissions_write_all/violating.yaml
+  compliant_path: cases/yaml/direct_detector/compliant.yaml
+  expected_patterns:
+  - permissions_write_all
+  expected_rules:
+  - YAML.CI.1
+  forbidden_rules_in_compliant:
+  - YAML.CI.1
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern permissions_write_all is the minimal hard-gate signal for YAML.CI.1.
+- case_id: yaml/YAML.CI.2/latest_tag
+  rule_no: YAML.CI.2
+  language_id: yaml
+  profile_id: github_actions
+  context_id: github_actions
+  reviewability: auto_review
+  input_kind: code
+  review_path: .github/workflows/ci.yml
+  violating_path: cases/yaml/direct_detector/latest_tag/violating.yaml
+  compliant_path: cases/yaml/direct_detector/compliant.yaml
+  expected_patterns:
+  - latest_tag
+  expected_rules:
+  - YAML.CI.2
+  forbidden_rules_in_compliant:
+  - YAML.CI.2
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern latest_tag is the minimal hard-gate signal for YAML.CI.2.
+- case_id: yaml/YAML.CI.3/permissions_write_all
+  rule_no: YAML.CI.3
+  language_id: yaml
+  profile_id: github_actions
+  context_id: github_actions
+  reviewability: auto_review
+  input_kind: code
+  review_path: .github/workflows/ci.yml
+  violating_path: cases/yaml/direct_detector/permissions_write_all/violating.yaml
+  compliant_path: cases/yaml/direct_detector/compliant.yaml
+  expected_patterns:
+  - permissions_write_all
+  expected_rules:
+  - YAML.CI.3
+  forbidden_rules_in_compliant:
+  - YAML.CI.3
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern permissions_write_all is the minimal hard-gate signal for YAML.CI.3.
+- case_id: yaml/YAML.CI.4/latest_tag
+  rule_no: YAML.CI.4
+  language_id: yaml
+  profile_id: github_actions
+  context_id: github_actions
+  reviewability: auto_review
+  input_kind: code
+  review_path: .github/workflows/ci.yml
+  violating_path: cases/yaml/direct_detector/latest_tag/violating.yaml
+  compliant_path: cases/yaml/direct_detector/compliant.yaml
+  expected_patterns:
+  - latest_tag
+  expected_rules:
+  - YAML.CI.4
+  forbidden_rules_in_compliant:
+  - YAML.CI.4
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern latest_tag is the minimal hard-gate signal for YAML.CI.4.
+- case_id: yaml/YAML.CI.5/uses_branch_ref
+  rule_no: YAML.CI.5
+  language_id: yaml
+  profile_id: github_actions
+  context_id: github_actions
+  reviewability: auto_review
+  input_kind: code
+  review_path: .github/workflows/ci.yml
+  violating_path: cases/yaml/direct_detector/uses_branch_ref/violating.yaml
+  compliant_path: cases/yaml/direct_detector/compliant.yaml
+  expected_patterns:
+  - uses_branch_ref
+  expected_rules:
+  - YAML.CI.5
+  forbidden_rules_in_compliant:
+  - YAML.CI.5
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern uses_branch_ref is the minimal hard-gate signal for YAML.CI.5.
+- case_id: yaml/YAML.CI.7/ci_insecure_download
+  rule_no: YAML.CI.7
+  language_id: yaml
+  profile_id: github_actions
+  context_id: github_actions
+  reviewability: auto_review
+  input_kind: code
+  review_path: .github/workflows/ci.yml
+  violating_path: cases/yaml/direct_detector/ci_insecure_download/violating.yaml
+  compliant_path: cases/yaml/direct_detector/compliant.yaml
+  expected_patterns:
+  - ci_insecure_download
+  expected_rules:
+  - YAML.CI.7
+  forbidden_rules_in_compliant:
+  - YAML.CI.7
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern ci_insecure_download is the minimal hard-gate signal for YAML.CI.7.
+- case_id: yaml/YAML.CI.8/service_latest_tag
+  rule_no: YAML.CI.8
+  language_id: yaml
+  profile_id: github_actions
+  context_id: github_actions
+  reviewability: auto_review
+  input_kind: code
+  review_path: .github/workflows/ci.yml
+  violating_path: cases/yaml/direct_detector/service_latest_tag/violating.yaml
+  compliant_path: cases/yaml/direct_detector/compliant.yaml
+  expected_patterns:
+  - service_latest_tag
+  expected_rules:
+  - YAML.CI.8
+  forbidden_rules_in_compliant:
+  - YAML.CI.8
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern service_latest_tag is the minimal hard-gate signal for YAML.CI.8.
+- case_id: yaml/YAML.CI.9/github_actions_pull_request_target
+  rule_no: YAML.CI.9
+  language_id: yaml
+  profile_id: github_actions
+  context_id: github_actions
+  reviewability: auto_review
+  input_kind: code
+  review_path: .github/workflows/ci.yml
+  violating_path: cases/yaml/direct_detector/github_actions_pull_request_target/violating.yaml
+  compliant_path: cases/yaml/direct_detector/compliant.yaml
+  expected_patterns:
+  - github_actions_pull_request_target
+  expected_rules:
+  - YAML.CI.9
+  forbidden_rules_in_compliant:
+  - YAML.CI.9
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern github_actions_pull_request_target is the minimal hard-gate signal for YAML.CI.9.
+- case_id: yaml/YAML.HELM.2/latest_tag
+  rule_no: YAML.HELM.2
+  language_id: yaml
+  profile_id: helm_values
+  context_id: helm_values
+  reviewability: auto_review
+  input_kind: code
+  review_path: charts/app/values.yaml
+  violating_path: cases/yaml/direct_detector/latest_tag/violating.yaml
+  compliant_path: cases/yaml/direct_detector/compliant.yaml
+  expected_patterns:
+  - latest_tag
+  expected_rules:
+  - YAML.HELM.2
+  forbidden_rules_in_compliant:
+  - YAML.HELM.2
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern latest_tag is the minimal hard-gate signal for YAML.HELM.2.
+- case_id: yaml/YAML.K8S.1/privileged_true
+  rule_no: YAML.K8S.1
+  language_id: yaml
+  profile_id: kubernetes_manifests
+  context_id: kubernetes
+  reviewability: auto_review
+  input_kind: code
+  review_path: k8s/deployment.yaml
+  violating_path: cases/yaml/direct_detector/privileged_true/violating.yaml
+  compliant_path: cases/yaml/direct_detector/compliant.yaml
+  expected_patterns:
+  - privileged_true
+  expected_rules:
+  - YAML.K8S.1
+  forbidden_rules_in_compliant:
+  - YAML.K8S.1
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern privileged_true is the minimal hard-gate signal for YAML.K8S.1.
+- case_id: yaml/YAML.K8S.2/run_as_root
+  rule_no: YAML.K8S.2
+  language_id: yaml
+  profile_id: kubernetes_manifests
+  context_id: kubernetes
+  reviewability: auto_review
+  input_kind: code
+  review_path: k8s/deployment.yaml
+  violating_path: cases/yaml/direct_detector/run_as_root/violating.yaml
+  compliant_path: cases/yaml/direct_detector/compliant.yaml
+  expected_patterns:
+  - run_as_root
+  expected_rules:
+  - YAML.K8S.2
+  forbidden_rules_in_compliant:
+  - YAML.K8S.2
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern run_as_root is the minimal hard-gate signal for YAML.K8S.2.
+- case_id: yaml/YAML.K8S.3/privileged_true
+  rule_no: YAML.K8S.3
+  language_id: yaml
+  profile_id: kubernetes_manifests
+  context_id: kubernetes
+  reviewability: auto_review
+  input_kind: code
+  review_path: k8s/deployment.yaml
+  violating_path: cases/yaml/direct_detector/privileged_true/violating.yaml
+  compliant_path: cases/yaml/direct_detector/compliant.yaml
+  expected_patterns:
+  - privileged_true
+  expected_rules:
+  - YAML.K8S.3
+  forbidden_rules_in_compliant:
+  - YAML.K8S.3
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern privileged_true is the minimal hard-gate signal for YAML.K8S.3.
+- case_id: yaml/YAML.K8S.4/run_as_root
+  rule_no: YAML.K8S.4
+  language_id: yaml
+  profile_id: kubernetes_manifests
+  context_id: kubernetes
+  reviewability: auto_review
+  input_kind: code
+  review_path: k8s/deployment.yaml
+  violating_path: cases/yaml/direct_detector/run_as_root/violating.yaml
+  compliant_path: cases/yaml/direct_detector/compliant.yaml
+  expected_patterns:
+  - run_as_root
+  expected_rules:
+  - YAML.K8S.4
+  forbidden_rules_in_compliant:
+  - YAML.K8S.4
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern run_as_root is the minimal hard-gate signal for YAML.K8S.4.
+- case_id: yaml/YAML.K8S.5/allow_privilege_escalation
+  rule_no: YAML.K8S.5
+  language_id: yaml
+  profile_id: kubernetes_manifests
+  context_id: kubernetes
+  reviewability: auto_review
+  input_kind: code
+  review_path: k8s/deployment.yaml
+  violating_path: cases/yaml/direct_detector/allow_privilege_escalation/violating.yaml
+  compliant_path: cases/yaml/direct_detector/compliant.yaml
+  expected_patterns:
+  - allow_privilege_escalation
+  expected_rules:
+  - YAML.K8S.5
+  forbidden_rules_in_compliant:
+  - YAML.K8S.5
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern allow_privilege_escalation is the minimal hard-gate signal for YAML.K8S.5.
+- case_id: yaml/YAML.K8S.6/host_network_true
+  rule_no: YAML.K8S.6
+  language_id: yaml
+  profile_id: kubernetes_manifests
+  context_id: kubernetes
+  reviewability: auto_review
+  input_kind: code
+  review_path: k8s/deployment.yaml
+  violating_path: cases/yaml/direct_detector/host_network_true/violating.yaml
+  compliant_path: cases/yaml/direct_detector/compliant.yaml
+  expected_patterns:
+  - host_network_true
+  expected_rules:
+  - YAML.K8S.6
+  forbidden_rules_in_compliant:
+  - YAML.K8S.6
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern host_network_true is the minimal hard-gate signal for YAML.K8S.6.
+- case_id: yaml/YAML.K8S.7/latest_tag
+  rule_no: YAML.K8S.7
+  language_id: yaml
+  profile_id: kubernetes_manifests
+  context_id: kubernetes
+  reviewability: auto_review
+  input_kind: code
+  review_path: k8s/deployment.yaml
+  violating_path: cases/yaml/direct_detector/latest_tag/violating.yaml
+  compliant_path: cases/yaml/direct_detector/compliant.yaml
+  expected_patterns:
+  - latest_tag
+  expected_rules:
+  - YAML.K8S.7
+  forbidden_rules_in_compliant:
+  - YAML.K8S.7
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern latest_tag is the minimal hard-gate signal for YAML.K8S.7.
+- case_id: yaml/YAML.PROD.1/yaml_secret_literal
+  rule_no: YAML.PROD.1
+  language_id: yaml
+  profile_id: product_config
+  context_id: product_config
+  reviewability: auto_review
+  input_kind: code
+  review_path: config/app.yaml
+  violating_path: cases/yaml/direct_detector/yaml_secret_literal/violating.yaml
+  compliant_path: cases/yaml/direct_detector/compliant.yaml
+  expected_patterns:
+  - yaml_secret_literal
+  expected_rules:
+  - YAML.PROD.1
+  forbidden_rules_in_compliant:
+  - YAML.PROD.1
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern yaml_secret_literal is the minimal hard-gate signal for YAML.PROD.1.
+- case_id: yaml/YAML.SCHEMA.1/yaml_additional_properties_true
+  rule_no: YAML.SCHEMA.1
+  language_id: yaml
+  profile_id: schema_config
+  context_id: schema_config
+  reviewability: auto_review
+  input_kind: code
+  review_path: schema/openapi.yaml
+  violating_path: cases/yaml/direct_detector/yaml_additional_properties_true/violating.yaml
+  compliant_path: cases/yaml/direct_detector/compliant.yaml
+  expected_patterns:
+  - yaml_additional_properties_true
+  expected_rules:
+  - YAML.SCHEMA.1
+  forbidden_rules_in_compliant:
+  - YAML.SCHEMA.1
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern yaml_additional_properties_true is the minimal hard-gate signal for YAML.SCHEMA.1.
+- case_id: yaml/YAML.SCHEMA.2/yaml_ambiguous_boolean_default
+  rule_no: YAML.SCHEMA.2
+  language_id: yaml
+  profile_id: schema_config
+  context_id: schema_config
+  reviewability: auto_review
+  input_kind: code
+  review_path: schema/openapi.yaml
+  violating_path: cases/yaml/direct_detector/yaml_ambiguous_boolean_default/violating.yaml
+  compliant_path: cases/yaml/direct_detector/compliant.yaml
+  expected_patterns:
+  - yaml_ambiguous_boolean_default
+  expected_rules:
+  - YAML.SCHEMA.2
+  forbidden_rules_in_compliant:
+  - YAML.SCHEMA.2
+  top_k: 80
+  judgment: accepted
+  judgment_note: Direct detector pattern yaml_ambiguous_boolean_default is the minimal hard-gate signal for YAML.SCHEMA.2.
 waivers:
-  - waiver_id: bash-auto-initial-backfill
-    language_id: bash
-    reviewability: auto_review
-    reason: pending_backfill
-    detail: Initial runner foundation; direct detector-backed corpus backfill is the next roadmap unit.
-    rule_nos:
-      - BASH.1
-      - BASH.2
-      - BASH.3
-      - BASH.4
-      - BASH.5
-      - BASH.SAFE.1
-      - BASH.SAFE.2
-      - BASH.SAFE.3
-      - BASH.SAFE.4
-      - BASH.SAFE.5
-      - BASH.SAFE.6
-      - BASH.SAFE.8
-  - waiver_id: bash-reference-initial-waiver
-    language_id: bash
-    reviewability: reference_only
-    reason: reference_only
-    detail: Reference-only rules are accounted for until targeted suppression cases are added.
-    rule_nos:
-      - BASH.6
-      - BASH.7
-      - BASH.SAFE.7
-  - waiver_id: c-auto-initial-backfill
-    language_id: c
-    reviewability: auto_review
-    reason: pending_backfill
-    detail: Initial runner foundation; direct detector-backed corpus backfill is the next roadmap unit.
-    rule_nos:
-      - C.NM.1
-      - C.NM.2
-      - C.NM.3
-      - C.POSIX.1
-      - C.POSIX.2
-      - C.POSIX.3
-      - C.POSIX.4
-      - C.POSIX.5
-      - C.PROJ.1
-      - C.PROJ.2
-      - C.PROJ.3
-  - waiver_id: c-reference-initial-waiver
-    language_id: c
-    reviewability: reference_only
-    reason: reference_only
-    detail: Reference-only rules are accounted for until targeted suppression cases are added.
-    rule_nos:
-      - C.NM.4
-      - C.NM.5
-      - C.POSIX.6
-      - C.PROJ.4
-      - C.PROJ.5
-  - waiver_id: cpp-auto-initial-backfill
-    language_id: cpp
-    reviewability: auto_review
-    reason: pending_backfill
-    detail: Initial runner foundation; direct detector-backed corpus backfill is the next roadmap unit.
-    rule_nos:
-      - R.1
-      - R.10
-      - R.11
-      - R.12
-      - R.20
-      - I.11
-      - I.4
-      - CP.20
-      - ES.77
-      - ES.78
-      - ES.79
-      - ES.6
-      - ES.34
-      - SL.io.3
-      - SF.13
-      - P.8
-      - P.11
-      - E.19
-      - F.48
-      - R.3
-      - R.5
-      - R.15
-      - R.22
-      - R.23
-      - R.30
-      - R.32
-      - F.16
-      - CP.21
-      - CP.22
-  - waiver_id: cpp-auto-needs-detector-gap
-    language_id: cpp
-    reviewability: auto_review
-    reason: needs_detector
-    detail: These C++ rules do not yet have stable direct detector hints; covered by the C++ gap roadmap unit.
-    rule_nos:
-      - R.13
-      - R.33
-      - R.37
-      - I.12
-      - F.7
-      - NM.1
-      - NM.2
-      - NM.3
-      - NM.4
-      - CPP.PROJ.1
-      - CPP.PROJ.2
-      - CPP.PROJ.3
-      - CPP.PROJ.4
-      - CPP.PROJ.5
-      - CPP.PROJ.6
-  - waiver_id: cpp-reference-initial-waiver
-    language_id: cpp
-    reviewability: reference_only
-    reason: reference_only
-    detail: Reference-only rules are accounted for until targeted suppression cases are added.
-    rule_nos:
-      - CPP.REF.1
-      - CPP.REF.2
-      - CPP.REF.3
-      - CPP.REF.4
-      - CPP.REF.5
-      - NM.5
-      - NM.6
-      - CPP.PROJ.7
-      - CPP.PROJ.8
-      - CPP.PROJ.9
-  - waiver_id: cuda-auto-initial-backfill
-    language_id: cuda
-    reviewability: auto_review
-    reason: pending_backfill
-    detail: Initial runner foundation; direct detector-backed corpus backfill is the next roadmap unit.
-    rule_nos:
-      - CUDA.ASYNC.1
-      - CUDA.ASYNC.2
-      - CUDA.ASYNC.3
-      - CUDA.ASYNC.4
-      - CUDA.CG.1
-      - CUDA.CG.2
-      - CUDA.CG.3
-      - CUDA.1
-      - CUDA.2
-      - CUDA.3
-      - CUDA.4
-      - CUDA.5
-      - CUDA.6
-      - CUDA.7
-      - CUDA.8
-      - CUDA.MG.1
-      - CUDA.MG.2
-      - CUDA.MG.3
-      - CUDA.PERF.1
-      - CUDA.PERF.2
-      - CUDA.PERF.3
-      - CUDA.PIPE.1
-      - CUDA.PIPE.2
-      - CUDA.PIPE.3
-      - CUDA.TC.1
-      - CUDA.TC.2
-      - CUDA.TC.3
-      - CUDA.CLUSTER.1
-      - CUDA.CLUSTER.2
-      - CUDA.CLUSTER.3
-      - CUDA.TMA.1
-      - CUDA.TMA.2
-      - CUDA.TMA.3
-      - CUDA.WGMMA.1
-      - CUDA.WGMMA.2
-      - CUDA.WGMMA.3
-  - waiver_id: cuda-reference-initial-waiver
-    language_id: cuda
-    reviewability: reference_only
-    reason: reference_only
-    detail: Reference-only rules are accounted for until targeted suppression cases are added.
-    rule_nos:
-      - CUDA.ASYNC.REF.1
-      - CUDA.ASYNC.REF.2
-      - CUDA.CG.REF.1
-      - CUDA.CG.REF.2
-      - CUDA.REF.1
-      - CUDA.REF.2
-      - CUDA.MG.REF.1
-      - CUDA.MG.REF.2
-      - CUDA.PERF.REF.1
-      - CUDA.PIPE.REF.1
-      - CUDA.PIPE.REF.2
-      - CUDA.TC.REF.1
-      - CUDA.TC.REF.2
-      - CUDA.CLUSTER.REF.1
-      - CUDA.CLUSTER.REF.2
-      - CUDA.TMA.REF.1
-      - CUDA.TMA.REF.2
-      - CUDA.WGMMA.REF.1
-      - CUDA.WGMMA.REF.2
-  - waiver_id: dockerfile-auto-initial-backfill
-    language_id: dockerfile
-    reviewability: auto_review
-    reason: pending_backfill
-    detail: Initial runner foundation; direct detector-backed corpus backfill is the next roadmap unit.
-    rule_nos:
-      - DOCKER.SEC.1
-      - DOCKER.SEC.2
-      - DOCKER.SEC.3
-      - DOCKER.SEC.4
-      - DOCKER.SEC.5
-      - DOCKER.SEC.6
-      - DOCKER.SEC.7
-      - DOCKER.1
-      - DOCKER.2
-      - DOCKER.3
-      - DOCKER.4
-      - DOCKER.5
-      - DOCKER.6
-      - DOCKER.7
-      - DOCKER.8
-  - waiver_id: dockerfile-reference-initial-waiver
-    language_id: dockerfile
-    reviewability: reference_only
-    reason: reference_only
-    detail: Reference-only rules are accounted for until targeted suppression cases are added.
-    rule_nos:
-      - DOCKER.REF.1
-  - waiver_id: go-auto-initial-backfill
-    language_id: go
-    reviewability: auto_review
-    reason: pending_backfill
-    detail: Initial runner foundation; direct detector-backed corpus backfill is the next roadmap unit.
-    rule_nos:
-      - GO.1
-      - GO.2
-      - GO.3
-      - GO.4
-      - GO.5
-      - GO.6
-      - GO.7
-      - GO.8
-      - GO.9
-      - GO.10
-      - GO.11
-      - GO.12
-      - GO.13
-      - GO.14
-      - GO.15
-  - waiver_id: go-reference-initial-waiver
-    language_id: go
-    reviewability: reference_only
-    reason: reference_only
-    detail: Reference-only rules are accounted for until targeted suppression cases are added.
-    rule_nos:
-      - GO.REF.1
-      - GO.REF.2
-  - waiver_id: java-auto-initial-backfill
-    language_id: java
-    reviewability: auto_review
-    reason: pending_backfill
-    detail: Initial runner foundation; direct detector-backed corpus backfill is the next roadmap unit.
-    rule_nos:
-      - JAVA.1
-      - JAVA.2
-      - JAVA.3
-      - JAVA.4
-      - JAVA.PROJ.1
-      - JAVA.PROJ.2
-      - JAVA.PROJ.3
-      - JAVA.PROJ.4
-      - JAVA.PROJ.5
-      - JAVA.PROJ.6
-      - JAVA.SPRING.1
-      - JAVA.SPRING.2
-      - JAVA.SPRING.3
-      - JAVA.SPRING.4
-  - waiver_id: java-reference-initial-waiver
-    language_id: java
-    reviewability: reference_only
-    reason: reference_only
-    detail: Reference-only rules are accounted for until targeted suppression cases are added.
-    rule_nos:
-      - JAVA.REF.1
-      - JAVA.REF.2
-      - JAVA.PROJ.7
-      - JAVA.SPRING.REF.1
-      - JAVA.SPRING.REF.2
-  - waiver_id: javascript-auto-initial-backfill
-    language_id: javascript
-    reviewability: auto_review
-    reason: pending_backfill
-    detail: Initial runner foundation; direct detector-backed corpus backfill is the next roadmap unit.
-    rule_nos:
-      - JS.NEXT.1
-      - JS.NEXT.2
-      - JS.NEXT.3
-      - JS.NEXT.4
-      - JS.NODE.1
-      - JS.NODE.2
-      - JS.NODE.3
-      - JS.NODE.4
-      - JS.NODE.5
-      - JS.1
-      - JS.2
-      - JS.3
-      - JS.4
-      - JS.5
-      - JS.6
-  - waiver_id: javascript-reference-initial-waiver
-    language_id: javascript
-    reviewability: reference_only
-    reason: reference_only
-    detail: Reference-only rules are accounted for until targeted suppression cases are added.
-    rule_nos:
-      - JS.NEXT.REF.1
-      - JS.NEXT.REF.2
-      - JS.NODE.REF.1
-      - JS.REF.1
-      - JS.REF.2
-  - waiver_id: python-auto-initial-backfill
-    language_id: python
-    reviewability: auto_review
-    reason: pending_backfill
-    detail: Initial runner foundation; direct detector-backed corpus backfill is the next roadmap unit.
-    rule_nos:
-      - PY.DJ.1
-      - PY.DJ.2
-      - PY.DJ.3
-      - PY.DJ.4
-      - PY.FAPI.1
-      - PY.FAPI.2
-      - PY.2
-      - PY.3
-      - PY.4
-      - PY.5
-      - PY.PROJ.1
-      - PY.PROJ.2
-      - PY.PROJ.3
-      - PY.PROJ.4
-      - PY.PROJ.5
-      - PY.PROJ.6
-      - PY.PROJ.7
-  - waiver_id: python-reference-initial-waiver
-    language_id: python
-    reviewability: reference_only
-    reason: reference_only
-    detail: Reference-only rules are accounted for until targeted suppression cases are added.
-    rule_nos:
-      - PY.DJ.REF.1
-      - PY.DJ.REF.2
-      - PY.FAPI.REF.1
-      - PY.FAPI.REF.2
-      - PY.DOC.2
-      - PY.DOC.3
-      - PY.DOC.4
-      - PY.DOC.5
-      - PY.PROJ.8
-  - waiver_id: rust-auto-initial-backfill
-    language_id: rust
-    reviewability: auto_review
-    reason: pending_backfill
-    detail: Initial runner foundation; direct detector-backed corpus backfill is the next roadmap unit.
-    rule_nos:
-      - RUST.1
-      - RUST.2
-      - RUST.3
-      - RUST.4
-      - RUST.5
-      - RUST.6
-      - RUST.7
-      - RUST.8
-      - RUST.9
-      - RUST.10
-      - RUST.TOKIO.1
-      - RUST.TOKIO.2
-      - RUST.TOKIO.3
-  - waiver_id: rust-reference-initial-waiver
-    language_id: rust
-    reviewability: reference_only
-    reason: reference_only
-    detail: Reference-only rules are accounted for until targeted suppression cases are added.
-    rule_nos:
-      - RUST.REF.1
-      - RUST.REF.2
-      - RUST.REF.3
-      - RUST.TOKIO.REF.1
-      - RUST.TOKIO.REF.2
-  - waiver_id: shared-auto-host-validation-pending
-    language_id: shared
-    reviewability: auto_review
-    reason: pending_shared_host_validation
-    detail: Shared security host-language behavior is a separate queued roadmap unit.
-    rule_nos:
-      - SEC.1
-      - SEC.2
-      - SEC.3
-      - SEC.4
-      - SEC.5
-      - SEC.6
-      - SEC.7
-  - waiver_id: shared-reference-initial-waiver
-    language_id: shared
-    reviewability: reference_only
-    reason: reference_only
-    detail: Reference-only rules are accounted for until targeted suppression cases are added.
-    rule_nos:
-      - PROC.1
-      - PROC.2
-      - PROC.3
-      - PROC.4
-      - PROC.5
-      - PROC.6
-      - PROC.7
-      - SEC.REF.1
-  - waiver_id: sql-auto-initial-backfill
-    language_id: sql
-    reviewability: auto_review
-    reason: pending_backfill
-    detail: Initial runner foundation; direct detector-backed corpus backfill is the next roadmap unit.
-    rule_nos:
-      - SQL.WH.1
-      - SQL.WH.2
-      - SQL.1
-      - SQL.2
-      - SQL.3
-      - SQL.4
-      - SQL.5
-      - SQL.6
-      - SQL.DBT.1
-      - SQL.DBT.2
-      - SQL.DBT.3
-      - SQL.MIG.1
-      - SQL.MIG.2
-      - SQL.MIG.3
-      - SQL.MIG.4
-      - SQL.MIG.5
-      - SQL.PG.1
-      - SQL.PG.2
-      - SQL.PG.3
-      - SQL.PROJ.1
-      - SQL.PROJ.2
-      - SQL.PROJ.3
-  - waiver_id: sql-reference-initial-waiver
-    language_id: sql
-    reviewability: reference_only
-    reason: reference_only
-    detail: Reference-only rules are accounted for until targeted suppression cases are added.
-    rule_nos:
-      - SQL.WH.REF.1
-      - SQL.WH.REF.2
-      - SQL.REF.1
-      - SQL.DBT.REF.1
-      - SQL.DBT.REF.2
-      - SQL.MIG.REF.1
-      - SQL.PG.4
-      - SQL.PROJ.4
-  - waiver_id: typescript-auto-initial-backfill
-    language_id: typescript
-    reviewability: auto_review
-    reason: pending_backfill
-    detail: Initial runner foundation; direct detector-backed corpus backfill is the next roadmap unit.
-    rule_nos:
-      - TS.NEXT.1
-      - TS.NEXT.2
-      - TS.NEXT.3
-      - TS.NEXT.4
-      - TS.1
-      - TS.2
-      - TS.3
-      - TS.4
-      - TS.5
-      - TS.6
-      - TS.7
-      - TS.8
-      - TS.API.1
-      - TS.API.2
-      - TS.API.3
-      - TS.API.4
-      - TS.API.5
-      - TS.API.6
-      - TS.API.7
-      - TS.API.8
-      - TS.API.9
-      - TS.API.10
-  - waiver_id: typescript-reference-initial-waiver
-    language_id: typescript
-    reviewability: reference_only
-    reason: reference_only
-    detail: Reference-only rules are accounted for until targeted suppression cases are added.
-    rule_nos:
-      - TS.NEXT.REF.1
-      - TS.NEXT.REF.2
-      - TS.REF.1
-      - TS.REF.2
-      - TS.REF.3
-      - TS.API.REF.1
-      - TS.API.REF.2
-  - waiver_id: yaml-auto-initial-backfill
-    language_id: yaml
-    reviewability: auto_review
-    reason: pending_backfill
-    detail: Initial runner foundation; direct detector-backed corpus backfill is the next roadmap unit.
-    rule_nos:
-      - YAML.CI.1
-      - YAML.CI.2
-      - YAML.CI.3
-      - YAML.CI.4
-      - YAML.CI.5
-      - YAML.CI.7
-      - YAML.CI.8
-      - YAML.CI.9
-      - YAML.2
-      - YAML.HELM.2
-      - YAML.K8S.1
-      - YAML.K8S.2
-      - YAML.K8S.3
-      - YAML.K8S.4
-      - YAML.K8S.5
-      - YAML.K8S.6
-      - YAML.K8S.7
-      - YAML.PROD.1
-      - YAML.SCHEMA.1
-      - YAML.SCHEMA.2
-  - waiver_id: yaml-reference-initial-waiver
-    language_id: yaml
-    reviewability: reference_only
-    reason: reference_only
-    detail: Reference-only rules are accounted for until targeted suppression cases are added.
-    rule_nos:
-      - YAML.CI.REF.1
-      - YAML.CI.REF.2
-      - YAML.1
-      - YAML.3
-      - YAML.HELM.1
-      - YAML.HELM.3
-      - YAML.PROD.REF.1
-      - YAML.SCHEMA.REF.1
+- waiver_id: bash-reference-initial-waiver
+  language_id: bash
+  reviewability: reference_only
+  reason: reference_only
+  detail: Reference-only rules are accounted for until targeted suppression cases are added.
+  rule_nos:
+  - BASH.6
+  - BASH.7
+  - BASH.SAFE.7
+- waiver_id: c-reference-initial-waiver
+  language_id: c
+  reviewability: reference_only
+  reason: reference_only
+  detail: Reference-only rules are accounted for until targeted suppression cases are added.
+  rule_nos:
+  - C.NM.4
+  - C.NM.5
+  - C.POSIX.6
+  - C.PROJ.4
+  - C.PROJ.5
+- waiver_id: cpp-auto-needs-detector-gap
+  language_id: cpp
+  reviewability: auto_review
+  reason: needs_detector
+  detail: These C++ rules do not yet have stable direct detector hints; covered by the C++ gap roadmap unit.
+  rule_nos:
+  - R.13
+  - R.33
+  - R.37
+  - I.12
+  - F.7
+  - NM.1
+  - NM.2
+  - NM.3
+  - NM.4
+  - CPP.PROJ.1
+  - CPP.PROJ.2
+  - CPP.PROJ.3
+  - CPP.PROJ.4
+  - CPP.PROJ.5
+  - CPP.PROJ.6
+- waiver_id: cpp-reference-initial-waiver
+  language_id: cpp
+  reviewability: reference_only
+  reason: reference_only
+  detail: Reference-only rules are accounted for until targeted suppression cases are added.
+  rule_nos:
+  - CPP.REF.1
+  - CPP.REF.2
+  - CPP.REF.3
+  - CPP.REF.4
+  - CPP.REF.5
+  - NM.5
+  - NM.6
+  - CPP.PROJ.7
+  - CPP.PROJ.8
+  - CPP.PROJ.9
+- waiver_id: cuda-reference-initial-waiver
+  language_id: cuda
+  reviewability: reference_only
+  reason: reference_only
+  detail: Reference-only rules are accounted for until targeted suppression cases are added.
+  rule_nos:
+  - CUDA.ASYNC.REF.1
+  - CUDA.ASYNC.REF.2
+  - CUDA.CG.REF.1
+  - CUDA.CG.REF.2
+  - CUDA.REF.1
+  - CUDA.REF.2
+  - CUDA.MG.REF.1
+  - CUDA.MG.REF.2
+  - CUDA.PERF.REF.1
+  - CUDA.PIPE.REF.1
+  - CUDA.PIPE.REF.2
+  - CUDA.TC.REF.1
+  - CUDA.TC.REF.2
+  - CUDA.CLUSTER.REF.1
+  - CUDA.CLUSTER.REF.2
+  - CUDA.TMA.REF.1
+  - CUDA.TMA.REF.2
+  - CUDA.WGMMA.REF.1
+  - CUDA.WGMMA.REF.2
+- waiver_id: dockerfile-reference-initial-waiver
+  language_id: dockerfile
+  reviewability: reference_only
+  reason: reference_only
+  detail: Reference-only rules are accounted for until targeted suppression cases are added.
+  rule_nos:
+  - DOCKER.REF.1
+- waiver_id: go-reference-initial-waiver
+  language_id: go
+  reviewability: reference_only
+  reason: reference_only
+  detail: Reference-only rules are accounted for until targeted suppression cases are added.
+  rule_nos:
+  - GO.REF.1
+  - GO.REF.2
+- waiver_id: java-reference-initial-waiver
+  language_id: java
+  reviewability: reference_only
+  reason: reference_only
+  detail: Reference-only rules are accounted for until targeted suppression cases are added.
+  rule_nos:
+  - JAVA.REF.1
+  - JAVA.REF.2
+  - JAVA.PROJ.7
+  - JAVA.SPRING.REF.1
+  - JAVA.SPRING.REF.2
+- waiver_id: javascript-reference-initial-waiver
+  language_id: javascript
+  reviewability: reference_only
+  reason: reference_only
+  detail: Reference-only rules are accounted for until targeted suppression cases are added.
+  rule_nos:
+  - JS.NEXT.REF.1
+  - JS.NEXT.REF.2
+  - JS.NODE.REF.1
+  - JS.REF.1
+  - JS.REF.2
+- waiver_id: python-reference-initial-waiver
+  language_id: python
+  reviewability: reference_only
+  reason: reference_only
+  detail: Reference-only rules are accounted for until targeted suppression cases are added.
+  rule_nos:
+  - PY.DJ.REF.1
+  - PY.DJ.REF.2
+  - PY.FAPI.REF.1
+  - PY.FAPI.REF.2
+  - PY.DOC.2
+  - PY.DOC.3
+  - PY.DOC.4
+  - PY.DOC.5
+  - PY.PROJ.8
+- waiver_id: rust-reference-initial-waiver
+  language_id: rust
+  reviewability: reference_only
+  reason: reference_only
+  detail: Reference-only rules are accounted for until targeted suppression cases are added.
+  rule_nos:
+  - RUST.REF.1
+  - RUST.REF.2
+  - RUST.REF.3
+  - RUST.TOKIO.REF.1
+  - RUST.TOKIO.REF.2
+- waiver_id: shared-auto-host-validation-pending
+  language_id: shared
+  reviewability: auto_review
+  reason: pending_shared_host_validation
+  detail: Shared security host-language behavior is a separate queued roadmap unit.
+  rule_nos:
+  - SEC.1
+  - SEC.2
+  - SEC.3
+  - SEC.4
+  - SEC.5
+  - SEC.6
+  - SEC.7
+- waiver_id: shared-reference-initial-waiver
+  language_id: shared
+  reviewability: reference_only
+  reason: reference_only
+  detail: Reference-only rules are accounted for until targeted suppression cases are added.
+  rule_nos:
+  - PROC.1
+  - PROC.2
+  - PROC.3
+  - PROC.4
+  - PROC.5
+  - PROC.6
+  - PROC.7
+  - SEC.REF.1
+- waiver_id: sql-reference-initial-waiver
+  language_id: sql
+  reviewability: reference_only
+  reason: reference_only
+  detail: Reference-only rules are accounted for until targeted suppression cases are added.
+  rule_nos:
+  - SQL.WH.REF.1
+  - SQL.WH.REF.2
+  - SQL.REF.1
+  - SQL.DBT.REF.1
+  - SQL.DBT.REF.2
+  - SQL.MIG.REF.1
+  - SQL.PG.4
+  - SQL.PROJ.4
+- waiver_id: typescript-reference-initial-waiver
+  language_id: typescript
+  reviewability: reference_only
+  reason: reference_only
+  detail: Reference-only rules are accounted for until targeted suppression cases are added.
+  rule_nos:
+  - TS.NEXT.REF.1
+  - TS.NEXT.REF.2
+  - TS.REF.1
+  - TS.REF.2
+  - TS.REF.3
+  - TS.API.REF.1
+  - TS.API.REF.2
+- waiver_id: yaml-reference-initial-waiver
+  language_id: yaml
+  reviewability: reference_only
+  reason: reference_only
+  detail: Reference-only rules are accounted for until targeted suppression cases are added.
+  rule_nos:
+  - YAML.CI.REF.1
+  - YAML.CI.REF.2
+  - YAML.1
+  - YAML.3
+  - YAML.HELM.1
+  - YAML.HELM.3
+  - YAML.PROD.REF.1
+  - YAML.SCHEMA.REF.1

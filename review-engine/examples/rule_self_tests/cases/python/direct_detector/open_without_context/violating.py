@@ -1,0 +1,1 @@
+handle = open("data.txt")

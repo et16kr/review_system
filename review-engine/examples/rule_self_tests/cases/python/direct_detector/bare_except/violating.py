@@ -1,0 +1,4 @@
+try:
+    work()
+except:
+    pass
