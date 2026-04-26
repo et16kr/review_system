@@ -42,7 +42,7 @@ source gap closure처럼 이미 닫힌 항목은 이 roadmap에서 제거한다.
 [CURRENT_STATE_REVIEW.md](/home/et16/work/review_system/docs/reviews/CURRENT_STATE_REVIEW.md:1),
 그리고 관련 baseline artifact를 기준으로 확인한다.
 
-현재 즉시 실행 가능한 항목은 rule self-test foundation이다.
+현재 즉시 실행 가능한 항목은 direct detector-backed rule self-test corpus backfill이다.
 밤새 전체 chain을 맡길 때는 아래 명령을 사용한다.
 
 ```bash
@@ -62,38 +62,10 @@ uncommitted diff를 남기고 멈춘다.
 
 ## Now
 
-### Build rule self-test manifest runner
-
-- status: `active`
-- 설계 기준: [RULE_SELF_TEST_DESIGN.md](/home/et16/work/review_system/docs/RULE_SELF_TEST_DESIGN.md:1)
-- 목적: GitLab smoke, provider, DB 없이 `review-engine` rule별 적합/위배 specimen을
-  deterministic pytest로 검증할 수 있는 기반을 만든다.
-- scope:
-  - `review-engine/examples/rule_self_tests/manifest.yaml` schema와 repo-local path validation
-  - `review-engine/tests/test_rule_self_tests.py` pytest runner
-  - enabled rule entry가 self-test case 또는 waiver를 갖는지 확인하는 accountability test
-  - violating specimen은 expected rule/pattern을 검출하고, compliant specimen은 target rule을
-    검출하지 않는지 확인하는 판정 flow
-  - `reference_only` rule은 auto finding으로 나오지 않아야 한다는 별도 판정 flow
-  - 초기 seed는 기존 `examples/expected_retrieval_examples.json`와 smoke fixture contract를
-    직접 복사하지 말고 cross-reference 또는 소수 대표 case로 시작한다.
-- out of scope:
-  - 250개 direct-hinted rule 전체 specimen backfill
-  - C++ semantic detector 보강
-  - shared `SEC.*` rule을 모든 host language detector에 적용하는 runtime 변경
-- done when:
-  - 새 runner가 최소 대표 case와 waiver를 읽고 통과한다.
-  - rule 추가 시 self-test case 또는 waiver 누락을 CI에서 알 수 있다.
-  - `reference_only` rule을 "검출 성공"으로 오해하지 않는 테스트가 있다.
-- validation:
-  - `git diff --check`
-  - `cd review-engine && uv run pytest tests/test_rule_self_tests.py -q`
-  - `cd review-engine && uv run pytest tests/test_query_conversion.py tests/test_expected_examples.py -q`
-
 ### Backfill direct detector-backed rule self-test corpus
 
-- status: `queued`
-- prerequisite: `Build rule self-test manifest runner`
+- status: `active`
+- prerequisite: rule self-test manifest runner is implemented
 - 목적: direct-hinted `auto_review` rule 250개에 대해 가능한 한 rule별 violating/compliant
   specimen을 채워 hard gate coverage를 올린다.
 - scope:
@@ -138,7 +110,7 @@ uncommitted diff를 남기고 멈춘다.
 ### Verify shared security rules in host languages
 
 - status: `queued`
-- prerequisite: `Build rule self-test manifest runner`
+- prerequisite: rule self-test manifest runner is implemented
 - 목적: `SEC.*` shared auto rule이 explicit `language_id=shared`뿐 아니라 주요 host language
   review에서도 기대대로 작동하는지 확인한다.
 - scope:

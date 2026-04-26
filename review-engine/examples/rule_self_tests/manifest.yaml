@@ -1,0 +1,578 @@
+schema_version: 1
+cases:
+  - case_id: python/PY.1/mutable-default
+    rule_no: PY.1
+    language_id: python
+    profile_id: default
+    reviewability: auto_review
+    input_kind: code
+    violating_path: cases/python/PY.1/violating.py
+    compliant_path: cases/python/PY.1/compliant.py
+    expected_patterns: [mutable_default]
+    expected_rules: [PY.1]
+    forbidden_rules_in_compliant: [PY.1]
+    top_k: 12
+    judgment: accepted
+    judgment_note: Minimal function differs only by mutable default versus None sentinel.
+  - case_id: yaml/YAML.CI.6/gitlab-remote-bootstrap
+    rule_no: YAML.CI.6
+    language_id: yaml
+    profile_id: gitlab_ci
+    context_id: gitlab_ci
+    reviewability: auto_review
+    input_kind: code
+    review_path: .gitlab-ci.yml
+    violating_path: cases/yaml/YAML.CI.6/violating.yml
+    compliant_path: cases/yaml/YAML.CI.6/compliant.yml
+    expected_patterns: [ci_remote_bootstrap]
+    expected_rules: [YAML.CI.6]
+    forbidden_rules_in_compliant: [YAML.CI.6]
+    top_k: 12
+    judgment: accepted
+    judgment_note: GitLab CI job differs only by remote shell bootstrap versus local script.
+  - case_id: python/PY.DOC.1/reference-only-missing-docstring
+    rule_no: PY.DOC.1
+    language_id: python
+    profile_id: default
+    reviewability: reference_only
+    input_kind: code
+    violating_path: cases/python/PY.DOC.1/violating.py
+    compliant_path: cases/python/PY.DOC.1/compliant.py
+    forbidden_rules_in_violating: [PY.DOC.1]
+    forbidden_rules_in_compliant: [PY.DOC.1]
+    top_k: 12
+    judgment: accepted
+    judgment_note: Reference-only docstring guidance must load for inspection but not auto-review.
+waivers:
+  - waiver_id: bash-auto-initial-backfill
+    language_id: bash
+    reviewability: auto_review
+    reason: pending_backfill
+    detail: Initial runner foundation; direct detector-backed corpus backfill is the next roadmap unit.
+    rule_nos:
+      - BASH.1
+      - BASH.2
+      - BASH.3
+      - BASH.4
+      - BASH.5
+      - BASH.SAFE.1
+      - BASH.SAFE.2
+      - BASH.SAFE.3
+      - BASH.SAFE.4
+      - BASH.SAFE.5
+      - BASH.SAFE.6
+      - BASH.SAFE.8
+  - waiver_id: bash-reference-initial-waiver
+    language_id: bash
+    reviewability: reference_only
+    reason: reference_only
+    detail: Reference-only rules are accounted for until targeted suppression cases are added.
+    rule_nos:
+      - BASH.6
+      - BASH.7
+      - BASH.SAFE.7
+  - waiver_id: c-auto-initial-backfill
+    language_id: c
+    reviewability: auto_review
+    reason: pending_backfill
+    detail: Initial runner foundation; direct detector-backed corpus backfill is the next roadmap unit.
+    rule_nos:
+      - C.NM.1
+      - C.NM.2
+      - C.NM.3
+      - C.POSIX.1
+      - C.POSIX.2
+      - C.POSIX.3
+      - C.POSIX.4
+      - C.POSIX.5
+      - C.PROJ.1
+      - C.PROJ.2
+      - C.PROJ.3
+  - waiver_id: c-reference-initial-waiver
+    language_id: c
+    reviewability: reference_only
+    reason: reference_only
+    detail: Reference-only rules are accounted for until targeted suppression cases are added.
+    rule_nos:
+      - C.NM.4
+      - C.NM.5
+      - C.POSIX.6
+      - C.PROJ.4
+      - C.PROJ.5
+  - waiver_id: cpp-auto-initial-backfill
+    language_id: cpp
+    reviewability: auto_review
+    reason: pending_backfill
+    detail: Initial runner foundation; direct detector-backed corpus backfill is the next roadmap unit.
+    rule_nos:
+      - R.1
+      - R.10
+      - R.11
+      - R.12
+      - R.20
+      - I.11
+      - I.4
+      - CP.20
+      - ES.77
+      - ES.78
+      - ES.79
+      - ES.6
+      - ES.34
+      - SL.io.3
+      - SF.13
+      - P.8
+      - P.11
+      - E.19
+      - F.48
+      - R.3
+      - R.5
+      - R.15
+      - R.22
+      - R.23
+      - R.30
+      - R.32
+      - F.16
+      - CP.21
+      - CP.22
+  - waiver_id: cpp-auto-needs-detector-gap
+    language_id: cpp
+    reviewability: auto_review
+    reason: needs_detector
+    detail: These C++ rules do not yet have stable direct detector hints; covered by the C++ gap roadmap unit.
+    rule_nos:
+      - R.13
+      - R.33
+      - R.37
+      - I.12
+      - F.7
+      - NM.1
+      - NM.2
+      - NM.3
+      - NM.4
+      - CPP.PROJ.1
+      - CPP.PROJ.2
+      - CPP.PROJ.3
+      - CPP.PROJ.4
+      - CPP.PROJ.5
+      - CPP.PROJ.6
+  - waiver_id: cpp-reference-initial-waiver
+    language_id: cpp
+    reviewability: reference_only
+    reason: reference_only
+    detail: Reference-only rules are accounted for until targeted suppression cases are added.
+    rule_nos:
+      - CPP.REF.1
+      - CPP.REF.2
+      - CPP.REF.3
+      - CPP.REF.4
+      - CPP.REF.5
+      - NM.5
+      - NM.6
+      - CPP.PROJ.7
+      - CPP.PROJ.8
+      - CPP.PROJ.9
+  - waiver_id: cuda-auto-initial-backfill
+    language_id: cuda
+    reviewability: auto_review
+    reason: pending_backfill
+    detail: Initial runner foundation; direct detector-backed corpus backfill is the next roadmap unit.
+    rule_nos:
+      - CUDA.ASYNC.1
+      - CUDA.ASYNC.2
+      - CUDA.ASYNC.3
+      - CUDA.ASYNC.4
+      - CUDA.CG.1
+      - CUDA.CG.2
+      - CUDA.CG.3
+      - CUDA.1
+      - CUDA.2
+      - CUDA.3
+      - CUDA.4
+      - CUDA.5
+      - CUDA.6
+      - CUDA.7
+      - CUDA.8
+      - CUDA.MG.1
+      - CUDA.MG.2
+      - CUDA.MG.3
+      - CUDA.PERF.1
+      - CUDA.PERF.2
+      - CUDA.PERF.3
+      - CUDA.PIPE.1
+      - CUDA.PIPE.2
+      - CUDA.PIPE.3
+      - CUDA.TC.1
+      - CUDA.TC.2
+      - CUDA.TC.3
+      - CUDA.CLUSTER.1
+      - CUDA.CLUSTER.2
+      - CUDA.CLUSTER.3
+      - CUDA.TMA.1
+      - CUDA.TMA.2
+      - CUDA.TMA.3
+      - CUDA.WGMMA.1
+      - CUDA.WGMMA.2
+      - CUDA.WGMMA.3
+  - waiver_id: cuda-reference-initial-waiver
+    language_id: cuda
+    reviewability: reference_only
+    reason: reference_only
+    detail: Reference-only rules are accounted for until targeted suppression cases are added.
+    rule_nos:
+      - CUDA.ASYNC.REF.1
+      - CUDA.ASYNC.REF.2
+      - CUDA.CG.REF.1
+      - CUDA.CG.REF.2
+      - CUDA.REF.1
+      - CUDA.REF.2
+      - CUDA.MG.REF.1
+      - CUDA.MG.REF.2
+      - CUDA.PERF.REF.1
+      - CUDA.PIPE.REF.1
+      - CUDA.PIPE.REF.2
+      - CUDA.TC.REF.1
+      - CUDA.TC.REF.2
+      - CUDA.CLUSTER.REF.1
+      - CUDA.CLUSTER.REF.2
+      - CUDA.TMA.REF.1
+      - CUDA.TMA.REF.2
+      - CUDA.WGMMA.REF.1
+      - CUDA.WGMMA.REF.2
+  - waiver_id: dockerfile-auto-initial-backfill
+    language_id: dockerfile
+    reviewability: auto_review
+    reason: pending_backfill
+    detail: Initial runner foundation; direct detector-backed corpus backfill is the next roadmap unit.
+    rule_nos:
+      - DOCKER.SEC.1
+      - DOCKER.SEC.2
+      - DOCKER.SEC.3
+      - DOCKER.SEC.4
+      - DOCKER.SEC.5
+      - DOCKER.SEC.6
+      - DOCKER.SEC.7
+      - DOCKER.1
+      - DOCKER.2
+      - DOCKER.3
+      - DOCKER.4
+      - DOCKER.5
+      - DOCKER.6
+      - DOCKER.7
+      - DOCKER.8
+  - waiver_id: dockerfile-reference-initial-waiver
+    language_id: dockerfile
+    reviewability: reference_only
+    reason: reference_only
+    detail: Reference-only rules are accounted for until targeted suppression cases are added.
+    rule_nos:
+      - DOCKER.REF.1
+  - waiver_id: go-auto-initial-backfill
+    language_id: go
+    reviewability: auto_review
+    reason: pending_backfill
+    detail: Initial runner foundation; direct detector-backed corpus backfill is the next roadmap unit.
+    rule_nos:
+      - GO.1
+      - GO.2
+      - GO.3
+      - GO.4
+      - GO.5
+      - GO.6
+      - GO.7
+      - GO.8
+      - GO.9
+      - GO.10
+      - GO.11
+      - GO.12
+      - GO.13
+      - GO.14
+      - GO.15
+  - waiver_id: go-reference-initial-waiver
+    language_id: go
+    reviewability: reference_only
+    reason: reference_only
+    detail: Reference-only rules are accounted for until targeted suppression cases are added.
+    rule_nos:
+      - GO.REF.1
+      - GO.REF.2
+  - waiver_id: java-auto-initial-backfill
+    language_id: java
+    reviewability: auto_review
+    reason: pending_backfill
+    detail: Initial runner foundation; direct detector-backed corpus backfill is the next roadmap unit.
+    rule_nos:
+      - JAVA.1
+      - JAVA.2
+      - JAVA.3
+      - JAVA.4
+      - JAVA.PROJ.1
+      - JAVA.PROJ.2
+      - JAVA.PROJ.3
+      - JAVA.PROJ.4
+      - JAVA.PROJ.5
+      - JAVA.PROJ.6
+      - JAVA.SPRING.1
+      - JAVA.SPRING.2
+      - JAVA.SPRING.3
+      - JAVA.SPRING.4
+  - waiver_id: java-reference-initial-waiver
+    language_id: java
+    reviewability: reference_only
+    reason: reference_only
+    detail: Reference-only rules are accounted for until targeted suppression cases are added.
+    rule_nos:
+      - JAVA.REF.1
+      - JAVA.REF.2
+      - JAVA.PROJ.7
+      - JAVA.SPRING.REF.1
+      - JAVA.SPRING.REF.2
+  - waiver_id: javascript-auto-initial-backfill
+    language_id: javascript
+    reviewability: auto_review
+    reason: pending_backfill
+    detail: Initial runner foundation; direct detector-backed corpus backfill is the next roadmap unit.
+    rule_nos:
+      - JS.NEXT.1
+      - JS.NEXT.2
+      - JS.NEXT.3
+      - JS.NEXT.4
+      - JS.NODE.1
+      - JS.NODE.2
+      - JS.NODE.3
+      - JS.NODE.4
+      - JS.NODE.5
+      - JS.1
+      - JS.2
+      - JS.3
+      - JS.4
+      - JS.5
+      - JS.6
+  - waiver_id: javascript-reference-initial-waiver
+    language_id: javascript
+    reviewability: reference_only
+    reason: reference_only
+    detail: Reference-only rules are accounted for until targeted suppression cases are added.
+    rule_nos:
+      - JS.NEXT.REF.1
+      - JS.NEXT.REF.2
+      - JS.NODE.REF.1
+      - JS.REF.1
+      - JS.REF.2
+  - waiver_id: python-auto-initial-backfill
+    language_id: python
+    reviewability: auto_review
+    reason: pending_backfill
+    detail: Initial runner foundation; direct detector-backed corpus backfill is the next roadmap unit.
+    rule_nos:
+      - PY.DJ.1
+      - PY.DJ.2
+      - PY.DJ.3
+      - PY.DJ.4
+      - PY.FAPI.1
+      - PY.FAPI.2
+      - PY.2
+      - PY.3
+      - PY.4
+      - PY.5
+      - PY.PROJ.1
+      - PY.PROJ.2
+      - PY.PROJ.3
+      - PY.PROJ.4
+      - PY.PROJ.5
+      - PY.PROJ.6
+      - PY.PROJ.7
+  - waiver_id: python-reference-initial-waiver
+    language_id: python
+    reviewability: reference_only
+    reason: reference_only
+    detail: Reference-only rules are accounted for until targeted suppression cases are added.
+    rule_nos:
+      - PY.DJ.REF.1
+      - PY.DJ.REF.2
+      - PY.FAPI.REF.1
+      - PY.FAPI.REF.2
+      - PY.DOC.2
+      - PY.DOC.3
+      - PY.DOC.4
+      - PY.DOC.5
+      - PY.PROJ.8
+  - waiver_id: rust-auto-initial-backfill
+    language_id: rust
+    reviewability: auto_review
+    reason: pending_backfill
+    detail: Initial runner foundation; direct detector-backed corpus backfill is the next roadmap unit.
+    rule_nos:
+      - RUST.1
+      - RUST.2
+      - RUST.3
+      - RUST.4
+      - RUST.5
+      - RUST.6
+      - RUST.7
+      - RUST.8
+      - RUST.9
+      - RUST.10
+      - RUST.TOKIO.1
+      - RUST.TOKIO.2
+      - RUST.TOKIO.3
+  - waiver_id: rust-reference-initial-waiver
+    language_id: rust
+    reviewability: reference_only
+    reason: reference_only
+    detail: Reference-only rules are accounted for until targeted suppression cases are added.
+    rule_nos:
+      - RUST.REF.1
+      - RUST.REF.2
+      - RUST.REF.3
+      - RUST.TOKIO.REF.1
+      - RUST.TOKIO.REF.2
+  - waiver_id: shared-auto-host-validation-pending
+    language_id: shared
+    reviewability: auto_review
+    reason: pending_shared_host_validation
+    detail: Shared security host-language behavior is a separate queued roadmap unit.
+    rule_nos:
+      - SEC.1
+      - SEC.2
+      - SEC.3
+      - SEC.4
+      - SEC.5
+      - SEC.6
+      - SEC.7
+  - waiver_id: shared-reference-initial-waiver
+    language_id: shared
+    reviewability: reference_only
+    reason: reference_only
+    detail: Reference-only rules are accounted for until targeted suppression cases are added.
+    rule_nos:
+      - PROC.1
+      - PROC.2
+      - PROC.3
+      - PROC.4
+      - PROC.5
+      - PROC.6
+      - PROC.7
+      - SEC.REF.1
+  - waiver_id: sql-auto-initial-backfill
+    language_id: sql
+    reviewability: auto_review
+    reason: pending_backfill
+    detail: Initial runner foundation; direct detector-backed corpus backfill is the next roadmap unit.
+    rule_nos:
+      - SQL.WH.1
+      - SQL.WH.2
+      - SQL.1
+      - SQL.2
+      - SQL.3
+      - SQL.4
+      - SQL.5
+      - SQL.6
+      - SQL.DBT.1
+      - SQL.DBT.2
+      - SQL.DBT.3
+      - SQL.MIG.1
+      - SQL.MIG.2
+      - SQL.MIG.3
+      - SQL.MIG.4
+      - SQL.MIG.5
+      - SQL.PG.1
+      - SQL.PG.2
+      - SQL.PG.3
+      - SQL.PROJ.1
+      - SQL.PROJ.2
+      - SQL.PROJ.3
+  - waiver_id: sql-reference-initial-waiver
+    language_id: sql
+    reviewability: reference_only
+    reason: reference_only
+    detail: Reference-only rules are accounted for until targeted suppression cases are added.
+    rule_nos:
+      - SQL.WH.REF.1
+      - SQL.WH.REF.2
+      - SQL.REF.1
+      - SQL.DBT.REF.1
+      - SQL.DBT.REF.2
+      - SQL.MIG.REF.1
+      - SQL.PG.4
+      - SQL.PROJ.4
+  - waiver_id: typescript-auto-initial-backfill
+    language_id: typescript
+    reviewability: auto_review
+    reason: pending_backfill
+    detail: Initial runner foundation; direct detector-backed corpus backfill is the next roadmap unit.
+    rule_nos:
+      - TS.NEXT.1
+      - TS.NEXT.2
+      - TS.NEXT.3
+      - TS.NEXT.4
+      - TS.1
+      - TS.2
+      - TS.3
+      - TS.4
+      - TS.5
+      - TS.6
+      - TS.7
+      - TS.8
+      - TS.API.1
+      - TS.API.2
+      - TS.API.3
+      - TS.API.4
+      - TS.API.5
+      - TS.API.6
+      - TS.API.7
+      - TS.API.8
+      - TS.API.9
+      - TS.API.10
+  - waiver_id: typescript-reference-initial-waiver
+    language_id: typescript
+    reviewability: reference_only
+    reason: reference_only
+    detail: Reference-only rules are accounted for until targeted suppression cases are added.
+    rule_nos:
+      - TS.NEXT.REF.1
+      - TS.NEXT.REF.2
+      - TS.REF.1
+      - TS.REF.2
+      - TS.REF.3
+      - TS.API.REF.1
+      - TS.API.REF.2
+  - waiver_id: yaml-auto-initial-backfill
+    language_id: yaml
+    reviewability: auto_review
+    reason: pending_backfill
+    detail: Initial runner foundation; direct detector-backed corpus backfill is the next roadmap unit.
+    rule_nos:
+      - YAML.CI.1
+      - YAML.CI.2
+      - YAML.CI.3
+      - YAML.CI.4
+      - YAML.CI.5
+      - YAML.CI.7
+      - YAML.CI.8
+      - YAML.CI.9
+      - YAML.2
+      - YAML.HELM.2
+      - YAML.K8S.1
+      - YAML.K8S.2
+      - YAML.K8S.3
+      - YAML.K8S.4
+      - YAML.K8S.5
+      - YAML.K8S.6
+      - YAML.K8S.7
+      - YAML.PROD.1
+      - YAML.SCHEMA.1
+      - YAML.SCHEMA.2
+  - waiver_id: yaml-reference-initial-waiver
+    language_id: yaml
+    reviewability: reference_only
+    reason: reference_only
+    detail: Reference-only rules are accounted for until targeted suppression cases are added.
+    rule_nos:
+      - YAML.CI.REF.1
+      - YAML.CI.REF.2
+      - YAML.1
+      - YAML.3
+      - YAML.HELM.1
+      - YAML.HELM.3
+      - YAML.PROD.REF.1
+      - YAML.SCHEMA.REF.1

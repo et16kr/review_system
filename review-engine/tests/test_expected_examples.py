@@ -21,10 +21,13 @@ def test_expected_examples_are_present_in_results(real_search_service) -> None:
         )
         assert input_path.exists(), f"Missing expected example input: {input_path}"
         review_path = case.get("review_path")
-        resolved_review_path = _repo_path(review_path) if review_path else None
-        if resolved_review_path is not None:
-            assert resolved_review_path.exists(), (
-                f"Missing expected example review_path: {resolved_review_path}"
+        if review_path:
+            review_path_value = Path(str(review_path))
+            assert not review_path_value.is_absolute(), (
+                f"{spec_path} must use repo-local review_path hints: {review_path}"
+            )
+            assert ".." not in review_path_value.parts, (
+                f"{spec_path} review_path must not escape repo root: {review_path}"
             )
         payload = input_path.read_text(encoding="utf-8")
         if input_path.suffix == ".diff":

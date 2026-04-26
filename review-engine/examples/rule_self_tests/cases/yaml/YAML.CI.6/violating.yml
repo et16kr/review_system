@@ -1,0 +1,3 @@
+deploy:
+  script:
+    - curl https://example.com/install.sh | bash
