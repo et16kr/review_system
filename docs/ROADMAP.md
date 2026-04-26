@@ -8,7 +8,7 @@
 외부 계정, live provider quota, 사람 승인, 별도 repository 권한이 필요한 작업은 실행 조건이 준비될 때까지
 `docs/deferred/*.md`에 남긴다.
 
-마지막 코드 상태 점검일: `2026-04-25`
+마지막 코드 상태 점검일: `2026-04-26`
 
 상태 표기:
 
@@ -27,7 +27,7 @@
 
 ## Current Snapshot
 
-`2026-04-25` 기준으로 post-review immediate fixes, cleanup, contract readiness,
+`2026-04-26` 기준으로 post-review immediate fixes, cleanup, contract readiness,
 source gap closure처럼 이미 닫힌 항목은 이 roadmap에서 제거한다.
 
 현재 roadmap에는 완료 항목을 반복 노출하지 않고, 외부 조건 없이 시작 가능한 slice만
@@ -39,7 +39,7 @@ source gap closure처럼 이미 닫힌 항목은 이 roadmap에서 제거한다.
 [CURRENT_STATE_REVIEW.md](/home/et16/work/review_system/docs/reviews/CURRENT_STATE_REVIEW.md:1),
 그리고 관련 baseline artifact를 기준으로 확인한다.
 
-현재 즉시 실행 가능한 항목은 없다.
+현재 즉시 실행 가능한 항목은 rule self-test foundation이다.
 
 - 회사별 코딩 규칙 intake guide와 template는
   [docs/company_rules/AUTHORING_GUIDE.md](/home/et16/work/review_system/docs/company_rules/AUTHORING_GUIDE.md:1)와
@@ -50,8 +50,97 @@ source gap closure처럼 이미 닫힌 항목은 이 roadmap에서 제거한다.
 
 ## Now
 
-현재 `active` 항목은 없다. 아래 deferred readiness 조건이 충족되면 새 `active` unit을
-roadmap order에 맞춰 추가한다.
+### Build rule self-test manifest runner
+
+- status: `active`
+- 설계 기준: [RULE_SELF_TEST_DESIGN.md](/home/et16/work/review_system/docs/RULE_SELF_TEST_DESIGN.md:1)
+- 목적: GitLab smoke, provider, DB 없이 `review-engine` rule별 적합/위배 specimen을
+  deterministic pytest로 검증할 수 있는 기반을 만든다.
+- scope:
+  - `review-engine/examples/rule_self_tests/manifest.yaml` schema와 repo-local path validation
+  - `review-engine/tests/test_rule_self_tests.py` pytest runner
+  - enabled rule entry가 self-test case 또는 waiver를 갖는지 확인하는 accountability test
+  - violating specimen은 expected rule/pattern을 검출하고, compliant specimen은 target rule을
+    검출하지 않는지 확인하는 판정 flow
+  - `reference_only` rule은 auto finding으로 나오지 않아야 한다는 별도 판정 flow
+  - 초기 seed는 기존 `examples/expected_retrieval_examples.json`와 smoke fixture contract를
+    직접 복사하지 말고 cross-reference 또는 소수 대표 case로 시작한다.
+- out of scope:
+  - 250개 direct-hinted rule 전체 specimen backfill
+  - C++ semantic detector 보강
+  - shared `SEC.*` rule을 모든 host language detector에 적용하는 runtime 변경
+- done when:
+  - 새 runner가 최소 대표 case와 waiver를 읽고 통과한다.
+  - rule 추가 시 self-test case 또는 waiver 누락을 CI에서 알 수 있다.
+  - `reference_only` rule을 "검출 성공"으로 오해하지 않는 테스트가 있다.
+- validation:
+  - `git diff --check`
+  - `cd review-engine && uv run pytest tests/test_rule_self_tests.py -q`
+  - `cd review-engine && uv run pytest tests/test_query_conversion.py tests/test_expected_examples.py -q`
+
+### Backfill direct detector-backed rule self-test corpus
+
+- status: `queued`
+- prerequisite: `Build rule self-test manifest runner`
+- 목적: direct-hinted `auto_review` rule 250개에 대해 가능한 한 rule별 violating/compliant
+  specimen을 채워 hard gate coverage를 올린다.
+- scope:
+  - bash, c, cuda, dockerfile, go, java, javascript, python, rust, sql, typescript, yaml의
+    direct-hinted `auto_review` rule 우선 backfill
+  - 각 case에 `judgment: accepted`와 짧은 판단 note를 남긴다.
+  - 기존 `examples/multilang`와 `examples/multilang_safe` fixture를 재사용할 수 있으면
+    새 파일을 늘리기보다 manifest에서 공유한다.
+  - coverage baseline artifact를 `docs/baselines/review_engine/` 아래에 남긴다.
+- out of scope:
+  - C++ direct hint가 없는 15개 rule hard-gate 전환
+  - provider quality나 GitLab smoke
+- done when:
+  - direct-hinted `auto_review` rule coverage가 baseline으로 기록된다.
+  - compliant specimen에서 target rule이 나오는 false-positive regression을 잡을 수 있다.
+- validation:
+  - `cd review-engine && uv run pytest tests/test_rule_self_tests.py tests/test_multilang_regressions.py -q`
+
+### Close C++ self-test detector gap
+
+- status: `queued`
+- prerequisite: `Backfill direct detector-backed rule self-test corpus`
+- 목적: direct hint가 없는 C++ `auto_review` rule 15개를 stable hard gate 대상으로 올린다.
+- affected rules:
+  - `R.13`, `R.33`, `R.37`, `I.12`, `F.7`
+  - `NM.1`, `NM.2`, `NM.3`, `NM.4`
+  - `CPP.PROJ.1`, `CPP.PROJ.2`, `CPP.PROJ.3`, `CPP.PROJ.4`, `CPP.PROJ.5`, `CPP.PROJ.6`
+- scope:
+  - `review_engine/query/languages/cpp.py`의 `PatternSpec`, `hinted_rules`,
+    `direct_hint_patterns` 보강
+  - 필요한 경우 `review_engine/retrieve/applicability.py` pattern alias/category signal 보강
+  - 각 rule의 violating/compliant C++ specimen 추가
+  - retrieval similarity만으로 통과시키지 않고 detector pattern과 expected rule을 같이 검증
+- out of scope:
+  - 대규모 C++ parser 도입. regex로 안정화가 안 되는 case만 별도 AST/structured detector 후보로 남긴다.
+- done when:
+  - C++ gap 15개가 `needs_detector` waiver 없이 accepted self-test case를 갖는다.
+  - 기존 C++ retrieval/diff contract가 회귀하지 않는다.
+- validation:
+  - `cd review-engine && uv run pytest tests/test_rule_self_tests.py tests/test_query_conversion.py tests/test_cpp_diff_contracts.py -q`
+
+### Verify shared security rules in host languages
+
+- status: `queued`
+- prerequisite: `Build rule self-test manifest runner`
+- 목적: `SEC.*` shared auto rule이 explicit `language_id=shared`뿐 아니라 주요 host language
+  review에서도 기대대로 작동하는지 확인한다.
+- scope:
+  - Python, JavaScript/TypeScript, Java, Go에서 hardcoded secret, shell execution, dynamic SQL
+    specimen을 추가한다.
+  - 현재 runtime이 shared detector를 host language review에 적용하지 않으면, 먼저 failing/waiver
+    contract로 기록하고 runtime 변경 여부를 별도 판단한다.
+- out of scope:
+  - shared process/reference rule의 auto-review promotion
+- done when:
+  - shared security rule의 explicit shared-language self-test와 host-language behavior가
+    manifest에 구분되어 기록된다.
+- validation:
+  - `cd review-engine && uv run pytest tests/test_rule_self_tests.py tests/test_query_conversion.py -q`
 
 ## Deferred But Not Yet Executable
 
@@ -132,6 +221,19 @@ bash -n ops/scripts/advance_roadmap_with_codex.sh ops/scripts/advance_review_roa
 ```bash
 cd review-engine && uv run pytest tests/test_rule_runtime.py tests/test_rule_lifecycle_cli.py -q
 cd review-engine && uv run pytest tests/test_rule_runtime_private_extension.py tests/test_source_coverage_matrix.py -q
+```
+
+`review-engine` rule self-test 변경:
+
+```bash
+cd review-engine && uv run pytest tests/test_rule_self_tests.py -q
+cd review-engine && uv run pytest tests/test_query_conversion.py tests/test_expected_examples.py tests/test_multilang_regressions.py -q
+```
+
+C++ detector self-test gap 변경:
+
+```bash
+cd review-engine && uv run pytest tests/test_rule_self_tests.py tests/test_query_conversion.py tests/test_cpp_diff_contracts.py -q
 ```
 
 `review-bot` contract 변경:

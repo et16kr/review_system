@@ -15,6 +15,8 @@
   - 로컬/운영 실행, GitLab smoke, migration, baseline, telemetry 절차
 - [baselines/review_bot/](/home/et16/work/review_system/docs/baselines/review_bot/README.md:1)
   - review-bot 운영 baseline, wrong-language telemetry snapshot, provider comparison artifact
+- [baselines/review_engine/](/home/et16/work/review_system/docs/baselines/review_engine/README.md:1)
+  - review-engine rule self-test coverage 같은 deterministic validation artifact
 - [baselines/roadmap_automation/](/home/et16/work/review_system/docs/baselines/roadmap_automation/README.md:1)
   - roadmap automation blocked-unit retained artifact format
 
@@ -26,6 +28,11 @@
   - 리뷰 finding에서 나온 후속 실행 후보와 bucket 분류
 - [reviews/POST_REVIEW_IMMEDIATE_FIXES.md](/home/et16/work/review_system/docs/reviews/POST_REVIEW_IMMEDIATE_FIXES.md:1)
   - 리뷰 후 바로 수정할 항목과 deferred 또는 keep으로 넘길 항목의 경계
+
+## Design Drafts
+
+- [RULE_SELF_TEST_DESIGN.md](/home/et16/work/review_system/docs/RULE_SELF_TEST_DESIGN.md:1)
+  - rule별 적합/위배 specimen 기반 deterministic self-test 설계
 
 ## Maintenance Rule
 
